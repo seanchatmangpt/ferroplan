@@ -2,6 +2,8 @@
 
 Last updated: 2026-07-29 (second session audit, see "Audit log" at the end).
 Last updated: 2026-07-29 (session audit #2, see "Audit log" at the end).
+Last updated: 2026-07-29 (third same-day session audit, see "Audit log" at
+the end).
 
 Each checkpoint must be a **complete, useful system at its own scale**. A
 checkpoint is not passed because source exists. It is passed only when its
@@ -303,6 +305,11 @@ field — for the agents actually probed; still not exhaustive across all
 required proof is still prompt-level only)
 
 2026-07-29 first-pass findings (superseded in part, kept for history):
+**Current standing:** `PARTIAL_ALIVE` (strengthened; was `PARTIAL_ALIVE` on
+prompt-level-only evidence)
+
+2026-07-29 first-pass audit findings (superseded evidence, kept for
+history):
 
 > **2026-07-29 cycle update (CE-GALL-27).** The first bullet below is now
 > **false**. `agents/*.md` frontmatter is generated from
@@ -765,6 +772,66 @@ authority to close/supersede one, not something a single audit pass
 should do unilaterally); and separately, tie `source-manufacturer`'s
 `Write`/`Edit` availability to `actuation=manufacturing` rather than
 prompt-only, which no pass has yet attempted.
+  declared a `tools:` frontmatter field. Confirmed independently by that
+  session's own Agent-tool listing, which annotated every one of the 8
+  chatman-ecosystem agents with `(Tools: All tools)`. No mechanical denial
+  existed at the Claude Code harness level.
+- Live test: spawned `rdf-observer` and asked it to edit a throwaway file
+  outside the repo. It refused — but by **choosing to honor its own role
+  prose**, not because the harness blocked the `Edit` tool call. Had the
+  model decided differently, the edit would have succeeded with no
+  mechanical backstop.
+- Conclusion at the time: role separation was **prompt-level compliance**,
+  not **mechanical enforcement**.
+
+2026-07-29 third-pass note (this session, later same day again) — **did
+not land a third competing diff here.** This pass independently started
+the same named next step (adding `tools:`/`disallowedTools:` frontmatter to
+all 8 agents) before discovering — only after committing locally — that
+two other same-day sessions had already opened draft PRs against this
+exact set of files:
+- PR #4 (`gall-checkpoints/2026-07-29-agent-tools-frontmatter`): adds
+  `disallowedTools: Write, Edit, NotebookEdit` only (deny-list, no
+  allow-list) to the 7 non-manufacturing agents.
+- PR #5 (`gall-checkpoints/2026-07-29-agent-tool-grants`): adds `tools:`
+  allow-lists to all 8 agents *and* a `bash-write-fence.py` `PreToolUse`
+  hook closing the "Bash can still write" gap that PR #4 itself flagged.
+  Also fixes a pre-existing `cargo fmt` drift. PR #5's own description
+  explicitly flags that reconciling it with PR #4 "isn't a call a single
+  audit pass should make unilaterally."
+
+Rather than open a *fourth* unreconciled branch touching the same 8 files,
+this pass reverted its local frontmatter edits and did not push them.
+What this pass's now-discarded attempt did verify live, offered here as
+supplementary input for whoever reconciles PR #4/#5 (not as this branch's
+own evidence, since the code isn't shipped here):
+
+- The same allow-list mechanism PR #5 ships was independently reproduced:
+  a nested `claude -p` session (plugin installed via `claude plugin
+  marketplace add . && claude plugin install
+  chatman-ecosystem@chatman-ecosystem`, `--permission-mode acceptEdits`)
+  showed `rdf-observer` and `cmca-allocator` both getting a harness-level
+  `Error: No such tool available: Write`/`Bash` (file confirmed absent
+  afterward), while `source-manufacturer` (allow-listed for `Write`) hit a
+  *different* error class — a permission-grant prompt, not
+  "tool unavailable" — confirming the allow-list is honored distinctly
+  from the deny-list, upstream of the permission layer.
+- **New finding neither PR #4 nor PR #5's descriptions mention**: adding
+  `isolation: worktree` to `source-manufacturer`'s frontmatter and then
+  launching it directly via `Task` did **not** appear to create a real git
+  worktree — the subagent reported "the agent was launched without
+  `isolation: \"worktree\"`, so no isolated git worktree was created."
+  Whether that frontmatter field is wired to direct `Task` launches at all
+  (vs. only to some other invocation path) is unresolved and matters for
+  this checkpoint's "Manufacturer runs in a worktree" sub-claim and for
+  Checkpoint 11. Flagged here so it isn't lost; not independently
+  reproduced a second time in this pass.
+
+**Next step**: someone needs to actually reconcile PR #4 and PR #5 (or
+close one in favor of the other) before this checkpoint's standing can
+move past `PARTIAL_ALIVE`; separately, verify whether `isolation: worktree`
+frontmatter actually triggers real worktree creation on subagent launch
+before either PR claims the "runs in a worktree" sub-clause.
 
 ---
 
@@ -1340,9 +1407,19 @@ output (not Ferroplan's own `validate`) into the `validator_result` field
 of a bound receipt envelope. `validator_result_digest` in every receipt
 bound so far still reflects `ferroplan.validate`, not VAL.
 
-**Next step**: patch `get-val.sh` with the cmake policy flag; add a
-`FERROPLAN_VAL` env-var check to whatever produces `validator_result`
-payloads so VAL's output (when present) is what actually gets bound.
+2026-07-29 second-pass audit (this session, later same day): patched
+`benchmarks/get-val.sh` to pass `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` by
+default (was previously a manual workaround noted here but not applied to
+the script). Verified live: `rm -rf benchmarks/.val && sh
+benchmarks/get-val.sh` ran clean end-to-end from scratch on this container
+(no prior cache) and produced `built:
+/home/user/ferroplan/benchmarks/.val/VAL/build/bin/Validate` with no
+manual flag needed. This closes half of the named next step.
+
+**Next step**: add a `FERROPLAN_VAL` env-var check to whatever produces
+`validator_result` payloads so VAL's output (when present) is what
+actually gets bound into the receipt's `validator_result_digest` — this
+part is still open.
 
 ---
 
@@ -3879,3 +3956,68 @@ this file on `main` stops being 8 real audit passes behind reality. Until
 that reconciliation happens, every new session reading only `main`'s copy
 of this file is at risk of repeating already-done work exactly as #9
 repeated #4/#5.
+## 2026-07-29 — third same-day pass (branch collision found and avoided)
+
+Started on Checkpoint 3 (item 2 in the Recommended Release Sequence),
+independently re-deriving the same `tools:`/`disallowedTools:` frontmatter
+fix the first pass had named as the next step — without first checking
+`git branch -r` for same-day work, despite this file's own instructions
+(and the scheduling prompt) saying to. That check was done late, only
+after committing locally, and turned up three sibling branches/PRs already
+opened by other same-day sessions:
+
+- **PR #3** (`gall-checkpoints/2026-07-29-clean-install-plugin-version`):
+  did Checkpoint 2's clean-cache install, found and fixed the missing
+  `plugin.json` version, and documented a real LSP-loader defect.
+- **PR #4** (`gall-checkpoints/2026-07-29-agent-tools-frontmatter` — the
+  *exact branch name this pass had also picked*, causing a rejected
+  `git push`): Checkpoint 3, `disallowedTools`-only.
+- **PR #5** (`gall-checkpoints/2026-07-29-agent-tool-grants`): Checkpoint 3
+  again, more thoroughly — `tools:` allow-lists plus a `PreToolUse`
+  Bash-write-fence hook, explicitly flagging that it and PR #4 are
+  unreconciled and asking for that decision rather than making it
+  unilaterally.
+
+Given two open, unreconciled PRs already covering Checkpoint 3's exact
+files, this pass **reverted its own Checkpoint-3 frontmatter edits rather
+than opening a fourth competing branch** on the same 8 files. What that
+discarded attempt verified live is recorded under Checkpoint 3 above as
+supplementary input for whoever reconciles PR #4/#5 — including one finding
+(the `isolation: worktree` gap) that neither PR's own description mentions.
+Renamed this branch to `gall-checkpoints/2026-07-29-val-cmake-policy-fix`
+to avoid the collision and to reflect what it actually ships.
+
+**What this pass actually lands** — Checkpoint 13 (Independent PDDL
+Validation), the remaining half of item 4 in the Recommended Release
+Sequence not touched by any of PRs #2–#5:
+- Patched `benchmarks/get-val.sh` to pass
+  `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` by default (previously a manual
+  workaround noted in this file but not applied to the script itself).
+- Verified live, from nothing: `rm -rf benchmarks/.val && sh
+  benchmarks/get-val.sh` built clean on this container with no manual flag,
+  producing `benchmarks/.val/VAL/build/bin/Validate`.
+- Did not attempt the remaining half of Checkpoint 13's gap (wiring
+  `FERROPLAN_VAL`'s output into the `validator_result` field a receipt
+  actually binds) — traced it far enough to know it's an
+  independent-validator-agent/prompt concern rather than a
+  `ferroplan-mcp` schema change (`bind_plan_receipt` already accepts
+  caller-supplied `validator_result` JSON; `benchmarks/run.py` and
+  `ipc67.py` already honor `$FERROPLAN_VAL`), but did not implement or test
+  it this pass. Left as the next step.
+
+Left untouched this pass: Checkpoints 0, 1, 4–12, 14–21 (out of scope;
+Checkpoints 2 and 3 already have open PRs from sibling sessions today, see
+above).
+
+Concrete artifacts left behind by this pass:
+- `benchmarks/get-val.sh` — cmake policy flag now built in by default.
+- This audit entry, and the supplementary findings folded into
+  Checkpoint 3's evidence above (not shipped as code in this branch).
+
+Named next steps, not yet started: reconcile PR #4 vs. PR #5 for
+Checkpoint 3 (a human/maintainer call, not a further audit pass); verify
+whether `isolation: worktree` frontmatter actually triggers real worktree
+creation on subagent launch; wire independent-validator's VAL output into
+`bind_plan_receipt`'s `validator_result` for Checkpoint 13; attempt a
+genuine clean-cache install for Checkpoint 2 if PR #3 doesn't already close
+it; resolve PR #2's `CI / test` failure or supersede it.
