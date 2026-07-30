@@ -1,10 +1,13 @@
 """Falsifiers for the canonical Bash mutation classifier.
 
-Two defects motivated this table. First, three copies of `MUTATING_BASH`
+Three defects motivated this table. First, three copies of `MUTATING_BASH`
 disagreed, so `git push` logged a ledger event but never collapsed the phase
 vector. Second, no git subcommand alternation except `rm\\b` carried a trailing
 word boundary, so `git merge-base --is-ancestor` and `git branch --show-current`
-were classified as repository mutations and blocked a legitimate push.
+were classified as repository mutations and blocked a legitimate push. Third
+(CE-GALL-35), bare shell redirection (`echo hi > file`) was not classified as
+a mutation at all -- only `tee`/`cat ... >` were -- which let a non-editor
+agent write a file through `Bash` undetected.
 """
 
 from __future__ import annotations
@@ -35,6 +38,10 @@ MUTATIONS = [
     "npm publish",
     "cargo publish",
     "gh pr create",
+    "echo hi > /tmp/f.txt",
+    "echo hi >> /tmp/f.txt",
+    "cmd 2> err.log",
+    'awk "{print}" foo > bar',
 ]
 
 NON_MUTATIONS = [
@@ -68,6 +75,10 @@ NON_MUTATIONS = [
     "git log --oneline",
     "git diff",
     "rmdir x",
+    "cmd 2>&1",
+    "find . -name '*.py' 2>/dev/null",
+    "cmd > /dev/null 2>&1",
+    "cmd 2>&1 | head -50",
 ]
 
 

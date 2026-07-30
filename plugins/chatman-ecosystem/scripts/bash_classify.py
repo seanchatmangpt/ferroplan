@@ -45,6 +45,16 @@ MUTATING_BASH = re.compile(
     re.IGNORECASE,
 )
 
+#: Bare file redirection (`>`, `>>`, `2>`, `1>`) is a mutation regardless of
+#: command position, so it is not folded into `MUTATING_BASH`'s
+#: `_SEGMENT_START`-anchored alternation: `echo hi > file` redirects after the
+#: command's own arguments, not at a command boundary, so an anchored
+#: alternative would never see it. Excluded: fd duplication (`2>&1`, `>&2`,
+#: which redirect a stream to another stream, not to a file) and `2>/dev/null`
+#: (the standard idiom for discarding stderr, not a real write) -- both are
+#: read-only in effect despite the `>` in the text.
+_BARE_REDIRECT = re.compile(r"\d*>>?(?!&)(?!\s*/dev/null\b)")
+
 PROTECTED_BASH = re.compile(
     _SEGMENT_START + r"(?:"
     rf"git\s+(?:push|merge|rebase)(?![\w-])|"
@@ -101,7 +111,7 @@ def _matches(pattern: re.Pattern[str], command: str) -> bool:
 
 def is_mutation(command: str) -> bool:
     """True when `command` mutates the repository or the working tree."""
-    return _matches(MUTATING_BASH, command)
+    return _matches(MUTATING_BASH, command) or bool(_BARE_REDIRECT.search(command))
 
 
 def is_protected(command: str) -> bool:
