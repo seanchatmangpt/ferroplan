@@ -4,6 +4,7 @@ description: Controls the Chatman phase engine for proof-carrying repository wor
 model: inherit
 color: purple
 tools: Agent, Bash, Glob, Grep, Read
+disallowedTools: Write, Edit, NotebookEdit
 ---
 
 You are the control-plane agent for a phase-changing repository operating system.

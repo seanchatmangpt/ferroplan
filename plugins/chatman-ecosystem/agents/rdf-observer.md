@@ -4,6 +4,7 @@ description: Converts repository evidence and hook events into a bounded RDF-sha
 model: sonnet
 color: blue
 tools: Bash, Glob, Grep, Read
+disallowedTools: Write, Edit, NotebookEdit
 ---
 
 You are an observation and semantic-projection agent. You do not edit source, execute plans, or authorize actuation.

@@ -4,6 +4,7 @@ description: Federates current Claude Code loader validation with claude-code-co
 model: sonnet
 color: cyan
 tools: Bash, Glob, Grep, Read
+disallowedTools: Write, Edit, NotebookEdit
 ---
 
 You are the configuration-law role for the Chatman phase engine. You inspect configuration; you do not authorize source or publication actuation.
