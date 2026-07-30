@@ -1653,12 +1653,43 @@ Required crown evidence:
 **Current standing:** `PARTIAL_ALIVE`
 
 PR #2 (`agent/v26.7.29-claude-projection`) is the only draft attempting this
-whole surface at once. As of the 2026-07-29 audit it is still `OPEN`/draft,
-0 reviews, head commit `d88488608f41` (55 commits), with mixed CI: the
-`Chatman Ecosystem` workflow's `projection-law` and `ferroplan-mcp` jobs
-pass, but the plain `CI / test` job is `FAILURE`. Not touched further this
-pass — recommend resolving the CI failure and getting the PR reviewable
-before treating it as the crown vehicle.
+whole surface at once. As of the 2026-07-29 first-pass audit it was still
+`OPEN`/draft, 0 reviews, head commit `d88488608f41` (55 commits), with mixed
+CI: the `Chatman Ecosystem` workflow's `projection-law` and `ferroplan-mcp`
+jobs passed, but the plain `CI / test` job was `FAILURE`.
+
+2026-07-29 second-pass audit: fetched the failing job's actual log
+(`get_job_logs` on the `test` check run) instead of assuming the cause. The
+failure was exclusively `cargo fmt --all --check` rejecting two line-wraps
+in `crates/ferroplan-mcp/tests/admission_protocol.rs` — the identical drift
+PRs #5 and #7 had already independently found and fixed on their own
+branches the same day. Reproduced locally in a scratch worktree of
+`origin/agent/v26.7.29-claude-projection`
+(`cargo fmt --all -- --check` → same two-hunk diff), applied `cargo fmt
+--all`, then verified `cargo fmt --all -- --check` clean, `cargo clippy -p
+ferroplan-mcp --all-targets --all-features -- -D warnings` clean, and
+`cargo test -p ferroplan-mcp --test admission_protocol` → 15/15 passed.
+Committed and pushed straight to `agent/v26.7.29-claude-projection`
+(`af865f8`) rather than via a new branch, since fixing PR #2's own CI
+requires a commit on PR #2's own head.
+
+**Confirmed fully green** (2026-07-29, follow-up check-in): PR #2's `test`
+check run (id `90646355774`, commit `af865f8`) reached `status: completed,
+conclusion: success` at `17:01:13Z`. PR #10's own `test` check run (id
+`90648473795`, commit `f8f44de`) also reached `status: completed,
+conclusion: success` at `17:09:40Z`. The `Heavy IPC regression guards
+(release)` step that both jobs were mid-way through at the prior check was
+not stuck — it and the remaining `Docs`/`Bench compiles` steps completed
+normally. PR #10's `mergeable_state` is `clean`. This closes the loop this
+pass opened: the `CI / test` fmt failure named in the first-pass audit
+entry is confirmed fixed on both PR #2 and (once #10 merges) `main`.
+
+Not upgraded past `PARTIAL_ALIVE`: a green `CI / test` job removes a review
+blocker, it does not by itself establish new crown evidence — PR #2 is
+still `OPEN`/draft with 0 reviews, and the much bigger blocker this pass
+surfaced remains open: an unreconciled same-day backlog of 8 open draft
+PRs, 3 of them directly colliding on Checkpoint 3's files. See the dated
+Audit log entry below.
 
 ---
 
@@ -3718,3 +3749,133 @@ unfinished, in-scope next step rather than moving on early.
 Branch: `gall-checkpoints/2026-07-29-agent-tool-grants` (continues PR #5,
 https://github.com/seanchatmangpt/ferroplan/pull/5). Not pushed as part of
 writing this entry — see the commit that follows it for the pushed state.
+## 2026-07-29 — second pass: PR #2 CI fix, and an unreconciled same-day backlog
+
+Read this whole file, including the first-pass audit entry above, before
+touching anything, per the file's own "How to use this file" instructions.
+
+**Backlog discovered.** `git branch -r` and a GitHub PR listing turned up 8
+open, unreviewed, unmerged draft PRs against `main`, all opened earlier the
+same day by prior runs of this same scheduled routine, **none of which are
+reflected in `main`'s copy of this file** (this file only had the "first
+full pass" entry when this pass started):
+
+| PR | Branch | Checkpoint | What it does |
+|----|--------|-----------|--------------|
+| #2 | `agent/v26.7.29-claude-projection` | 21 (crown) | The 55-commit whole-surface attempt named in the first-pass entry. |
+| #3 | `gall-checkpoints/2026-07-29-clean-install-plugin-version` | 2 | Fixes missing `plugin.json` `version`; documents a real clean-cache install. |
+| #4 | `gall-checkpoints/2026-07-29-agent-tools-frontmatter` | 3 | Adds `disallowedTools: Write, Edit, NotebookEdit` to the 7 non-manufacturing agents. |
+| #5 | `gall-checkpoints/2026-07-29-agent-tool-grants` | 3 | A different, later, 3-commit approach to the *same* 7 files: `tools:` allow-lists, plus a `bash-write-fence.py` `PreToolUse` hook that also fences `Bash`-shaped writes — closing the "Bash is still unrestricted" gap both #4 and #9 name as their own remaining limitation. |
+| #6 | `gall-checkpoints/2026-07-29-val-cmake-policy-fix` | 13 | Patches `get-val.sh` with `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` (this pass's first-pass next step) and fixes an unrelated rustfmt drift in `admission_protocol.rs`. |
+| #7 | `gall-checkpoints/2026-07-29-worktree-manufacture` | 11 | Adds and live-verifies `scripts/manufacture-in-worktree.py`. |
+| #8 | `gall-checkpoints/2026-07-29-recursive-cmca` | 9 | Adds `parent_allocation`/`selected_node` descent binding to `bind_allocation_receipt`, with 4 new passing integration tests. |
+| #9 | `gall-checkpoints/2026-07-29-agent-tool-restrictions` | 3 | A **third**, still later, single-commit `disallowedTools` approach to the *same* 7 files as #4 — functionally near-identical to #4, and (going by its commit timestamp, 15:54Z vs #4's 08:58Z and #5's 12:32Z) appears not to have checked for #4/#5 first, repeating exactly the branch-collision mistake this file's own audit trail already flagged twice. |
+
+Checkpoint 3 therefore has **three** unreconciled, overlapping PRs (#4, #5,
+#9) touching the identical 8 agent files with two different mechanisms. This
+pass did **not** attempt to close, merge, or referee them — picking a
+winner and closing the other two is a maintainer call, not something a
+single automated pass should do unilaterally to another session's open PR.
+For whoever does reconcile: #5 is the strongest candidate to keep, since it
+is a strict superset in capability of #4/#9 (same frontmatter mechanism in
+effect, plus the Bash-fence hook neither #4 nor #9 has) — but this is a
+recommendation, not an action taken.
+
+**Why this pass didn't open a 9th PR.** Every one of the first-pass audit
+entry's five named next steps already had a same-day sibling PR attempting
+it (#4/#5/#9 → Checkpoint 3; #8 → Checkpoint 9; #7 → Checkpoint 11; #6 →
+VAL/Checkpoint 13) — except one: *"resolve PR #2's `CI / test` failure or
+supersede it."* Per this file's own "prefer finishing a started thread"
+instruction, that's the thread this pass picked up.
+
+**PR #2's CI fix.** Fetched the actual failing job log (`get_job_logs` on
+check run id `90480079420`, the `test` job on commit `d88488608f41`) instead
+of assuming the cause. The entire failure was `cargo fmt --all --check`
+rejecting two line-wraps in
+`crates/ferroplan-mcp/tests/admission_protocol.rs` — the identical drift
+PRs #5 and #7 had already independently found and fixed on their own
+branches. Reproduced in a scratch `git worktree` of
+`origin/agent/v26.7.29-claude-projection`:
+
+```text
+$ cargo fmt --all -- --check
+Diff in .../admission_protocol.rs:218: (2 hunks, matches CI's log exactly)
+$ cargo fmt --all
+$ cargo fmt --all -- --check   # clean, no output
+$ cargo clippy -p ferroplan-mcp --all-targets --all-features -- -D warnings
+Finished `dev` profile ... (clean)
+$ cargo test -p ferroplan-mcp --test admission_protocol
+test result: ok. 15 passed; 0 failed; 0 ignored
+```
+
+Committed (`af865f8`, formatting-only diff) and pushed directly to
+`origin/agent/v26.7.29-claude-projection` — not to a new `gall-checkpoints`
+branch, since resolving PR #2's own CI requires a commit on PR #2's own
+head. CI re-triggered on push; at the time this entry was written the
+`projection-law` and `ferroplan-mcp` jobs had already re-passed and the
+`test` job was still `in_progress` (full workspace `cargo build` takes
+longer than the fmt-check step that used to fail in seconds) — not yet
+confirmed green. Given the local reproduction above passed the exact same
+`cargo fmt --all --check` step that was CI's only failure, this is expected
+to go green, but per this file's no-overclaiming discipline the standing
+below states exactly what was and wasn't directly observed.
+
+**A second discovery: the fmt drift is on `main` itself, not just PR #2's
+branch.** This pass's own docs-only PR (#10, no Rust files touched) failed
+the identical `test` / `cargo fmt --all --check` check with the identical
+two-hunk diff in `admission_protocol.rs` (check run id `90647289570`,
+commit `5e0e6a3`). Since #10 branches from `origin/main` and touches no
+Rust file, the only explanation is that `main` itself carries this drift —
+meaning **every** open PR based on `main` (all of #2–#9) inherits this same
+`CI / test` failure regardless of what each one actually changed, unless it
+happened to fix this exact file on its own branch (as #5 and #7 did). This
+is a real, repo-wide, currently-live defect, not specific to PR #2.
+
+Reproduced and fixed on this pass's own branch
+(`gall-checkpoints/2026-07-29-resolve-pr2-ci-and-reconcile-backlog`):
+`cargo fmt --all -- --check` reproduced the identical diff, `cargo fmt
+--all` applied it, re-check clean, `cargo clippy -p ferroplan-mcp
+--all-targets --all-features -- -D warnings` clean, `cargo test -p
+ferroplan-mcp --test admission_protocol` → 15/15 passed. This fix is
+included in the same commit as this file's own update, so merging this PR
+(#10) into `main` fixes the drift for every future PR based on `main`, not
+just this one.
+
+**What changed:** Checkpoint 21's standing evidence updated (still
+`PARTIAL_ALIVE` — the CI fix removes a review blocker, it doesn't establish
+new crown evidence). No other checkpoint standing changed this pass.
+
+**Confirmed via `get_workflow_job` (not just `get_check_runs`'s coarser
+status)** on both re-triggered jobs — PR #2's `test` job (id `90646355774`,
+commit `af865f8`) and PR #10's own `test` job (id `90647894621`, commit
+`f8f44de`): on both, the `Format`, `Clippy`, and `Test` steps each
+completed with `conclusion: success`, directly confirming the fmt fix
+works, not merely inferring it from a clean local run. Neither job had
+reached a final overall conclusion at last check — both were mid-way
+through a slow, unrelated `Heavy IPC regression guards (release)` step
+(with `Docs` and `Bench compiles` still queued after it), which is
+long-running by design (a release-mode build plus regression guards), not
+stuck or failing. This is real, step-level evidence the fmt drift is fixed;
+the jobs' final pass/fail conclusion (which could still fail on something
+this pass didn't touch, e.g. the heavy IPC guards or bench compile) was
+not yet observed and is not claimed here.
+
+**Follow-up check-in confirmed the final conclusion, not just the step-level
+signal above:** PR #2's `test` check run reached `status: completed,
+conclusion: success` at `17:01:13Z`; PR #10's own `test` check run reached
+`status: completed, conclusion: success` at `17:09:40Z`. The
+`Heavy IPC regression guards`/`Docs`/`Bench compiles` steps that were still
+queued at the prior check completed normally on both — this was slow, not
+stuck. PR #10 also reports `mergeable_state: clean`. The CI-fix thread this
+pass opened is now closed with a real, final, observed result.
+
+**Next step:** once PR #10 merges into `main`, every other open sibling PR
+(#3, #4, #5, #6, #7, #8, #9) should be expected to newly pass (or newly
+fail on a *different*, real reason) the `test` job's fmt step — worth a
+fast recheck across all of them rather than assuming. Then the bigger
+remaining blocker is the backlog table above — reconcile Checkpoint 3's
+three PRs (#4/#5/#9), and get *all* of #2–#9 reviewed/merged into `main` so
+this file on `main` stops being 8 real audit passes behind reality. Until
+that reconciliation happens, every new session reading only `main`'s copy
+of this file is at risk of repeating already-done work exactly as #9
+repeated #4/#5.
