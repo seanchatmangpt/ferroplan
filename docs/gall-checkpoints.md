@@ -288,8 +288,12 @@ Attempt manufacture outside `actuation=manufacturing` and observe refusal.
 
 **Current standing:** `PARTIAL_ALIVE` (evidence strengthened in the 2026-07-29
 second pass; still not full `ALIVE` — see the named gap below)
+**Current standing:** `PARTIAL_ALIVE` (sharpened, was `PARTIAL_ALIVE` on
+prompt-level-only evidence)
 
-2026-07-29 audit findings:
+2026-07-29 audit findings (first pass, kept for history — see the
+CE-GALL-27 correction immediately below, and the merge note after the
+"Next step" for what superseded this section's own `disallowedTools` work):
 
 > **2026-07-29 cycle update (CE-GALL-27).** The first bullet below is now
 > **false**. `agents/*.md` frontmatter is generated from
@@ -379,6 +383,92 @@ but kept for the record):
 pattern, since frontmatter tool lists cannot express it) for the 7
 non-manufacturing agents; then re-run the manufacture-outside-phase
 refusal test, which this pass did not touch.
+2026-07-29 follow-up audit (same day, later session): implemented the
+smallest real slice of the fix directly (independent of PR #2) — added
+`disallowedTools: Write, Edit, NotebookEdit` to the frontmatter of all 7
+non-manufacturing agents (`cmca-allocator`, `config-law-architect`,
+`ecosystem-controller`, `ferroplan-planner`, `independent-validator`,
+`rdf-observer`, `receipt-auditor`). `source-manufacturer` was left
+unrestricted, consistent with "Manufacturer is the sole source editor."
+
+Confirmed via `claude-code-guide` research (100% confidence, sourced from
+`https://code.claude.com/docs/en/sub-agents.md`) that `disallowedTools` is
+a real, harness-enforced allow/deny mechanism, applied at the tool
+dispatch layer before any permission prompt — not prompt-level advisory.
+
+Live re-test, this time in a genuinely fresh plugin cache (this session's
+container had zero plugins installed at start — `claude plugin list` said
+"No plugins installed"):
+```text
+claude plugin marketplace add /home/user/ferroplan
+claude plugin install chatman-ecosystem@chatman-ecosystem
+```
+installed cleanly from the working tree (cache content byte-identical to
+the edited source files — confirmed with `diff`).
+
+Then, in a **fresh `claude -p` subprocess** (`--agent rdf-observer`, new
+process so the newly-installed plugin's agent definitions actually load —
+the *already-running* orchestrating session could not see the new agent
+type at all until a fresh process was spawned, itself a real observation
+about plugin-reload semantics) instructed to write a probe file exactly as
+asked, with an explicit "do not refuse based on role prose" instruction to
+rule out prompt-level compliance as an explanation:
+
+```text
+$ claude -p "Use the Write tool to create a file at .../edit-test-probe.txt ..." \
+    --agent rdf-observer --add-dir <scratchpad>
+```
+Result: `Error: No such tool available: Write. Write exists but is not
+enabled in this context.` No file was created (`ls` confirmed:
+"No such file or directory"). The agent's own transcript additionally
+confirmed via `ToolSearch("select:Write")` that `Write` doesn't even
+appear in the deferred-tool list — the denial is at tool-registration, not
+a runtime permission check that could be bypassed.
+
+Repeated with `--agent receipt-auditor` (Edit instead of Write): identical
+result — `Error: No such tool available: Edit`, confirmed via
+`ToolSearch("select:Edit,Write,NotebookEdit")` → "No matching deferred
+tools found".
+
+Control case — `--agent source-manufacturer` (the one agent intentionally
+left unrestricted) asked to Write the same kind of probe file: the write
+**succeeded**, file created on disk with the expected content. This
+confirms the restriction is agent-specific, not a blanket harness lockdown
+that happened to coincide with the test.
+
+This satisfies the checkpoint's "Required proof" first clause ("Attempt
+direct edits from every non-manufacturing agent and observe refusal") for
+2 of 7 restricted agents directly exercised (`rdf-observer`,
+`receipt-auditor`); the other 5 carry the identical `disallowedTools`
+declaration and the same harness mechanism, so the same result is expected
+but not individually re-run this pass. Kept at `PARTIAL_ALIVE`, not
+upgraded to `ALIVE`, because:
+- Not all 7 restricted agents were individually live-tested this pass.
+- `Bash` remains available to every restricted agent. `disallowedTools:
+  Write, Edit, NotebookEdit` blocks the direct-tool path but does **not**
+  block `Bash -c "echo ... > file"` or `sed -i`. This was deliberately not
+  tested as a bypass in this pass (would defeat the test's own point per
+  one agent's own reasoning) but it is a real, named gap: true "cannot
+  edit" enforcement would need `Bash` scoped too (e.g. via
+  `disallowedTools: Write, Edit, NotebookEdit, Bash` or a restricted
+  `--allowedTools` Bash pattern), which is out of scope for this pass since
+  several of these agents (e.g. `receipt-auditor`, `rdf-observer`) need
+  `Bash` for read-only inspection (`git diff`, running validators, etc.).
+- The second half of the "Required proof" — "Attempt manufacture outside
+  `actuation=manufacturing` and observe refusal" — was not touched this
+  pass; that requires the phase-engine's own scripts to gate on the
+  `actuation` dimension, a separate mechanism from Claude Code tool
+  permissions.
+
+**Next step**: (a) live-test the remaining 5 restricted agents
+(`cmca-allocator`, `config-law-architect`, `ecosystem-controller`,
+`ferroplan-planner`, `independent-validator`) the same way, or accept the
+2-of-7 sample as representative since the mechanism is uniform; (b) decide
+and document policy on the `Bash`-bypass gap (accept it as a named,
+permanent limit of this checkpoint's scope, or scope `Bash` too); (c)
+exercise "attempt manufacture outside `actuation=manufacturing`" against
+the phase-engine scripts directly, independent of Claude Code tool
+permissions.
 
 ---
 
@@ -2730,3 +2820,187 @@ finishing a started thread over starting a new one. Still open for the next
 session.
 
 Branch: `gall-checkpoints/2026-07-29-clean-install-plugin-version`.
+## 2026-07-29 — scheduled follow-up (agent tool restrictions, Checkpoint 3)
+
+Picked up the Recommended Release Sequence's item 2 ("Live agent-authority
+refusal tests" / Checkpoint 3), continuing the named next step from the
+prior audit entry rather than starting a new thread.
+
+What was done:
+- Added `disallowedTools: Write, Edit, NotebookEdit` to the frontmatter of
+  the 7 non-manufacturing agents (`cmca-allocator`, `config-law-architect`,
+  `ecosystem-controller`, `ferroplan-planner`, `independent-validator`,
+  `rdf-observer`, `receipt-auditor`). Left `source-manufacturer`
+  unrestricted (sole source editor, per its own role text).
+- Confirmed via research (not assumption) that Claude Code's
+  `disallowedTools` frontmatter field is real, harness-enforced,
+  tool-dispatch-layer denial — sourced from the official docs
+  (`https://code.claude.com/docs/en/sub-agents.md`), not inferred from
+  behavior alone.
+- This session's container started with **zero plugins installed**
+  (`claude plugin list` → "No plugins installed"). Used that as a genuinely
+  clean cache: `claude plugin marketplace add /home/user/ferroplan` +
+  `claude plugin install chatman-ecosystem@chatman-ecosystem`, then
+  verified the installed cache was byte-identical to the edited working
+  tree (`diff` on the installed `rdf-observer.md`) — a real, non-stale
+  install, unlike the stale cache found in the prior audit (Checkpoint 2).
+- Live-tested 3 agents in **fresh `claude -p` subprocesses** (the
+  already-running orchestrating session could not see the newly-installed
+  agent types until a new process was spawned — a real, separately-useful
+  observation about plugin-reload semantics, consistent with Checkpoint
+  2's open question about clean-cache testing needing a separate process):
+  - `rdf-observer` instructed to `Write` a probe file, explicitly told not
+    to refuse on role prose → `Error: No such tool available: Write.`
+    File confirmed absent afterward.
+  - `receipt-auditor` instructed to `Edit` → `Error: No such tool
+    available: Edit.` Same pattern, confirmed via the subagent's own
+    `ToolSearch` call that `Write`/`Edit`/`NotebookEdit` are absent even
+    from the deferred-tool list (registration-layer denial, not a
+    catchable runtime check).
+  - `source-manufacturer` (left unrestricted) instructed to `Write` the
+    same kind of probe file → succeeded, file created with correct
+    content on disk. Confirms the denial above is agent-specific, not an
+    unrelated environment lockdown.
+
+What changed: Checkpoint 3 stays `PARTIAL_ALIVE` (not upgraded to `ALIVE`)
+but the standing text now cites real harness-level refusal evidence
+instead of the prior pass's prompt-level-compliance-only finding. Named,
+un-swept gaps recorded: only 2 of 7 restricted agents individually
+live-tested (mechanism is uniform, so treated as representative, not
+exhaustive); `Bash` remains unrestricted on every restricted agent, so
+`disallowedTools: Write, Edit, NotebookEdit` blocks the direct-tool path
+only, not a `Bash`-mediated file write — named explicitly rather than
+silently accepted as full mechanical enforcement; the "manufacture outside
+`actuation=manufacturing` refuses" half of the Required proof was not
+touched.
+
+No commands failed unexpectedly this pass; nothing here needed a
+workaround. `cargo fmt --check` / `cargo clippy` were run against the
+touched files (agent Markdown frontmatter only, no Rust source touched) —
+N/A, recorded for completeness per this repo's pre-commit discipline.
+
+Left untouched: all other checkpoints (0, 1, 2, 4–21) and the rest of the
+Recommended Release Sequence — did not reach item 3 (worktree manufacture)
+this pass; budget/time went entirely into exhibiting real Checkpoint 3
+evidence rather than spreading thin across multiple checkpoints.
+
+## 2026-07-29 — PR #9 merge-conflict resolution (round 2)
+
+While checking on PR #9 (open, draft, `gall-checkpoints/2026-07-29-agent-tool-restrictions`
+→ `main`), GitHub reported `mergeable_state: dirty` — a real merge conflict, not a
+transient flag. `origin/main` had moved (`61d0983` → `d26ab22`) via two other
+sessions' commits (`2ee20a5` "Identify this cycle's Gall checkpoints, and mechanize
+the promotion law", `d26ab22` "Record the clean-clone replay, and why it does not
+promote") that substantially rewrote this same file and, more importantly,
+independently solved Checkpoint 3 for real: `agents/*.md` frontmatter is now
+generated from `ontology/authority-graph.ttl`, giving every agent an explicit
+`tools:` allow-list (plus `isolation: worktree` on `source-manufacturer`), verified
+non-vacuous by a new test, `tests/test_authority.py::test_single_actuator_policy_is_enforced`.
+
+Ran `git merge origin/main`. 8 files conflicted: this session's own 7 agent
+`.md` files (conflict confined to the frontmatter block — this session's
+`disallowedTools: Write, Edit, NotebookEdit` vs. `origin/main`'s generated
+`tools:` allow-list) and `docs/gall-checkpoints.md` (one narrow block, this
+session's "first-pass" intro paragraph for Checkpoint 3 vs. `origin/main`'s
+CE-GALL-27 correction note — both kept, framing adjusted so neither
+contradicts the other).
+
+**Resolution:** took `origin/main`'s side for all 7 agent files outright —
+it is a strict superset of what this session's `disallowedTools` edit was
+reaching for (specific per-role MCP tool grants, `isolation: worktree`,
+and a real enforcing test), so keeping this session's version would have
+been a regression, not a preference. Verified after resolution that all 7
+files are byte-identical to `origin/main`'s copies. The `docs/gall-checkpoints.md`
+conflict was resolved by hand, preserving both sides' content and adjusting
+only the connecting sentence — no prior content deleted, per this file's own
+rule.
+
+**A live, unplanned confirmation of Checkpoint 3 fired mid-resolution:**
+this orchestrating session's own active persona is `ecosystem-controller`.
+The instant `git merge` staged `origin/main`'s regenerated
+`ecosystem-controller.md` (`tools: Agent, Bash, Glob, Grep, Read` — no
+`Edit`/`Write`/`NotebookEdit`), this session's own `Edit` tool call failed
+with `Error: No such tool available: Edit. Edit exists but is not enabled
+in this context.` — mid-task, unprompted, on a file that was *already
+conflicted on disk* (both merge-conflict markers still present) at the
+moment the restriction took effect. This is stronger evidence than a
+deliberately staged test: the harness re-resolves an agent's tool grant
+from whatever the current on-disk frontmatter says, live, and enforces it
+against the orchestrating session itself, not just spawned subagents.
+Consistent with the authority graph's "source manufacturer: reversible
+construction only," the actual file edits (both the 7 agent files and the
+`docs/gall-checkpoints.md` conflict block) were delegated to a
+`source-manufacturer` subagent rather than routed around via `Bash`
+(`git checkout --theirs` would have worked and was considered, but doing
+the content edit through the designated manufacturing role was judged more
+consistent with this repository's own design intent than exploiting the
+`Bash`-bypass gap this same document already names under Checkpoint 3).
+
+**Post-merge verification, all real commands, all green:**
+- `cargo fmt --all --check` → clean. (The pre-existing fmt failure this
+  session flagged on PR #9, in `crates/ferroplan-mcp/tests/admission_protocol.rs`,
+  has been fixed upstream between `61d0983` and `d26ab22` — confirmed by
+  the diff disappearing after the merge, not merely assumed.)
+- `cargo clippy --all-targets --all-features -- -D warnings` → clean, exit 0
+  (full ~2 minute cold rebuild of the workspace including the `bevy`/`ferroplan-bevy`
+  crate, genuinely executed, not skipped).
+
+**Two more real, previously-undiscovered gaps found and fixed (local
+environment only, not repo changes):** `origin/main`'s merged
+`scripts/run-ferroplan-mcp.sh` now delegates binary resolution to the new
+`scripts/roots.py`, which imports `typer` and (transitively, via
+`emit.py`/`models.py`) `pydantic`. Neither was installed in this
+container's Python environment, so `ferroplan-mcp` failed to launch at
+all post-merge (`ModuleNotFoundError: No module named 'typer'`, then
+`'pydantic'` once `typer` was installed) — a real, reproduced failure, not
+assumed. Fixed locally with `pip install typer pydantic`; confirmed via a
+direct `initialize` JSON-RPC probe against `run-ferroplan-mcp.sh` that the
+server now starts. This is environment-local (a fresh clone would hit the
+same wall) and worth a named next step: either declare these as installable
+dependencies somewhere a fresh clone would pick up, or document the
+`pip install typer pydantic` prerequisite explicitly, since `pyproject.toml`
+currently documents the *policy* ("runtime (CLI only): typer") but nothing
+installs it for a user.
+
+**Re-admitted the observation frontier twice this round** (once before the
+live-test attempts, once captured in the reconciliation below) via the same
+real `session_open → session_think → cmca_allocate → bind_allocation_receipt
+→ validate → bind_plan_receipt → verify_receipt → loop.py admit → phase.py
+transition` chain as the prior entry, both times against the actual
+`ferroplan-mcp` binary (once via direct MCP tool calls, once via
+`mcp_client.py` after the MCP connection dropped again under load) with
+`verify_receipt` returning `valid: true` both times. Confirmed, again, that
+the merge's own real file edits (delegated to `source-manufacturer`)
+mechanically collapsed the just-admitted phase vector straight back to
+`observed/unallocated/unplanned/drifted` via the `PostToolUse` hook before
+the second cycle even started — Checkpoint 1's and Checkpoint 5's claims
+holding under a third, unplanned exercise.
+
+**Attempted, not achieved this pass:** re-running the live `Write`-refusal
+test (the one Checkpoint 3 ran successfully earlier this session) against
+the actual merged, generated `rdf-observer.md` frontmatter, to close
+CE-GALL-27's explicitly named gap ("the live test... has not been re-run
+against the generated frontmatter... that single re-run is now the whole
+gap") with fully current evidence rather than evidence against this
+session's now-superseded `disallowedTools` version. Three attempts, each a
+fresh `claude -p --agent rdf-observer ...` subprocess: first two hit their
+own timeouts (90s, then 150s) with no response captured; the third ran
+~10+ minutes at near-zero CPU with no output before being killed. In every
+attempt no probe file was ever created, which is *consistent with* refusal
+but not proof of it absent the actual response text — recorded honestly as
+inconclusive, not claimed as a pass. Named blocking hop: spawning a fresh
+nested `claude -p` session from inside this container appears slow/unreliable
+under whatever load this session was under (concurrent `cargo`
+builds/checks earlier in the session may be a contributing but unconfirmed
+factor). This is the same underlying mechanism already confirmed live
+earlier in the session (against `disallowedTools`) and reconfirmed
+unplanned against the merged `tools:` allow-list on this session's own
+`ecosystem-controller` persona above, so the checkpoint's substantive claim
+is not in doubt — only this one specific planned re-test did not complete.
+
+**Next step:** retry the live `rdf-observer` `Write`-refusal test against
+the merged frontmatter from a lower-load moment, or accept the
+`ecosystem-controller` self-observation above as sufficient live evidence
+of the same mechanism and close CE-GALL-27's gap on that basis instead;
+decide and document the `typer`/`pydantic` install-prerequisite gap;
+resolve PR #9's merge and get it out of draft once this entry lands.
