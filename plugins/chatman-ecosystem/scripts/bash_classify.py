@@ -57,7 +57,7 @@ _BARE_REDIRECT = re.compile(r"\d*>>?(?!&)(?!\s*/dev/null\b)")
 
 PROTECTED_BASH = re.compile(
     _SEGMENT_START + r"(?:"
-    rf"git\s+(?:push|merge|rebase)(?![\w-])|"
+    r"git\s+(?:push|merge|rebase)(?![\w-])|"
     r"git\s+(?:reset\s+--hard|clean\s+-[a-z]*f)|"
     r"gh\s+pr\s+(?:create|merge|close)|"
     r"cargo\s+publish|npm\s+publish|"

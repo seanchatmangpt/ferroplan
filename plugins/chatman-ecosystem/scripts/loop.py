@@ -37,7 +37,7 @@ from bash_classify import is_mutation as bash_is_mutation  # noqa: E402
 from bash_classify import is_protected as bash_is_protected  # noqa: E402
 from mcp_client import McpClient, McpToolError, tool_structured_result  # noqa: E402
 from plugin_data import plugin_data_root as resolve_plugin_data_root  # noqa: E402
-from roots import project_directory, project_key  # noqa: E402
+from roots import project_directory  # noqa: E402
 
 STATE_SCHEMA = "urn:chatman:claude-code-loop-state:v1"
 EVENT_SCHEMA = "urn:chatman:claude-code-observation:v1"

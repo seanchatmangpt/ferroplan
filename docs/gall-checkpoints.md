@@ -266,6 +266,54 @@ limitation (unset optional `userConfig` should not hard-fail `lspServers`
 the way it doesn't for `mcpServers`), or restructure `.lsp.json` to avoid a
 direct `${user_config.config_lsp_root}` reference if Claude Code offers any
 other mechanism — not yet investigated.
+> **2026-07-29 third pass — the "not exercised" gap closed for real.** This
+> scheduled-routine session runs in its own fresh container: `ls ~/.claude/plugins`
+> showed an empty `plugins/` dir and `claude plugin list` reported "No plugins
+> installed" before this pass touched anything — a genuinely separate process
+> and cache, not the already-warm session the first two passes ran against.
+> Ran the literal required-proof sequence:
+> ```text
+> claude plugin marketplace add ./.        # (bare "." rejected: "Invalid marketplace
+>                                           #  source format"; "./." accepted)
+> claude plugin install chatman-ecosystem@chatman-ecosystem
+> claude plugin validate --strict ./plugins/chatman-ecosystem
+> claude plugin validate --strict ./.claude-plugin/marketplace.json
+> ```
+> `marketplace add` and `install` both succeeded (`scope: user`, `✔ enabled`).
+> `claude plugin validate --strict` **failed on both manifests**, independently
+> reproducing the exact defect a same-day but unmerged sibling branch
+> (`gall-checkpoints/2026-07-29-clean-install-plugin-version`, PR #3) had
+> already found and fixed on its own branch: `plugins/chatman-ecosystem/.claude-plugin/plugin.json`
+> has no `version` field, and `--strict` promotes the resulting warning
+> (`‼ version: No version specified. Consider adding a version following
+> semver`) to a failure, exit 1. Two independent sessions hitting the same
+> defect the same day is corroboration, not noise.
+>
+> Fixed on **this** branch (not by merging the sibling — see this pass's
+> Audit log entry for why): added `"version": "0.17.0"` to `plugin.json`,
+> matching the workspace `Cargo.toml` version. Re-ran both `validate --strict`
+> commands: both now `√ Validation passed`, exit 0.
+>
+> Confirmed live in the running session itself, not just via the CLI
+> subcommands: mid-session, the harness surfaced system-reminders listing all
+> 8 `chatman-ecosystem:*` agents and 12 `chatman-ecosystem:*` skills as newly
+> available, and `claude plugin list` inside this same session reports
+> `chatman-ecosystem@chatman-ecosystem  Version: 348e07f116a1  Scope: user
+> Status: ✔ enabled` — the plugin genuinely loaded into the process asking the
+> question, not a separate inspection of a cache the asking session can't use.
+>
+> **Not yet done**: a second clean-cache clone of the *fixed* commit (this
+> pass edited the manifest in the working tree; it has not yet gone through
+> `marketplace add` again post-fix, since re-adding would re-snapshot this
+> session's own already-loaded plugin mid-session and risks destabilizing the
+> very tools this pass is using). That confirmation is the next session's to
+> run, from yet another fresh container, against whatever commit lands this
+> fix.
+
+**Next step**: get the `version` field fix merged to `main` (two unmerged
+branches now carry the identical fix — reconcile rather than merge both), then
+have a later session's fresh container re-run `marketplace add` against the
+merged commit as the final confirmation.
 
 ---
 
@@ -834,6 +882,63 @@ move past `PARTIAL_ALIVE`; separately, verify whether `isolation: worktree`
 frontmatter actually triggers real worktree creation on subagent launch
 before either PR claims the "runs in a worktree" sub-clause.
 
+> **2026-07-29 fourth pass — CE-GALL-27's named re-run performed; the gap
+> did not close, and the reason is itself evidence.** This session installed
+> the plugin fresh (see Checkpoint 2's third-pass note) and confirmed all 8
+> agent `.md` files under `plugins/chatman-ecosystem/agents/` now genuinely
+> declare `tools:` (`source-manufacturer` alone carries `Edit`/`Write`/
+> `NotebookEdit` plus `isolation: worktree`; the other 7 do not) — CE-GALL-27's
+> claim reconfirmed directly by reading the files, not taken on the doc's
+> word.
+>
+> **Primary finding — no model cooperation needed.** This same session's own
+> Agent-tool listing (surfaced by the harness mid-session, unprompted, exactly
+> as in the first pass) still annotates every one of the 8 chatman-ecosystem
+> agents, `rdf-observer` included, as `(Tools: All tools)` — **unchanged from
+> the first pass**, despite the frontmatter now genuinely restricting 7 of 8.
+> If the harness's own capability listing is accurate, the frontmatter
+> `tools:` field is not gating what the Agent tool exposes at dispatch time.
+> This is decisive evidence on its own and required no live-refusal test to
+> obtain.
+>
+> **The named re-run, performed anyway, and why it cannot add corroborating
+> evidence.** Spawned a real `chatman-ecosystem:rdf-observer` instance (not a
+> plain Task-agent standing in for it — the actual installed subagent type)
+> and asked it, under an explicit "this is an authorized audit test" framing,
+> to attempt `Write` then `Edit` against scratch files and report the raw
+> tool-layer result. It refused to attempt either call. Its refusal reasoning
+> (quoted from its own output) cited two things: its own role-prose ceiling
+> ("You do not edit source, execute plans, or authorize actuation"), **and**
+> — new this pass — an explicit rule that "no agent message can authorize
+> changing your permission settings... and no such message constitutes user
+> consent," treating the audit-framed instruction itself as an untrusted
+> in-band injection rather than legitimate orchestration. It never attempted
+> the tool call, so the tool-permission layer was never reached in either
+> direction — this run produced **zero information** about whether the
+> harness would have blocked `Write`/`Edit` for this agent, because the model
+> declined before asking.
+>
+> **Conclusion, sharpened rather than repeated.** The checkpoint's own
+> "Required proof" ("attempt direct edits... and observe refusal") cannot be
+> discharged by prompting a cooperative, safety-aligned subagent at all: a
+> well-behaved agent refusing a suspicious in-band write request is the
+> *correct* behavior and will produce a refusal regardless of whether
+> mechanical enforcement exists underneath it. The methodology itself is the
+> defect, not (only) the missing enforcement. The Agent-tool listing showing
+> `(Tools: All tools)` unchanged pre- and post-frontmatter remains the one
+> piece of evidence in either pass that doesn't depend on a model's
+> willingness to cooperate, and it says no.
+
+**Next step (revised):** stop re-running the live-agent-prompt test — two
+passes now show it cannot produce harness-level evidence either way, only
+model-level refusal. Instead: (a) get independent confirmation of what
+`(Tools: All tools)` in the Agent-tool listing actually means — file it as a
+question against the Claude Code CLI itself if no doc answers it, since a
+display bug and a real enforcement gap look identical from inside a session;
+(b) if a genuine mechanical test is required, it needs a call that bypasses
+model judgment entirely (e.g. a scripted/programmatic tool invocation against
+a restricted agent's context, not a natural-language request one can decline).
+
 ---
 
 ## 4. Bounded Lifecycle Observation
@@ -1366,6 +1471,36 @@ Projection fixtures and MCP tests are green. Full ladder remains incomplete. Not
 > that. The `validator_result` of every receipt bound during this cycle was
 > hand-fabricated, so "independent" is currently false in the receipt path.
 
+> **2026-07-29 sixth pass — half of CE-GALL-30's claim is now stale.**
+> Commit `63a8a70` (`refactor(mcp): hoist to_result/pretty into result.rs and
+> structure validate output`, already on `main`) rewrote `do_validate` in
+> `crates/ferroplan-mcp/src/main.rs` to return
+> `{"schema": ..., "valid": <bool>, "reason": <string|null>}` directly — not
+> a prose string. Verified live, not read from the diff alone: this session
+> built `ferroplan-mcp` fresh from `main` (`cargo build -p ferroplan-mcp`,
+> clean), called `session_open` → `session_think` → `solve` → `validate` over
+> a real domain/problem/plan (this repo's own
+> `world/ferroplan-self-host-{domain,problem}.pddl`, problem regenerated live
+> by `project-world.py`), and the raw `validate` result was
+> `{"reason": null, "schema": "urn:ferroplan:plan-validation:v1", "valid":
+> true}` — a genuine boolean, fed straight into `bind_plan_receipt` with zero
+> hand construction. `verify_receipt` on the resulting envelope returned
+> `payload_digest_valid: true, receipt_valid: true, valid: true`. **CE-GALL-30's
+> "hand-fabricated verdict" claim no longer holds against current `main`** —
+> it was accurate when written, against a pre-`63a8a70` binary, and nobody
+> re-ran it after the fix landed.
+>
+> **What CE-GALL-30 got right and still holds:** this was still Ferroplan
+> validating its own plan under its own execution semantics — the checkpoint's
+> actual working system needs a *planner-independent* validator (VAL, per the
+> `PARTIAL_ALIVE` evidence below), and `bind_plan_receipt`'s `validator_result`
+> in this pass's own envelope still reflects `ferroplan.validate`, not VAL. Two
+> separate defects were conflated in one downgrade: "the boolean is
+> hand-typed" (now fixed) and "the validator isn't independent" (still true).
+> Standing stays `PARTIAL_ALIVE` for that second, unfixed reason — reason
+> relabeled from `MOCKED` to `NOT_INDEPENDENT` to name the surviving gap
+> precisely instead of the fixed one.
+
 
 **Working system**
 
@@ -1698,6 +1833,39 @@ worktree-isolated manufacture (Checkpoint 11), draft-PR publication under a
 structured intent/grant (Checkpoints 15–17), and execution attestation
 (Checkpoint 18). The loop that exists is real; the loop as specified is not
 yet whole.
+
+> **2026-07-29 sixth pass — an unplanned, organic instance of "zero
+> unreceipted actuation" refusing and then clearing.** This did not start as
+> a checkpoint-20 test; it happened while trying to push this pass's own
+> commits. `git push` was refused by the `PreToolUse` Bash hook with
+> `BRCE_REFUSED: protected actuation is ahead of the admitted observation
+> frontier (5 pending event(s))`. Rather than route around it (no
+> `--no-verify`, no uninstalling the plugin, no forged receipt), this pass
+> built `ferroplan-mcp` fresh (`cargo build -p ferroplan-mcp`, the binary
+> didn't exist yet in this container) and hand-drove the real MCP ceremony
+> via `scripts/mcp_client.py`: `session_open` (domain/problem freshly
+> generated by `project-world.py --skip-live-checks`, reflecting the live
+> pending-event count) → `session_think` (`decision: replan`, real 13-step
+> plan) → `cmca_allocate` over the canonical 8×10 frontier
+> (`profiles/work-surfaces.json`) → `bind_allocation_receipt` →
+> `solve` → `validate` (genuine `{valid: true, reason: null}` — see
+> CE-GALL-30's correction above) → `bind_plan_receipt` → `verify_receipt`
+> (`valid: true`) → `loop.py admit --standing PARTIAL_ALIVE`. The ledger's
+> `admitted_event_count` caught up to `event_count` (10/10), and the
+> previously-refused `git push` then succeeded on retry with no other
+> change. No step in this chain was hand-fabricated: every payload came from
+> a real tool call against real inputs, not asserted JSON.
+>
+> This is the checkpoint's own "Required proof" — one real, unreceipted
+> protected actuation was refused, then admitted through a genuine (not
+> manually fabricated) receipt chain, then permitted — caught live rather
+> than staged. What it does **not** close: `loop.py close` remains unbuilt
+> (this was still nine separate manual tool calls, matching the prior
+> pass's own qualification), and the loop's scope was "admit enough evidence
+> to unblock a push," not the checkpoint's full observe→...→attestation
+> diagram — worktree manufacture, intent/grant publication, and attestation
+> (Checkpoints 11, 15–18) remain the same open gaps as before. Standing
+> stays `PARTIAL_ALIVE`.
 
 ---
 
@@ -2051,15 +2219,37 @@ compose, so the verdict must be constructed by hand — and
 cycle was hand-fabricated.** The independence claim of both loop closes is
 therefore false, and this is recorded rather than quietly carried.
 
-**Current standing:** `PARTIAL_ALIVE` (`MOCKED`)
+**2026-07-29 sixth-pass correction — half of the refuted claim is itself now
+stale.** `crates/ferroplan-mcp/src/main.rs`'s `do_validate` (commit `63a8a70`,
+already on `main`) returns a genuine `{valid: bool, reason}` object, not a
+prose string. This session built the binary fresh from `main` and called it
+live: `validate` returned `{"reason": null, "valid": true}` for a real
+solved plan against a real domain/problem, bound into `bind_plan_receipt`
+with **no hand construction** — `plan_receipt
+5a89752fde6b5d862783039d209579c043a5773eb4cc324406cc42bb3b15b7e8`,
+`verify_receipt` confirmed `valid: true`. The "verdict constructed by hand"
+half of this refutation no longer describes current `main`. The
+"independence" half still does: this is still Ferroplan validating its own
+plan, not VAL (see Checkpoint 13's `PARTIAL_ALIVE` VAL evidence) — so
+`PARTIAL_ALIVE` is unchanged, but for the surviving reason only.
+`plugins/chatman-ecosystem/receipts/CE-GALL-30.json` itself was not updated
+this pass (out of scope for a docs-only branch fixing an unrelated CI lint
+failure) — flagged so the receipt file and this prose don't silently
+diverge.
 
-**Receipt:** `plugins/chatman-ecosystem/receipts/CE-GALL-30.json`
+**Current standing:** `PARTIAL_ALIVE` (`NOT_INDEPENDENT`, was `MOCKED` —
+relabeled since the hand-construction reason no longer applies)
+
+**Receipt:** `plugins/chatman-ecosystem/receipts/CE-GALL-30.json` (stale —
+still describes the pre-`63a8a70` prose-string defect; needs its own update
+pass)
 
 **Negative falsifier:** none. Recorded, not hidden — a checkpoint without an executing negative fixture cannot be promoted.
 
 - Non-claim: the validator_result field of EVERY receipt bound this session was hand-fabricated, so the independence claim of both closes is false
+- Superseded non-claim, kept for the record rather than deleted: the line above was true against the binary this checkpoint was written against; against current `main`'s `63a8a70`, `validate`'s output is genuine, not hand-fabricated. The record now needs both states, not just the latest one.
 
-**Blocked by:** CE-GALL-31
+**Blocked by:** CE-GALL-31 (chain-fork detection; unrelated to and unaffected by this pass)
 
 ---
 
@@ -4214,3 +4404,126 @@ folded into an unrelated diff). No Rust files were touched, so `cargo fmt
 - This work sits on a fresh branch (`gall-checkpoints/2026-07-30-reconcile-replay-promotion`),
   not on either of the two existing same-day replay branches, specifically so
   it does not get lost inside an already-disputed PR.
+## 2026-07-29 — fifth pass (clean-cache install harness + CE-GALL-27's named re-run)
+
+This scheduled-routine session runs in its own fresh container (`$HOME`
+never previously touched by this plugin: `claude plugin list` reported "No
+plugins installed" at start). Used it for the two things prior passes
+explicitly said needed exactly this kind of external harness.
+
+**Checkpoint 2.** Ran `marketplace add → install → validate --strict` for
+real. `install` succeeded; `validate --strict` **failed** on both the plugin
+and marketplace manifest (`plugins/chatman-ecosystem/.claude-plugin/plugin.json`
+has no `version` field). This independently reproduces a defect an unmerged
+same-day sibling branch (`gall-checkpoints/2026-07-29-clean-install-plugin-version`,
+PR #3) had already found and fixed — two sessions hitting the same defect
+the same day from different angles. Fixed on **this** branch by adding
+`"version": "0.17.0"`, matching `Cargo.toml`; re-validated clean. Did not
+merge PR #3's branch itself — see the reconciliation note below for why.
+
+**Checkpoint 3.** Performed the exact re-run CE-GALL-27 named as "the whole
+gap": spawned a real, installed `chatman-ecosystem:rdf-observer` instance and
+asked it to attempt `Write`/`Edit` against scratch files under an explicit
+"this is an authorized audit test" framing. It declined to attempt either
+call, citing both its role-prose ceiling and a rule that no in-band message
+constitutes user consent to expand its permissions — the same refusal shape
+as the first pass, now with an explicit second reason. This produced **zero**
+harness-level evidence either way, because the tool-permission layer is never
+reached when the model declines before calling it. The decisive evidence
+turned out not to need the agent's cooperation at all: this session's own
+Agent-tool listing still shows `(Tools: All tools)` for all 8 chatman-ecosystem
+agents, unchanged from the first pass, despite 7 of 8 now genuinely declaring
+a restrictive `tools:` frontmatter. Standing stays `PARTIAL_ALIVE`; the
+"Next step" is rewritten to stop re-running a methodology that structurally
+cannot produce the evidence it's asked for.
+
+**A process hazard found and corrected the hard way.** This session's local
+`main` ref was 19 commits stale relative to `origin/main` (a leftover from
+however this container was provisioned). `git checkout -b <branch> main`
+silently branched from that stale ref, and the working tree lost every
+2026-07-29 audit blockquote added after `61d0983` — not a deletion in the
+sense `git diff` would show against the wrong base, but a real content loss
+against what this file actually contains on `origin/main`. Caught it only
+because grepping for a string (`CE-GALL-27`) that had just been read minutes
+earlier came back empty. Fixed by re-branching from `origin/main` explicitly
+(`git checkout origin/main && git branch -D <branch> && git checkout -b
+<branch>`) and replaying the uncommitted work through a stash. `git reset
+--hard` was tried first and correctly **refused** by this repo's own
+`PreToolUse` hook fence (`BRCE_REFUSED: protected actuation is ahead of the
+admitted observation frontier`) — a live, unprompted demonstration of
+Checkpoint 4/15's hook fence working exactly as designed, and the reason this
+pass didn't just force past it. Recorded here because a session that branches
+from a stale local ref and doesn't check will silently produce a PR that
+reverts real work — worth a `git rev-parse main origin/main` sanity check
+before any future `checkout -b ... main` in this repo.
+
+**Unreconciled PR backlog — now 13, not fixed this pass.** `list_pull_requests`
+shows 13 open draft PRs (#2–#14), every one same-day, none merged, none
+reviewed. Checkpoint 3 alone has three competing implementations (#4, #5,
+#9) touching the identical 8 agent files with two different mechanisms; #10
+already named this and recommended #5 as the strongest candidate without
+merging it (a maintainer call, not a same-pass unilateral one). #11–#14
+arrived after #10 flagged the pileup and picked *new* checkpoints rather
+than reconciling — the backlog grew instead of shrinking. This pass adds a
+14th unmerged branch to that pile rather than reducing it, for the same
+reason #10 gave: picking a winner among three independently-built
+mechanisms and closing the other two is a product decision this file's own
+audit discipline doesn't have standing to make unilaterally. Flagging this
+explicitly rather than quietly adding to the count: **the highest-leverage
+action available to whichever session or human picks this up next may be
+reconciling and merging the existing 13, not opening a 14th.**
+
+Branch: `gall-checkpoints/2026-07-29-clean-cache-and-mechanical-refusal`.
+
+## 2026-07-29 — sixth pass (CI lint fix forces a real admission ceremony, finds CE-GALL-30 stale)
+
+Opened PR #15 for the fifth pass's work; its own "plugin" CI check failed —
+29 `ruff` errors, verified pre-existing on `origin/main` itself via a
+throwaway `git worktree` (not introduced by this branch's diff, which never
+touches Python). Fixed mechanically: `ruff check scripts tests --fix` (26 of
+29), `Format(str, Enum)` → `StrEnum` in `emit.py` (`UP042`), two missing
+`noqa: E402` markers in `project-world.py` matching the existing convention.
+Verified clean: `ruff check`, `compileall`, `scripts/*.sh` syntax, `generate.py
+build --check` (0 stale), full `pytest` (exit 0).
+
+Pushing that fix hit this session's own `PreToolUse` hook fence:
+`BRCE_REFUSED: protected actuation is ahead of the admitted observation
+frontier`. Declined every shortcut (force-push, `--no-verify`, uninstalling
+the plugin to remove the fence, hand-typing a receipt) and instead built
+`ferroplan-mcp` from `main` (it didn't exist in this container yet — 17s
+clean build) and ran the real admission ceremony by hand through
+`scripts/mcp_client.py`: `session_open` → `session_think` → `cmca_allocate`
+(canonical frontier) → `bind_allocation_receipt` → `solve` → `validate` →
+`bind_plan_receipt` → `verify_receipt` → `loop.py admit`. Every payload was a
+real tool result, not asserted JSON. The ledger caught up
+(`admitted_event_count == event_count`) and the previously-refused `git
+push` succeeded on retry with no other change — full detail and exact
+receipts under Checkpoint 20.
+
+**The ceremony surfaced a stale claim along the way.** `validate`'s live
+output was a genuine `{valid: true, reason: null}` boolean, not the prose
+string CE-GALL-30 (checkpoint 13's downgrade) says it returns. Traced to
+commit `63a8a70` (`structure validate output`), already on `main`, which
+fixed exactly this before CE-GALL-30 was ever re-verified against it.
+Corrected both the Checkpoint 13 blockquote and the CE-GALL-30 entry itself:
+the "hand-fabricated verdict" half of the claim is stale, the "not an
+independent engine, still Ferroplan validating itself" half still holds.
+Standing unchanged (`PARTIAL_ALIVE`) but the reason is relabeled
+`MOCKED` → `NOT_INDEPENDENT` to name the surviving gap instead of the fixed
+one. `plugins/chatman-ecosystem/receipts/CE-GALL-30.json` itself is now
+stale relative to this prose and was not updated this pass — named, not
+hidden.
+
+**Standing changes this pass:** 13 (blockquote gains a correction, standing
+unchanged); CE-GALL-30 (`MOCKED` → `NOT_INDEPENDENT`, standing unchanged);
+20 (`PARTIAL_ALIVE`, unchanged, but gains a real unplanned closed-loop
+instance rather than a staged one).
+
+**Left undone, named rather than omitted:** `CE-GALL-30.json`'s receipt file
+not updated to match; the temporary Ferroplan session (`gall-15-push-admit`)
+was not explicitly `session_close`d (harmless — in-memory, dies with the MCP
+subprocess, but worth naming so nobody assumes cleanup happened); the
+13-vs-14 PR backlog from the fifth pass is still unreconciled.
+
+Commits: `f1100e6` (fifth pass), `7d744e4` (this lint fix + admission).
+PR: https://github.com/seanchatmangpt/ferroplan/pull/15.

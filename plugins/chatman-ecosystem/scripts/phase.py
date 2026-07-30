@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from bash_classify import is_mutation as bash_is_mutation  # noqa: E402
 from mcp_client import McpClient, McpToolError, tool_structured_result  # noqa: E402
 from plugin_data import plugin_data_root as resolve_plugin_data_root  # noqa: E402
-from roots import project_directory, project_key  # noqa: E402
+from roots import project_directory  # noqa: E402
 
 STATE_SCHEMA = "urn:chatman:claude-code-phase-state:v1"
 EVENT_SCHEMA = "urn:chatman:claude-code-phase-event:v1"
