@@ -177,6 +177,15 @@ pub struct PolicySessionStatus {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct PolicyExplanationOutcome {
+    pub probability: f64,
+    pub next_state: usize,
+    pub reward: f64,
+    pub goal: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub struct PolicyExplanation {
     pub state: usize,
     pub remaining: Option<usize>,
@@ -186,6 +195,6 @@ pub struct PolicyExplanation {
     pub goal_probability: ValueInterval,
     pub unsafe_probability: ValueInterval,
     pub expected_reward: ValueInterval,
-    pub successors: Vec<crate::PolicyOutcome>,
+    pub successors: Vec<PolicyExplanationOutcome>,
     pub notes: Vec<String>,
 }
