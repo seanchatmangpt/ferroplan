@@ -1,0 +1,35 @@
+@prefix fp: <urn:chatman:ferroplan-domain:v1#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# v26.8.1 probabilistic planning tool projection. The canonical planning
+# contracts live in `.ggen/ferroplan-v26.8.1/ontology.ttl`; these individuals
+# extend the existing MCP ontology without rewriting its historical source.
+
+fp:ToolParsePpddl a fp:McpTool ; rdfs:label "parse_ppddl" ;
+  rdfs:comment "Parse and normalize a PPDDL domain/problem without synthesizing a policy." .
+fp:ToolSolvePpddl a fp:McpTool ; rdfs:label "solve_ppddl" ;
+  rdfs:comment "Synthesize a bounded PPDDL policy, independently verify it, and bind a policy receipt." .
+fp:ToolValidatePpddlPolicy a fp:McpTool ; rdfs:label "validate_ppddl_policy" ;
+  rdfs:comment "Recompile the admitted PPDDL model and verify policy identity, closure, values, and hard constraints." .
+fp:ToolSimulatePpddl a fp:McpTool ; rdfs:label "simulate_ppddl" ;
+  rdfs:comment "Execute deterministic-seed policy simulation under explicit episode and step bounds." .
+fp:ToolExplainPpddlPolicy a fp:McpTool ; rdfs:label "explain_ppddl_policy" ;
+  rdfs:comment "Project a structured explanation for one canonical policy state without creating a second authority." .
+fp:ToolPolicySessionOpen a fp:McpTool ; rdfs:label "policy_session_open" ;
+  rdfs:comment "Open a persistent observable-state policy session from admitted PPDDL inputs." .
+fp:ToolPolicySessionObserve a fp:McpTool ; rdfs:label "policy_session_observe" ;
+  rdfs:comment "Admit one explicit observed state; ambiguous or unknown observations are refused." .
+fp:ToolPolicySessionDecide a fp:McpTool ; rdfs:label "policy_session_decide" ;
+  rdfs:comment "Select the canonical policy action for the session's admitted state." .
+fp:ToolPolicySessionAdvance a fp:McpTool ; rdfs:label "policy_session_advance" ;
+  rdfs:comment "Advance only to a successor admitted by the selected stochastic action." .
+fp:ToolPolicySessionSetGoal a fp:McpTool ; rdfs:label "policy_session_set_goal" ;
+  rdfs:comment "Retarget the session goal and synthesize a replacement policy." .
+fp:ToolPolicySessionStatus a fp:McpTool ; rdfs:label "policy_session_status" ;
+  rdfs:comment "Read the session phase, state, horizon, selected action, and policy validity." .
+fp:ToolPolicySessionClose a fp:McpTool ; rdfs:label "policy_session_close" ;
+  rdfs:comment "Remove a persistent policy session from MCP server state." .
+fp:ToolBindPolicyReceipt a fp:McpTool ; rdfs:label "bind_policy_receipt" ;
+  rdfs:comment "Bind the model, objective, constraints, policy, verifier report, and predecessor into a BLAKE3 receipt." .
+fp:ToolVerifyPolicyChain a fp:McpTool ; rdfs:label "verify_policy_chain" ;
+  rdfs:comment "Verify every policy receipt and every predecessor edge in a supplied chain." .
