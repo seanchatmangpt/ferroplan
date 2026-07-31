@@ -1,0 +1,12 @@
+PREFIX fp: <urn:chatman:ferroplan:v26.8.1#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?order ?requirement ?priority ?status ?label
+WHERE {
+  ?capability a fp:Capability ;
+              fp:requirement ?requirement ;
+              fp:priority ?priority ;
+              fp:status ?status ;
+              fp:order ?order ;
+              rdfs:label ?label .
+}
+ORDER BY ?order
