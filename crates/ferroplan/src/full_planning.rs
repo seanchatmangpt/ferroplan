@@ -20,6 +20,9 @@ pub use receipt::{
 pub use session::{PolicySession, PolicySessionError};
 pub use verify::verify_policy;
 
+const ENVELOPE_SCHEMA: &str = "urn:chatman:ferroplan-full-planning-envelope:v1";
+const AUTHORITY_BOUNDARY: &str = "planner-selects; external-authority-executes";
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "rail", rename_all = "kebab-case")]
 pub enum FullPlanningRequest {
@@ -44,11 +47,15 @@ pub enum FullPlanningRequest {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "rail", content = "result", rename_all = "kebab-case")]
 pub enum FullPlanningResult {
-    Deterministic(crate::Solution),
+    Deterministic {
+        solution: crate::Solution,
+        envelope: FullPlanningEnvelope,
+    },
     Probabilistic {
         solution: crate::ProbabilisticSolution,
         verification: PolicyVerificationReport,
         receipt: PolicyReceipt,
+        envelope: FullPlanningEnvelope,
     },
 }
 
@@ -58,9 +65,23 @@ pub fn plan(request: FullPlanningRequest) -> Result<FullPlanningResult, String> 
             domain,
             problem,
             options,
-        } => crate::solve(&domain, &problem, &options)
-            .map(FullPlanningResult::Deterministic)
-            .map_err(|error| error.to_string()),
+        } => {
+            let solution = crate::solve(&domain, &problem, &options)
+                .map_err(|error| error.to_string())?;
+            let envelope = FullPlanningEnvelope {
+                schema: ENVELOPE_SCHEMA.into(),
+                rail: PlanningRail::Deterministic,
+                observation_frontier_digest: canonical_digest(&problem),
+                model_digest: canonical_digest(&(&domain, &problem, &options)),
+                normalized_task_digest: None,
+                solver: format!("{:?}/{:?}", options.mode, options.search),
+                artifact_digest: canonical_digest(&solution),
+                verifier_digest: None,
+                authority_boundary: AUTHORITY_BOUNDARY.into(),
+                predecessor: None,
+            };
+            Ok(FullPlanningResult::Deterministic { solution, envelope })
+        }
         FullPlanningRequest::Probabilistic {
             domain,
             problem,
@@ -87,11 +108,25 @@ pub fn plan(request: FullPlanningRequest) -> Result<FullPlanningResult, String> 
                 &solution,
                 &verification,
                 None,
-            );
+            )
+            .map_err(|error| error.to_string())?;
+            let envelope = FullPlanningEnvelope {
+                schema: ENVELOPE_SCHEMA.into(),
+                rail: PlanningRail::Probabilistic,
+                observation_frontier_digest: canonical_digest(&solution.initial_distribution),
+                model_digest: receipt.model_digest.clone(),
+                normalized_task_digest: Some(receipt.normalized_mdp_digest.clone()),
+                solver: format!("{:?}", receipt.solver),
+                artifact_digest: receipt.policy_digest.clone(),
+                verifier_digest: Some(receipt.verifier_digest.clone()),
+                authority_boundary: AUTHORITY_BOUNDARY.into(),
+                predecessor: receipt.predecessor.clone(),
+            };
             Ok(FullPlanningResult::Probabilistic {
                 solution,
                 verification,
                 receipt,
+                envelope,
             })
         }
     }
