@@ -1,0 +1,51 @@
+[project]
+name = "ferroplan-v26.8.1-full-planning"
+version = "26.8.1"
+description = "Ontology-driven contracts and public capability matrix for Ferroplan full planning under uncertainty."
+authors = ["Sean Chatman"]
+license = "MIT OR Apache-2.0"
+
+[ontology]
+source = ".ggen/ferroplan-v26.8.1/ontology.ttl"
+imports = [".ggen/ferroplan-v26.8.1/shapes.ttl"]
+base_iri = "urn:chatman:ferroplan:v26.8.1#"
+
+[ontology.prefixes]
+fp = "urn:chatman:ferroplan:v26.8.1#"
+rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+rdfs = "http://www.w3.org/2000/01/rdf-schema#"
+xsd = "http://www.w3.org/2001/XMLSchema#"
+sh = "http://www.w3.org/ns/shacl#"
+
+[generation]
+output_dir = "."
+
+[[generation.rules]]
+name = "full-planning-contracts"
+query = { file = ".ggen/ferroplan-v26.8.1/queries/contracts.rq" }
+template = { file = ".ggen/ferroplan-v26.8.1/templates/contracts.rs.tera" }
+output_file = "crates/ferroplan/src/full_planning/contracts.rs"
+mode = "Overwrite"
+
+[[generation.rules]]
+name = "full-planning-capabilities"
+query = { file = ".ggen/ferroplan-v26.8.1/queries/capabilities.rq" }
+template = { file = ".ggen/ferroplan-v26.8.1/templates/capabilities.md.tera" }
+output_file = "docs/generated/v26.8.1-capabilities.md"
+mode = "Overwrite"
+
+[validation]
+shacl = [".ggen/ferroplan-v26.8.1/shapes.ttl"]
+strict_mode = true
+
+[sync]
+remove_orphaned = false
+
+[rdf]
+base_iri = "urn:chatman:ferroplan:v26.8.1#"
+
+[templates]
+strict_mode = true
+
+[output]
+format_on_write = true
