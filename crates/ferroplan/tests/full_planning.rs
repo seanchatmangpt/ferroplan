@@ -1,6 +1,6 @@
 use ferroplan::{
     bind_policy_receipt, plan_full, verify_policy, verify_policy_chain, verify_policy_receipt,
-    FullPlanningRequest, FullPlanningResult, PolicySession, PolicySessionError,
+    FullPlanningRequest, FullPlanningResult, PlanningRail, PolicySession, PolicySessionError,
     PolicySessionPhase, ProbabilisticObjective, ProbabilisticOptions, RiskConstraint,
 };
 
@@ -39,6 +39,7 @@ fn full_planning_dispatches_probabilistic_and_receipts_it() {
         solution,
         verification,
         receipt,
+        envelope,
     } = result
     else {
         panic!("wrong planning rail")
@@ -46,6 +47,12 @@ fn full_planning_dispatches_probabilistic_and_receipts_it() {
     assert!(solution.solved);
     assert!(verification.valid, "{:?}", verification.counterexamples);
     assert!(verify_policy_receipt(&receipt));
+    assert_eq!(envelope.rail, PlanningRail::Probabilistic);
+    assert_eq!(
+        envelope.normalized_task_digest.as_deref(),
+        Some(receipt.normalized_mdp_digest.as_str())
+    );
+    assert!(!receipt.normalized_mdp_digest.is_empty());
 }
 
 #[test]
@@ -128,7 +135,8 @@ fn receipt_chain_binds_predecessors_and_refuses_tampering() {
         &solution,
         &verification,
         None,
-    );
+    )
+    .unwrap();
     let second = bind_policy_receipt(
         DOMAIN,
         PROBLEM,
@@ -137,7 +145,8 @@ fn receipt_chain_binds_predecessors_and_refuses_tampering() {
         &solution,
         &verification,
         Some(first.receipt_digest.clone()),
-    );
+    )
+    .unwrap();
     assert!(verify_policy_chain(&[first.clone(), second.clone()]));
     let mut tampered = second;
     tampered.policy_digest.push('0');
