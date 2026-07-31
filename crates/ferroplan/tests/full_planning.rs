@@ -11,7 +11,7 @@ const DOMAIN: &str = r#"
   (:action attempt
     :parameters ()
     :precondition (not (done))
-    :effect (probabilistic 0.5 (done) 0.5 (and))))
+    :effect (probabilistic 0.5 (done))))
 "#;
 
 const PROBLEM: &str = r#"
@@ -98,7 +98,7 @@ fn stochastic_initial_state_requires_observation() {
     let problem = r#"
 (define (problem retry-p)
   (:domain retry)
-  (:init (oneof (done) (and)))
+  (:init (oneof (done) (unsafe)))
   (:goal (done)))
 "#;
     let session = PolicySession::new(
