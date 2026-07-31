@@ -17,6 +17,7 @@
 //! - [`solve`] — plan a deterministic domain + problem; returns a [`Solution`].
 //! - [`solve_ppddl`] — synthesize a bounded stochastic policy for PPDDL.
 //! - [`simulate_ppddl`] / [`validate_ppddl_policy`] — probabilistic execution receipts.
+//! - [`ppddl_model_identity`] — project the complete normalized reachable graph for receipts.
 //! - [`full_planning::plan`] — dispatch one typed deterministic/probabilistic request.
 //! - [`PolicySession`] — decide/observe/advance over a persistent probabilistic policy.
 //! - [`decompose`] — split and solve a temporal goal as ordered [`Contract`]s.
@@ -90,16 +91,17 @@ pub use full_planning::{
     bind_policy_receipt, canonical_digest, explain_policy, plan as plan_full, verify_policy,
     verify_policy_chain, verify_policy_receipt, ConstraintVerdict, FullPlanningRequest,
     FullPlanningResult, PlanningRail, PolicyCounterexample, PolicyCounterexampleKind,
-    PolicyExplanation, PolicyReceipt, PolicySearch, PolicySession, PolicySessionError,
-    PolicySessionPhase, PolicySessionStatus, PolicyVerificationReport, RiskConstraint, Standing,
-    StandingReason, ValueInterval,
+    PolicyExplanation, PolicyExplanationOutcome, PolicyReceipt, PolicySearch, PolicySession,
+    PolicySessionError, PolicySessionPhase, PolicySessionStatus, PolicyVerificationReport,
+    RiskConstraint, Standing, StandingReason, ValueInterval,
 };
 pub use planner::{run_ff, run_planner};
 pub use ppddl::{
-    parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability,
-    PolicyDecision, PolicyOutcome, PolicyValidation, PpddlError, PpddlParseReport,
+    parse_ppddl, ppddl_model_identity, simulate_ppddl, solve_ppddl, validate_ppddl_policy,
+    InitialStateProbability, PolicyDecision, PolicyOutcome, PolicyValidation, PpddlError,
+    PpddlParseReport, ProbabilisticActionIdentity, ProbabilisticModelIdentity,
     ProbabilisticObjective, ProbabilisticOptions, ProbabilisticSolution, ProbabilisticState,
-    ProbabilisticStatistics, SimulationReport,
+    ProbabilisticStatistics, ProbabilisticTransitionIdentity, SimulationReport,
 };
 pub use session::Session;
 pub use trace::{trace, StateSnapshot};
