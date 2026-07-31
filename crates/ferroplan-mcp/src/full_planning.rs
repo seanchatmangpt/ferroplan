@@ -6,7 +6,7 @@ use std::sync::Arc;
 use ferroplan::{
     bind_policy_receipt, explain_policy, parse_ppddl, simulate_ppddl, verify_policy,
     verify_policy_chain, PolicyReceipt, PolicySession, PolicyVerificationReport,
-    ProbabilisticObjective, ProbabilisticOptions, ProbabilisticSolution, RiskConstraint,
+    ProbabilisticOptions, ProbabilisticSolution, RiskConstraint,
 };
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ErrorData as McpError};
@@ -101,6 +101,7 @@ struct PpddlPolicyInput {
     problem: String,
     #[serde(default)]
     options: Option<ProbabilisticOptions>,
+    #[schemars(with = "BTreeMap<String, Value>")]
     solution: Value,
     #[serde(default)]
     constraints: Vec<RiskConstraint>,
@@ -122,6 +123,7 @@ struct PpddlSimulationInput {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ExplainInput {
+    #[schemars(with = "BTreeMap<String, Value>")]
     solution: Value,
     state: usize,
     #[serde(default)]
@@ -173,7 +175,9 @@ struct BindPolicyInput {
     options: Option<ProbabilisticOptions>,
     #[serde(default)]
     constraints: Vec<RiskConstraint>,
+    #[schemars(with = "BTreeMap<String, Value>")]
     solution: Value,
+    #[schemars(with = "BTreeMap<String, Value>")]
     verifier: Value,
     #[serde(default)]
     predecessor: Option<String>,
