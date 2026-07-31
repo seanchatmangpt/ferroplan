@@ -6,8 +6,7 @@
     (clarification)
     (interview)
     (incompatible)
-    (offer)
-    (closed))
+    (offer))
 
   (:action manufacture-fit-package
     :parameters ()
@@ -16,11 +15,10 @@
 
   (:action recruiter-submit
     :parameters ()
-    :precondition (and (fit-ready) (not (submitted)) (not (closed)))
+    :precondition (and (fit-ready) (not (submitted)))
     :effect (probabilistic
       0.65 (submitted)
-      0.20 (clarification)
-      0.15 (closed)))
+      0.20 (clarification)))
 
   (:action answer-clarification
     :parameters ()
