@@ -33,7 +33,12 @@ fn is_unsafe(solution: &ProbabilisticSolution, state: usize, unsafe_fact: Option
         .states
         .iter()
         .find(|candidate| candidate.id == state)
-        .map(|candidate| candidate.facts.iter().any(|fact| fact.eq_ignore_ascii_case(label)))
+        .map(|candidate| {
+            candidate
+                .facts
+                .iter()
+                .any(|fact| fact.eq_ignore_ascii_case(label))
+        })
         .unwrap_or(false)
 }
 
@@ -109,7 +114,12 @@ fn finite_eval(
                 memo,
             )
         };
-        value.weighted_add(outcome.probability, next, outcome.reward, solution.discount);
+        value.weighted_add(
+            outcome.probability,
+            next,
+            outcome.reward,
+            solution.discount,
+        );
     }
     memo.insert((state, remaining), value);
     value
@@ -221,8 +231,15 @@ fn initial_evaluation(
     }
 }
 
-fn closure_counterexamples(solution: &ProbabilisticSolution) -> Vec<PolicyCounterexample> {
-    let state_ids = solution.states.iter().map(|state| state.id).collect::<HashSet<_>>();
+fn closure_counterexamples(
+    solution: &ProbabilisticSolution,
+    unsafe_fact: Option<&str>,
+) -> Vec<PolicyCounterexample> {
+    let state_ids = solution
+        .states
+        .iter()
+        .map(|state| state.id)
+        .collect::<HashSet<_>>();
     let decisions = decision_map(solution);
     let mut errors = Vec::new();
     let mut queue = VecDeque::new();
@@ -248,6 +265,7 @@ fn closure_counterexamples(solution: &ProbabilisticSolution) -> Vec<PolicyCounte
             .find(|candidate| candidate.id == state)
             .map(|candidate| candidate.goal)
             .unwrap_or(false)
+            || is_unsafe(solution, state, unsafe_fact)
             || remaining == Some(0);
         if terminal {
             continue;
@@ -260,7 +278,11 @@ fn closure_counterexamples(solution: &ProbabilisticSolution) -> Vec<PolicyCounte
             });
             continue;
         };
-        let mass: f64 = decision.outcomes.iter().map(|outcome| outcome.probability).sum();
+        let mass: f64 = decision
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.probability)
+            .sum();
         if (mass - 1.0).abs() > 1e-9 {
             errors.push(PolicyCounterexample {
                 kind: PolicyCounterexampleKind::ProbabilityMass,
@@ -341,15 +363,26 @@ pub fn verify_policy(
             .map_err(crate::PpddlError::InvalidOptions)?;
     }
     let structural = validate_ppddl_policy(domain, problem, options, solution)?;
-    let mut counterexamples = closure_counterexamples(solution);
-    counterexamples.extend(structural.errors.iter().map(|message| PolicyCounterexample {
-        kind: PolicyCounterexampleKind::StructuralMismatch,
-        state: None,
-        message: message.clone(),
-    }));
-    let closure = counterexamples
-        .iter()
-        .all(|error| !matches!(error.kind, PolicyCounterexampleKind::MissingDecision));
+    let mut counterexamples = closure_counterexamples(solution, unsafe_fact);
+    counterexamples.extend(
+        structural
+            .errors
+            .iter()
+            .map(|message| PolicyCounterexample {
+                kind: PolicyCounterexampleKind::StructuralMismatch,
+                state: None,
+                message: message.clone(),
+            }),
+    );
+    let closure = counterexamples.iter().all(|error| {
+        !matches!(
+            error.kind,
+            PolicyCounterexampleKind::UnknownState
+                | PolicyCounterexampleKind::MissingDecision
+                | PolicyCounterexampleKind::ProbabilityMass
+                | PolicyCounterexampleKind::UnknownSuccessor
+        )
+    });
     let (evaluation, converged) = initial_evaluation(solution, options, unsafe_fact);
     let goal = ValueInterval::exact(evaluation.goal);
     let unsafe_reach = ValueInterval::exact(evaluation.unsafe_reach);
@@ -363,7 +396,10 @@ pub fn verify_policy(
                     (goal.lower + options.epsilon >= threshold, goal)
                 }
                 RiskConstraint::MaximumUnsafeReachability(threshold) => {
-                    (unsafe_reach.upper <= threshold + options.epsilon, unsafe_reach)
+                    (
+                        unsafe_reach.upper <= threshold + options.epsilon,
+                        unsafe_reach,
+                    )
                 }
                 RiskConstraint::MinimumExpectedReward(threshold) => {
                     (reward.lower + options.epsilon >= threshold, reward)
@@ -393,13 +429,22 @@ pub fn verify_policy(
     let (standing, reason) = if valid {
         (Standing::PartialAlive, Some(StandingReason::NoReplay))
     } else if !converged {
-        (Standing::Blocked, Some(StandingReason::ConvergenceLimit))
+        (
+            Standing::Blocked,
+            Some(StandingReason::ConvergenceLimit),
+        )
     } else if !constraints_ok {
-        (Standing::Blocked, Some(StandingReason::ConstraintViolation))
+        (
+            Standing::Blocked,
+            Some(StandingReason::ConstraintViolation),
+        )
     } else if !closure {
         (Standing::Blocked, Some(StandingReason::PolicyNotClosed))
     } else {
-        (Standing::Blocked, Some(StandingReason::VerifierDisagreement))
+        (
+            Standing::Blocked,
+            Some(StandingReason::VerifierDisagreement),
+        )
     };
     Ok(PolicyVerificationReport {
         standing,
