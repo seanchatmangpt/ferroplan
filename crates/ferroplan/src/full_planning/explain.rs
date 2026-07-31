@@ -1,6 +1,6 @@
 use crate::ProbabilisticSolution;
 
-use super::{PolicyExplanation, ValueInterval};
+use super::{PolicyExplanation, PolicyExplanationOutcome, ValueInterval};
 
 pub fn explain_policy(
     solution: &ProbabilisticSolution,
@@ -51,7 +51,20 @@ pub fn explain_policy(
                 })
                 .unwrap_or(0.0),
         ),
-        successors: decision.map(|value| value.outcomes.clone()).unwrap_or_default(),
+        successors: decision
+            .map(|value| {
+                value
+                    .outcomes
+                    .iter()
+                    .map(|outcome| PolicyExplanationOutcome {
+                        probability: outcome.probability,
+                        next_state: outcome.next_state,
+                        reward: outcome.reward,
+                        goal: outcome.goal,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
         notes: vec![
             "Explanation is a projection of the canonical selected policy; alternative actions are not fabricated.".into(),
         ],
