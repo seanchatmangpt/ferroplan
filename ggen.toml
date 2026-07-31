@@ -21,10 +21,31 @@ sh = "http://www.w3.org/ns/shacl#"
 output_dir = "."
 
 [[generation.rules]]
-name = "full-planning-contracts"
-query = { file = ".ggen/ferroplan-v26.8.1/queries/contracts.rq" }
-template = { file = ".ggen/ferroplan-v26.8.1/templates/contracts.rs.tera" }
-output_file = "crates/ferroplan/src/full_planning/contracts.rs"
+name = "planning-rail-contract"
+query = { file = ".ggen/ferroplan-v26.8.1/queries/planning-rail.rq" }
+template = { file = ".ggen/ferroplan-v26.8.1/templates/fieldless-enum.rs.tera" }
+output_file = "crates/ferroplan/src/full_planning/generated/planning_rail.rs"
+mode = "Overwrite"
+
+[[generation.rules]]
+name = "policy-search-contract"
+query = { file = ".ggen/ferroplan-v26.8.1/queries/policy-search.rq" }
+template = { file = ".ggen/ferroplan-v26.8.1/templates/fieldless-enum.rs.tera" }
+output_file = "crates/ferroplan/src/full_planning/generated/policy_search.rs"
+mode = "Overwrite"
+
+[[generation.rules]]
+name = "standing-contract"
+query = { file = ".ggen/ferroplan-v26.8.1/queries/standing.rq" }
+template = { file = ".ggen/ferroplan-v26.8.1/templates/fieldless-enum.rs.tera" }
+output_file = "crates/ferroplan/src/full_planning/generated/standing.rs"
+mode = "Overwrite"
+
+[[generation.rules]]
+name = "risk-constraint-contract"
+query = { file = ".ggen/ferroplan-v26.8.1/queries/risk-constraint.rq" }
+template = { file = ".ggen/ferroplan-v26.8.1/templates/payload-enum.rs.tera" }
+output_file = "crates/ferroplan/src/full_planning/generated/risk_constraint.rs"
 mode = "Overwrite"
 
 [[generation.rules]]
