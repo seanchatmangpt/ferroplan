@@ -4,3 +4,4 @@ include!("solver/part03.rs");
 include!("solver/part04.rs");
 include!("solver/part05.rs");
 include!("solver/part06.rs");
+include!("solver/part07.rs");
