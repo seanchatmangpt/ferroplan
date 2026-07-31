@@ -1,6 +1,6 @@
 //! `ferroplan` — full-planning CLI with a PPDDL command family.
 
-use std::io::{BufRead, Read};
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -273,7 +273,9 @@ fn run_session(args: SessionArgs) -> Result<()> {
             .with_context(|| format!("parsing session command at line {}", line_number + 1))?;
         let output = match command {
             SessionCommand::Status => json!({"status": session.status()}),
-            SessionCommand::Decide => json!({"decision": session.decide()?, "status": session.status()}),
+            SessionCommand::Decide => {
+                json!({"decision": session.decide()?, "status": session.status()})
+            }
             SessionCommand::AwaitObservation => {
                 session.mark_awaiting_observation()?;
                 json!({"status": session.status()})
