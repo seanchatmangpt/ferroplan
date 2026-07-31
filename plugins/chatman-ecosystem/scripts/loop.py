@@ -327,6 +327,12 @@ def pending(project: str | None) -> int:
 def verify_receipt_envelope(envelope_path: str, receipt: str) -> None:
     """Verify `receipt` against a real MCP envelope via `verify_receipt`.
 
+    `envelope_path` of `-` reads the envelope JSON from stdin instead of a
+    file, so a tool result already in hand can be piped straight in rather
+    than transcribed to a throwaway file first (the gap CLAUDE.md calls out:
+    a workaround this script forced was a defect in this script, not a
+    permanent hand step).
+
     Raises SystemExit (same message style as the existing hex-format check)
     if the envelope cannot be read/parsed, the declared receipt does not
     match the envelope's own `receipt` field, the MCP call errors, or the
@@ -334,7 +340,10 @@ def verify_receipt_envelope(envelope_path: str, receipt: str) -> None:
     is never treated as success.
     """
     try:
-        envelope = json.loads(Path(envelope_path).read_text(encoding="utf-8"))
+        raw = sys.stdin.read() if envelope_path == "-" else Path(envelope_path).read_text(
+            encoding="utf-8"
+        )
+        envelope = json.loads(raw)
     except OSError as error:
         raise SystemExit(f"cannot read --envelope {envelope_path}: {error}") from error
     except json.JSONDecodeError as error:
@@ -432,6 +441,7 @@ def parser() -> argparse.ArgumentParser:
         required=True,
         help="Path to the JSON admission envelope returned by bind_plan_receipt/"
         "bind_allocation_receipt, whose `receipt` field must equal --receipt. "
+        "Pass `-` to read the envelope JSON from stdin instead of a file. "
         "Verified against the ferroplan-mcp verify_receipt tool before admission.",
     )
     command.add_argument("--plan-digest")

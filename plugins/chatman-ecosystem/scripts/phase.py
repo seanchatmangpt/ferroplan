@@ -285,7 +285,10 @@ def verify_receipt_envelope(envelope_path: str, receipt: str) -> None:
     is never treated as success.
     """
     try:
-        envelope = json.loads(Path(envelope_path).read_text(encoding="utf-8"))
+        raw = sys.stdin.read() if envelope_path == "-" else Path(envelope_path).read_text(
+            encoding="utf-8"
+        )
+        envelope = json.loads(raw)
     except OSError as error:
         raise SystemExit(f"cannot read --envelope {envelope_path}: {error}") from error
     except json.JSONDecodeError as error:
@@ -519,6 +522,7 @@ def parser() -> argparse.ArgumentParser:
         required=True,
         help="Path to the JSON admission envelope returned by bind_plan_receipt/"
         "bind_allocation_receipt, whose `receipt` field must equal --receipt. "
+        "Pass `-` to read the envelope JSON from stdin instead of a file. "
         "Verified against the ferroplan-mcp verify_receipt tool before transition.",
     )
     command.add_argument("--reason", required=True)
