@@ -121,6 +121,22 @@ pub struct PolicyVerificationReport {
     pub reason: Option<StandingReason>,
 }
 
+/// Common product envelope around a deterministic plan or probabilistic policy.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+pub struct FullPlanningEnvelope {
+    pub schema: String,
+    pub rail: PlanningRail,
+    pub observation_frontier_digest: String,
+    pub model_digest: String,
+    pub normalized_task_digest: Option<String>,
+    pub solver: String,
+    pub artifact_digest: String,
+    pub verifier_digest: Option<String>,
+    pub authority_boundary: String,
+    pub predecessor: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
