@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{ProbabilisticOptions, ProbabilisticSolution};
+use crate::{ppddl_model_identity, ProbabilisticOptions, ProbabilisticSolution};
 
-use super::{PolicyVerificationReport, RiskConstraint};
+use super::{PolicySearch, PolicyVerificationReport, RiskConstraint};
 
 const RECEIPT_SCHEMA: &str = "urn:chatman:ferroplan-policy-receipt:v1";
 const RECEIPT_DOMAIN: &[u8] = b"urn:chatman:ferroplan-policy-receipt:v1\0";
@@ -39,7 +39,11 @@ pub fn canonical_digest<T: Serialize>(value: &T) -> String {
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct PolicyReceipt {
     pub schema: String,
+    /// Source, configuration, and hard-constraint identity.
     pub model_digest: String,
+    /// Complete normalized reachable MDP projection identity.
+    pub normalized_mdp_digest: String,
+    pub solver: PolicySearch,
     pub policy_digest: String,
     pub verifier_digest: String,
     pub objective: crate::ProbabilisticObjective,
@@ -52,6 +56,8 @@ pub struct PolicyReceipt {
 struct ReceiptPayload<'a> {
     schema: &'a str,
     model_digest: &'a str,
+    normalized_mdp_digest: &'a str,
+    solver: PolicySearch,
     policy_digest: &'a str,
     verifier_digest: &'a str,
     objective: crate::ProbabilisticObjective,
@@ -67,29 +73,39 @@ pub fn bind_policy_receipt(
     solution: &ProbabilisticSolution,
     verifier: &PolicyVerificationReport,
     predecessor: Option<String>,
-) -> PolicyReceipt {
+) -> Result<PolicyReceipt, crate::PpddlError> {
     let model_digest = canonical_digest(&(domain, problem, options, constraints));
+    let normalized_mdp_digest = canonical_digest(&ppddl_model_identity(domain, problem, options)?);
+    let solver = if options.horizon.is_some() {
+        PolicySearch::BackwardInduction
+    } else {
+        PolicySearch::ValueIteration
+    };
     let policy_digest = canonical_digest(solution);
     let verifier_digest = canonical_digest(verifier);
     let receipt_digest = canonical_digest(&ReceiptPayload {
         schema: RECEIPT_SCHEMA,
         model_digest: &model_digest,
+        normalized_mdp_digest: &normalized_mdp_digest,
+        solver,
         policy_digest: &policy_digest,
         verifier_digest: &verifier_digest,
         objective: solution.objective,
         constraints,
         predecessor: &predecessor,
     });
-    PolicyReceipt {
+    Ok(PolicyReceipt {
         schema: RECEIPT_SCHEMA.into(),
         model_digest,
+        normalized_mdp_digest,
+        solver,
         policy_digest,
         verifier_digest,
         objective: solution.objective,
         constraints: constraints.to_vec(),
         predecessor,
         receipt_digest,
-    }
+    })
 }
 
 pub fn verify_policy_receipt(receipt: &PolicyReceipt) -> bool {
@@ -99,6 +115,8 @@ pub fn verify_policy_receipt(receipt: &PolicyReceipt) -> bool {
     canonical_digest(&ReceiptPayload {
         schema: RECEIPT_SCHEMA,
         model_digest: &receipt.model_digest,
+        normalized_mdp_digest: &receipt.normalized_mdp_digest,
+        solver: receipt.solver,
         policy_digest: &receipt.policy_digest,
         verifier_digest: &receipt.verifier_digest,
         objective: receipt.objective,
