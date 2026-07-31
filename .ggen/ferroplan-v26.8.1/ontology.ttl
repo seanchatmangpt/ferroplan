@@ -58,15 +58,16 @@ fp:MaximumUnsafeReachability a fp:EnumVariant ; fp:rustName "MaximumUnsafeReacha
 fp:MinimumExpectedReward a fp:EnumVariant ; fp:rustName "MinimumExpectedReward" ; fp:serdeName "minimum-expected-reward" ; fp:rustType "f64" ; fp:order 3 .
 fp:MaximumExpectedCost a fp:EnumVariant ; fp:rustName "MaximumExpectedCost" ; fp:serdeName "maximum-expected-cost" ; fp:rustType "f64" ; fp:order 4 .
 
-fp:CapRailSelection a fp:Capability ; fp:requirement "FR-001" ; fp:priority "P0" ; fp:status "IMPLEMENTED" ; fp:order 1 ; rdfs:label "Explicit deterministic/probabilistic rail selection" .
+fp:CapRailSelection a fp:Capability ; fp:requirement "FR-001" ; fp:priority "P0" ; fp:status "IMPLEMENTED_SOURCE" ; fp:order 1 ; rdfs:label "Explicit deterministic/probabilistic rail selection" .
 fp:CapPpddl a fp:Capability ; fp:requirement "FR-003" ; fp:priority "P0" ; fp:status "IMPLEMENTED_BASELINE" ; fp:order 2 ; rdfs:label "PPDDL parser, normalization, explicit MDP and oracle solvers" .
-fp:CapPolicySession a fp:Capability ; fp:requirement "FR-008" ; fp:priority "P0" ; fp:status "IMPLEMENTED" ; fp:order 3 ; rdfs:label "Persistent observable-state policy session" .
-fp:CapRisk a fp:Capability ; fp:requirement "FR-011" ; fp:priority "P0" ; fp:status "IMPLEMENTED" ; fp:order 4 ; rdfs:label "Hard risk constraints" .
-fp:CapVerifier a fp:Capability ; fp:requirement "FR-013" ; fp:priority "P0" ; fp:status "PARTIAL_ALIVE" ; fp:order 5 ; rdfs:label "Independent structural and quantitative policy verification" .
-fp:CapReceipt a fp:Capability ; fp:requirement "FR-019" ; fp:priority "P0" ; fp:status "IMPLEMENTED" ; fp:order 6 ; rdfs:label "BLAKE3 policy receipts and predecessor chains" .
+fp:CapPolicySession a fp:Capability ; fp:requirement "FR-008" ; fp:priority "P0" ; fp:status "IMPLEMENTED_SOURCE" ; fp:order 3 ; rdfs:label "Persistent observable-state policy session" .
+fp:CapRisk a fp:Capability ; fp:requirement "FR-011" ; fp:priority "P0" ; fp:status "IMPLEMENTED_SOURCE" ; fp:order 4 ; rdfs:label "Hard risk constraints" .
+fp:CapVerifier a fp:Capability ; fp:requirement "FR-013" ; fp:priority "P0" ; fp:status "PARTIAL_ALIVE_NO_REPLAY" ; fp:order 5 ; rdfs:label "Independent structural and quantitative policy verification" .
+fp:CapReceipt a fp:Capability ; fp:requirement "FR-019" ; fp:priority "P0" ; fp:status "IMPLEMENTED_SOURCE" ; fp:order 6 ; rdfs:label "BLAKE3 policy receipts and predecessor chains" .
 fp:CapLaoStar a fp:Capability ; fp:requirement "FR-006" ; fp:priority "P0" ; fp:status "PLANNED" ; fp:order 7 ; rdfs:label "LAO*-class partial-graph policy synthesis" .
-fp:CapCli a fp:Capability ; fp:requirement "FR-021" ; fp:priority "P0" ; fp:status "PLANNED" ; fp:order 8 ; rdfs:label "CLI parity" .
-fp:CapMcp a fp:Capability ; fp:requirement "FR-022" ; fp:priority "P0" ; fp:status "PLANNED" ; fp:order 9 ; rdfs:label "MCP parity" .
+fp:CapCli a fp:Capability ; fp:requirement "FR-021" ; fp:priority "P0" ; fp:status "IMPLEMENTED_SOURCE" ; fp:order 8 ; rdfs:label "CLI parity" .
+fp:CapMcp a fp:Capability ; fp:requirement "FR-022" ; fp:priority "P0" ; fp:status "IMPLEMENTED_SOURCE" ; fp:order 9 ; rdfs:label "MCP parity" .
+fp:CapReferenceDomains a fp:Capability ; fp:requirement "FR-027" ; fp:priority "P0" ; fp:status "IMPLEMENTED_SOURCE" ; fp:order 10 ; rdfs:label "Repository uncertainty and TCPS application-pipeline reference domains" .
 
 fp:PlannerNoActuationPolicy a odrl:Prohibition ;
   odrl:action odrl:execute ;
