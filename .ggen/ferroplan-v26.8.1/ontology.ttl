@@ -1,0 +1,74 @@
+@prefix fp: <urn:chatman:ferroplan:v26.8.1#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+
+fp:FullPlanningProduct a prov:Entity ;
+  dcterms:title "Ferroplan v26.8.1 Full Planning Under Uncertainty" ;
+  dcterms:hasVersion "26.8.1" ;
+  rdfs:comment "A proof-carrying planning product with separate deterministic PDDL and probabilistic PPDDL rails." .
+
+fp:ContractType a rdfs:Class .
+fp:Capability a rdfs:Class .
+fp:EnumVariant a rdfs:Class .
+fp:RustEnum a rdfs:Class .
+fp:RustStruct a rdfs:Class .
+
+fp:rustName a rdf:Property ; rdfs:range xsd:string .
+fp:rustType a rdf:Property ; rdfs:range xsd:string .
+fp:serdeName a rdf:Property ; rdfs:range xsd:string .
+fp:priority a rdf:Property ; rdfs:range xsd:string .
+fp:requirement a rdf:Property ; rdfs:range xsd:string .
+fp:status a rdf:Property ; rdfs:range xsd:string .
+fp:order a rdf:Property ; rdfs:range xsd:integer .
+fp:hasVariant a rdf:Property ; rdfs:range fp:EnumVariant .
+
+fp:PlanningRail a fp:RustEnum ; fp:rustName "PlanningRail" ; fp:order 1 ;
+  rdfs:comment "Selects the preserved deterministic or probabilistic semantic rail." ;
+  fp:hasVariant fp:PlanningRailDeterministic, fp:PlanningRailProbabilistic .
+fp:PlanningRailDeterministic a fp:EnumVariant ; fp:rustName "Deterministic" ; fp:serdeName "deterministic" ; fp:order 1 .
+fp:PlanningRailProbabilistic a fp:EnumVariant ; fp:rustName "Probabilistic" ; fp:serdeName "probabilistic" ; fp:order 2 .
+
+fp:PolicySearch a fp:RustEnum ; fp:rustName "PolicySearch" ; fp:order 2 ;
+  rdfs:comment "Selects reference or heuristic stochastic policy synthesis." ;
+  fp:hasVariant fp:PolicySearchAuto, fp:PolicySearchBackwardInduction, fp:PolicySearchValueIteration, fp:PolicySearchLaoStar .
+fp:PolicySearchAuto a fp:EnumVariant ; fp:rustName "Auto" ; fp:serdeName "auto" ; fp:order 1 .
+fp:PolicySearchBackwardInduction a fp:EnumVariant ; fp:rustName "BackwardInduction" ; fp:serdeName "backward-induction" ; fp:order 2 .
+fp:PolicySearchValueIteration a fp:EnumVariant ; fp:rustName "ValueIteration" ; fp:serdeName "value-iteration" ; fp:order 3 .
+fp:PolicySearchLaoStar a fp:EnumVariant ; fp:rustName "LaoStar" ; fp:serdeName "lao-star" ; fp:order 4 .
+
+fp:Standing a fp:RustEnum ; fp:rustName "Standing" ; fp:order 3 ;
+  rdfs:comment "Canonical six-value evidence standing." ;
+  fp:hasVariant fp:StandingPartialAlive, fp:StandingAlive, fp:StandingBlocked, fp:StandingBuildBroken, fp:StandingUnknown, fp:StandingUnsupported .
+fp:StandingPartialAlive a fp:EnumVariant ; fp:rustName "PartialAlive" ; fp:serdeName "PARTIAL_ALIVE" ; fp:order 1 .
+fp:StandingAlive a fp:EnumVariant ; fp:rustName "Alive" ; fp:serdeName "ALIVE" ; fp:order 2 .
+fp:StandingBlocked a fp:EnumVariant ; fp:rustName "Blocked" ; fp:serdeName "BLOCKED" ; fp:order 3 .
+fp:StandingBuildBroken a fp:EnumVariant ; fp:rustName "BuildBroken" ; fp:serdeName "BUILD_BROKEN" ; fp:order 4 .
+fp:StandingUnknown a fp:EnumVariant ; fp:rustName "Unknown" ; fp:serdeName "UNKNOWN" ; fp:order 5 .
+fp:StandingUnsupported a fp:EnumVariant ; fp:rustName "Unsupported" ; fp:serdeName "UNSUPPORTED" ; fp:order 6 .
+
+fp:RiskConstraint a fp:RustEnum ; fp:rustName "RiskConstraint" ; fp:order 4 ;
+  rdfs:comment "Hard quantitative constraints evaluated separately from reward." ;
+  fp:hasVariant fp:MinimumGoalProbability, fp:MaximumUnsafeReachability, fp:MinimumExpectedReward, fp:MaximumExpectedCost .
+fp:MinimumGoalProbability a fp:EnumVariant ; fp:rustName "MinimumGoalProbability" ; fp:serdeName "minimum-goal-probability" ; fp:rustType "f64" ; fp:order 1 .
+fp:MaximumUnsafeReachability a fp:EnumVariant ; fp:rustName "MaximumUnsafeReachability" ; fp:serdeName "maximum-unsafe-reachability" ; fp:rustType "f64" ; fp:order 2 .
+fp:MinimumExpectedReward a fp:EnumVariant ; fp:rustName "MinimumExpectedReward" ; fp:serdeName "minimum-expected-reward" ; fp:rustType "f64" ; fp:order 3 .
+fp:MaximumExpectedCost a fp:EnumVariant ; fp:rustName "MaximumExpectedCost" ; fp:serdeName "maximum-expected-cost" ; fp:rustType "f64" ; fp:order 4 .
+
+fp:CapRailSelection a fp:Capability ; fp:requirement "FR-001" ; fp:priority "P0" ; fp:status "IMPLEMENTED" ; fp:order 1 ; rdfs:label "Explicit deterministic/probabilistic rail selection" .
+fp:CapPpddl a fp:Capability ; fp:requirement "FR-003" ; fp:priority "P0" ; fp:status "IMPLEMENTED_BASELINE" ; fp:order 2 ; rdfs:label "PPDDL parser, normalization, explicit MDP and oracle solvers" .
+fp:CapPolicySession a fp:Capability ; fp:requirement "FR-008" ; fp:priority "P0" ; fp:status "IMPLEMENTED" ; fp:order 3 ; rdfs:label "Persistent observable-state policy session" .
+fp:CapRisk a fp:Capability ; fp:requirement "FR-011" ; fp:priority "P0" ; fp:status "IMPLEMENTED" ; fp:order 4 ; rdfs:label "Hard risk constraints" .
+fp:CapVerifier a fp:Capability ; fp:requirement "FR-013" ; fp:priority "P0" ; fp:status "PARTIAL_ALIVE" ; fp:order 5 ; rdfs:label "Independent structural and quantitative policy verification" .
+fp:CapReceipt a fp:Capability ; fp:requirement "FR-019" ; fp:priority "P0" ; fp:status "IMPLEMENTED" ; fp:order 6 ; rdfs:label "BLAKE3 policy receipts and predecessor chains" .
+fp:CapLaoStar a fp:Capability ; fp:requirement "FR-006" ; fp:priority "P0" ; fp:status "PLANNED" ; fp:order 7 ; rdfs:label "LAO*-class partial-graph policy synthesis" .
+fp:CapCli a fp:Capability ; fp:requirement "FR-021" ; fp:priority "P0" ; fp:status "PLANNED" ; fp:order 8 ; rdfs:label "CLI parity" .
+fp:CapMcp a fp:Capability ; fp:requirement "FR-022" ; fp:priority "P0" ; fp:status "PLANNED" ; fp:order 9 ; rdfs:label "MCP parity" .
+
+fp:PlannerNoActuationPolicy a odrl:Prohibition ;
+  odrl:action odrl:execute ;
+  odrl:target fp:FullPlanningProduct ;
+  rdfs:comment "Ferroplan synthesizes and verifies; it never receives implicit actuation authority." .
