@@ -93,11 +93,23 @@ def check_andon_guard() -> tuple[str, str]:
     return "BLOCKED", "overnight_autonomics.py is missing its andon guard -- the dirty-tree-silent-skip regression may have recurred"
 
 
+def check_gall_drift() -> tuple[str, str]:
+    from gall_drift_check import check as run_gall_drift_check
+
+    findings = run_gall_drift_check()
+    if not findings:
+        return "ALIVE", "every CE-GALL-*.json receipt cited in gall-checkpoints.md parses and matches its checkpoint's current prose standing"
+    summary = "; ".join(f"{f['status']}: {f['detail']}" for f in findings[:3])
+    more = f" (+{len(findings) - 3} more)" if len(findings) > 3 else ""
+    return "BLOCKED", f"{len(findings)} drift/gap finding(s) in gall-checkpoints.md vs receipts/: {summary}{more}"
+
+
 CHECKS = [
     ("cargo build --workspace", check_build),
     ("VAL real validation", check_val),
     ("ferroplan-mcp round trip", check_mcp),
     ("andon guard regression check", check_andon_guard),
+    ("gall-checkpoints ledger drift", check_gall_drift),
 ]
 
 
