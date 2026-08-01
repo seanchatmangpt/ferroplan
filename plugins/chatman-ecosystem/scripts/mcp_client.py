@@ -188,6 +188,19 @@ class McpClient:
             raise McpToolError(f"MCP `{method}` failed: {response['error']}")
         return response.get("result")
 
+    def list_tools(self, *, timeout: float | None = None) -> list[dict[str, Any]]:
+        """Return the raw `tools/list` result's `tools` array (name, description, inputSchema)."""
+        request_id = self._next_id
+        self._next_id += 1
+        self._write({"jsonrpc": "2.0", "id": request_id, "method": "tools/list", "params": {}})
+        response = self._read_response(request_id, timeout=timeout)
+        if "error" in response:
+            raise McpToolError(f"MCP `tools/list` failed: {response['error']}")
+        result = response.get("result")
+        if not isinstance(result, dict):
+            raise McpToolError(f"MCP `tools/list` returned an unexpected response: {response!r}")
+        return result.get("tools", [])
+
     def call_tool(self, name: str, arguments: dict[str, Any], *, timeout: float | None = None) -> dict[str, Any]:
         """Send `tools/call` for `name` with `arguments` and return the tool result.
 
