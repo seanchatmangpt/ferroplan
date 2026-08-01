@@ -17,6 +17,9 @@
 //! - [`solve`] — plan a deterministic domain + problem; returns a [`Solution`].
 //! - [`solve_ppddl`] — synthesize a bounded stochastic policy for PPDDL.
 //! - [`simulate_ppddl`] / [`validate_ppddl_policy`] — probabilistic execution receipts.
+//! - [`ppddl_model_identity`] — project the complete normalized reachable graph for receipts.
+//! - [`full_planning::plan`] — dispatch one typed deterministic/probabilistic request.
+//! - [`PolicySession`] — decide/observe/advance over a persistent probabilistic policy.
 //! - [`decompose`] — split and solve a temporal goal as ordered [`Contract`]s.
 //! - [`parse`] / [`parse_ppddl`] — fast syntax and structure feedback.
 //! - [`Session`] — ground once, replan many for mutable deterministic worlds.
@@ -76,6 +79,7 @@ pub mod viz;
 
 // orchestration + smart public API
 pub mod api;
+pub mod full_planning;
 pub mod planner;
 pub mod session;
 
@@ -83,13 +87,21 @@ pub use api::{
     decompose, parse, solve, Contract, Decomposition, DomainSummary, Metric, Mode, Options,
     ParseReport, Plan, ProblemSummary, Search, Solution, SolveError, Statistics, Step,
 };
+pub use full_planning::{
+    bind_policy_receipt, canonical_digest, explain_policy, plan as plan_full, verify_policy,
+    verify_policy_chain, verify_policy_receipt, ConstraintVerdict, FullPlanningRequest,
+    FullPlanningResult, PlanningRail, PolicyCounterexample, PolicyCounterexampleKind,
+    PolicyExplanation, PolicyExplanationOutcome, PolicyReceipt, PolicySearch, PolicySession,
+    PolicySessionError, PolicySessionPhase, PolicySessionStatus, PolicyVerificationReport,
+    RiskConstraint, Standing, StandingReason, ValueInterval,
+};
 pub use planner::{run_ff, run_planner};
 pub use ppddl::{
-    parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability,
-    PolicyDecision,
-    PolicyOutcome, PolicyValidation, PpddlError, PpddlParseReport, ProbabilisticObjective,
-    ProbabilisticState,
-    ProbabilisticOptions, ProbabilisticSolution, ProbabilisticStatistics, SimulationReport,
+    parse_ppddl, ppddl_model_identity, simulate_ppddl, solve_ppddl, validate_ppddl_policy,
+    InitialStateProbability, PolicyDecision, PolicyOutcome, PolicyValidation, PpddlError,
+    PpddlParseReport, ProbabilisticActionIdentity, ProbabilisticModelIdentity,
+    ProbabilisticObjective, ProbabilisticOptions, ProbabilisticSolution, ProbabilisticState,
+    ProbabilisticStatistics, ProbabilisticTransitionIdentity, SimulationReport,
 };
 pub use session::Session;
 pub use trace::{trace, StateSnapshot};

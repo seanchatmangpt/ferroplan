@@ -1,50 +1,19 @@
-//! `ferroplan-mcp` — a single Model Context Protocol server exposing the
-//! ferroplan planner, persistent self-hosting sessions, and Chatman
-//! admission receipts to an LLM agent, as 17 MCP tools:
+//! `ferroplan-mcp` — one MCP server for deterministic planning, PPDDL policy
+//! synthesis, persistent planning sessions, bounded allocation, and receipts.
 //!
-//! - Stateless planning: `solve`, `parse`, `validate`, `decompose` — the
-//!   README's bet made operational: the agent *authors and supervises* PDDL
-//!   and the planner runs deterministically.
-//! - Persistent repository minds: `session_open`, `session_observe`,
-//!   `session_set_goal`, `session_think`, `session_advance`,
-//!   `session_status`, `session_close`, `cmca_allocate`,
-//!   `cmca_allocate_recursive` — ground once, observe admitted drift,
-//!   replay the remaining plan, and search only when the suffix no longer
-//!   stands. `cmca_allocate_recursive` chains a sequence of admitted CMCA
-//!   allocations, each depth binding the previous depth's real receipt
-//!   digest.
-//! - Canonical evidence admission: `canonical_digest`, `bind_allocation_receipt`,
-//!   `bind_plan_receipt`, `verify_receipt` — bind the exact outputs of the
-//!   above authorities into replayable BLAKE3 envelopes with explicit
-//!   predecessor commitments. This part does not plan, allocate, validate,
-//!   or actuate.
+//! The server exposes four independently bounded tool groups:
 //!
-//! Transport: MCP stdio via the `rmcp` SDK (async, tokio multi-thread
-//! runtime — required by the session tools' `session_think`, which runs its
-//! CPU-bound search via `tokio::task::block_in_place` while holding a
-//! per-session lock; see `session.rs`). Tool schemas are derived from
-//! `schemars::JsonSchema` on each request struct rather than hand-written
-//! JSON Schema literals. `resources/*` exposes one resource per tool (17
-//! total), under a single unified `ferroplan://tools/<name>` URI scheme,
-//! with the tool's semantic description pulled from
-//! `plugins/chatman-ecosystem/ontology/ferroplan-domain.ttl` (statically
-//! extracted at build time into per-module `*_ONTOLOGY` constants, embedded
-//! via `include_str!` — see `build.rs` for why static extraction was chosen
-//! over a live SPARQL engine; it still generates three separate per-module
-//! files, one per tool group, which this binary's `session`/`admission`
-//! modules `include!` directly).
+//! - deterministic stateless planning;
+//! - persistent deterministic Session minds and CMCA allocation;
+//! - canonical admission receipts;
+//! - probabilistic planning, policy sessions, verification, simulation, and
+//!   policy receipts.
 //!
-//! This binary previously shipped as three separate binaries
-//! (`ferroplan-mcp`, `ferroplan-session-mcp`, `chatman-admission-mcp`),
-//! merged into one per the `rmcp`-supported multi-router pattern: each tool
-//! group lives in its own module with its own `#[tool_router(router =
-//! <name>, vis = "pub")]` `impl Ferroplan` block (`main_router` here,
-//! `session::session_router`, `admission::admission_router`), and the
-//! merged constructor sums the three `ToolRouter`s (`ToolRouter` implements
-//! `Add`/`AddAssign` as a plain map-union merge by tool name — safe here
-//! since no tool name collides across the three original servers).
+//! Tool descriptions are projected from `ferroplan-domain.ttl` at build time.
+//! Planning and verification remain separate from actuation authority.
 
 mod admission;
+mod full_planning;
 mod result;
 mod session;
 
@@ -62,14 +31,6 @@ use serde_json::json;
 
 use crate::result::to_result;
 
-// Static per-tool semantic descriptions for this module's own four
-// (stateless planning) tools, sourced from
-// `plugins/chatman-ecosystem/ontology/ferroplan-domain.ttl`'s `rdfs:comment`
-// annotations on the `fp:McpTool` instances for this server. Generated at
-// compile time by `build.rs` (not a live TTL/SPARQL parse at startup)
-// because the ontology is static per release and a build-time/embedded
-// constant is simpler and cheaper than standing up a SPARQL engine for
-// four fixed strings — see build.rs for the extraction logic.
 include!(concat!(env!("OUT_DIR"), "/main_ontology.rs"));
 
 const MAIN_RESOURCE_TOOLS: &[&str] = &["solve", "parse", "validate", "decompose"];
@@ -87,13 +48,8 @@ fn main_ontology_comment(name: &str) -> Option<&'static str> {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SolveRequest {
-    /// PDDL domain source
     domain: String,
-    /// PDDL problem source
     problem: String,
-    /// Optional solver Options: mode (auto|ff|partition|pddl3|temporal), search
-    /// (auto|ehc|best-first|ehc-then-best-first), weight_g, weight_h, threads,
-    /// max_evaluated, optimize. Omitted fields use defaults.
     #[serde(default)]
     options: Option<ferroplan::Options>,
 }
@@ -101,30 +57,22 @@ struct SolveRequest {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ParseRequest {
-    /// A PDDL domain OR problem source string.
     pddl: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ValidateRequest {
-    /// PDDL domain source
     domain: String,
-    /// PDDL problem source
     problem: String,
-    /// Plan to check: classical `step N: (action args)` lines, or a temporal
-    /// `t: (action args) [dur]` plan.
     plan: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct DecomposeRequest {
-    /// PDDL domain source (durative actions)
     domain: String,
-    /// PDDL problem source
     problem: String,
-    /// Optional solver Options (see `solve`).
     #[serde(default)]
     options: Option<ferroplan::Options>,
 }
@@ -133,13 +81,18 @@ struct DecomposeRequest {
 struct Ferroplan {
     tool_router: ToolRouter<Self>,
     session_state: session::SessionState,
+    policy_session_state: full_planning::PolicySessionState,
 }
 
 impl Ferroplan {
     fn new() -> Self {
         Self {
-            tool_router: Self::tool_router() + Self::session_router() + Self::admission_router(),
+            tool_router: Self::tool_router()
+                + Self::session_router()
+                + Self::admission_router()
+                + Self::full_planning_router(),
             session_state: session::SessionState::default(),
+            policy_session_state: full_planning::PolicySessionState::default(),
         }
     }
 }
@@ -147,33 +100,18 @@ impl Ferroplan {
 #[tool_router]
 impl Ferroplan {
     #[tool(
-        description = "Plan a PDDL domain + problem with ferroplan and return the structured \
-            Solution (typed steps, makespan/metric, statistics). Handles STRIPS, typing, ADL, \
-            numeric fluents, derived axioms, PDDL3 preferences, and PDDL2.1 temporal (durative \
-            actions) — mode is auto-detected. A solved:false result is a normal answer, not an \
-            error."
+        description = "Plan a deterministic PDDL domain + problem and return a structured Solution."
     )]
     fn solve(&self, Parameters(req): Parameters<SolveRequest>) -> Result<CallToolResult, McpError> {
         to_result(self.do_solve(req))
     }
 
-    #[tool(
-        description = "Syntax-check a PDDL source string and return a structure summary \
-            WITHOUT grounding or solving — fast feedback while authoring. Auto-detects domain \
-            vs problem; reports ok/error (with a line number) plus name, requirements, and \
-            counts (types/predicates/actions, or objects/init/goal/metric). Use to catch PDDL \
-            mistakes before `solve`."
-    )]
+    #[tool(description = "Syntax-check one PDDL source and return a structure summary.")]
     fn parse(&self, Parameters(req): Parameters<ParseRequest>) -> Result<CallToolResult, McpError> {
         to_result(as_value(&ferroplan::parse(&req.pddl)))
     }
 
-    #[tool(
-        description = "Independently validate a plan against a domain + problem under \
-            ferroplan's own execution semantics (auto-detects classical vs temporal). Returns \
-            whether the plan is executable and goal-reaching, with a reason if not. Use to \
-            check a plan you wrote or one solve produced."
-    )]
+    #[tool(description = "Independently validate a deterministic or temporal plan.")]
     fn validate(
         &self,
         Parameters(req): Parameters<ValidateRequest>,
@@ -181,13 +119,7 @@ impl Ferroplan {
         to_result(self.do_validate(req))
     }
 
-    #[tool(
-        description = "Decompose a temporal goal too big for one-shot search into ordered, \
-            individually-solved contracts, stitched into one validated plan. Returns the \
-            inspectable Decomposition: each contract's named sub-goal, sub-plan, and timeline \
-            offset, plus the stitched plan. A goal that can't be split falls back to a single \
-            monolithic contract (reported honestly)."
-    )]
+    #[tool(description = "Decompose and solve a temporal goal as ordered contracts.")]
     fn decompose(
         &self,
         Parameters(req): Parameters<DecomposeRequest>,
@@ -203,11 +135,6 @@ impl Ferroplan {
         as_value(&sol)
     }
 
-    /// A plan that does not stand is a normal answer (`valid: false` with a
-    /// reason), NOT an error: only a domain/problem/plan that cannot be parsed
-    /// or grounded — the `?` on `validate_plan` below — is an error result.
-    /// `reason` carries `Validity::Invalid`'s inner string verbatim; the
-    /// former "Plan invalid: " prefix was presentation, not data.
     fn do_validate(&self, req: ValidateRequest) -> Result<serde_json::Value, String> {
         let (valid, reason) =
             match ferroplan::plan::validate_plan(&req.domain, &req.problem, &req.plan)? {
@@ -243,15 +170,11 @@ impl ServerHandler for Ferroplan {
             env!("CARGO_PKG_VERSION"),
         ))
         .with_instructions(
-            "Author a PDDL domain + problem, then call `solve` (or `decompose` for a goal too \
-             big for one-shot search) and read the structured result. `validate` independently \
-             checks a plan. Open a persistent repository mind with `session_open` and drive it \
-             via `session_observe`/`session_set_goal`/`session_think`/`session_advance`/\
-             `session_status`/`session_close`; `cmca_allocate` runs the pinned Chatman \
-             Multifractal Cascade Allocator. Bind evidence from any of the above into \
-             replayable BLAKE3 envelopes with `canonical_digest`/`bind_allocation_receipt`/\
-             `bind_plan_receipt`/`verify_receipt`. Read `ferroplan://tools/<name>` resources \
-             for semantic (ontology-sourced) descriptions of each tool.",
+            "Use solve/parse/validate/decompose for deterministic PDDL. Use parse_ppddl/\
+             solve_ppddl/validate_ppddl_policy/simulate_ppddl/explain_ppddl_policy for \
+             probabilistic planning. Policy sessions require explicit observations and refuse \
+             impossible outcomes. Receipt tools bind evidence but never authorize actuation. \
+             Read ferroplan://tools/<name> for ontology-sourced semantics.",
         )
     }
 
@@ -268,8 +191,7 @@ impl ServerHandler for Ferroplan {
                     format!("{name} (semantic summary)"),
                 )
                 .with_description(format!(
-                    "Ontology-sourced semantics for the `{name}` tool, from \
-                     ferroplan-domain.ttl."
+                    "Ontology-sourced semantics for the `{name}` tool, from ferroplan-domain.ttl."
                 ))
                 .with_mime_type("application/json")
             })
@@ -293,6 +215,7 @@ impl ServerHandler for Ferroplan {
         let ontology_comment = main_ontology_comment(name)
             .or_else(|| session::ontology_comment(name))
             .or_else(|| admission::ontology_comment(name))
+            .or_else(|| full_planning::ontology_comment(name))
             .ok_or_else(|| McpError::resource_not_found(request.uri.clone(), None))?;
         let body = serde_json::json!({
             "tool": name,
@@ -306,27 +229,21 @@ impl ServerHandler for Ferroplan {
     }
 }
 
-/// All 17 tool names across the three merged tool groups, in a stable order
-/// (stateless planning, then session, then admission).
 fn all_tool_names() -> Vec<&'static str> {
     MAIN_RESOURCE_TOOLS
         .iter()
         .chain(session::RESOURCE_TOOLS)
         .chain(admission::RESOURCE_TOOLS)
+        .chain(full_planning::RESOURCE_TOOLS)
         .copied()
         .collect()
 }
 
-/// Retained generic pretty-printer, distinct from `crate::result::pretty`
-/// (which is infallible and `Value`-specific). Kept as the stateless-planning
-/// group's text-rendering helper.
 #[allow(dead_code)]
 fn pretty<T: serde::Serialize>(v: &T) -> Result<String, String> {
     serde_json::to_string_pretty(v).map_err(|e| e.to_string())
 }
 
-/// Reflect a serializable planner output into the `Result<Value, String>`
-/// tool-body convention `crate::result::to_result` consumes.
 fn as_value<T: serde::Serialize>(v: &T) -> Result<serde_json::Value, String> {
     serde_json::to_value(v).map_err(|e| e.to_string())
 }

@@ -1,0 +1,7 @@
+PREFIX fp: <urn:chatman:ferroplan:v26.8.1#>
+SELECT ?enum_name ?variant_order ?variant_name ?serde_name ?rust_type
+WHERE {
+  fp:RiskConstraint fp:rustName ?enum_name ; fp:hasVariant ?variant .
+  ?variant fp:rustName ?variant_name ; fp:serdeName ?serde_name ; fp:rustType ?rust_type ; fp:order ?variant_order .
+}
+ORDER BY ?variant_order

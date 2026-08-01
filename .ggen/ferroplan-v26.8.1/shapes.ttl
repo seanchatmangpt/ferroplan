@@ -1,0 +1,22 @@
+@prefix fp: <urn:chatman:ferroplan:v26.8.1#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+fp:RustEnumShape a sh:NodeShape ;
+  sh:targetClass fp:RustEnum ;
+  sh:property [ sh:path fp:rustName ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+  sh:property [ sh:path fp:hasVariant ; sh:minCount 1 ; sh:class fp:EnumVariant ] .
+
+fp:EnumVariantShape a sh:NodeShape ;
+  sh:targetClass fp:EnumVariant ;
+  sh:property [ sh:path fp:rustName ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+  sh:property [ sh:path fp:serdeName ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+  sh:property [ sh:path fp:order ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ] .
+
+fp:CapabilityShape a sh:NodeShape ;
+  sh:targetClass fp:Capability ;
+  sh:property [ sh:path fp:requirement ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^FR-[0-9]{3}$" ] ;
+  sh:property [ sh:path fp:priority ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P0" "P1" "P2") ] ;
+  sh:property [ sh:path fp:status ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+  sh:property [ sh:path rdfs:label ; sh:minCount 1 ; sh:maxCount 1 ] .

@@ -1,0 +1,11 @@
+# Ferroplan v26.8.1 generated capability matrix
+
+Generated from `.ggen/ferroplan-v26.8.1/ontology.ttl` by `ggen sync run`.
+
+| Requirement | Priority | Standing | Capability |
+|---|---|---|---|
+{% for row in results %}| {{ row.requirement }} | {{ row.priority }} | {{ row.status }} | {{ row.label }} |
+{% endfor %}
+
+`IMPLEMENTED` means source exists in this branch. It does not imply compiled,
+executed, independently replayed, or release-level `ALIVE` standing.
