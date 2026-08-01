@@ -11,7 +11,12 @@ run outside Claude Code entirely. This script is that loop:
 1. Load an agent definition (`agents/<name>.md` frontmatter + system prompt).
 2. List `ferroplan-mcp`'s tools (via McpClient.list_tools) and keep only the
    ones the agent's frontmatter `tools:` allows, converting each MCP
-   `inputSchema` into an OpenAI `function` tool schema.
+   `inputSchema` into an OpenAI `function` tool schema. Also lists lumen's
+   real semantic-search MCP server's tools (health_check/index_status/
+   semantic_search) and merges them in, unconditionally (read-only, not
+   gated by the agent's ferroplan-specific allowlist) unless `--no-lumen`
+   is passed -- so Gemma can ground generated PDDL/Mermaid/docs in real
+   repository symbols instead of inventing them.
 3. Run the OpenAI-style client-side tool loop against TurboFieldfareServer's
    `/v1/chat/completions` (see docs/OPENAI_SERVER.md `## Tool calls`):
    send tools -> on `finish_reason == "tool_calls"` execute each call against
@@ -47,6 +52,14 @@ AGENTS_DIR = Path(__file__).resolve().parent.parent / "agents"
 DEFAULT_MODEL_BASE_URL = "http://127.0.0.1:8080/v1"
 DEFAULT_MODEL_NAME = "gemma-4-26b-a4b-it"
 MAX_TOOL_ROUNDS = 8
+
+# Real, local semantic-code-search MCP server (same one available to Claude
+# Code itself), wired in so Gemma can ground generated PDDL/Mermaid/docs in
+# real repository symbols and structure instead of inventing them -- read
+# only, always safe to offer regardless of an agent's ferroplan-mcp
+# frontmatter allowlist (see LUMEN_TOOLS below).
+LUMEN_LAUNCHER = Path(__file__).resolve().parent / "run-lumen-mcp.sh"
+LUMEN_TOOLS = {"health_check", "index_status", "semantic_search"}
 
 # Real, tool-validated ferroplan PDDL fixture -- the exact domain/problem
 # `crates/ferroplan-mcp/tests/dogfood_chain.rs` (lines 57-59) exercises
@@ -174,6 +187,26 @@ def mcp_tools_as_openai_functions(client: McpClient, allowed: set[str]) -> list[
     return functions
 
 
+def _build_tool_routing(
+    ferroplan_mcp: McpClient, allowed: set[str],
+    lumen_mcp: McpClient | None,
+) -> tuple[list[dict[str, Any]], dict[str, McpClient]]:
+    """Merge ferroplan-mcp's allowed tools with lumen's real semantic-search
+    tools (always offered when a lumen client is passed -- read-only, not
+    gated by an agent's ferroplan-specific frontmatter allowlist) into one
+    OpenAI-function list, plus a name -> client map so each tool call gets
+    dispatched to the MCP server that actually owns it."""
+    tools = mcp_tools_as_openai_functions(ferroplan_mcp, allowed)
+    routing = {t["function"]["name"]: ferroplan_mcp for t in tools}
+
+    if lumen_mcp is not None:
+        lumen_tools = mcp_tools_as_openai_functions(lumen_mcp, LUMEN_TOOLS)
+        tools.extend(lumen_tools)
+        routing.update({t["function"]["name"]: lumen_mcp for t in lumen_tools})
+
+    return tools, routing
+
+
 def run_agent_loop(
     agent_name: str,
     user_task: str,
@@ -182,6 +215,7 @@ def run_agent_loop(
     model: str = DEFAULT_MODEL_NAME,
     watch: bool = False,
     ocel_path: Path | None = None,
+    with_lumen: bool = True,
 ) -> dict[str, Any]:
     """Runs the full tool-calling loop once and returns
     {"answer": str, "tool_calls": [...]} -- the trace of every MCP call made
@@ -193,7 +227,13 @@ def run_agent_loop(
     (session/agent/model/tool objects, llm_completion/tool_call events) and
     written to `ocel_path` (default `logs/gemma-<agent>-<pid>.ocel.json`)
     whether or not `watch` is set -- OCEL is the durable trace, `watch` is
-    just its live tail."""
+    just its live tail.
+
+    `with_lumen=True` (default) also wires in lumen's real semantic-search
+    MCP server (the same one available to Claude Code itself) alongside
+    ferroplan-mcp -- read-only, offered regardless of the agent's
+    frontmatter tool allowlist, so Gemma can ground generated PDDL/Mermaid/
+    docs in real repository symbols instead of inventing them."""
     from openai import OpenAI
 
     agent = load_agent(agent_name)
@@ -221,8 +261,12 @@ def run_agent_loop(
 
     emit(f"[{agent_name}] task: {user_task}")
 
-    with McpClient() as mcp:
-        tools = mcp_tools_as_openai_functions(mcp, agent.allowed_tools)
+    from contextlib import ExitStack
+
+    with ExitStack() as stack:
+        mcp = stack.enter_context(McpClient())
+        lumen_mcp = stack.enter_context(McpClient(launcher=LUMEN_LAUNCHER)) if with_lumen else None
+        tools, tool_routing = _build_tool_routing(mcp, agent.allowed_tools, lumen_mcp)
         emit(f"[{agent_name}] {len(tools)} tools available: {', '.join(t['function']['name'] for t in tools)}")
 
         # Seed a real, tool-validated session before the model ever sees a
@@ -292,9 +336,11 @@ def run_agent_loop(
             for call in choice.message.tool_calls or []:
                 arguments = json.loads(call.function.arguments or "{}")
                 emit(f"[{agent_name}] -> calling {call.function.name}({arguments})")
-                log.object("tool", call.function.name, source="ferroplan-mcp")
+                target_client = tool_routing.get(call.function.name, mcp)
+                source_label = "lumen" if call.function.name in LUMEN_TOOLS else "ferroplan-mcp"
+                log.object("tool", call.function.name, source=source_label)
                 try:
-                    result = mcp.call_tool(call.function.name, arguments)
+                    result = target_client.call_tool(call.function.name, arguments)
                     content = json.dumps(tool_structured_result(result))
                     emit(f"[{agent_name}] <- {call.function.name} ok: {content[:200]}")
                 except McpToolError as error:
@@ -342,7 +388,7 @@ def build_agent_card(agent: AgentDefinition, *, url: str) -> dict[str, Any]:
     }
 
 
-def serve(agent_name: str, port: int, *, base_url: str, model: str) -> None:
+def serve(agent_name: str, port: int, *, base_url: str, model: str, with_lumen: bool = True) -> None:
     from fastapi import FastAPI
     from pydantic import BaseModel
     import uvicorn
@@ -359,7 +405,7 @@ def serve(agent_name: str, port: int, *, base_url: str, model: str) -> None:
 
     @app.post("/tasks")
     def submit_task(task: TaskRequest) -> dict[str, Any]:
-        result = run_agent_loop(agent_name, task.message, base_url=base_url, model=model, watch=True)
+        result = run_agent_loop(agent_name, task.message, base_url=base_url, model=model, watch=True, with_lumen=with_lumen)
         return {
             "status": "completed",
             "artifacts": [{"type": "text", "text": result["answer"]}],
@@ -381,12 +427,14 @@ def main() -> None:
     run_parser.add_argument("--model", default=DEFAULT_MODEL_NAME)
     run_parser.add_argument("--watch", action="store_true", help="print each round live as it happens")
     run_parser.add_argument("--ocel", type=Path, default=None, help="OCEL 2.0 JSON log output path")
+    run_parser.add_argument("--no-lumen", action="store_true", help="disable lumen semantic-search tools")
 
     serve_parser = sub.add_parser("serve", help="A2A HTTP server for one agent")
     serve_parser.add_argument("agent")
     serve_parser.add_argument("--port", type=int, default=9001)
     serve_parser.add_argument("--base-url", default=DEFAULT_MODEL_BASE_URL)
     serve_parser.add_argument("--model", default=DEFAULT_MODEL_NAME)
+    serve_parser.add_argument("--no-lumen", action="store_true", help="disable lumen semantic-search tools")
 
     args = parser.parse_args()
 
@@ -398,10 +446,11 @@ def main() -> None:
             model=args.model,
             watch=args.watch,
             ocel_path=args.ocel,
+            with_lumen=not args.no_lumen,
         )
         print(json.dumps(result, indent=2))
     elif args.command == "serve":
-        serve(args.agent, args.port, base_url=args.base_url, model=args.model)
+        serve(args.agent, args.port, base_url=args.base_url, model=args.model, with_lumen=not args.no_lumen)
 
 
 if __name__ == "__main__":
