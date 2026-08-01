@@ -24,3 +24,6 @@ book/book/
 
 # transient overnight-autonomics run reports/OCEL logs (regenerated every run)
 plugins/chatman-ecosystem/logs/
+
+# uv-managed venv for the plugin's CLI-tier scripts (uv.lock IS committed)
+plugins/chatman-ecosystem/.venv/

@@ -5,15 +5,40 @@
 #
 # Runtime dependency policy
 # -------------------------
-# The human-facing CLI layer uses typer. The *hook* path must not: hooks are the
-# protected-actuation fence, they are invoked as bare `python3 loop.py hook` by
-# the Claude Code runtime, and a missing third-party import there would take the
-# fence down rather than merely degrade a command. Scripts on the hook path
-# therefore dispatch `hook` from sys.argv before importing typer.
+# The human-facing CLI layer uses typer, dspy, blake3, fastapi/uvicorn (the
+# gemma_swarm.py A2A server), and pm4py (conformance_check.py). The *hook*
+# path must not use any of these: hooks are the protected-actuation fence,
+# they are invoked as bare `python3 loop.py hook` by the Claude Code runtime,
+# and a missing third-party import there would take the fence down rather
+# than merely degrade a command. Scripts on the hook path therefore dispatch
+# `hook` from sys.argv before importing anything third-party.
 #
-#   runtime (CLI only): typer
+#   runtime (CLI only): typer, dspy, blake3, fastapi, uvicorn, pm4py
 #   runtime (hooks):    standard library only
 #   development:        pytest, ruff
+#
+# `uv` manages this dependency set for reproducibility (`uv lock` / `uv run`
+# below) without turning this plugin directory into an installable package --
+# still no [build-system] table.
+
+[project]
+name = "chatman-ecosystem-scripts"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "typer",
+    "dspy",
+    "blake3",
+    "fastapi",
+    "uvicorn",
+    "pm4py",
+]
+
+# Not an installable package -- no [build-system] above. Tells uv to manage
+# this pyproject.toml's dependency set (lock/sync/run) without trying to
+# build/install this directory itself as a wheel.
+[tool.uv]
+package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
