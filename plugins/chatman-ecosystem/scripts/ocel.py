@@ -24,6 +24,7 @@ def _now_iso() -> str:
 class OcelLog:
     def __init__(self) -> None:
         self._object_types: dict[str, set[str]] = {}
+        self._event_types: dict[str, set[str]] = {}
         self._objects: dict[str, dict[str, Any]] = {}
         self._events: list[dict[str, Any]] = []
         self._next_event_id = 1
@@ -51,6 +52,7 @@ class OcelLog:
         """Log one event. `relationships` is a list of (object_id, qualifier)."""
         event_id = f"e{self._next_event_id}"
         self._next_event_id += 1
+        self._event_types.setdefault(event_type, set()).update(attributes.keys())
         self._events.append(
             {
                 "id": event_id,
@@ -74,7 +76,13 @@ class OcelLog:
                 }
                 for type_name, attrs in self._object_types.items()
             ],
-            "eventTypes": sorted({event["type"] for event in self._events}),
+            "eventTypes": [
+                {
+                    "name": type_name,
+                    "attributes": [{"name": attr, "type": "string"} for attr in sorted(attrs)],
+                }
+                for type_name, attrs in self._event_types.items()
+            ],
             "objects": list(self._objects.values()),
             "events": self._events,
         }

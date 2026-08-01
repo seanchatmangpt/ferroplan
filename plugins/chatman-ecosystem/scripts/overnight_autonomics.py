@@ -173,7 +173,76 @@ def consume_wasm4pm(cycle_dir: Path) -> dict[str, Any]:
         discoveries.append({"log": log_path.name, "dfg": result.get("stdout", "").strip()})
 
     (cycle_dir / "discovered_dfgs.json").write_text(json.dumps(discoveries, indent=2))
-    return {"action": "wpm mining discover --algo ocdfg", "logs_analyzed": len(logs)}
+    return {"action": "wpm mining discover --algo ocdfg", "logs_analyzed": len(logs), "discoveries": discoveries}
+
+
+def _check_quality_regression(ocel_path: Path) -> str | None:
+    """Extends Phase 0's andon-on-defect from git-tree hygiene to actual
+    verification-quality hygiene: planner_benchmark.py already records
+    determinism_verified and VAL validity per trial in its OCEL log -- this
+    is the first place anything reads those flags and acts on them, rather
+    than leaving them to sit unread in a log file."""
+    if not ocel_path.exists():
+        return None
+    try:
+        data = json.loads(ocel_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    for event in data.get("events", []):
+        if event.get("type") != "trial":
+            continue
+        attrs = {a["name"]: a["value"] for a in event.get("attributes", [])}
+        if attrs.get("outcome") == "solved" and attrs.get("determinism_verified") is False:
+            return (
+                f"ANDON: planner_benchmark trial in {ocel_path.name} reported solved=true "
+                "but determinism_verified=false -- ferroplan's own solve is non-deterministic "
+                "on a real problem, halting the loop instead of averaging it away"
+            )
+    return None
+
+
+def consume_pm4py(cycle_dir: Path, wasm4pm_discoveries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Real conformance checking via already-installed pm4py (no new
+    install, no MCP server) -- closes the gap consume_wasm4pm alone leaves
+    open: discovery without ever scoring conformance/fitness against a
+    model. Also cross-checks wasm4pm's and pm4py's independently-discovered
+    directly-follows relations on the same logs -- a real two-engine
+    agreement signal, not hardcoded. Agreement is checked by simple string
+    containment of pm4py's own "src->dst" pairs in wasm4pm's raw DFG text
+    output -- an honest, approximate check (wasm4pm's own output format is
+    not a stable structured contract here), not a formal graph diff."""
+    logs = sorted(OCEL_LOG_DIR.glob("*.ocel.json")) if OCEL_LOG_DIR.exists() else []
+    wasm4pm_by_log = {entry["log"]: entry.get("dfg", "") for entry in wasm4pm_discoveries}
+
+    results = []
+    for log_path in logs:
+        result = run(
+            [sys.executable, str(SCRIPTS_DIR / "conformance_check.py"), "check", str(log_path)],
+            cwd=SCRIPTS_DIR, timeout=60,
+        )
+        try:
+            conformance = json.loads(result.get("stdout") or "{}")
+        except json.JSONDecodeError:
+            conformance = {"error": "conformance_check.py did not return valid JSON", "stderr": result.get("stderr", "")[-500:]}
+
+        pairs = [
+            pair
+            for edges in conformance.get("directly_follows_by_object_type", {}).values()
+            for pair in edges
+        ]
+        wasm4pm_text = wasm4pm_by_log.get(log_path.name, "")
+        dfg_agreement = all(pair.replace("->", " ").lower() in wasm4pm_text.lower() for pair in pairs) if pairs else None
+
+        results.append({
+            "log": log_path.name,
+            "fitness": conformance.get("conformance_diagnostics", {}).get("fitness"),
+            "directly_follows_pairs": pairs,
+            "dfg_agreement": dfg_agreement,
+        })
+
+    (cycle_dir / "pm4py_conformance.json").write_text(json.dumps(results, indent=2))
+    return {"action": "conformance_check.py (pm4py, real discovery + conformance)", "logs_analyzed": len(logs), "results": results}
 
 
 def _truncate(result: dict[str, Any]) -> dict[str, Any]:
@@ -213,10 +282,19 @@ def run_cycle(cycle_number: int) -> dict[str, Any]:
             sys.exit(1)
         elif role == "produce" and name == "ferroplan":
             entry["generative"] = produce_ferroplan(config["path"], cycle_dir)
+            quality_message = _check_quality_regression(Path(entry["generative"].get("ocel_log", "")))
+            if quality_message:
+                entry["generative"]["andon"] = quality_message
+                cycle["repos"][name] = entry
+                print(f"[overnight] {quality_message}", flush=True)
+                cycle_json_path = REPORT_DIR / f"cycle-{cycle_number:03d}.json"
+                cycle_json_path.write_text(json.dumps(cycle, indent=2, default=str))
+                sys.exit(1)
         elif role == "produce" and name == "ggen":
             entry["generative"] = produce_ggen(config["path"], cycle_dir)
         elif role == "consume" and name == "wasm4pm":
             entry["generative"] = consume_wasm4pm(cycle_dir)
+            entry["generative"]["pm4py"] = consume_pm4py(cycle_dir, entry["generative"].get("discoveries", []))
         elif role == "finish" and name == "unibit":
             entry["generative"] = finish_unibit(cycle_dir)
         else:

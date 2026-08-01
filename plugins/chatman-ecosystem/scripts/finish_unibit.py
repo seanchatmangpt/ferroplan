@@ -26,6 +26,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -33,10 +34,30 @@ import dspy
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mustar_agent import configure_gemma  # noqa: E402
+from mcp_client import McpClient, tool_structured_result  # noqa: E402
+from ocel import OcelLog  # noqa: E402
 
 WORKTREE = Path.home() / "unibit-overnight-worktree"
 MAX_ERROR_CHARS = 6000
 MAX_FILE_CHARS = 20000
+OCEL_LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
+
+
+def _bind_attempt_receipt(
+    mcp: McpClient, *, run_id: str, attempt: int, fix: dict[str, Any],
+    previous_receipt: str | None,
+) -> str:
+    """Same canonical_digest chaining mechanic as mustar_agent.py's
+    `_bind_attempt_receipt` -- folds finish_unibit's real build-fix attempts
+    into the same self-observability substrate every other producer tonight
+    already uses, instead of being visible only via git log."""
+    digest_input = {
+        "run_id": run_id,
+        "attempt": attempt,
+        "fix_digest": tool_structured_result(mcp.call_tool("canonical_digest", {"value": fix})),
+        "previous_receipt": previous_receipt,
+    }
+    return tool_structured_result(mcp.call_tool("canonical_digest", {"value": digest_input}))["digest"]
 
 
 class RustBuildFixSignature(dspy.Signature):
@@ -136,36 +157,55 @@ def cycle(max_attempts: int) -> dict[str, Any]:
         return {"error": f"worktree not found at {WORKTREE}; create it first with `git worktree add`"}
 
     configure_gemma()
+    run_id = f"finish-unibit-{int(time.time())}"
+    ocel = OcelLog()
+    worktree_obj = ocel.object("worktree", str(WORKTREE))
+    mcp = McpClient()
+    previous_receipt: str | None = None
 
     log: dict[str, Any] = {"attempts": []}
-    for attempt in range(1, max_attempts + 1):
-        success, output = build(WORKTREE)
-        if success:
-            log["final_status"] = "build_clean"
-            if log["attempts"]:
-                commit_progress(WORKTREE, f"overnight autonomics: build clean after {len(log['attempts'])} Gemma fix attempt(s)")
+    try:
+        with mcp:
+            for attempt in range(1, max_attempts + 1):
+                success, output = build(WORKTREE)
+                if success:
+                    log["final_status"] = "build_clean"
+                    ocel.event("build_clean", relationships=[(worktree_obj, "in")], attempt=attempt)
+                    if log["attempts"]:
+                        commit_progress(WORKTREE, f"overnight autonomics: build clean after {len(log['attempts'])} Gemma fix attempt(s)")
+                    return log
+
+                error = extract_first_error(output)
+                if error is None:
+                    log["final_status"] = "build_failed_unparseable"
+                    log["build_tail"] = output[-2000:]
+                    ocel.event("build_failed_unparseable", relationships=[(worktree_obj, "in")], attempt=attempt)
+                    return log
+
+                fix = propose_and_apply_fix(WORKTREE, error)
+                receipt = _bind_attempt_receipt(mcp, run_id=run_id, attempt=attempt, fix=fix, previous_receipt=previous_receipt)
+                previous_receipt = receipt
+                log["attempts"].append({"attempt": attempt, "error": error, "fix": fix, "receipt": receipt})
+                ocel.event(
+                    "fix_attempt", relationships=[(worktree_obj, "in")], attempt=attempt,
+                    file=error.get("file"), applied=fix.get("applied"), receipt=receipt,
+                )
+
+                if not fix.get("applied"):
+                    log["final_status"] = "fix_not_applied"
+                    return log
+
+                commit_progress(
+                    WORKTREE,
+                    f"overnight autonomics: gemma attempt at {error['file']}:{error['line']} -- {fix.get('rationale', '')[:200]}",
+                )
+
+            log["final_status"] = "max_attempts_reached"
             return log
-
-        error = extract_first_error(output)
-        if error is None:
-            log["final_status"] = "build_failed_unparseable"
-            log["build_tail"] = output[-2000:]
-            return log
-
-        fix = propose_and_apply_fix(WORKTREE, error)
-        log["attempts"].append({"attempt": attempt, "error": error, "fix": fix})
-
-        if not fix.get("applied"):
-            log["final_status"] = "fix_not_applied"
-            return log
-
-        commit_progress(
-            WORKTREE,
-            f"overnight autonomics: gemma attempt at {error['file']}:{error['line']} -- {fix.get('rationale', '')[:200]}",
-        )
-
-    log["final_status"] = "max_attempts_reached"
-    return log
+    finally:
+        ocel_path = OCEL_LOG_DIR / f"{run_id}.ocel.json"
+        ocel.write(ocel_path)
+        log["ocel_log"] = str(ocel_path)
 
 
 def main() -> None:
