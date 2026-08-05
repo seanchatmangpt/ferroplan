@@ -1,42 +1,25 @@
 //! Eve: the relational entry point into a Genesis-defined planning world.
 //!
-//! `ferroplan` already provides deterministic PDDL planning and bounded PPDDL
-//! policy synthesis.  This module supplies the missing outer contract:
-//!
-//! ```text
-//! human purpose -> Eve -> Genesis projection -> HDDL decomposition
-//!               -> PPDDL policy (when required) -> ggen manufacture
-//!               -> MCP+ capability handoff -> Truex consequence lifecycle
-//! ```
-//!
-//! Eve does not improvise a plan or actuate a tool.  Eve deterministically
-//! compiles a human purpose and a pre-existing lawful world into a typed handoff
-//! for the formal layers that own decomposition, uncertainty, manufacture,
-//! actuation, observation, conformance, receipt, and replay.
+//! Eve does not plan, manufacture, actuate, observe, conform, admit, or replay.
+//! It deterministically binds human purpose to a pre-existing Genesis world and
+//! emits the typed handoff consumed by the formal lifecycle that owns those acts.
 
-use std::hash::Hasher;
-
+use blake3::Hasher;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::FxHasher;
+const EVE_PROTOCOL: &str = "ferroplan.eve-genesis.v1";
 
 /// A local Eve reflex may have at most eight primary activators.
-///
-/// A ninth activator is not silently flattened into a larger prompt.  It
-/// requires the closure to be split into smaller lawful fields.
+/// A ninth activator requires the closure to be split.
 pub const MAX_PRIMARY_ACTIVATORS: usize = 8;
 
 /// Human purpose before it is grounded in the Genesis world.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct HumanPurpose {
-    /// What the person is trying to accomplish, in their own language.
     pub statement: String,
-    /// The consequence that would make the purpose complete.
     pub desired_consequence: String,
-    /// Optional identity or role on whose authority the purpose is expressed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor: Option<String>,
-    /// Bounded primary conditions that shape ingress.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub activators: Vec<Activator>,
 }
@@ -51,19 +34,14 @@ pub struct Activator {
 /// The created world Eve makes relationally accessible.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GenesisWorld {
-    /// Canonical RDF/ontology source for the world.
     pub ontology_rdf: String,
-    /// SPARQL CONSTRUCT query selecting the smallest relevant lawful subgraph.
     pub construct_query: String,
-    /// Hierarchical task surface used to decompose the grounded purpose.
     pub hddl: HddlSurface,
-    /// Optional bounded uncertainty surface.  Its presence selects PPDDL policy
-    /// synthesis; its absence selects deterministic planning.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ppddl: Option<PpddlSurface>,
 }
 
-/// HDDL source and the compound task that represents the grounded purpose.
+/// HDDL source and the compound task representing the grounded purpose.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct HddlSurface {
     pub domain: String,
@@ -81,25 +59,17 @@ pub struct PpddlSurface {
 /// Requested ggen projection.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ManufactureTarget {
-    /// Stable target identity, such as `deploy-service.part`.
     pub name: String,
-    /// ggen template or projection family.
     pub template: String,
-    /// Artifact kind to manufacture, such as `.part.wasm`, manifest, adapter,
-    /// workflow, test, or deployment material.
     pub artifact_kind: String,
-    /// Destination understood by the ggen adapter.
     pub output: String,
 }
 
 /// MCP+ capability boundary for the manufactured result.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct CapabilityTarget {
-    /// Name exposed by MCP+ after manufacture and admission.
     pub capability: String,
-    /// Route identity that binds the capability to process geometry.
     pub route: String,
-    /// Authority scopes required before BRCE may actuate it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authority_scopes: Vec<String>,
 }
@@ -113,8 +83,7 @@ pub struct EveRequest {
     pub capability: CapabilityTarget,
 }
 
-/// Whether the grounded purpose enters deterministic planning or bounded
-/// probabilistic policy synthesis.
+/// Whether the grounded purpose uses deterministic planning or bounded PPDDL.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum PlanningRegime {
@@ -126,27 +95,17 @@ pub enum PlanningRegime {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum EveStage {
-    /// Relate human language to the created world without granting authority.
     GroundHumanPurpose,
-    /// Project the relevant lawful RDF subgraph through SPARQL CONSTRUCT.
     ProjectGenesis,
-    /// Decompose the grounded goal through HDDL.
     DecomposeHddl,
-    /// Synthesize a bounded PPDDL policy when uncertainty is explicit.
     GovernUncertaintyPpddl,
-    /// Manufacture the required artifact through ggen.
     ManufactureGgen,
-    /// Expose the admitted capability through MCP+.
+    /// Expose a non-authoritative capability handoff through MCP+.
     ExposeMcpPlus,
-    /// Actuate only through the exclusive brokered DO boundary.
     ActuateBrce,
-    /// Capture object-centric boundary evidence.
     ObserveOcel2,
-    /// Derive conformance against the expected process geometry.
     ConformTruexKernel,
-    /// Emit an admission or refusal receipt.
     AdmitReceipt,
-    /// Replay the consequence and carry standing into the next closure.
     ReplayTruex,
 }
 
@@ -188,14 +147,13 @@ pub struct PpddlPolicyRequest {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GgenManufacturingRequest {
     pub target: ManufactureTarget,
-    /// The closure whose projection is being manufactured.
     pub closure_id: String,
-    /// ggen may construct a candidate; it may not self-admit execution.
+    /// ggen constructs a candidate; it cannot self-admit execution.
     pub candidate_only: bool,
 }
 
-/// MCP+ handoff.  The capability remains non-authoritative until the listed
-/// obligations close through Truex.
+/// MCP+ handoff. The capability remains non-authoritative until Truex closes
+/// the listed evidence, conformance, receipt, and replay obligations.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct McpPlusHandoff {
     pub target: CapabilityTarget,
@@ -215,12 +173,12 @@ pub struct TruexContinuation {
     pub replay_required: bool,
 }
 
-/// Complete, machine-readable handoff from Eve to the formal execution stack.
+/// Complete machine-readable handoff from Eve to the formal execution stack.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct EveHandoff {
     pub protocol: String,
-    /// Deterministic identity of the complete request.  This is an identity
-    /// key, not a cryptographic receipt and not proof of execution.
+    /// BLAKE3 identity of the complete, versioned request. It is not a receipt
+    /// and does not prove execution.
     pub closure_id: String,
     pub planning_regime: PlanningRegime,
     pub stages: Vec<EveStage>,
@@ -234,7 +192,7 @@ pub struct EveHandoff {
     pub truex: TruexContinuation,
 }
 
-/// A deterministic split directive produced by `Need9 => Split`.
+/// Deterministic split directive produced by `Need9 => Split`.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct SplitDirective {
     pub provided: usize,
@@ -242,8 +200,7 @@ pub struct SplitDirective {
     pub groups: Vec<Vec<Activator>>,
 }
 
-/// Eve refuses malformed or unbounded ingress instead of manufacturing a
-/// plausible-looking handoff.
+/// Eve refuses malformed or unbounded ingress.
 #[derive(thiserror::Error, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum EveError {
@@ -258,36 +215,12 @@ pub enum EveError {
 pub struct Eve;
 
 impl Eve {
-    /// Compile human purpose into a typed handoff across Genesis, HDDL, PPDDL,
-    /// ggen, MCP+, and the downstream Truex consequence lifecycle.
+    /// Compile human purpose into a typed handoff across Genesis, HDDL, optional
+    /// PPDDL, ggen, MCP+, and the downstream Truex lifecycle.
     ///
-    /// This method performs no actuation.  It creates the lawful relational
-    /// contract that downstream adapters execute and receipt.
+    /// This method performs no actuation and emits no receipt.
     pub fn enter(request: EveRequest) -> Result<EveHandoff, EveError> {
-        validate_required("purpose.statement", &request.purpose.statement)?;
-        validate_required(
-            "purpose.desired_consequence",
-            &request.purpose.desired_consequence,
-        )?;
-        validate_required("genesis.ontology_rdf", &request.genesis.ontology_rdf)?;
-        validate_required("genesis.construct_query", &request.genesis.construct_query)?;
-        validate_required("genesis.hddl.domain", &request.genesis.hddl.domain)?;
-        validate_required("genesis.hddl.problem", &request.genesis.hddl.problem)?;
-        validate_required("genesis.hddl.root_task", &request.genesis.hddl.root_task)?;
-        validate_required("manufacture.name", &request.manufacture.name)?;
-        validate_required("manufacture.template", &request.manufacture.template)?;
-        validate_required(
-            "manufacture.artifact_kind",
-            &request.manufacture.artifact_kind,
-        )?;
-        validate_required("manufacture.output", &request.manufacture.output)?;
-        validate_required("capability.capability", &request.capability.capability)?;
-        validate_required("capability.route", &request.capability.route)?;
-
-        if let Some(ppddl) = &request.genesis.ppddl {
-            validate_required("genesis.ppddl.domain", &ppddl.domain)?;
-            validate_required("genesis.ppddl.problem", &ppddl.problem)?;
-        }
+        validate_request(&request)?;
 
         if request.purpose.activators.len() > MAX_PRIMARY_ACTIVATORS {
             return Err(EveError::SplitRequired {
@@ -298,11 +231,13 @@ impl Eve {
                         .purpose
                         .activators
                         .chunks(MAX_PRIMARY_ACTIVATORS)
-                        .map(|chunk| chunk.to_vec())
+                        .map(<[Activator]>::to_vec)
                         .collect(),
                 },
             });
         }
+
+        validate_bounded_members(&request)?;
 
         let closure_id = closure_id(&request);
         let planning_regime = if request.genesis.ppddl.is_some() {
@@ -310,27 +245,10 @@ impl Eve {
         } else {
             PlanningRegime::Deterministic
         };
-
-        let mut stages = vec![
-            EveStage::GroundHumanPurpose,
-            EveStage::ProjectGenesis,
-            EveStage::DecomposeHddl,
-        ];
-        if planning_regime == PlanningRegime::Probabilistic {
-            stages.push(EveStage::GovernUncertaintyPpddl);
-        }
-        stages.extend([
-            EveStage::ManufactureGgen,
-            EveStage::ExposeMcpPlus,
-            EveStage::ActuateBrce,
-            EveStage::ObserveOcel2,
-            EveStage::ConformTruexKernel,
-            EveStage::AdmitReceipt,
-            EveStage::ReplayTruex,
-        ]);
+        let stages = lifecycle_stages(planning_regime);
 
         Ok(EveHandoff {
-            protocol: "ferroplan.eve-genesis.v1".to_string(),
+            protocol: EVE_PROTOCOL.to_string(),
             closure_id: closure_id.clone(),
             planning_regime,
             stages,
@@ -384,6 +302,55 @@ impl Eve {
     }
 }
 
+fn validate_request(request: &EveRequest) -> Result<(), EveError> {
+    validate_required("purpose.statement", &request.purpose.statement)?;
+    validate_required(
+        "purpose.desired_consequence",
+        &request.purpose.desired_consequence,
+    )?;
+    if let Some(actor) = &request.purpose.actor {
+        validate_required("purpose.actor", actor)?;
+    }
+
+    validate_required("genesis.ontology_rdf", &request.genesis.ontology_rdf)?;
+    validate_required("genesis.construct_query", &request.genesis.construct_query)?;
+    validate_required("genesis.hddl.domain", &request.genesis.hddl.domain)?;
+    validate_required("genesis.hddl.problem", &request.genesis.hddl.problem)?;
+    validate_required("genesis.hddl.root_task", &request.genesis.hddl.root_task)?;
+    if let Some(ppddl) = &request.genesis.ppddl {
+        validate_required("genesis.ppddl.domain", &ppddl.domain)?;
+        validate_required("genesis.ppddl.problem", &ppddl.problem)?;
+    }
+
+    validate_required("manufacture.name", &request.manufacture.name)?;
+    validate_required("manufacture.template", &request.manufacture.template)?;
+    validate_required(
+        "manufacture.artifact_kind",
+        &request.manufacture.artifact_kind,
+    )?;
+    validate_required("manufacture.output", &request.manufacture.output)?;
+    validate_required("capability.capability", &request.capability.capability)?;
+    validate_required("capability.route", &request.capability.route)?;
+    Ok(())
+}
+
+fn validate_bounded_members(request: &EveRequest) -> Result<(), EveError> {
+    for (index, activator) in request.purpose.activators.iter().enumerate() {
+        validate_required(
+            &format!("purpose.activators[{index}].name"),
+            &activator.name,
+        )?;
+        validate_required(
+            &format!("purpose.activators[{index}].value"),
+            &activator.value,
+        )?;
+    }
+    for (index, scope) in request.capability.authority_scopes.iter().enumerate() {
+        validate_required(&format!("capability.authority_scopes[{index}]"), scope)?;
+    }
+    Ok(())
+}
+
 fn validate_required(field: &str, value: &str) -> Result<(), EveError> {
     if value.trim().is_empty() {
         Err(EveError::Missing {
@@ -394,40 +361,88 @@ fn validate_required(field: &str, value: &str) -> Result<(), EveError> {
     }
 }
 
+fn lifecycle_stages(regime: PlanningRegime) -> Vec<EveStage> {
+    let mut stages = vec![
+        EveStage::GroundHumanPurpose,
+        EveStage::ProjectGenesis,
+        EveStage::DecomposeHddl,
+    ];
+    if regime == PlanningRegime::Probabilistic {
+        stages.push(EveStage::GovernUncertaintyPpddl);
+    }
+    stages.extend([
+        EveStage::ManufactureGgen,
+        EveStage::ExposeMcpPlus,
+        EveStage::ActuateBrce,
+        EveStage::ObserveOcel2,
+        EveStage::ConformTruexKernel,
+        EveStage::AdmitReceipt,
+        EveStage::ReplayTruex,
+    ]);
+    stages
+}
+
 fn closure_id(request: &EveRequest) -> String {
-    let mut hasher = FxHasher::default();
+    let mut hasher = Hasher::new();
+    hash_field(&mut hasher, EVE_PROTOCOL);
     hash_field(&mut hasher, &request.purpose.statement);
     hash_field(&mut hasher, &request.purpose.desired_consequence);
-    hash_field(&mut hasher, request.purpose.actor.as_deref().unwrap_or(""));
+    hash_optional(&mut hasher, request.purpose.actor.as_deref());
+
+    hash_count(&mut hasher, request.purpose.activators.len());
     for activator in &request.purpose.activators {
         hash_field(&mut hasher, &activator.name);
         hash_field(&mut hasher, &activator.value);
     }
+
     hash_field(&mut hasher, &request.genesis.ontology_rdf);
     hash_field(&mut hasher, &request.genesis.construct_query);
     hash_field(&mut hasher, &request.genesis.hddl.domain);
     hash_field(&mut hasher, &request.genesis.hddl.problem);
     hash_field(&mut hasher, &request.genesis.hddl.root_task);
-    if let Some(ppddl) = &request.genesis.ppddl {
-        hasher.write_u8(1);
-        hash_field(&mut hasher, &ppddl.domain);
-        hash_field(&mut hasher, &ppddl.problem);
-    } else {
-        hasher.write_u8(0);
+    match &request.genesis.ppddl {
+        Some(ppddl) => {
+            hash_tag(&mut hasher, 1);
+            hash_field(&mut hasher, &ppddl.domain);
+            hash_field(&mut hasher, &ppddl.problem);
+        }
+        None => hash_tag(&mut hasher, 0),
     }
+
     hash_field(&mut hasher, &request.manufacture.name);
     hash_field(&mut hasher, &request.manufacture.template);
     hash_field(&mut hasher, &request.manufacture.artifact_kind);
     hash_field(&mut hasher, &request.manufacture.output);
     hash_field(&mut hasher, &request.capability.capability);
     hash_field(&mut hasher, &request.capability.route);
+
+    hash_count(&mut hasher, request.capability.authority_scopes.len());
     for scope in &request.capability.authority_scopes {
         hash_field(&mut hasher, scope);
     }
-    format!("eve:{:016x}", hasher.finish())
+
+    format!("eve:{}", hasher.finalize().to_hex())
 }
 
-fn hash_field(hasher: &mut FxHasher, value: &str) {
-    hasher.write_usize(value.len());
-    hasher.write(value.as_bytes());
+fn hash_optional(hasher: &mut Hasher, value: Option<&str>) {
+    match value {
+        Some(value) => {
+            hash_tag(hasher, 1);
+            hash_field(hasher, value);
+        }
+        None => hash_tag(hasher, 0),
+    }
+}
+
+fn hash_count(hasher: &mut Hasher, count: usize) {
+    hasher.update(&(count as u64).to_le_bytes());
+}
+
+fn hash_tag(hasher: &mut Hasher, tag: u8) {
+    hasher.update(&[tag]);
+}
+
+fn hash_field(hasher: &mut Hasher, value: &str) {
+    hasher.update(&(value.len() as u64).to_le_bytes());
+    hasher.update(value.as_bytes());
 }
