@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: seanchatmangpt/mfw
-          ref: 1b91dd1fecaa916184350254aec0062d70b184e4
+          ref: 1e1566f771d5b661d6bb43e1d103610a5ad4fd33
           path: mfw-ecosystem
           fetch-depth: 1
 
