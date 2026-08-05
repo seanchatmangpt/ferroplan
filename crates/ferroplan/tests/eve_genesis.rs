@@ -1,6 +1,7 @@
 use ferroplan::{
-    Activator, CapabilityTarget, Eve, EveError, EveRequest, EveStage, GenesisWorld, HddlSurface,
-    HumanPurpose, ManufactureTarget, PlanningRegime, PpddlSurface, MAX_PRIMARY_ACTIVATORS,
+    Activator, CapabilityTarget, Eve, EveError, EveHandoff, EveRequest, EveStage, GenesisWorld,
+    HddlSurface, HumanPurpose, ManufactureTarget, PlanningRegime, PpddlSurface,
+    MAX_PRIMARY_ACTIVATORS,
 };
 
 fn request(ppddl: bool) -> EveRequest {
@@ -42,17 +43,37 @@ fn request(ppddl: bool) -> EveRequest {
     }
 }
 
+fn assert_missing(input: EveRequest, field: &str) {
+    assert_eq!(
+        Eve::enter(input),
+        Err(EveError::Missing {
+            field: field.to_string(),
+        })
+    );
+}
+
 #[test]
-fn deterministic_world_compiles_full_receipted_handoff() {
+fn deterministic_world_compiles_exact_lifecycle() {
     let handoff = Eve::enter(request(false)).expect("valid deterministic handoff");
 
     assert_eq!(handoff.planning_regime, PlanningRegime::Deterministic);
     assert_eq!(handoff.protocol, "ferroplan.eve-genesis.v1");
-    assert!(handoff.closure_id.starts_with("eve:"));
+    assert_eq!(
+        handoff.stages,
+        vec![
+            EveStage::GroundHumanPurpose,
+            EveStage::ProjectGenesis,
+            EveStage::DecomposeHddl,
+            EveStage::ManufactureGgen,
+            EveStage::ExposeMcpPlus,
+            EveStage::ActuateBrce,
+            EveStage::ObserveOcel2,
+            EveStage::ConformTruexKernel,
+            EveStage::AdmitReceipt,
+            EveStage::ReplayTruex,
+        ]
+    );
     assert!(handoff.ppddl.is_none());
-    assert!(!handoff.stages.contains(&EveStage::GovernUncertaintyPpddl));
-    assert_eq!(handoff.stages.first(), Some(&EveStage::GroundHumanPurpose));
-    assert_eq!(handoff.stages.last(), Some(&EveStage::ReplayTruex));
     assert!(handoff.ggen.candidate_only);
     assert!(!handoff.mcp_plus.ambient_authority);
     assert!(handoff.mcp_plus.brce_required);
@@ -81,10 +102,52 @@ fn probabilistic_world_inserts_ppddl_before_manufacture() {
 }
 
 #[test]
-fn identical_inputs_produce_identical_closure_identity() {
+fn closure_identity_is_stable_versioned_blake3() {
     let left = Eve::enter(request(false)).unwrap();
     let right = Eve::enter(request(false)).unwrap();
+
     assert_eq!(left.closure_id, right.closure_id);
+    let digest = left.closure_id.strip_prefix("eve:").unwrap();
+    assert_eq!(digest.len(), 64);
+    assert!(digest.bytes().all(|byte| byte.is_ascii_hexdigit()));
+}
+
+#[test]
+fn every_request_component_changes_closure_identity() {
+    let baseline = Eve::enter(request(false)).unwrap().closure_id;
+
+    let mut changed = request(false);
+    changed.purpose.statement.push('!');
+    assert_ne!(baseline, Eve::enter(changed).unwrap().closure_id);
+
+    let mut changed = request(false);
+    changed.purpose.actor = None;
+    assert_ne!(baseline, Eve::enter(changed).unwrap().closure_id);
+
+    let mut changed = request(false);
+    changed.purpose.activators[0].value = "staging".to_string();
+    assert_ne!(baseline, Eve::enter(changed).unwrap().closure_id);
+
+    let mut changed = request(false);
+    changed.genesis.construct_query.push(' ');
+    assert_ne!(baseline, Eve::enter(changed).unwrap().closure_id);
+
+    let mut changed = request(false);
+    changed.manufacture.output.push_str(".next");
+    assert_ne!(baseline, Eve::enter(changed).unwrap().closure_id);
+
+    let mut changed = request(false);
+    changed.capability.authority_scopes.push("audit".to_string());
+    assert_ne!(baseline, Eve::enter(changed).unwrap().closure_id);
+
+    assert_ne!(baseline, Eve::enter(request(true)).unwrap().closure_id);
+}
+
+#[test]
+fn closure_identity_is_bound_into_both_downstream_handoffs() {
+    let handoff = Eve::enter(request(false)).unwrap();
+    assert_eq!(handoff.closure_id, handoff.ggen.closure_id);
+    assert_eq!(handoff.closure_id, handoff.mcp_plus.closure_id);
 }
 
 #[test]
@@ -105,21 +168,77 @@ fn need9_refuses_and_returns_deterministic_split() {
             assert_eq!(directive.groups.len(), 2);
             assert_eq!(directive.groups[0].len(), 8);
             assert_eq!(directive.groups[1].len(), 1);
+            assert_eq!(directive.groups[0][0].name, "condition-0");
+            assert_eq!(directive.groups[1][0].name, "condition-8");
         }
         other => panic!("unexpected refusal: {other:?}"),
     }
 }
 
 #[test]
-fn missing_world_refuses_before_handoff() {
+fn whitespace_only_required_fields_are_refused() {
+    let mut input = request(false);
+    input.purpose.statement = " \n\t ".to_string();
+    assert_missing(input, "purpose.statement");
+
     let mut input = request(false);
     input.genesis.ontology_rdf.clear();
+    assert_missing(input, "genesis.ontology_rdf");
 
+    let mut input = request(false);
+    input.manufacture.artifact_kind = "  ".to_string();
+    assert_missing(input, "manufacture.artifact_kind");
+
+    let mut input = request(false);
+    input.capability.route.clear();
+    assert_missing(input, "capability.route");
+}
+
+#[test]
+fn empty_optional_actor_is_refused_instead_of_colliding_with_none() {
+    let mut input = request(false);
+    input.purpose.actor = Some(String::new());
+    assert_missing(input, "purpose.actor");
+}
+
+#[test]
+fn empty_activator_members_are_refused() {
+    let mut input = request(false);
+    input.purpose.activators[0].name.clear();
+    assert_missing(input, "purpose.activators[0].name");
+
+    let mut input = request(false);
+    input.purpose.activators[0].value = "  ".to_string();
+    assert_missing(input, "purpose.activators[0].value");
+}
+
+#[test]
+fn empty_authority_scope_is_refused() {
+    let mut input = request(false);
+    input.capability.authority_scopes[0].clear();
+    assert_missing(input, "capability.authority_scopes[0]");
+}
+
+#[test]
+fn incomplete_ppddl_surface_is_refused() {
+    let mut input = request(true);
+    input.genesis.ppddl.as_mut().unwrap().problem.clear();
+    assert_missing(input, "genesis.ppddl.problem");
+}
+
+#[test]
+fn receipt_obligations_cover_materialization_evidence_conformance_and_replay() {
+    let handoff = Eve::enter(request(false)).unwrap();
     assert_eq!(
-        Eve::enter(input),
-        Err(EveError::Missing {
-            field: "genesis.ontology_rdf".to_string(),
-        })
+        handoff.mcp_plus.receipt_obligations,
+        vec![
+            "artifact-materialized",
+            "boundary-evidence",
+            "ocel2-observed-path",
+            "powl-conformance",
+            "receipt-admission-or-refusal",
+            "replay",
+        ]
     );
 }
 
@@ -127,6 +246,16 @@ fn missing_world_refuses_before_handoff() {
 fn handoff_round_trips_as_structured_json() {
     let handoff = Eve::enter(request(true)).unwrap();
     let encoded = serde_json::to_string(&handoff).unwrap();
-    let decoded = serde_json::from_str(&encoded).unwrap();
+    let decoded: EveHandoff = serde_json::from_str(&encoded).unwrap();
     assert_eq!(handoff, decoded);
+}
+
+#[test]
+fn refusal_round_trips_as_structured_json() {
+    let mut input = request(false);
+    input.purpose.actor = Some(String::new());
+    let refusal = Eve::enter(input).unwrap_err();
+    let encoded = serde_json::to_string(&refusal).unwrap();
+    let decoded: EveError = serde_json::from_str(&encoded).unwrap();
+    assert_eq!(refusal, decoded);
 }
