@@ -25,8 +25,7 @@ fn request(ppddl: bool) -> EveRequest {
             ppddl: ppddl.then(|| PpddlSurface {
                 domain: "(define (domain uncertain-deploy) (:requirements :probabilistic-effects))"
                     .to_string(),
-                problem: "(define (problem uncertain-prod) (:domain uncertain-deploy))"
-                    .to_string(),
+                problem: "(define (problem uncertain-prod) (:domain uncertain-deploy))".to_string(),
             }),
         },
         manufacture: ManufactureTarget {

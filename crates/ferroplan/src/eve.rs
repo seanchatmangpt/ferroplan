@@ -270,10 +270,7 @@ impl Eve {
             &request.purpose.desired_consequence,
         )?;
         validate_required("genesis.ontology_rdf", &request.genesis.ontology_rdf)?;
-        validate_required(
-            "genesis.construct_query",
-            &request.genesis.construct_query,
-        )?;
+        validate_required("genesis.construct_query", &request.genesis.construct_query)?;
         validate_required("genesis.hddl.domain", &request.genesis.hddl.domain)?;
         validate_required("genesis.hddl.problem", &request.genesis.hddl.problem)?;
         validate_required("genesis.hddl.root_task", &request.genesis.hddl.root_task)?;
@@ -353,13 +350,10 @@ impl Eve {
                 problem: request.genesis.hddl.problem,
                 root_task: request.genesis.hddl.root_task,
             },
-            ppddl: request
-                .genesis
-                .ppddl
-                .map(|surface| PpddlPolicyRequest {
-                    domain: surface.domain,
-                    problem: surface.problem,
-                }),
+            ppddl: request.genesis.ppddl.map(|surface| PpddlPolicyRequest {
+                domain: surface.domain,
+                problem: surface.problem,
+            }),
             ggen: GgenManufacturingRequest {
                 target: request.manufacture,
                 closure_id: closure_id.clone(),
@@ -404,10 +398,7 @@ fn closure_id(request: &EveRequest) -> String {
     let mut hasher = FxHasher::default();
     hash_field(&mut hasher, &request.purpose.statement);
     hash_field(&mut hasher, &request.purpose.desired_consequence);
-    hash_field(
-        &mut hasher,
-        request.purpose.actor.as_deref().unwrap_or(""),
-    );
+    hash_field(&mut hasher, request.purpose.actor.as_deref().unwrap_or(""));
     for activator in &request.purpose.activators {
         hash_field(&mut hasher, &activator.name);
         hash_field(&mut hasher, &activator.value);
