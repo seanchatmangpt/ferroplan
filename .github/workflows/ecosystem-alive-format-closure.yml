@@ -9,11 +9,9 @@ on:
       - "crates/ferroplan-mcp/tests/recursive_admission_protocol.rs"
       - "crates/ferroplan-mcp/tests/session_goal_advance.rs"
       - "crates/ferroplan/benches/ppddl.rs"
-      - "crates/ferroplan/src/eve.rs"
       - "crates/ferroplan/src/lib.rs"
       - "crates/ferroplan/src/ppddl.rs"
       - "crates/ferroplan/tests/daily_agent_methods_ppddl.rs"
-      - "crates/ferroplan/tests/eve_genesis.rs"
       - ".github/workflows/ecosystem-alive-format-closure.yml"
   workflow_dispatch:
 
@@ -53,11 +51,9 @@ jobs:
               'crates/ferroplan-mcp/tests/recursive_admission_protocol.rs',
               'crates/ferroplan-mcp/tests/session_goal_advance.rs',
               'crates/ferroplan/benches/ppddl.rs',
-              'crates/ferroplan/src/eve.rs',
               'crates/ferroplan/src/lib.rs',
               'crates/ferroplan/src/ppddl.rs',
               'crates/ferroplan/tests/daily_agent_methods_ppddl.rs',
-              'crates/ferroplan/tests/eve_genesis.rs',
           }
           changed = set(subprocess.check_output(['git','diff','--name-only'], text=True).splitlines())
           unexpected = sorted(changed - allowed)
@@ -77,13 +73,11 @@ jobs:
             crates/ferroplan-mcp/tests/recursive_admission_protocol.rs \
             crates/ferroplan-mcp/tests/session_goal_advance.rs \
             crates/ferroplan/benches/ppddl.rs \
-            crates/ferroplan/src/eve.rs \
             crates/ferroplan/src/lib.rs \
             crates/ferroplan/src/ppddl.rs \
-            crates/ferroplan/tests/daily_agent_methods_ppddl.rs \
-            crates/ferroplan/tests/eve_genesis.rs
+            crates/ferroplan/tests/daily_agent_methods_ppddl.rs
           if ! git diff --cached --quiet; then
-            git commit -m "style(eve): close rustfmt drift"
+            git commit -m "style(ppddl): close rustfmt drift"
           fi
 
       - name: Execute repository validation ladder
