@@ -19,6 +19,7 @@
 //! - [`simulate_ppddl`] / [`validate_ppddl_policy`] — probabilistic execution receipts.
 //! - [`decompose`] — split and solve a temporal goal as ordered [`Contract`]s.
 //! - [`parse`] / [`parse_ppddl`] — fast syntax and structure feedback.
+//! - [`route_planning_request`] — select the lawful execution rail for a typed planning request.
 //! - [`Session`] — ground once, replan many for mutable deterministic worlds.
 //! - [`plan::validate_plan`] — independently check a deterministic plan.
 //!
@@ -64,6 +65,7 @@ pub mod espc;
 pub mod partition;
 pub mod pddl3;
 pub mod plan;
+pub mod planning_types;
 pub mod portfolio;
 pub mod ppddl;
 pub mod report;
@@ -86,6 +88,10 @@ pub use api::{
     ParseReport, Plan, ProblemSummary, Search, Solution, SolveError, Statistics, Step,
 };
 pub use planner::{run_ff, run_planner};
+pub use planning_types::{
+    route_planning_request, PlanningCapability, PlanningRail, PlanningRequest, PlanningRoute,
+    PlanningRouteError, PlanningType,
+};
 pub use ppddl::{
     parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability,
     PolicyDecision, PolicyOutcome, PolicyValidation, PpddlError, PpddlParseReport,
