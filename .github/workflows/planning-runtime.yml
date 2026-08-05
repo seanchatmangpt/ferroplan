@@ -19,8 +19,6 @@ permissions:
 env:
   RUSTC_WRAPPER: ""
   FERROPLAN_REQUIRE_MFW_ORACLE: "1"
-  MFW_PLANNER_ORACLE_PYTHONPATH: ${{ github.workspace }}/mfw-ecosystem/tools/mfw-planner-oracle-python/src
-  PYTHONPATH: ${{ github.workspace }}/mfw-ecosystem/tools/mfw-planner-oracle-python/src
 
 jobs:
   planning-runtime:
@@ -33,37 +31,34 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
-      - name: Checkout exact MFW autonomic ecosystem
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          repository: seanchatmangpt/mfw
-          ref: 1e1566f771d5b661d6bb43e1d103610a5ad4fd33
-          path: mfw-ecosystem
-          fetch-depth: 1
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install autonomic lifecycle controller
-        run: python -m pip install --disable-pip-version-check ./mfw-ecosystem/tools/mfw-autonomic-lifecycle-python
-
       - name: Install stable Rust
         run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
 
-      - name: Admit and execute complete planning lifecycle
-        run: |
-          mfw-autonomic-lifecycle check .autonomic/planning-runtime.lifecycle.json
-          mfw-autonomic-lifecycle run \
-            .autonomic/planning-runtime.lifecycle.json \
-            --receipt planning-runtime-lifecycle.receipt.json
+      - name: Execute pinned MFW autonomic planning lifecycle
+        id: autonomic
+        uses: seanchatmangpt/mfw/.github/actions/planning-autonomic@df511b2dd6aec591d49bf25f652d46a2d03fc3d1
+        with:
+          manifest: .autonomic/planning-runtime.lifecycle.json
+          receipt: planning-runtime-lifecycle.receipt.json
+          replay-receipt: planning-runtime-lifecycle.replay.json
 
-      - name: Replay complete read-only lifecycle
+      - name: Verify admitted MFW source identity
+        env:
+          EXPECTED_MFW_REF: df511b2dd6aec591d49bf25f652d46a2d03fc3d1
+          OBSERVED_MFW_REF: ${{ steps.autonomic.outputs.source-ref }}
         run: |
-          mfw-autonomic-lifecycle replay \
-            .autonomic/planning-runtime.lifecycle.json \
-            planning-runtime-lifecycle.receipt.json \
-            > planning-runtime-lifecycle.replay.json
+          test "$OBSERVED_MFW_REF" = "$EXPECTED_MFW_REF"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          source = json.loads(Path('mfw-planning-autonomic.source.json').read_text())
+          assert source['repository'] == 'seanchatmangpt/mfw'
+          assert source['ref'] == os.environ['EXPECTED_MFW_REF']
+          PY
 
       - name: Upload lifecycle receipts
         uses: actions/upload-artifact@v4
@@ -72,5 +67,7 @@ jobs:
           path: |
             planning-runtime-lifecycle.receipt.json
             planning-runtime-lifecycle.replay.json
+            mfw-planning-autonomic.source.json
+            mfw-planner-oracle.capabilities.json
           if-no-files-found: error
           retention-days: 30
