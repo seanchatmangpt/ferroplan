@@ -9,6 +9,7 @@ on:
       - "crates/ferroplan/tests/planning_runtime.rs"
       - "crates/ferroplan/tests/planning_types.rs"
       - "crates/ferroplan/tests/mfw_python_oracle.rs"
+      - ".autonomic/planning-runtime.lifecycle.json"
       - ".github/workflows/planning-runtime.yml"
   workflow_dispatch:
 
@@ -18,12 +19,13 @@ permissions:
 env:
   RUSTC_WRAPPER: ""
   FERROPLAN_REQUIRE_MFW_ORACLE: "1"
-  MFW_PLANNER_ORACLE_PYTHONPATH: ${{ github.workspace }}/mfw-oracle/tools/mfw-planner-oracle-python/src
+  MFW_PLANNER_ORACLE_PYTHONPATH: ${{ github.workspace }}/mfw-ecosystem/tools/mfw-planner-oracle-python/src
+  PYTHONPATH: ${{ github.workspace }}/mfw-ecosystem/tools/mfw-planner-oracle-python/src
 
 jobs:
   planning-runtime:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    runs-on: macos-14
+    timeout-minutes: 40
     steps:
       - name: Checkout exact Ferroplan head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -31,53 +33,44 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
-      - name: Checkout admitted MFW oracle
+      - name: Checkout exact MFW autonomic ecosystem
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: seanchatmangpt/mfw
-          ref: 08ad6757842242ccfa1517f084ecabdf82031507
-          path: mfw-oracle
+          ref: 1b91dd1fecaa916184350254aec0062d70b184e4
+          path: mfw-ecosystem
           fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install autonomic lifecycle controller
+        run: python -m pip install --disable-pip-version-check ./mfw-ecosystem/tools/mfw-autonomic-lifecycle-python
 
       - name: Install stable Rust
         run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
 
-      - name: Verify MFW oracle source identity
+      - name: Admit and execute complete planning lifecycle
         run: |
-          test -f "$MFW_PLANNER_ORACLE_PYTHONPATH/mfw_planner_oracle/oracle.py"
-          test -f "$MFW_PLANNER_ORACLE_PYTHONPATH/mfw_planner_oracle/compare.py"
-          python3 -m compileall -q \
-            "$MFW_PLANNER_ORACLE_PYTHONPATH/mfw_planner_oracle"
-          PYTHONPATH="$MFW_PLANNER_ORACLE_PYTHONPATH" \
-            python3 -m mfw_planner_oracle capabilities > mfw-oracle-capabilities.json
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          value = json.loads(Path("mfw-oracle-capabilities.json").read_text())
-          assert value["oracle"] == "mfw-python-v1"
-          assert len(value["planning_types"]) == 18
-          PY
+          mfw-autonomic-lifecycle check .autonomic/planning-runtime.lifecycle.json
+          mfw-autonomic-lifecycle run \
+            .autonomic/planning-runtime.lifecycle.json \
+            --receipt planning-runtime-lifecycle.receipt.json
 
-      - name: Verify format
-        run: cargo fmt -p ferroplan -- --check
+      - name: Replay complete read-only lifecycle
+        run: |
+          mfw-autonomic-lifecycle replay \
+            .autonomic/planning-runtime.lifecycle.json \
+            planning-runtime-lifecycle.receipt.json \
+            > planning-runtime-lifecycle.replay.json
 
-      - name: Compile all planner surfaces
-        run: cargo check -p ferroplan --all-targets --all-features
-
-      - name: Strict lint
-        run: cargo clippy -p ferroplan --all-targets --all-features -- -D warnings
-
-      - name: Execute planning constitution
-        run: cargo test -p ferroplan --test planning_types
-
-      - name: Execute every planner family
-        run: cargo test -p ferroplan --test planning_runtime
-
-      - name: Admit every planner through MFW Python oracle
-        run: cargo test -p ferroplan --test mfw_python_oracle -- --nocapture
-
-      - name: Execute complete Ferroplan core
-        run: cargo test -p ferroplan --all-features
-
-      - name: Refuse uncommitted repair drift
-        run: git diff --exit-code
+      - name: Upload lifecycle receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: planning-runtime-lifecycle-receipts
+          path: |
+            planning-runtime-lifecycle.receipt.json
+            planning-runtime-lifecycle.replay.json
+          if-no-files-found: error
+          retention-days: 30
