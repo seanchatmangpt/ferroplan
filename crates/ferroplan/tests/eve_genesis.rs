@@ -137,7 +137,10 @@ fn every_request_component_changes_closure_identity() {
     assert_ne!(baseline, Eve::enter(changed).unwrap().closure_id);
 
     let mut changed = request(false);
-    changed.capability.authority_scopes.push("audit".to_string());
+    changed
+        .capability
+        .authority_scopes
+        .push("audit".to_string());
     assert_ne!(baseline, Eve::enter(changed).unwrap().closure_id);
 
     assert_ne!(baseline, Eve::enter(request(true)).unwrap().closure_id);
