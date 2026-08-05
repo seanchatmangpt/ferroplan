@@ -71,8 +71,8 @@ jobs:
         run: |
           test -s crates/ferroplan-wasm/web/pkg/ferroplan_wasm_bg.wasm
           test -s crates/ferroplan-wasm/web/pkg/ferroplan_wasm.js
-          test -s crates/ferroplan-bevy/web/pkg/ferroplan_bevy_bg.wasm
-          test -s crates/ferroplan-bevy/web/pkg/ferroplan_bevy.js
+          test -s crates/ferroplan-bevy/web/pkg/ferroplan-bevy_bg.wasm
+          test -s crates/ferroplan-bevy/web/pkg/ferroplan-bevy.js
       - name: Parse browser demo module
         run: |
           node --input-type=module -e "
