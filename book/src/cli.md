@@ -1,6 +1,7 @@
 # Command line (`ff`)
 
-The `ff` binary is a drop-in for Metric-FF's `ff -o domain -f problem`.
+Same call signature, different engine. The `ff` binary drops in for
+Metric-FF's `ff -o domain -f problem`.
 
 | flag | meaning |
 |---|---|
@@ -18,12 +19,12 @@ The `ff` binary is a drop-in for Metric-FF's `ff -o domain -f problem`.
 | `--threads <N>` | worker threads (`0` = auto) |
 | `--ipc` | IPC time-stamped plan format (text mode) |
 
-`auto` routes by problem features: classic FF for classical/numeric, the PDDL3
-metric optimizer when the problem has preferences, and the decision-epoch temporal
-search when the domain has `:durative-action`s. `partition` selects the
-SGPlan-style partition-and-resolve mode; `portfolio` runs the budget-aware
-sequential strategy ladder on one shared eval pool. Run `ff --help` for the
-full list.
+`auto` reads the problem and picks its own weapon: classic FF for
+classical/numeric, the PDDL3 metric optimizer when preferences are on the
+table, the decision-epoch temporal search when the domain carries
+`:durative-action`s. `partition` forces the SGPlan-style partition-and-resolve
+mode; `portfolio` runs the budget-aware sequential strategy ladder on one
+shared eval pool. `ff --help` has the rest.
 
 ```sh
 ff -o domain.pddl -f problem.pddl --json

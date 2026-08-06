@@ -1,11 +1,13 @@
-//! Data-parallel weighted best-first search.
+//! FIELD LOG: data-parallel weighted best-first sweep.
 //!
-//! Each round pops a *batch* of the lowest-f nodes, expands all their applicable
-//! successors, dedups against the visited set, then evaluates the FF heuristic
-//! for the whole batch of successors IN PARALLEL (the dominant cost). Because
-//! `par_map` preserves order and all control flow is on one thread, the plan
-//! found is identical regardless of the worker count — only the wall-clock of
-//! heuristic evaluation changes.
+//! Every round, the swarm surfaces one batch of the lowest-cost contacts,
+//! cracks them open, spawns every legal successor, scrubs the duplicates
+//! against what's already been walked, then runs the FF heuristic across
+//! the whole batch AT ONCE — every worker screaming in parallel, the one
+//! real cost center in the whole operation. `par_map` never breaks
+//! sequence and control never leaves the one thread, so the recovered
+//! plan is bit-identical no matter how many hands touch it. Only the
+//! clock on the wall moves.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, VecDeque};
@@ -16,14 +18,17 @@ use crate::packed::{PackedTask, State, StateKey};
 use crate::par;
 use crate::types::NumPre;
 
-/// Frontier batch size — FIXED (independent of thread count) so the search
-/// expansion order, and thus the plan AND the evaluated-state count, are
-/// identical for any worker count; threads only split each batch's h-eval.
+/// Frontier batch size — LOCKED, not scaled by hands on deck. Expansion
+/// order, the recovered plan, the body count of evaluated states — all
+/// stay identical no matter how many workers show up. More hands only
+/// split the h-eval load inside one batch.
 const BATCH: usize = 256;
-/// Default safety cap on evaluated states (deterministic).
+/// The kill switch. States evaluated past this line, the sweep calls it —
+/// deterministic, no negotiation.
 pub const DEFAULT_MAX_EVAL: usize = 5_000_000;
-/// Fixed-point scale for fractional heuristic weights (keeps the priority key an
-/// integer, so the heap order — and thus the plan — stays deterministic).
+/// Fixed-point scale for the fractional heuristic weights — keeps the
+/// priority key an integer so the heap order, and the plan riding on it,
+/// never drifts.
 const WEIGHT_SCALE: f64 = 256.0;
 
 /// Deterministic retained-memory target for one `search_from` pass (0.8
@@ -42,9 +47,10 @@ const WEIGHT_SCALE: f64 = 256.0;
 /// `FF_SEARCH_NODE_CAP` overrides the node count directly (`0` disables).
 pub(crate) const NODE_CAP_TARGET_BYTES: usize = 8 << 30;
 
-/// The per-insertion byte model behind [`NODE_CAP_TARGET_BYTES`]: one stored
-/// `State` (bits + fluent vecs) in `nodes`, one `StateKey` bitset clone in
-/// `visited`, plus container overhead.
+/// The per-body byte model behind [`NODE_CAP_TARGET_BYTES`]: one stored
+/// `State` (bits plus fluent vectors) in `nodes`, plus its hash-index
+/// dedup marker (0.20 Phase 4 — the visited set quit cloning the bitset
+/// a second time).
 pub(crate) fn node_cap_for(task: &PackedTask) -> usize {
     node_cap_for_bytes(task, NODE_CAP_TARGET_BYTES)
 }
@@ -61,82 +67,86 @@ pub(crate) fn node_cap_for_bytes(task: &PackedTask, bytes: usize) -> usize {
     bytes / per_node.max(1)
 }
 
-/// Tunable weighted-best-first parameters (exposed via the library `Options`).
-/// `w_g`/`w_h` are pre-scaled integers (`weight * WEIGHT_SCALE`), so the default
-/// `1·g + 5·h` ordering is preserved exactly while fractional weights still work.
+/// The dials on the weighted-best-first rig, wired through the library
+/// `Options`. `w_g`/`w_h` ride as pre-scaled integers (`weight *
+/// WEIGHT_SCALE`) — the default `1·g + 5·h` gait holds exact while the
+/// fractional weights still turn.
 ///
-/// Key units, for calibrating new terms: one h-unit = 1280 (5·256), one g-step
-/// = 256, one unsatisfied preference = `weight·100` (`SatGuidance::penalty`),
-/// one metric-cost unit = `w_c·256`. `w_c` (default 0.0 = term absent, key
-/// bit-identical to the historical one) adds the successor's accumulated
-/// metric cost `fv[cost_fluent]` to the ordering — used by the preference-
-/// metric B&B loops so a folded numeric metric (rovers' traverse costs) and
-/// forgo-vs-satisfy trade-offs order the open list instead of only pruning at
-/// the bound.
+/// Field calibration, for anyone adding a new term to the mix: one
+/// h-unit runs 1280 (5·256), one g-step runs 256, one unsatisfied
+/// preference runs `weight·100` (`SatGuidance::penalty`), one metric-cost
+/// unit runs `w_c·256`. `w_c` defaults to 0.0 — term absent, key
+/// bit-identical to the old rig — and folds the successor's accrued
+/// metric cost `fv[cost_fluent]` into the ordering. The preference-metric
+/// branch-and-bound loops lean on it so a numeric metric (rovers'
+/// traverse costs) and the forgo-vs-satisfy calculus can steer the open
+/// list instead of only cutting at the bound.
 #[derive(Clone, Copy, Debug)]
 pub struct SearchCfg {
     pub w_g: i64,
     pub w_h: i64,
     pub max_eval: usize,
     pub w_c: f64,
-    /// Evaluate h as the COST-augmented relaxed plan ([`relaxed_costed`]:
-    /// selected-op cost + length) toward the given cost fluent, instead of
-    /// plain length. Used by the `:action-costs` improvement sweep so the
-    /// guidance prefers cheap achievers. `None` (default) keeps the historical
-    /// length-h bit-for-bit.
+    /// Swap h for the COST-augmented relaxed plan ([`relaxed_costed`]:
+    /// chosen-op cost plus length) toward the named fluent, instead of raw
+    /// length. The `:action-costs` sweep runs on this so the guidance
+    /// hunts cheap kills. `None` (default) keeps the length-h gait
+    /// bit-for-bit unchanged.
     pub h_cost: Option<usize>,
-    /// Anytime in-sweep tightening for the bounded metric searches: on an
-    /// accepting state, record it as the incumbent and TIGHTEN the bound in
-    /// place instead of returning — the sweep keeps draining (no restart, no
-    /// prefix re-tread) until the eval cap or open-list exhaustion, then
-    /// returns the best incumbent. Off (`false`) reproduces the historical
-    /// first-improvement behavior bit-for-bit; only the preference B&B loops
-    /// set it (`FF_PREF_GREEDY=1` restores first-improvement there). All
-    /// tightening happens in the serial acceptance section, so determinism
-    /// and thread-count independence are preserved.
+    /// In-sweep tightening for the bounded metric runs: an accepting
+    /// state gets logged as the incumbent and the bound TIGHTENS in
+    /// place, no return, no restart. The sweep keeps draining — no
+    /// prefix re-tread — until the eval ceiling or the open list runs
+    /// dry, then hands back the best body found. Off (`false`) is the
+    /// old first-kill behavior, bit-for-bit; only the preference
+    /// branch-and-bound loops arm it (`FF_PREF_GREEDY=1` reverts to
+    /// first-kill there). All tightening happens in the serial
+    /// acceptance lane, so determinism and thread-count independence
+    /// both hold.
     pub anytime: bool,
-    /// Plan-LENGTH bound: successors at depth >= this are not inserted (a
-    /// goal reached at depth g is a plan of length g, so nothing at or past
-    /// the bound can beat the incumbent that set it). `usize::MAX` (the
-    /// default everywhere) is exactly the historical behavior — the check
-    /// never fires. Used by the iterated-weight length sweep
-    /// (`costs::improve_length`); pruned states are NOT visited-marked, so a
-    /// shorter route to them through another parent stays reachable.
+    /// The plan-LENGTH tripwire: successors at or past this depth never
+    /// get inserted — a goal struck at depth g is a plan of length g, so
+    /// nothing at or past the bound can outrun the incumbent that set it.
+    /// `usize::MAX` (the default everywhere) means the tripwire never
+    /// fires — old behavior exactly. The iterated-weight length sweep
+    /// (`costs::improve_length`) leans on this; pruned states are never
+    /// visited-marked, so a shorter route through a different parent
+    /// stays open.
     pub g_bound: usize,
-    /// Length-anytime WITHIN one search (0.10 Phase 3): on the first goal,
-    /// record the incumbent, tighten a live g-bound to its length, and keep
-    /// draining the SAME open list (no restart, no prefix re-tread) for a
-    /// strictly shorter plan until the drain ceiling — the eval count DOUBLES
-    /// at most (ceiling = evals-at-first-incumbent × 2, still under
-    /// `max_eval`). OPT-IN via `FF_LEN_ANYTIME=1`, measured and default-OFF:
-    /// at the 60 s scoreboard budget the drain's doubled wall cost 9
-    /// instances of coverage across floor-tile/visit-all/sokoban (sokoban
-    /// −7) against 4 shorter sokoban plans (−234 steps) and ZERO length
-    /// gains on floor-tile/visit-all — the same verdict class as 0.9's
-    /// improve_length restarts. Mutually exclusive with the metric
-    /// `anytime`.
+    /// Length-anytime WITHIN one run (0.10 Phase 3): first kill logs the
+    /// incumbent, tightens a live g-bound to its length, and keeps
+    /// draining the SAME open list — no restart, no prefix re-tread —
+    /// hunting a strictly shorter plan until the drain ceiling. Eval
+    /// count doubles at most (ceiling = evals-at-first-kill × 2, still
+    /// under `max_eval`). Opt-in via `FF_LEN_ANYTIME=1`, measured and
+    /// off by default: at the 60 s scoreboard budget the doubled drain
+    /// cost 9 instances of coverage across floor-tile/visit-all/sokoban
+    /// (sokoban −7) against 4 shorter sokoban plans (−234 steps) and zero
+    /// gains on floor-tile/visit-all — same verdict as 0.9's
+    /// improve_length restarts. Mutually exclusive with metric `anytime`.
     pub len_anytime: bool,
-    /// Landmark-count ordering term (0.11 Phase 3, pre-scaled like `w_g`):
-    /// adds `w_lm × unaccepted-landmark-count` to the best-first key.
-    /// 0 (default) = term absent, key bit-identical. The bounded classical
-    /// experiment: `FF_CLM=<weight>` sets it on the ladder's best-first
-    /// fallback only.
+    /// Landmark-count ordering term (0.11 Phase 3, pre-scaled like
+    /// `w_g`): folds `w_lm × unaccepted-landmark-count` into the
+    /// best-first key. 0 (default) is silent — key bit-identical. The
+    /// bounded experiment: `FF_CLM=<weight>` arms it, but only on the
+    /// ladder's best-first fallback.
     pub w_lm: i64,
     /// Resource-trip ordering term (0.14 ext Phase 11, pre-scaled like
-    /// `w_g`): adds `w_res × ⌈unmet linked goals / pool capacity⌉` to the
-    /// best-first key — the ⌈demand/capacity⌉ semantic-landmark rung the
-    /// delete relaxation can't see (counter levels accumulate under
-    /// relaxation). 0 (default) = absent, key bit-identical. Opt-in:
-    /// `FF_RESLM=<weight>` on the ladder's best-first fallback; the
-    /// [`crate::resource::TripBound`] data rides the `RESLM` cell set by
-    /// `resolve::solve` (which holds the mutex groups).
+    /// `w_g`): folds `w_res × ⌈unmet linked goals / pool capacity⌉` into
+    /// the best-first key — a semantic-landmark rung the delete
+    /// relaxation is blind to (counter levels pile up under relaxation
+    /// and it never sees the ceiling). 0 (default) is silent — key
+    /// bit-identical. Opt-in: `FF_RESLM=<weight>` on the ladder's
+    /// best-first fallback; the [`crate::resource::TripBound`] payload
+    /// rides the `RESLM` cell `resolve::solve` sets while it's still
+    /// holding the mutex groups.
     pub w_res: i64,
-    /// Per-search retained-memory target in BYTES (0.11 Phase 4, the
-    /// budgeted-think surface): overrides the default 8 GiB target behind
-    /// the internal `node_cap_for` per-node byte model.
-    /// `None` = the default. Deterministic (static task dims only) — a
-    /// think budget must bound memory without introducing wall-clock
-    /// nondeterminism. `FF_SEARCH_NODE_CAP` still wins when set.
+    /// Per-run retained-memory target in raw bytes (0.11 Phase 4, the
+    /// budgeted-think hook): overrides the default 8 GiB ceiling inside
+    /// the `node_cap_for` byte model. `None` keeps the default.
+    /// Deterministic — static task dimensions only — because a think
+    /// budget has to bound memory without smuggling in wall-clock
+    /// nondeterminism. `FF_SEARCH_NODE_CAP` still overrides when set.
     pub node_bytes_target: Option<usize>,
 }
 
@@ -147,14 +157,15 @@ impl Default for SearchCfg {
 }
 
 impl SearchCfg {
-    /// Build from human-facing f64 weights. `weight_g = 1.0, weight_h = 5.0`
-    /// reproduces the historical `1·g + 5·h` ordering bit-for-bit.
+    /// Assembled from human-facing f64 weights. `weight_g = 1.0, weight_h =
+    /// 5.0` reproduces the old `1·g + 5·h` gait bit-for-bit.
     ///
-    /// Inputs are sanitized so a malformed weight can never collapse or overflow
-    /// the integer heap key: a non-finite or negative weight falls back to that
-    /// term's default, weights are clamped to a sane maximum, and if both round
-    /// to zero the defaults are restored (an all-zero key would degrade to
-    /// insertion order).
+    /// Every input gets scrubbed first — a malformed weight must never
+    /// collapse or overflow the integer heap key. A non-finite or
+    /// negative weight falls back to that term's default, everything
+    /// gets clamped to a sane ceiling, and if both round to zero the
+    /// defaults come back online (an all-zero key would degrade to raw
+    /// insertion order — no ordering at all).
     pub fn from_weights(weight_g: f64, weight_h: f64, max_eval: Option<usize>) -> Self {
         let san = |w: f64, default: f64| {
             if w.is_finite() && w >= 0.0 {
@@ -184,15 +195,16 @@ impl SearchCfg {
         }
     }
 
-    /// Switch h to the cost-augmented relaxed plan toward `cost_fluent`
-    /// (see the `h_cost` field docs).
+    /// Retunes h to the cost-augmented relaxed plan toward `cost_fluent`
+    /// (see the `h_cost` field notes).
     pub fn with_cost_h(mut self, cost_fluent: usize) -> Self {
         self.h_cost = Some(cost_fluent);
         self
     }
 
-    /// Add a metric-cost ordering weight (see the struct docs). Non-finite or
-    /// negative weights sanitize to 0.0 (term absent), like `from_weights`.
+    /// Dials in a metric-cost ordering weight (see the struct notes).
+    /// Non-finite or negative weights scrub to 0.0 — term goes silent —
+    /// same discipline as `from_weights`.
     pub fn with_cost_weight(mut self, w_c: f64) -> Self {
         self.w_c = if w_c.is_finite() && w_c > 0.0 {
             w_c.min(1e9)
@@ -221,14 +233,14 @@ struct Node {
     father: usize,
     op: usize,
     g: usize,
-    /// Landmarks accepted along the path (0.11 Phase 3, `w_lm` only;
-    /// empty — no allocation — when the term is off).
+    /// Landmarks struck along the route so far (0.11 Phase 3, `w_lm`
+    /// only — stays empty, no allocation, when the term is dark).
     lm_acc: Vec<u64>,
 }
 
-/// (Duplicated tiny helpers — the lama.rs shape; three call sites across
-/// search/lama/temporal keep their own copies deliberately: each search owns
-/// its node layout and hot loop.)
+/// (Three copies of the same small tools, deliberately — the lama.rs
+/// shape. search/lama/temporal each keep their own: every rig owns its
+/// node layout and its hot loop, no shared dependency to drag along.)
 fn clm_accept_into(accepted: &mut [u64], lms: &[u32], state: &State) {
     for (i, &f) in lms.iter().enumerate() {
         if accepted[i >> 6] & (1 << (i & 63)) == 0 && crate::bitset::test(&state.bits, f as usize) {
@@ -241,11 +253,12 @@ fn clm_unaccepted(accepted: &[u64], n: usize) -> i64 {
     n as i64 - accepted.iter().map(|w| w.count_ones() as i64).sum::<i64>()
 }
 
-/// A preference's phi in grounded DNF: it holds in a state iff ANY disjunct's
-/// positive facts all hold and its numeric comparisons all pass (negative
-/// literals arrive as compiled complementary facts, so positives suffice).
-/// Built from the `P3COLLECT-i` ops' preconditions — one disjunct per op. An
-/// EMPTY disjunct list means phi is unachievable (never holds).
+/// A preference's phi, grounded in DNF: holds in a state iff ANY one
+/// disjunct's positive facts all check out and its numeric comparisons
+/// all clear — negative literals already arrive as compiled complements,
+/// so positives alone tell the whole story. Built off the `P3COLLECT-i`
+/// ops' preconditions, one disjunct per op. An empty disjunct list means
+/// phi is dead on arrival — never holds, not once.
 pub struct PrefPhi {
     pub disjuncts: Vec<(Vec<u32>, Vec<NumPre>)>,
 }
@@ -263,14 +276,15 @@ impl PrefPhi {
     }
 }
 
-/// The EXACT preference-closure cost of a state: the summed weight of the
-/// preference instances whose phi does not hold — precisely what the phase
-/// tail ([`crate::pddl3::PhaseTail`]) will pay in forgo actions if the plan
-/// stops here (`P3END` only toggles phase facts, changing no phi). Passing
-/// this to [`search_from`] switches the goal test to metric-bounded
-/// acceptance: a popped state is accepted iff the real goal holds AND
-/// `cost-so-far + closure < bound` — the search then explores REAL states
-/// only and the compiled bookkeeping goals never enter the search at all.
+/// The exact toll of a state's unpaid preferences — the summed weight of
+/// every instance whose phi doesn't hold, precisely what the phase tail
+/// ([`crate::pddl3::PhaseTail`]) will bleed in forgo actions if the plan
+/// stops right here (`P3END` only flips phase facts — no phi changes).
+/// Hand this to [`search_from`] and the goal test switches to
+/// metric-bounded acceptance: a popped state clears iff the real goal
+/// holds AND `cost-so-far + closure < bound`. The search then walks REAL
+/// states only — the compiled bookkeeping goals never so much as enter
+/// the room.
 pub struct ClosureCost {
     /// `(forgo weight, phi)` per preference instance with positive weight.
     pub prefs: Vec<(f64, PrefPhi)>,
@@ -286,49 +300,55 @@ impl ClosureCost {
     }
 }
 
-/// Metric search guidance: bias the open list toward states that satisfy more
-/// preferences. Each entry is `(phi, heap penalty while that preference is
-/// unsatisfied)` — phi in full DNF ([`PrefPhi`]), so `imply`/`exists`
-/// preferences guide correctly instead of being invisible. Evaluated on the
-/// concrete successor state, so it sees real satisfaction (unlike the
-/// delete-relaxed heuristic, which the free Keyder-Geffner forgo action
-/// blinds). Only the metric B&B passes this; it changes node *ordering* only,
-/// never which nodes are legal.
-/// Data for the `w_res` trip-bound term (0.14 ext Phase 11). Set once per
-/// process by `resolve::solve` (the caller holding the mutex groups) when
-/// `FF_RESLM` is on; read by `search_from` only when `cfg.w_res > 0`. An
-/// experiment hatch, same lifecycle as the env vars that gate it.
+/// Metric guidance: tilts the open list toward states paying off more
+/// preferences. Each entry rides as `(phi, heap penalty while that
+/// preference stays unsatisfied)` — phi in full DNF ([`PrefPhi`]), so
+/// `imply`/`exists` preferences steer correctly instead of vanishing.
+/// Evaluated on the concrete successor state, so it sees the real payoff
+/// — unlike the delete-relaxed heuristic, blinded by the free
+/// Keyder-Geffner forgo action. Only the metric branch-and-bound passes
+/// this in; it reorders nodes, never decides which ones are legal.
+/// Payload for the `w_res` trip-bound term (0.14 ext Phase 11). Set once
+/// per process by `resolve::solve` — the caller still holding the mutex
+/// groups — when `FF_RESLM` is armed; read by `search_from` only when
+/// `cfg.w_res > 0`. An experiment hatch, same lifecycle as the env vars
+/// gating it.
 pub(crate) static RESLM: std::sync::OnceLock<Option<crate::resource::TripBound>> =
     std::sync::OnceLock::new();
 
 pub struct SatGuidance {
     pub prefs: Vec<(PrefPhi, i64)>,
-    /// Renewable resources whose live occupancy is penalized on the concrete
-    /// state (what delete-relaxation hides). Empty unless a counter resource was
-    /// detected; see [`crate::resource`].
+    /// Renewable resources whose live occupancy takes a penalty on the
+    /// concrete state — the exact thing delete-relaxation hides from
+    /// itself. Empty unless a counter resource was flagged; see
+    /// [`crate::resource`].
     pub res: Vec<crate::resource::ResourceVar>,
-    /// Per-`occupancy²` weight for the resource term. 0 disables it (the heap key
-    /// is then bit-identical to the forgone-only behavior).
+    /// Per-`occupancy²` weight on the resource term. 0 kills the term
+    /// dead — heap key falls back bit-identical to forgone-only.
     pub res_weight: i64,
-    /// Only occupancy ABOVE this threshold is penalized (penalize `(occ-thresh)²`).
-    /// 0 penalizes all occupancy; a value near capacity penalizes only the
-    /// dead-end zone (all stacks committed) without suppressing normal pipelining.
+    /// Only occupancy ABOVE this line takes the hit — penalizes
+    /// `(occ-thresh)²`. 0 taxes all occupancy; a value near capacity
+    /// taxes only the dead-end zone (every stack committed) without
+    /// choking normal pipelining.
     pub res_thresh: i64,
-    /// ESPC make-deadline guidance: `(trigger fact, deliverable fact, value)`
-    /// triples. A **locked loss** — `trigger` present, `deliverable` absent — means
-    /// a once-only conditional achievement (e.g. openstacks' `make-product`, which
-    /// can fire only while `(not (made p))`) already fired WITHOUT delivering, so
-    /// `value` of metric is permanently forfeit. The delete-relaxed RPG is blind to
-    /// this (it can re-add the deliverable); reading it on the CONCRETE state steers
-    /// the search to satisfy the enabling condition (start the order) BEFORE the
-    /// trigger fires. Empty / weight 0 ⇒ inert (heap key bit-identical to today).
+    /// ESPC make-deadline watch: `(trigger fact, deliverable fact,
+    /// value)` triples. A **locked loss** — trigger lit, deliverable
+    /// dark — means a once-only conditional payoff (openstacks'
+    /// `make-product`, which fires only while `(not (made p))`) already
+    /// fired WITHOUT delivering. `value` of metric is gone for good. The
+    /// delete-relaxed RPG can't see this — it can re-add the deliverable
+    /// as if nothing happened — so reading it off the CONCRETE state
+    /// steers the search to satisfy the enabling condition (start the
+    /// order) BEFORE the trigger goes off. Empty, or weight 0, means
+    /// inert — key bit-identical to today.
     pub deadline: Vec<(u32, u32, i64)>,
-    /// λ multiplier for the deadline term (0 disables it; keeps the key integer).
+    /// λ multiplier on the deadline term (0 kills it, keeps the key an
+    /// integer).
     pub deadline_weight: i64,
 }
 
 impl SatGuidance {
-    /// Total penalty of preferences not (yet) satisfied in `s`.
+    /// Total toll of preferences still unpaid in `s`.
     fn forgone(&self, s: &State) -> i64 {
         let mut pen = 0;
         for (phi, p) in &self.prefs {
@@ -339,12 +359,13 @@ impl SatGuidance {
         pen
     }
 
-    /// Combined heap-ordering penalty: forgone preferences + a CONVEX renewable-
-    /// resource occupancy term (`w · occupancy²`, summed over detected resources).
-    /// Both are read off the concrete state, so the search sees the resource the
-    /// delete-relaxed heuristic cannot. Ordering only — never legality — so
-    /// completeness is preserved. The convex shape discourages high simultaneous
-    /// occupancy (the peak), steering toward "release before acquiring more".
+    /// Combined heap-ordering toll: unpaid preferences plus a CONVEX
+    /// renewable-resource occupancy term (`w · occupancy²`, summed over
+    /// every flagged resource). Both read off the concrete state, so the
+    /// search sees the resource the delete-relaxed heuristic can't.
+    /// Ordering only, never legality — completeness stays intact. The
+    /// convex shape punishes high simultaneous occupancy at the peak,
+    /// nudging toward "release before you grab more".
     fn penalty(&self, s: &State) -> i64 {
         let mut pen = self.forgone(s);
         if self.res_weight != 0 {
@@ -366,9 +387,10 @@ impl SatGuidance {
     }
 }
 
-/// Solve toward an ARBITRARY (sub)goal from an arbitrary start state over a
-/// shared grounded task — the reusable subplanner entry point for SGPlan-style
-/// partition-and-resolve. `search` is the whole-task convenience wrapper.
+/// Runs toward an ARBITRARY (sub)goal from an arbitrary start state, over
+/// a grounded task shared with the rest of the operation — the reusable
+/// subplanner entry point for SGPlan-style partition-and-resolve.
+/// `search` is the whole-task convenience wrapper riding on top.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn search_from(
     task: &PackedTask,
@@ -759,8 +781,8 @@ fn reconstruct(nodes: &[Node], mut ni: usize) -> Vec<usize> {
     ops
 }
 
-/// Whole-task search (start = initial state, goal = task goal) with tunable
-/// weighted-best-first parameters.
+/// Sweeps the whole task — start is the initial state, goal is the task
+/// goal — with tunable weighted-best-first dials.
 pub fn search(task: &PackedTask, threads: usize, cfg: SearchCfg) -> PlanResult {
     search_from(
         task,
@@ -777,25 +799,28 @@ pub fn search(task: &PackedTask, threads: usize, cfg: SearchCfg) -> PlanResult {
     )
 }
 
-/// Outcome of [`plan`]: the op sequence (if solved), states evaluated, and
-/// whether EHC gave up and best-first took over.
+/// The [`plan`] after-action report: the op sequence if the target went
+/// down, states burned reaching it, and whether EHC gave up the chase and
+/// best-first had to close it out.
 pub struct PlanOutcome {
     pub ops: Option<Vec<usize>>,
     pub evaluated: usize,
     pub ehc_fell_back: bool,
 }
 
-/// Plan the whole task. With `ehc_first`, run enforced hill-climbing (fast on
-/// most problems) and fall back to weighted best-first if it gets stuck;
-/// otherwise run best-first directly. EHC plans are valid but not length-optimal
-/// — this matches the FF/Metric-FF default and is the main speed lever.
+/// Runs the whole task. With `ehc_first` armed, tries enforced
+/// hill-climbing first — fast on most jobs — and falls back to weighted
+/// best-first the moment it stalls; otherwise goes straight to
+/// best-first. EHC plans are valid but not length-optimal — matches the
+/// FF/Metric-FF default and is the main lever on speed.
 pub fn plan(task: &PackedTask, threads: usize, cfg: SearchCfg, ehc_first: bool) -> PlanOutcome {
     plan_avoiding(task, threads, cfg, ehc_first, &[])
 }
 
-/// Like [`plan`], but never uses any op `oi` where `forbidden[oi]` is true. Used
-/// by the metric optimizer's force-collect tightening (forbid forgo actions to
-/// force their preferences to actually be satisfied).
+/// [`plan`], but never touches any op `oi` where `forbidden[oi]` reads
+/// true. The metric optimizer's force-collect tightening leans on this —
+/// forbid the forgo actions so their preferences are actually forced to
+/// pay out.
 pub fn plan_avoiding(
     task: &PackedTask,
     threads: usize,
@@ -910,11 +935,13 @@ pub fn plan_avoiding(
     }
 }
 
-/// Enforced hill-climbing toward the task goal. From the current state, run a
-/// breadth-first lookahead restricted to HELPFUL actions until a strictly
-/// lower-h state is found, then jump to it and repeat. Returns the plan + states
-/// evaluated, or None if it gets stuck / hits a dead end (caller falls back to
-/// best-first, which is complete). Single-threaded and deterministic.
+/// Enforced hill-climbing, running toward the task goal. From wherever it
+/// stands, it fires a breadth-first lookahead restricted to HELPFUL
+/// actions until a strictly lower-h state surfaces, jumps there, and
+/// repeats. Returns the plan and the body count of states burned, or
+/// `None` if it stalls or hits a dead end — the caller falls back to
+/// best-first, which always finishes the job. Single-threaded,
+/// deterministic.
 fn ehc(task: &PackedTask, forbidden: &[bool], max_eval: usize) -> Option<(Vec<usize>, usize)> {
     let init = task.initial();
     let mut sc = Scratch::new(task);
@@ -1057,8 +1084,9 @@ fn bfs_improve(
     None
 }
 
-/// Subplanner API: return the op sequence achieving `(goal_pos, goal_num)` from
-/// `start`, or None if unsolvable. This is what `sgp` calls per partition.
+/// Subplanner contract: hands back the op sequence achieving
+/// `(goal_pos, goal_num)` from `start`, or `None` if the job is dead.
+/// This is what `sgp` calls per partition.
 pub fn solve_subgoal(
     task: &PackedTask,
     start: &State,
@@ -1070,9 +1098,10 @@ pub fn solve_subgoal(
     solve_subgoal_avoiding(task, start, goal_pos, goal_num, &[], threads, cfg)
 }
 
-/// `solve_subgoal` but never using any op `oi` where `forbidden[oi]` is true —
-/// the resolver's sibling-protection lever (forbid ops that delete an already-
-/// achieved sibling's facts). An empty mask forbids nothing.
+/// `solve_subgoal`, but never touching any op `oi` where `forbidden[oi]`
+/// reads true — the resolver's sibling-protection lever, forbidding ops
+/// that would erase a sibling's already-won facts. An empty mask
+/// forbids nothing at all.
 #[allow(clippy::too_many_arguments)]
 pub fn solve_subgoal_avoiding(
     task: &PackedTask,
@@ -1101,10 +1130,10 @@ pub fn solve_subgoal_avoiding(
     }
 }
 
-/// Subplanner with a monotone COST upper bound on `cost_fluent`: returns a plan
-/// reaching the goal whose final cost is < `bound`, or None if none exists under
-/// the bound. The anytime branch-and-bound metric optimizer (sgp) calls this
-/// with a tightening bound.
+/// Subplanner running under a monotone COST ceiling on `cost_fluent`:
+/// hands back a plan reaching the goal at final cost < `bound`, or
+/// `None` if nothing clears it. The anytime branch-and-bound metric
+/// optimizer (sgp) calls this with a bound that keeps tightening.
 #[allow(clippy::too_many_arguments)]
 pub fn solve_subgoal_bounded(
     task: &PackedTask,
@@ -1136,13 +1165,14 @@ pub fn solve_subgoal_bounded(
 }
 
 /// The exact-closure metric subplanner (`crate::pddl3::metric_optimize`'s
-/// default path): search REAL states only — `forbidden` masks every synthetic
-/// `P3END`/collect/forgo op — accepting a state iff the real goal holds AND
-/// `cost-so-far + closure(state) < bound` (the caller appends the phase tail,
-/// which pays exactly `closure`). Returns the plan (sans tail) plus the number
-/// of states evaluated, so the caller can run a DETERMINISTIC eval-count
-/// budget across tightening iterations, and the capped flag (bound proven
-/// unbeatable iff un-capped exhaustion).
+/// default route): walks REAL states only — `forbidden` masks off every
+/// synthetic `P3END`/collect/forgo op — and takes a state iff the real
+/// goal holds AND `cost-so-far + closure(state) < bound` (the caller
+/// bolts on the phase tail afterward, which pays exactly `closure`).
+/// Returns the plan minus the tail, plus the evaluated-state count so
+/// the caller can run a DETERMINISTIC budget across tightening rounds,
+/// and the capped flag — the bound is proven unbeatable only when
+/// exhaustion happens uncapped.
 #[allow(clippy::too_many_arguments)]
 pub fn solve_closure_bounded(
     task: &PackedTask,
@@ -1174,13 +1204,14 @@ pub fn solve_closure_bounded(
     }
 }
 
-/// [`solve_subgoal_avoiding`] + [`SatGuidance`]: the partitioned-ESPC per-stage
-/// subplanner (`crate::espc`). Combines a forbidden-op mask (sibling protection)
-/// with the λ-weighted penalty guidance — `search_from` supports both, but no
-/// other wrapper exposes the combination. No cost bound: on the openstacks shape
-/// the metric only accrues in the post-composition collect/forgo tail, so a
-/// per-stage bound could never prune; bounds stay global (composed-plan cost vs
-/// the incumbent).
+/// [`solve_subgoal_avoiding`] plus [`SatGuidance`]: the partitioned-ESPC
+/// per-stage subplanner (`crate::espc`). Combines a forbidden-op mask
+/// (sibling protection) with the λ-weighted penalty guidance —
+/// `search_from` carries both, but no other wrapper exposes the
+/// combination. No cost bound here: on the openstacks shape the metric
+/// only accrues in the post-composition collect/forgo tail, so a
+/// per-stage bound could never prune anything — bounds stay global,
+/// composed-plan cost against the incumbent.
 #[allow(clippy::too_many_arguments)]
 pub fn solve_subgoal_guided(
     task: &PackedTask,

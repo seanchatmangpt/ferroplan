@@ -1,20 +1,22 @@
 # Performance
 
 ferroplan is [data-oriented by design](./architecture.md), but a fast layout
-only pays off if the hot paths don't do redundant work. This session landed
-three optimizations that turn instances which were previously *un-finishable* or
-*un-scoreable* into routine ones — each measured, each correctness-preserving.
+buys nothing if the hot paths grind through redundant work. Three fixes went
+in this session, each one turning an instance that used to be *un-finishable*
+or *un-scoreable* into a routine solve — each measured, each
+correctness-preserving.
 
 ## Grounding — static-precondition parameter-domain restriction
 
-Untyped domains used to enumerate the full cartesian product of every parameter
-and string-match almost all of it away. gripper's `pick(?obj ?room ?gripper)`
-was generating 154³ ≈ 3.6M bindings *per action* and discarding 99.98% of them.
+Untyped domains used to enumerate the full cartesian product of every parameter,
+then string-match nearly all of it back out. gripper's `pick(?obj ?room ?gripper)`
+was throwing off 154³ ≈ 3.6M bindings *per action* and discarding 99.98% of them
+on the floor.
 
-The fix restricts each parameter's domain by its **static unary preconditions**
-*before* enumerating — so `?gripper` only ever ranges over the grippers, not
-every object — collapsing the blowup at the source. The produced ground ops are
-bit-identical; only the work to find them shrinks.
+The fix: restrict each parameter's domain by its **static unary preconditions**
+*before* enumerating — `?gripper` only ever ranges over grippers now, never
+every object in the world. The blowup dies at the source. Produced ground ops
+come out bit-identical; only the search to find them shrinks.
 
 | instance | before | after |
 |---|---|---|
@@ -26,55 +28,55 @@ bit-identical; only the work to find them shrinks.
 
 ## EHC work cap — scaled by operator count
 
-Enforced hill-climbing carried a fixed work cap. Large-but-easy instances would
-exhaust it and bail into the *unpruned* best-first arm, doing millions of
-evaluations on a problem EHC's near-greedy descent would have walked straight
-through. Scaling the cap by operator count lets those instances finish in the
-cheap arm; the heuristic is untouched and the plan stays valid.
+Enforced hill-climbing carried a fixed work cap. Large-but-easy instances blew
+through it and bailed into the *unpruned* best-first arm — millions of
+evaluations spent on a problem EHC's near-greedy descent would have walked
+straight through. Scale the cap by operator count and those instances finish
+in the cheap arm instead; the heuristic never moves, the plan stays valid.
 
 | instance | before | after |
 |---|---|---|
 | gripper-250 `--mode ff` | 2.16M evals / 33 s | 32k evals / 0.86 s (38×) |
 
-Small and genuinely-hard instances are unchanged — they never hit the old cap,
-or they legitimately need the fallback (deep plateaus are still on the backlog;
-see [perf-notes](#how-the-wins-are-measured)).
+Small and genuinely-hard instances don't move — they never touched the old
+cap, or they legitimately need the fallback (deep plateaus are still on the
+backlog; see [perf-notes](#how-the-wins-are-measured)).
 (`crates/ferroplan/src/search.rs`)
 
 ## Metric optimizer — monotone numeric-term folding
 
-The [metric optimizer](./metric-quality.md) drives an anytime branch-and-bound
-over the `:metric`. Previously it could only see the preference-violation terms,
-so on domains whose metric also charges a **monotone numeric quantity** — like
-rovers' `(sum-traverse-cost)` — it scored a bogus `0`: the numeric part was
-invisible and the search had nothing to optimize.
+The [metric optimizer](./metric-quality.md) runs an anytime branch-and-bound
+over the `:metric`. It used to see only the preference-violation terms — so on
+domains where the metric also charges a **monotone numeric quantity**, like
+rovers' `(sum-traverse-cost)`, it scored a bogus `0`. The numeric part was
+invisible; the search had nothing left to optimize.
 
-It now folds monotone numeric metric terms into total-cost, so it optimizes the
+It now folds monotone numeric metric terms into total-cost and optimizes the
 **full** metric. rovers went from un-scoreable to a real metric of **935.3** —
-which is what unlocked the sixth IPC-5 domain (see
+the move that unlocked the sixth IPC-5 domain (see
 [Metric quality](./metric-quality.md)).
 (`crates/ferroplan/src/pddl3.rs`)
 
 ## How the wins are measured
 
-Two harnesses, with a deliberate division of labor:
+Two harnesses, division of labor deliberate:
 
 - **`cargo bench -p ferroplan --bench planning`** (criterion) is the reference
   for wall-time deltas. Its `solve/` group covers small typed/numeric instances
-  (gripper, blocks, rovers) and `solve_large/` covers the scale-sensitive
+  (gripper, blocks, rovers); `solve_large/` covers the scale-sensitive
   grounding- and search-dominated cases. Criterion is the *only* noise-robust
-  timer on a loaded machine.
+  timer on a loaded machine — trust it.
 - **`benchmarks/perf.py`** reports deterministic evaluated-state counts. A
-  constant-factor win leaves these bit-identical (proof the work, not the
-  strategy, shrank); a search-strategy win changes them and must be re-baselined.
+  constant-factor win leaves these bit-identical — proof the work shrank, not
+  the strategy. A search-strategy win moves them, and demands a re-baseline.
 
-> Raw wall-clock here is noise-dominated below ~15% — the same binary has ranged
-> 11.5–14 s under background load — so treat any single timed run with suspicion
-> and let criterion arbitrate.
+> Raw wall-clock here runs noise-dominated below ~15% — the same binary has
+> ranged 11.5–14 s under background load. Treat any single timed run with
+> suspicion. Let criterion arbitrate.
 
 The ranked backlog of remaining optimizations (generation-counter `Scratch`
-reset, preferred-operator best-first, `apply_into` clone-on-survival) lives in
+reset, preferred-operator best-first, `apply_into` clone-on-survival) sits in
 [`docs/perf-notes.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/perf-notes.md),
-along with the methodology caveats learned the hard way (notably: `atos`
-mis-attributes inlined hot code on optimized builds — trust the de-noised
-profile, not the raw top symbols).
+alongside the methodology caveats learned the hard way — notably: `atos`
+mis-attributes inlined hot code on optimized builds. Trust the de-noised
+profile, not the raw top symbols.

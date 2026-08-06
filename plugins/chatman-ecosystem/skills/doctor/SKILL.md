@@ -29,4 +29,6 @@ Diagnose `$ARGUMENTS` without repairing automatically.
 8. Read phase and hook status; validate every phase invariant.
 9. Verify the latest admission envelope when present.
 
-Report each surface as `ALIVE`, `PARTIAL_ALIVE`, `BUILD_BROKEN`, or `UNKNOWN`. Do not repair, publish, or upgrade standing from inspection alone.
+Report each surface as `ALIVE`, `PARTIAL_ALIVE`, `BUILD_BROKEN`, or
+`UNKNOWN`. A diagnosis never repairs, publishes, or upgrades standing on
+its own — it only names what it found.

@@ -1,6 +1,6 @@
 [package]
 name = "ferroplan-mcp"
-description = "Model Context Protocol servers for ferroplan planning, persistent self-hosting sessions, and Chatman admission receipts"
+description = "MCP servers running the ferroplan wire — planning, self-hosting sessions that persist past the blackout, Chatman admission receipts stamped in the ledger"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

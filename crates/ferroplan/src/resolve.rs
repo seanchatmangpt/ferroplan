@@ -1,17 +1,20 @@
-//! Partition-and-resolve control loop (the SGPlan core, adapted to numeric
-//! STRIPS — see docs/sgplan6-spec.md §5,§9).
+//! Cut the problem into shards, run them dark, stitch what survives. This
+//! is the SGPlan core, retooled for numeric STRIPS — field notes in
+//! docs/sgplan6-spec.md §5,§9.
 //!
-//! Each outer iteration:
-//!   Phase A (PARALLEL, coarse): solve every group's subgoal from the INITIAL
-//!     state independently — one `ffdp` subplanner per group, run concurrently.
-//!   Phase B (sequential, validated compose): replay each group's subplan on the
-//!     evolving real state; if it no longer applies, re-solve from the current
-//!     state with the full data-parallel subplanner. Reject a step that breaks an
-//!     already-achieved sibling's subgoal.
-//!   Resolution: on any stuck/conflict, MERGE the offending group with a neighbor
-//!     (coarsen granularity) and retry. When merging collapses to one group the
-//!     subproblem IS the whole problem, i.e. a monolithic `ffdp` fallback — so
-//!     `sgp` is solvable exactly when `ffdp` is.
+//! Every cycle:
+//!   Phase A (parallel, coarse): drop a subplanner into each group's
+//!     subgoal from the INITIAL state, blind to its neighbors, all running
+//!     at once — one `ffdp` per shard.
+//!   Phase B (sequential, validated compose): replay each shard's subplan
+//!     against the state as it actually evolves. Ground shifted, plan no
+//!     longer holds — re-solve from where we stand, full data-parallel
+//!     muscle. Any step that guts a sibling's already-won subgoal gets
+//!     vetoed on sight.
+//!   Resolution: hit a wall, MERGE the offending group into its neighbor —
+//!     coarsen the grid, try again. Collapse everything to one group and
+//!     the subproblem IS the whole problem: monolithic `ffdp`, nowhere
+//!     left to hide. `sgp` cracks it exactly when `ffdp` would.
 
 use crate::packed::{PackedTask, State};
 use crate::par;
@@ -32,14 +35,14 @@ pub enum Solved {
     Unsolvable,
 }
 
-/// The per-subgoal LAMA rung (the second half of the 0.9 text-path
-/// unification): when a subgoal's plain best-first solve fails, try the
-/// bounded landmark/preferred-operator search for exactly this
-/// (start, subgoal) pair before conceding a merge. Landmarks are recomputed
-/// per call, so the count is sound for the piece being solved. Same gate
-/// and cap discipline as the library ladder's rung (`FF_NO_LAMA=1`
-/// removes it); a None here costs one bounded search and the cascade
-/// merges exactly as before.
+/// Last rites before a merge. When a subgoal's plain best-first solve
+/// flatlines, throw the bounded landmark / preferred-operator search at
+/// this exact (start, subgoal) pair — one more pass before conceding
+/// ground. Landmarks are recomputed fresh per call, so the count stays
+/// honest for the piece under fire. Same gate, same cap discipline as the
+/// library ladder's rung (`FF_NO_LAMA=1` kills it outright); coming back
+/// empty costs one bounded search and the cascade merges exactly as it
+/// would have anyway.
 fn lama_rung(
     task: &PackedTask,
     start: &State,
@@ -64,7 +67,7 @@ fn lama_rung(
     .map(|(ops, _)| ops)
 }
 
-/// Does op-sequence `ops` apply from `state` and achieve `g`? (cheap replay).
+/// Fast ghost-run: does op-sequence `ops` still hold from `state`, still land on `g`?
 fn replay_ok(task: &PackedTask, state: &State, ops: &[usize], g: &Subgoal) -> bool {
     let mut s = state.clone();
     for &oi in ops {

@@ -1,22 +1,26 @@
-//! PDDL3.0 soft-goal preferences + metric optimization (phase 1).
+//! Soft law, priced. PDDL3.0 preferences and metric optimization — phase 1.
 //!
-//! Compilation (Keyder & Geffner, "Soft goals can be compiled away", JAIR 2009):
-//! each `(preference p phi)` in the goal becomes a 0-ary fact `collected_p`, a
-//! `collect_p` action (precond `phi`, effect `collected_p`, cost 0), and a
-//! `forgo_p` action (effect `collected_p` + `(increase (total-cost) w_p)`).
-//! `collected_p` is added to the HARD goal, so minimizing `total-cost` minimizes
-//! the weighted preference violation (plus any existing action costs).
+//! The compile (Keyder & Geffner, "Soft goals can be compiled away", JAIR
+//! 2009): every `(preference p phi)` in the goal gets a shadow, a 0-ary fact
+//! `collected_p`; a `collect_p` action that pays nothing when phi already
+//! holds; a `forgo_p` action that pays `w_p` on `(total-cost)` when it
+//! doesn't. `collected_p` gets folded into the hard goal, so driving down
+//! `total-cost` is driving down the weighted count of broken promises —
+//! stacked against whatever real action costs were already on the books.
 //!
-//! `w_p` is the coefficient of `(is-violated p)` in the `:metric`; preferences not
-//! referenced by the metric get weight 0 (free to forgo); with no metric at all,
-//! weight 1 (minimize count of violated preferences).
+//! `w_p` reads off the `(is-violated p)` coefficient in the `:metric`.
+//! A preference the metric never names costs nothing to break — weight 0,
+//! free passage. No metric at all and every broken promise costs the same —
+//! weight 1, straight body count.
 //!
-//! Optimization is ANYTIME branch-and-bound over `total-cost` via
-//! `crate::solve_subgoal_bounded` (sound because action costs are monotone).
-//! Scope: metrics linear in `(is-violated …)`, `(total-cost)`, and any other
-//! MONOTONE numeric fluent term (e.g. rovers' `(sum-traverse-cost)`), which
-//! `compile()` folds into `total-cost` so the single-cost B&B optimizes the FULL
-//! metric. Non-monotone / under-forall / divided terms are flagged, not optimized.
+//! The search runs anytime branch-and-bound over `total-cost`, through
+//! `crate::solve_subgoal_bounded` — sound only because the costs never run
+//! backward. In scope: metrics linear in `(is-violated …)`, in
+//! `(total-cost)`, and in any other monotone numeric term (rovers'
+//! `(sum-traverse-cost)`, for one) — `compile()` folds all of it into
+//! `total-cost` so the single-cost search optimizes the whole metric, not a
+//! slice of it. Anything non-monotone, buried under a forall, or torn apart
+//! by division gets flagged and left alone.
 
 use std::collections::{HashMap, HashSet};
 
@@ -29,7 +33,7 @@ use crate::types::{
 pub const COST: &str = "TOTAL-COST";
 pub const COST_DISP: &str = "(TOTAL-COST)";
 
-/// Does this problem use PDDL3 soft goals or a metric?
+/// Is there soft law on this problem, or a metric watching the till?
 pub fn is_pddl3(problem: &Problem) -> bool {
     problem.metric.is_some() || goal_has_pref(&problem.goal)
 }
@@ -56,9 +60,10 @@ fn expr_has_is_violated(e: &crate::types::Expr) -> bool {
     }
 }
 
-/// True iff the problem has genuine PDDL3 *preferences* (goal preferences or an
-/// `is-violated` metric) — as opposed to a plain numeric `:metric`. Used to route
-/// `Mode::Auto`: preferences -> PDDL3 mode, otherwise classic FF.
+/// True only when the problem is actually carrying preferences — goal
+/// preferences, or a metric watching `is-violated` — not just a plain
+/// numeric `:metric` wearing the same coat. Routes `Mode::Auto`: real
+/// preferences send it into PDDL3 mode, everything else runs classic FF.
 pub fn has_preferences(problem: &Problem) -> bool {
     goal_has_pref(&problem.goal)
         || problem
@@ -67,18 +72,20 @@ pub fn has_preferences(problem: &Problem) -> bool {
             .is_some_and(|(_, e)| expr_has_is_violated(e))
 }
 
-/// The 0.4.1 blanket rejection message for PDDL3 `(:constraints ...)`.
+/// The old 0.4.1 door-in-the-face — the blanket refusal for PDDL3
+/// `(:constraints ...)`.
 ///
-/// Since 0.7 the hard untimed operators are ENFORCED (compiled by
-/// [`crate::constraints::gate`] into monitor automata), so this blanket is no
-/// longer the default: it survives only behind the `FF_CONSTRAINTS_REJECT=1`
-/// hatch, which restores the 0.4.1 reject-everything behavior at every gate.
-/// Returns the rejection message when trajectory constraints are present, or
-/// `None` when there are none to reject.
+/// Since 0.7 the hard untimed operators get enforced, not turned away —
+/// [`crate::constraints::gate`] compiles them straight into monitor
+/// automata. The blanket refusal doesn't run the show anymore; it only
+/// wakes up behind the `FF_CONSTRAINTS_REJECT=1` hatch, restoring the old
+/// reject-everything posture at every gate. Hands back the refusal message
+/// when trajectory constraints are actually present, `None` when there's
+/// nothing there to turn away.
 ///
-/// This is distinct from goal `(preference ...)` SOFT goals (handled by the PDDL3
-/// metric path): those live in the goal formula, not in `.constraints`, and are
-/// unaffected.
+/// A different animal from goal `(preference ...)` soft goals, which the
+/// PDDL3 metric path already handles — those live inside the goal formula,
+/// not in `.constraints`, and walk free of this gate entirely.
 pub(crate) fn unsupported_constraints(domain: &Domain, problem: &Problem) -> Option<String> {
     if domain.constraints.is_empty() && problem.constraints.is_empty() {
         return None;
@@ -168,8 +175,9 @@ fn contains_pref(f: &Formula) -> bool {
     }
 }
 
-/// Pull soft `(preference name phi)` conjuncts out of an action precondition,
-/// returning the hard precondition and the list of (name, phi) precond prefs.
+/// Cut the soft `(preference name phi)` clauses out of an action's
+/// precondition, clean. Hands back what's left of the hard precondition
+/// and the (name, phi) preference roster that was pulled from it.
 fn extract_precond_prefs(f: &Formula, ctr: &mut usize) -> (Formula, Vec<(String, Formula)>) {
     match f {
         Formula::And(v) => {
@@ -196,10 +204,11 @@ fn extract_precond_prefs(f: &Formula, ctr: &mut usize) -> (Formula, Vec<(String,
     }
 }
 
-/// Split a goal into hard conjuncts and (name, formula) preferences. A
-/// `(forall (vars) ... preference ...)` is expanded into one preference INSTANCE
-/// per object binding, all sharing the preference name (so `(is-violated name)`
-/// counts violated instances — the PDDL3 semantics).
+/// Split the goal down the middle: hard conjuncts on one side, named
+/// preferences on the other. A `(forall (vars) ... preference ...)` spawns
+/// one instance per object binding, every instance carrying the same name
+/// — so `(is-violated name)` reads as a body count across the whole
+/// binding set, exactly what PDDL3 semantics demand.
 fn split_goal(
     g: &Formula,
     hard: &mut Vec<Formula>,
@@ -227,11 +236,12 @@ fn split_goal(
     }
 }
 
-/// Accumulate metric weights: `is-violated p` -> w[p], `total-cost` coeff,
-/// `others[f]` += coeff for any other 0-ary numeric fluent `(f)` (e.g.
-/// `(sum-traverse-cost)`), `konst` += the affine constant term (scaled), and
-/// `other` for genuinely unsupported shapes (n-ary metric fluents, division,
-/// non-constant products).
+/// Tally the metric, term by term: `is-violated p` books to `w[p]`,
+/// `total-cost` books its coefficient, any other 0-ary fluent `(f)` — say,
+/// `(sum-traverse-cost)` — books to `others[f]`, the flat remainder feeds
+/// `konst`. Anything genuinely out of scope — n-ary metric fluents,
+/// division, a product with no constant anchor — trips `other` and gets
+/// flagged, not counted.
 #[allow(clippy::too_many_arguments)]
 fn extract(
     e: &Expr,
@@ -275,8 +285,9 @@ fn extract(
     }
 }
 
-/// Predicates never added nor deleted by any action effect — their truth is
-/// fixed by the initial state. The static complement of [`modified_functions`].
+/// Predicates no action ever touches — added, deleted, never. Whatever
+/// truth they carry, they carried it at the initial state and they'll
+/// carry it to the end. The static complement of [`modified_functions`].
 pub(crate) fn static_predicates(domain: &Domain) -> HashSet<String> {
     fn walk(e: &Effect, out: &mut HashSet<String>) {
         match e {
@@ -306,14 +317,17 @@ pub(crate) fn static_predicates(domain: &Domain) -> HashSet<String> {
         .collect()
 }
 
-/// Partially evaluate a (mostly ground) preference formula against the facts
-/// that can never change: fully-ground atoms of STATIC predicates are decided
-/// by init membership, ground `(= a b)` is decided by symbol equality, and the
-/// connectives fold. Everything else (numeric comparisons, atoms still carrying
-/// quantified variables, dynamic predicates) is left untouched — conservative,
-/// so the result is equivalent in every REACHABLE state. A preference whose phi
-/// folds to `True` can never be violated (metric contribution identically 0),
-/// which is what lets `compile()` drop it before the Keyder–Geffner expansion.
+/// Run a preference formula past the facts that will never move — decide
+/// what can be decided now, leave the rest standing. Fully-ground atoms on
+/// static predicates get read straight from init membership; ground
+/// `(= a b)` gets read off symbol identity; the connectives fold through.
+/// Anything still carrying uncertainty — numeric comparisons, quantified
+/// variables, dynamic predicates — stays exactly as written; the fold
+/// never claims more than the facts support, so its output is equivalent
+/// in every state the search can actually reach. A phi that folds all the
+/// way to `True` can never be broken — zero contribution to the metric,
+/// forever — which is the license `compile()` needs to drop it before the
+/// Keyder–Geffner expansion even starts.
 pub(crate) fn peval_static(
     f: &Formula,
     statics: &HashSet<String>,
@@ -399,7 +413,8 @@ pub(crate) fn peval_static(
     }
 }
 
-/// Functions modified by some action effect (so the complement is "static").
+/// Functions some action's effect touches — the complement of "static", the
+/// list of what's still in play.
 fn modified_functions(domain: &Domain) -> HashSet<String> {
     fn walk(e: &Effect, out: &mut HashSet<String>) {
         match e {
@@ -418,10 +433,11 @@ fn modified_functions(domain: &Domain) -> HashSet<String> {
     out
 }
 
-/// Can metric fluent `fname` be folded into total-cost (monotone non-decreasing)?
-/// Yes iff every effect on it is `(increase fname X)` where X is a non-negative
-/// constant, or a STATIC function whose init values are all non-negative. Returns
-/// `Some(reason)` if not foldable.
+/// Does metric fluent `fname` clear the bar to fold into total-cost — never
+/// runs backward, only forward? Clears it only when every effect on it is
+/// `(increase fname X)`, X either a non-negative constant or a static
+/// fluent whose init values never dip below zero. Returns `Some(reason)`
+/// the instant it doesn't.
 fn fluent_foldable(domain: &Domain, problem: &Problem, fname: &str) -> Option<String> {
     let modified = modified_functions(domain);
     let static_nonneg = |g: &str| -> bool {
@@ -474,7 +490,8 @@ fn fluent_foldable(domain: &Domain, problem: &Problem, fname: &str) -> Option<St
     bad
 }
 
-/// `coeff * x` as an Expr (avoids a `(* 1 x)` wrapper when coeff is 1).
+/// `coeff * x`, dressed as an Expr — skips the pointless `(* 1 x)` wrapper
+/// when coeff is 1.
 fn scaled_expr(coeff: f64, x: &Expr) -> Expr {
     if coeff == 1.0 {
         x.clone()
@@ -483,8 +500,8 @@ fn scaled_expr(coeff: f64, x: &Expr) -> Expr {
     }
 }
 
-/// Collect `(increase total-cost coeff*X)` mirrors for each `(increase fname X)`
-/// found inside `eff`.
+/// Cast a shadow: for every `(increase fname X)` buried in `eff`, mint a
+/// matching `(increase total-cost coeff*X)`.
 fn collect_cost_mirror(eff: &Effect, fname: &str, coeff: f64, out: &mut Vec<Effect>) {
     match eff {
         Effect::And(v) => v
@@ -503,8 +520,8 @@ fn collect_cost_mirror(eff: &Effect, fname: &str, coeff: f64, out: &mut Vec<Effe
     }
 }
 
-/// Extract the (name, formula) preference INSTANCES from a goal (forall-expanded
-/// over `objs`) — for independent scoring and compilation.
+/// Pull the (name, formula) preference roster off a goal — forall-expanded
+/// over `objs` — ready for independent scoring and compilation.
 pub fn preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) -> Vec<(String, Formula)> {
     let mut hard = Vec::new();
     let mut prefs = Vec::new();
@@ -513,11 +530,12 @@ pub fn preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) -> Vec<(String
     prefs
 }
 
-/// Effective metric weight per preference INSTANCE name (default 1 with no
-/// metric, else the `(is-violated name)` coefficient, 0 if unreferenced).
-/// Enumerates goal preferences AND (since 0.7 Phase 2) `(:constraints ...)`
-/// constraint-preferences — both share the one `(is-violated name)`
-/// namespace and the same defaults.
+/// The going rate on each preference — one weight per instance name.
+/// Weight 1 across the board with no metric watching; otherwise whatever
+/// `(is-violated name)`'s coefficient says, 0 if the metric never mentions
+/// it at all. Reads both goal preferences and — since 0.7 Phase 2 —
+/// `(:constraints ...)` constraint-preferences; they share one
+/// `(is-violated name)` ledger and the same defaults.
 pub fn pref_weights(domain: &Domain, problem: &Problem) -> HashMap<String, f64> {
     let mut w = HashMap::new();
     let mut tc = 0.0;
@@ -562,41 +580,48 @@ pub fn pref_weights(domain: &Domain, problem: &Problem) -> HashMap<String, f64> 
 pub struct Compiled {
     pub domain: Domain,
     pub problem: Problem,
-    /// The metric's ORIGINAL direction was minimize (informational; maximize
-    /// metrics are normalized to minimize at compile — see `maximized`).
+    /// True if the original order was to drive it down. Informational —
+    /// maximize metrics get flipped and normalized to minimize before
+    /// compile-time; see `maximized`.
     pub minimize: bool,
-    /// The original metric was `maximize` and was normalized to minimize by
-    /// negation: the optimizer's value V maps back to the original metric as
-    /// `-(V + metric_konst)` — use [`Compiled::display_metric`].
+    /// The original order was maximize, and it got turned around by
+    /// negation to fit the house's minimize-only frame. The optimizer's
+    /// value V maps back to the true metric as `-(V + metric_konst)` — go
+    /// through [`Compiled::display_metric`], never do it by hand.
     pub maximized: bool,
-    /// Affine constant of the NORMALIZED (minimized) objective, dropped from
-    /// optimization (constants never change the argmin) but needed to report
-    /// the original metric's value (IPC6 net benefit's `(- CONST ...)`).
+    /// The flat term riding on the normalized objective — invisible to the
+    /// optimizer (a constant never moves an argmin) but needed the moment
+    /// anyone asks what the original metric's number actually is (IPC6
+    /// net benefit's `(- CONST ...)` shape).
     pub metric_konst: f64,
     pub n_prefs: usize,
     pub warn_other: bool,
-    /// Set if the metric is outside the supported class (maximize / negative
-    /// weight / scaled or non-monotone total-cost). The caller falls back to a
-    /// satisficing plan instead of silently optimizing the wrong objective.
+    /// Set the instant the metric steps outside supported territory —
+    /// maximize, negative weight, a scaled or non-monotone total-cost.
+    /// The caller drops to a satisficing plan rather than optimize an
+    /// objective it can't actually verify.
     pub unsupported: Option<String>,
-    /// Names of the synthetic Keyder-Geffner actions (stripped from the plan).
+    /// Names of the ghost actions Keyder-Geffner minted — stripped clean
+    /// out of the final plan before anyone sees it.
     pub synthetic: HashSet<String>,
-    /// (forgo-action name, weight) per preference instance.
+    /// (forgo-action name, weight) — the price sheet, one line per
+    /// preference instance.
     pub forgos: Vec<(String, f64)>,
-    /// True when a numeric metric term was FOLDED into total-cost (mirrored
-    /// `increase` effects on real actions, e.g. rovers' traverse costs). The
-    /// metric optimizer routes such tasks to the legacy compiled-goal B&B —
-    /// real-action cost gives it a genuine gradient, and the closure search
-    /// measures worse there (continuous tightening churn).
+    /// Fires when some numeric metric term got folded into total-cost —
+    /// mirrored `increase` effects riding on real actions, rovers' travel
+    /// costs among them. Tasks carrying this flag route to the legacy
+    /// compiled-goal branch-and-bound instead: real-action cost hands it an
+    /// honest gradient, and the closure search runs worse there, caught in
+    /// continuous tightening churn.
     pub folded_metric: bool,
 }
 
 impl Compiled {
-    /// Map the optimizer's minimized value back to the ORIGINAL metric's
-    /// value: identity for plain minimize metrics (their constant is 0 in
-    /// every IPC form), `-(V + konst)` for normalized maximize metrics —
-    /// e.g. IPC6 net benefit `maximize (- 70 X)` optimizes `minimize X`
-    /// with konst = -70 and reports `70 - X`.
+    /// Carry the optimizer's minimized number back to what the original
+    /// metric would have said. Identity for a plain minimize metric — its
+    /// constant sits at 0 in every IPC shape. `-(V + konst)` for a
+    /// normalized maximize metric — IPC6 net benefit's `maximize (- 70 X)`
+    /// optimizes `minimize X` with konst = -70, and reports back `70 - X`.
     pub fn display_metric(&self, optimized: f64) -> f64 {
         let m = optimized + self.metric_konst;
         if self.maximized {
@@ -607,13 +632,14 @@ impl Compiled {
     }
 }
 
-/// Is `total-cost` monotone non-decreasing across the domain? Branch-and-bound
-/// cost pruning is only sound if it is. Any decrease/scale/assign on total-cost
-/// breaks monotonicity; an increase is monotone when its amount is a
-/// non-negative constant OR a STATIC fluent whose every init value is >= 0
-/// (no action modifies it, so it can never turn negative) — the IPC6 shape
-/// `(increase (total-cost) (travel-fast ?f1 ?f2))` used by the elevators /
-/// crew-planning / openstacks net-benefit domains.
+/// Does `total-cost` only ever climb, never fall, anywhere in this domain?
+/// Branch-and-bound pruning is only trustworthy if it does. Any decrease,
+/// scale, or assign on total-cost breaks that promise outright; an
+/// increase stays honest when its amount is a non-negative constant, or a
+/// static fluent whose init values never drop below zero — no action
+/// reaches it, so it can't turn on you later. That covers the IPC6 shape
+/// `(increase (total-cost) (travel-fast ?f1 ?f2))` running through the
+/// elevators, crew-planning, and openstacks net-benefit domains.
 fn cost_monotone(domain: &Domain, problem: &Problem) -> bool {
     let modified = modified_functions(domain);
     let static_nonneg = |g: &str| -> bool {
@@ -659,7 +685,8 @@ fn cost_monotone(domain: &Domain, problem: &Problem) -> bool {
     ok
 }
 
-/// Compile soft goals away into a classical+cost problem (Keyder–Geffner).
+/// Burn the soft goals out of the picture — recast the whole job as a
+/// classical, cost-priced problem, Keyder–Geffner style.
 pub fn compile(domain: &Domain, problem: &Problem) -> Compiled {
     let objs = crate::ground::objects_by_type(domain, problem);
     let mut hard = Vec::new();
@@ -953,7 +980,7 @@ pub fn compile(domain: &Domain, problem: &Problem) -> Compiled {
     }
 }
 
-/// Final value of the cost fluent after executing `ops` from the initial state.
+/// What the cost fluent reads once `ops` has run clean, start to finish.
 pub(crate) fn plan_cost(task: &PackedTask, ops: &[usize], cf: usize) -> f64 {
     let mut s = task.initial();
     for &oi in ops {
@@ -970,47 +997,54 @@ pub struct MetricResult {
     pub ops: Vec<usize>,
     pub cost: f64,
     pub iterations: usize,
-    /// True only if the search exhausted the space proving no cheaper plan
-    /// exists. False if a resource bound (MAX_EVAL / MAX_ITERS) cut it short, in
-    /// which case `cost` is the best found, not provably optimal.
+    /// True only when the search burned the whole space dry and proved no
+    /// cheaper plan exists. False when a resource bound — MAX_EVAL,
+    /// MAX_ITERS — cut it off first; `cost` is then just the best found,
+    /// no proof behind it.
     pub proven: bool,
 }
 
-/// Minimize `cost_fluent` (total preference-violation weight) by relax-and-tighten:
-/// an EHC first incumbent, then SGPlan-style force-collect tightening (force the
-/// highest-weight preferences to actually be satisfied), then a bounded B&B polish.
-/// `forgos` are the (op-id, weight) of the synthetic forgo actions.
+/// Drive `cost_fluent` — the total weight of broken promises — down through
+/// relax-and-tighten: an EHC first incumbent, then SGPlan-style
+/// force-collect tightening (the highest-weight preferences get strong-armed
+/// into satisfaction), then a bounded branch-and-bound polish to finish.
+/// `forgos` are the (op-id, weight) roster of the synthetic forgo actions.
 /// Default per-`occupancy²` weight for the renewable-resource guidance term.
 ///
-/// **Off (0) by default — deliberately.** A swept experiment (FF_RES_WEIGHT ×
-/// FF_RES_THRESH on openstacks p01–p05) showed a soft occupancy penalty never
-/// lowers the metric: small weights *raise* it (penalizing live occupancy
-/// suppresses the necessary start→make→ship pipeline — a started-but-unshipped
-/// order carries both a forgone-pref penalty and occupancy cost), and large
-/// thresholds are inert. This is principled: openstacks is min-open-stacks
-/// scheduling (an order's products must be made while it is *started*, so orders
-/// sharing a product must be open simultaneously — the MOSP/pathwidth constraint),
-/// a combinatorial *peak/throughput* objective that no per-state penalty can
-/// express. Closing that gap needs the ESPC partition+penalty loop or a real
-/// scheduler, not this term.
+/// **Off by default — on purpose, not by oversight.** A swept run
+/// (FF_RES_WEIGHT × FF_RES_THRESH on openstacks p01–p05) confirmed a soft
+/// occupancy penalty never lowers the metric: small weights make it worse
+/// — penalizing live occupancy chokes the start→make→ship pipeline the
+/// plan actually needs, so a started-but-unshipped order gets hit twice,
+/// once for the forgone preference and once for occupancy — and large
+/// thresholds just sit inert. There's a reason for that, not a gap:
+/// openstacks runs min-open-stacks scheduling, where an order's products
+/// must be built while the order is open, forcing orders sharing a
+/// product to stay open together — the MOSP/pathwidth constraint. That's
+/// a combinatorial peak/throughput objective, and no per-state penalty
+/// touches it. Closing that gap takes the ESPC partition+penalty loop, or
+/// a real scheduler — not this term.
 ///
-/// The detection + concrete-state hook are kept as the **foundation** for
-/// capacity-aware scheduling (numeric resources, and renewable-resource
-/// feasibility in the temporal planner — where capacity is a *hard* constraint,
-/// the case that actually matters for durative resource allocation). Override at
-/// runtime with `FF_RES_WEIGHT` / `FF_RES_THRESH` to experiment.
+/// The detection and the concrete-state hook stay on the books as the
+/// foundation for capacity-aware scheduling to come — numeric resources,
+/// and renewable-resource feasibility in the temporal planner, where
+/// capacity is a hard wall, the case that actually matters for durative
+/// resource allocation. Override at runtime with `FF_RES_WEIGHT` /
+/// `FF_RES_THRESH` to run your own experiment.
 const RES_WEIGHT_DEFAULT: i64 = 0;
 
-/// Default `SearchCfg::w_c` for the FOLDED-numeric-metric legacy B&B. ZERO ON
-/// PURPOSE: the 2026-07 rovers p01–p08 sweep (w_c ∈ {0, 0.25, 0.5, 1, 2, 5})
-/// showed every non-zero weight COLLAPSES quality to the all-forgo floor
-/// (p01: 935.3 → 1162.1; p07: no result at all) — accumulated cost only grows
-/// along a path, so cost-ordering buries the deep goal-reaching prefixes the
-/// tightening B&B needs behind shallow cheap ones, and the bounded searches
-/// stop finding ANY plan under the incumbent. The closure-path probe was
-/// neutral (identical metrics). The rovers gains came from the escalating
-/// retry instead (p02 659.3→596.7, p05 649.9→523.3). `w_c` stays available
-/// for experiments via `FF_PREF_COST_WEIGHT`.
+/// Default `SearchCfg::w_c` for the folded-numeric-metric legacy
+/// branch-and-bound. Zero, and zero on purpose: the 2026-07 rovers p01–p08
+/// sweep (w_c ∈ {0, 0.25, 0.5, 1, 2, 5}) showed every non-zero weight
+/// collapsing quality straight down to the all-forgo floor — p01 went
+/// 935.3 to 1162.1, p07 came back with nothing at all. Accumulated cost
+/// only ever climbs along a path, so ordering by it buries the deep
+/// goal-reaching prefixes the tightening loop needs beneath shallow, cheap
+/// decoys, and the bounded searches stop finding any plan under the
+/// incumbent. The closure-path probe read neutral, identical metrics
+/// either way. What actually moved rovers was the escalating retry — p02
+/// climbed 659.3 to 596.7, p05 climbed 649.9 to 523.3. `w_c` stays on the
+/// shelf for anyone who wants to run it again, via `FF_PREF_COST_WEIGHT`.
 const COST_WEIGHT_FOLDED_DEFAULT: f64 = 0.0;
 
 pub fn metric_optimize(
@@ -1403,8 +1437,9 @@ pub fn metric_optimize(
     })
 }
 
-/// The shared deterministic tightening budget (evaluated-state count) for both
-/// metric B&B loops — never wall-clock, so results are thread-independent.
+/// The shared tightening allowance, counted in evaluated states — never
+/// the clock — spent by both metric branch-and-bound loops alike. Results
+/// come out the same regardless of thread count.
 fn pref_eval_budget() -> usize {
     std::env::var("FF_PREF_EVAL_BUDGET")
         .ok()
@@ -1412,9 +1447,10 @@ fn pref_eval_budget() -> usize {
         .unwrap_or(2_000_000)
 }
 
-/// Each preference's DNF disjunct fact-sets: the `P3COLLECT-i` ops' non-P3
-/// positive precondition facts, one set per disjunct — the same extraction
-/// the guidance and the seeds use, exposed once for the selection layer.
+/// Each preference's DNF disjunct, laid out as fact-sets — the
+/// `P3COLLECT-i` ops' non-P3 positive precondition facts, one set per
+/// disjunct. Same extraction the guidance and the seeds already run,
+/// surfaced once here for the selection layer.
 fn pref_dnf(
     task: &PackedTask,
     forgos: &[(usize, f64)],
@@ -1448,16 +1484,18 @@ fn pref_dnf(
     dnf
 }
 
-/// SELECTION SEED (0.6 headline; docs/forensics-tpp.md): solve the
-/// preference-subset selection EXACTLY (`crate::selection`), then plan to the
-/// chosen facts as one concrete hard-goal target — coordination the h-guided
-/// search structurally cannot discover (goods5 held at L2 purely so goods6
-/// can match it). Joint reachability is not guaranteed by the model, so a
-/// failed target attempt BANS the chosen fact with the costliest relaxed
-/// completion (the best deterministic culprit guess), re-selects, and retries
-/// — bounded by `MAX_REPAIRS` and its budget slice. Returns the incumbent
-/// candidate plus the selection BOUND (admissible: `final == bound` proves
-/// optimality). Charged to the caller's deterministic budget.
+/// The selection seed (0.6 headline; docs/forensics-tpp.md): solve the
+/// preference-subset selection exactly (`crate::selection`), then aim at
+/// the chosen facts as one concrete hard-goal target — the kind of
+/// coordination the h-guided search structurally cannot see coming (goods5
+/// held at L2 purely so goods6 can match it later). Nothing in the model
+/// guarantees the chosen facts are jointly reachable, so a failed target
+/// run bans the fact with the costliest relaxed completion — the best
+/// deterministic guess at the culprit — re-selects, and tries again,
+/// bounded by `MAX_REPAIRS` and its own slice of the budget. Returns the
+/// incumbent candidate plus the selection bound; when `final == bound`,
+/// that's proof, not a guess, that it's optimal. All of it billed to the
+/// caller's deterministic budget.
 type SeedOutcome = (Option<(Vec<usize>, f64)>, Option<f64>, usize);
 
 #[allow(clippy::too_many_arguments)]
@@ -1629,33 +1667,37 @@ fn selection_seed(
     (None, bound_out, spent)
 }
 
-/// PARTITIONED CLOSURE SEED — ESPC increment 3, generalized past deadline
-/// pairs: compose a high-quality incumbent from per-component stages BEFORE
-/// the monolithic tightening loop runs. Measured motivation: the remaining
-/// tpp/pathways/trucks tails are DIRECTION-bound (identical metrics at 4× the
-/// eval budget), so the fix is a structurally different plan constructor, not
-/// more budget. The construction:
+/// The partitioned closure seed — ESPC increment 3, generalized past
+/// deadline pairs: build a high-quality incumbent out of per-component
+/// stages before the monolithic tightening loop even gets a turn.
+/// Motivation, measured not guessed: the remaining tpp/pathways/trucks
+/// tails are direction-bound — identical metrics even at 4× the eval
+/// budget — so the fix has to be a structurally different plan
+/// constructor, not a bigger number. The construction, step by step:
 ///
 /// 1. Candidate selection — for every unsatisfied preference, price its
-///    cheapest positive disjunct with a cost-aware relaxed plan from the
-///    initial state (`heuristic::relaxed_plan_cost`); keep it iff the estimate
-///    does not exceed its violation weight (deliverable at a profit). Real
-///    hard-goal facts enter as MANDATORY candidates.
+///    cheapest positive disjunct with a cost-aware relaxed plan off the
+///    initial state (`heuristic::relaxed_plan_cost`); keep it only if the
+///    estimate stays under its violation weight — deliverable at a
+///    profit. Real hard-goal facts enter as mandatory, no pricing needed.
 /// 2. Components — union-find over the candidates' facts through the
-///    invariant-synthesis mutex variables (two candidates interact iff their
-///    facts share a variable; ungrouped facts are private). Needs ≥ 2
-///    components to differ from the monolithic path.
-/// 3. Composition — one P3-masked, satisfaction-guided stage per component on
-///    the evolving state (deterministic order: min fact id). Mandatory facts
-///    of DONE components are protected (ops deleting them are forbidden). An
-///    infeasible stage drops its priciest optional preference and retries;
-///    a stage that cannot even meet its mandatory facts aborts the seed.
-/// 4. The exact phase tail closes the bookkeeping and the composed plan
-///    becomes the tightening loop's starting incumbent iff it beats the
-///    init-tail one. Stage evals are charged against the SAME deterministic
-///    budget the loop spends.
+///    invariant-synthesis mutex variables; two candidates interact only
+///    when their facts share a variable, ungrouped facts stand alone.
+///    Needs at least 2 components before this diverges from the
+///    monolithic path at all.
+/// 3. Composition — one P3-masked, satisfaction-guided stage per
+///    component, run on the evolving state in deterministic order (min
+///    fact id first). Mandatory facts from finished components are
+///    protected — no op gets to delete them. An infeasible stage drops
+///    its priciest optional preference and tries again; a stage that
+///    can't even hold its mandatory facts kills the seed outright.
+/// 4. The exact phase tail closes the bookkeeping, and the composed plan
+///    becomes the tightening loop's opening incumbent only if it beats
+///    the plain init-tail one. Every eval the stages spend gets charged
+///    against the same deterministic budget the loop is already burning.
 ///
-/// `FF_PREF_MONO=1` disables the composed seed (monolithic path, bit-compat).
+/// `FF_PREF_MONO=1` shuts the composed seed off — falls back to the
+/// monolithic path, bit-for-bit compatible.
 #[allow(clippy::too_many_arguments)]
 fn compose_pref_seed(
     task: &PackedTask,
@@ -2002,20 +2044,23 @@ fn compose_pref_seed(
     Some((plan, cost, spent))
 }
 
-/// The exact-closure metric optimizer (see `metric_optimize` step 2): anytime
-/// B&B where each iteration searches REAL states under a metric-bounded
-/// acceptance test (`cost-so-far + closure(state) < bound`, closure = the exact
-/// weight the phase tail will forgo), then appends the tail. Every valid
-/// compiled plan is a real prefix + `P3END` + a collect/forgo permutation whose
-/// optimal closure IS the tail, so un-capped exhaustion proves optimality.
+/// The exact-closure metric optimizer (see `metric_optimize` step 2):
+/// anytime branch-and-bound, each iteration walking real states under a
+/// metric-bounded gate — `cost-so-far + closure(state) < bound`, closure
+/// being the exact weight the phase tail is about to forgo — then bolting
+/// the tail on at the end. Every valid compiled plan factors as a real
+/// prefix, a `P3END`, and a collect/forgo permutation whose optimal
+/// closure IS the tail — so a search that runs the space dry, no cap,
+/// proves optimality outright.
 ///
-/// The first incumbent is the tail applied directly to the initial state
-/// (whenever the real hard goal already holds there — always, on the pure-
-/// preference IPC-5 tracks), so even the largest instances report a metric
-/// instantly. The tightening budget is a DETERMINISTIC evaluated-state count
-/// (`FF_PREF_EVAL_BUDGET`, default 2M) — never wall-clock — so results are
-/// thread-count independent. Returns `None` (→ legacy fallback) only when no
-/// incumbent could be produced at all.
+/// The opening incumbent is the tail run straight off the initial state —
+/// whenever the real hard goal already holds there, which is always true
+/// on the pure-preference IPC-5 tracks — so even the biggest instances
+/// report a metric instantly, no wait. The tightening budget is a
+/// deterministic count of evaluated states (`FF_PREF_EVAL_BUDGET`,
+/// default 2M) — never the clock — so results hold steady no matter how
+/// many threads are running. Returns `None`, routing to the legacy
+/// fallback, only when no incumbent could be built at all.
 #[allow(clippy::too_many_arguments)]
 fn metric_optimize_closure(
     task: &PackedTask,
@@ -2295,13 +2340,15 @@ fn metric_optimize_closure(
     })
 }
 
-/// `P3COLLECT-i` op ids per preference index (ascending) — the shared scan
-/// behind the satisfaction guidance, the deadline guidance, the phase tail,
-/// and the closure cost. A preference whose phi's DNF has several disjuncts
-/// grounds to SEVERAL ops all named `P3COLLECT-i` — one per disjunct — so the
-/// value is a Vec: phi holds iff ANY of them is applicable. (A single-op map
-/// here once silently kept an arbitrary disjunct, which would make the tail
-/// forgo satisfied preferences on `imply`/`exists` phis.)
+/// `P3COLLECT-i` op ids, one bucket per preference index, ascending — the
+/// shared scan behind the satisfaction guidance, the deadline guidance,
+/// the phase tail, and the closure cost, all reading off the same table.
+/// A phi whose DNF splits into several disjuncts grounds to several ops,
+/// all sharing the name `P3COLLECT-i` — one per disjunct — which is why
+/// the value is a Vec: phi holds the instant any one of them is
+/// applicable. A single-op map here once silently kept just one arbitrary
+/// disjunct — a quiet bug that made the tail forgo preferences that were
+/// actually satisfied, on `imply`/`exists` phis.
 fn collect_ops(task: &PackedTask) -> std::collections::HashMap<usize, Vec<usize>> {
     let mut collect_op: std::collections::HashMap<usize, Vec<usize>> =
         std::collections::HashMap::new();
@@ -2318,18 +2365,20 @@ fn collect_ops(task: &PackedTask) -> std::collections::HashMap<usize, Vec<usize>
     collect_op
 }
 
-/// Op ids for the deterministic post-search **phase tail**: `P3END` freezes the
-/// state, then each preference is closed in fixed order — its first applicable
-/// `P3COLLECT-i` disjunct op when phi holds (free), else `P3FORGO-i` (pays the
-/// weight). Exact, not heuristic: after `P3END` the state is frozen and each
-/// preference's collected fact is independent, so collect-iff-applicable is the
-/// optimal closure of whatever final state the search reached. Used by the
-/// default closure-metric optimizer and the partitioned-ESPC composition.
-/// `None` only when the compile has no `P3END` (not a preference task).
+/// Op ids for the deterministic post-search phase tail — the closing
+/// ceremony: `P3END` freezes the state, then each preference gets settled
+/// in fixed order, its first applicable `P3COLLECT-i` disjunct if phi
+/// holds (paid for free), `P3FORGO-i` if it doesn't (pays the weight).
+/// Exact, not a guess — once `P3END` fires, the state is locked and each
+/// preference's collected fact stands alone, so collect-iff-applicable is
+/// the provably optimal closure of whatever state the search actually
+/// landed in. Used by the default closure-metric optimizer and the
+/// partitioned-ESPC composition. `None` only when the compile carries no
+/// `P3END` at all — meaning this was never a preference task.
 pub struct PhaseTail {
     pub end_op: usize,
-    /// `(collect_ops [one per phi disjunct, possibly empty = always-forgo],
-    /// forgo_op)` per preference, in preference order.
+    /// `(collect_ops [one per phi disjunct, empty means always-forgo],
+    /// forgo_op)` — one line per preference, kept in preference order.
     pub prefs: Vec<(Vec<usize>, usize)>,
 }
 
@@ -2343,11 +2392,12 @@ pub(crate) fn build_phase_tail(task: &PackedTask, forgos: &[(usize, f64)]) -> Op
     Some(PhaseTail { end_op, prefs })
 }
 
-/// Build the exact closure-cost table ([`ClosureCost`]) from the compiled
-/// `P3COLLECT-i` ops: one DNF disjunct per collect op (its positive
-/// precondition minus the `P3*` control facts, plus its numeric precondition),
-/// weighted by the preference's forgo cost. Zero-weight preferences are
-/// omitted — forgoing them is free, so they never contribute to the metric.
+/// Build the exact closure-cost table ([`ClosureCost`]) off the compiled
+/// `P3COLLECT-i` ops — one DNF disjunct per collect op, its positive
+/// precondition stripped of the `P3*` control facts, its numeric
+/// precondition left in, weighted by the preference's forgo cost.
+/// Zero-weight preferences never make the table — forgoing them costs
+/// nothing, so they can't move the metric either way.
 pub(crate) fn build_closure_cost(task: &PackedTask, forgos: &[(usize, f64)]) -> ClosureCost {
     let mut collect = collect_ops(task);
     let mut prefs = Vec::new();
@@ -2379,12 +2429,14 @@ pub(crate) fn build_closure_cost(task: &PackedTask, forgos: &[(usize, f64)]) -> 
     ClosureCost { prefs }
 }
 
-/// Close the preference bookkeeping on `state` with the exact phase tail: apply
-/// `P3END` (freezing the planning phase), then per preference in fixed order the
-/// first applicable `P3COLLECT-i` disjunct (free) else `P3FORGO-i` (pays the
-/// weight). Returns the tail ops and advances `state` through them. `None` when
-/// an op is inapplicable (e.g. a searched plan already fired `P3END`) — callers
-/// treat the composition as invalid and fall back, so this can't corrupt a plan.
+/// Close the books on `state` — run the exact phase tail: `P3END` freezes
+/// the planning phase, then each preference in fixed order takes its
+/// first applicable `P3COLLECT-i` disjunct if there is one, free, else
+/// `P3FORGO-i`, which pays the weight. Returns the tail ops and walks
+/// `state` through every one of them. `None` the moment an op turns out
+/// inapplicable — a searched plan that already fired `P3END`, say —
+/// and callers treat that as an invalid composition and fall back rather
+/// than risk corrupting the plan.
 pub(crate) fn apply_tail(
     task: &PackedTask,
     state: &mut crate::packed::State,
@@ -2411,14 +2463,16 @@ pub(crate) fn apply_tail(
     Some(ops)
 }
 
-/// Build the partitioned-ESPC subproblems ("increment 2", see `crate::espc`):
-/// interaction components over the REAL goal (the compiled `P3*` bookkeeping
-/// goals are closed by the phase tail instead), with the detected renewable
-/// resource variables (openstacks' `stacks-avail` chain) excluded from edge
-/// formation — that shared coupling is priced by the λ schedule as a global
-/// constraint, not solved inside any one subproblem. `None` (→ monolithic loop)
-/// when the compile shape is unsupported: no phase tail, numeric goals present,
-/// no real positive goals, or fewer than 2 components.
+/// Build the partitioned-ESPC subproblems — increment 2, see
+/// `crate::espc`: interaction components drawn over the real goal, since
+/// the compiled `P3*` bookkeeping goals get closed by the phase tail
+/// instead. The detected renewable resource variables — openstacks'
+/// `stacks-avail` chain — stay off the wiring entirely; that shared
+/// coupling gets priced by the λ schedule as a global constraint, never
+/// solved inside any single subproblem. `None`, falling back to the
+/// monolithic loop, when the compile shape doesn't fit: no phase tail,
+/// numeric goals in the mix, no real positive goals, or fewer than 2
+/// components to work with.
 fn build_espc_partition(
     task: &PackedTask,
     forgos: &[(usize, f64)],
@@ -2514,17 +2568,20 @@ fn build_espc_partition(
     Some(crate::espc::EspcPartition { comps, tail, assoc })
 }
 
-/// Build the metric satisfaction guidance: for each preference, its full phi
-/// in DNF ([`PrefPhi`], one disjunct per `P3COLLECT-i` op — so `imply`/`exists`
-/// preferences guide correctly) and a heap penalty scaled from its forgo
-/// weight. Two exclusions keep the gradient honest:
-/// - phi unachievable (no collect ops) or trivially true — a constant penalty
-///   can't order anything;
-/// - phi already satisfied in the INITIAL state (unless `FF_PREF_BARRIER=1`) —
-///   penalizing its transient dips erects a wall in front of every improving
-///   trajectory (tpp: the weight-16 `p4A` must dip during any real delivery),
-///   while its real protection is the exact closure acceptance on the FINAL
-///   state. Guidance should pull toward the not-yet-earned, not punish transit.
+/// Build the metric satisfaction guidance — for each preference, its full
+/// phi in DNF ([`PrefPhi`], one disjunct per `P3COLLECT-i` op, so
+/// `imply`/`exists` preferences steer correctly) and a heap penalty scaled
+/// off its forgo weight. Two exclusions keep the gradient honest, not
+/// self-deceiving:
+/// - phi that's unachievable — no collect ops at all — or trivially true;
+///   a constant penalty can't order anything, so don't pretend it does;
+/// - phi already satisfied at the initial state (unless
+///   `FF_PREF_BARRIER=1`) — penalizing its transient dips throws up a
+///   wall in front of every trajectory that would otherwise improve
+///   things (tpp's weight-16 `p4A` has to dip during any real delivery
+///   run). The real protection lives downstream, in the exact closure
+///   acceptance on the final state. Guidance pulls toward what hasn't
+///   been earned yet — it doesn't punish passing through.
 fn build_sat_guidance(task: &PackedTask, forgos: &[(usize, f64)]) -> SatGuidance {
     let mut collect_op = collect_ops(task);
     let init = task.initial();
@@ -2586,15 +2643,17 @@ fn build_sat_guidance(task: &PackedTask, forgos: &[(usize, f64)]) -> SatGuidance
     }
 }
 
-/// Build ESPC make-deadline guidance (see [`SatGuidance::deadline`]). For each
-/// preference deliverable fact `D` (extracted from each `P3COLLECT-i` `phi`, as in
-/// [`build_sat_guidance`]), locate the op whose CONDITIONAL effect adds `D` and that
-/// op's unique unconditional add `M` — the once-only "trigger" (e.g. `(made p)`),
-/// which fires at most once because the op requires its own trigger absent. Emit
-/// `(M, D, value)` where `value` is the summed weight of the preferences that
-/// require `D`, so a deliverable shared by the weight-1/2/4 chain is valued highest.
-/// Returns empty on domains without this conditional-achievement structure (⇒ inert),
-/// in a deterministic, hashmap-iteration-independent order.
+/// Build ESPC make-deadline guidance (see [`SatGuidance::deadline`]). For
+/// each preference deliverable fact `D` — pulled from every `P3COLLECT-i`
+/// `phi`, same extraction [`build_sat_guidance`] runs — find the op whose
+/// conditional effect adds `D`, and that op's one unconditional add `M`:
+/// the once-only trigger, `(made p)` for instance, that can fire at most
+/// once because the op demands its own trigger be absent first. Emits
+/// `(M, D, value)`, `value` being the summed weight of every preference
+/// that needs `D` — so a deliverable shared across the weight-1/2/4 chain
+/// gets valued highest of all. Comes back empty on domains that lack this
+/// conditional-achievement shape entirely (inert, not broken), and always
+/// in a deterministic order — never at the mercy of hashmap iteration.
 fn build_deadline_guidance(task: &PackedTask, forgos: &[(usize, f64)]) -> Vec<(u32, u32, i64)> {
     use std::collections::{HashMap, HashSet};
     // P3COLLECT-i op per preference index (mirrors build_sat_guidance).
@@ -2672,10 +2731,11 @@ fn build_deadline_guidance(task: &PackedTask, forgos: &[(usize, f64)]) -> Vec<(u
 
 #[cfg(test)]
 mod monitor_pairs {
-    //! 0.8 Phase 3 (docs/roadmap-0.8.md): the shared monitor block must not
-    //! feed ESPC's deadline-pair detection — monitor bits are artifacts, not
-    //! once-only achievement structure, and pairing them engaged ESPC on
-    //! monitor-widened tasks it then OOM'd on (storage qualpref p05–p08).
+    //! 0.8 Phase 3 (docs/roadmap-0.8.md): the shared monitor block must
+    //! never feed ESPC's deadline-pair detection. Monitor bits are
+    //! artifacts, not once-only achievement structure — pairing them let
+    //! ESPC engage on monitor-widened tasks, and it OOM'd there (storage
+    //! qualpref p05–p08).
 
     #[test]
     fn shared_monitor_adds_emit_no_deadline_pairs() {

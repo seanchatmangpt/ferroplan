@@ -1,56 +1,62 @@
-//! Exact preference-subset SELECTION for the PDDL3 metric path.
+//! FIELD DISPATCH — the exact preference-subset SELECTION run, PDDL3 metric lane.
 //!
-//! The forensics that motivate this module (docs/forensics-tpp.md): on
-//! zero-action-cost preference domains, plan quality is decided entirely by
-//! WHICH jointly-satisfiable preference subset the end state lands in —
-//! SGPlan5's tpp p05 score is the closed-form optimum of that selection, and
-//! h-guided search structurally cannot coordinate it (goods5 held at L2
-//! purely so goods6 can match it). So: solve the selection exactly as a tiny
-//! combinatorial problem, then hand the chosen facts to the planner as a
-//! concrete TARGET (see `pddl3::metric_optimize_closure`).
+//! Ground truth from the wreck (docs/forensics-tpp.md): on zero-action-cost
+//! preference terrain, the whole score is decided the instant the end state
+//! picks its jointly-satisfiable preference subset. SGPlan5's tpp p05 number
+//! is that pick, closed-form, nothing left on the table. h-guided search
+//! never sees it — it can't hold goods5 at L2 just so goods6 falls into
+//! place downstream. So don't guide. Solve the pick cold, as a small
+//! combinatorial kill, then hand the chosen facts to the planner as one hard
+//! TARGET (see `pddl3::metric_optimize_closure`).
 //!
-//! Model, built entirely from what compile()/grounding already produce:
-//! - A VARIABLE per invariant mutex group touched by a preference disjunct
-//!   (domain = the member facts that appear in some disjunct, plus ⊥) and a
-//!   boolean variable per ungrouped disjunct fact.
-//! - A preference is SATISFIED iff some DNF disjunct (its `P3COLLECT` op's
-//!   non-P3 precondition facts) has every fact chosen.
-//! - Minimize violated weight, by DFS branch-and-bound: variables ordered by
-//!   descending touched weight, values by descending immediately-satisfied
-//!   weight, pruned on (violated-so-far ≥ best). A deterministic node cap
-//!   keeps the worst case bounded; the best assignment found so far is kept
-//!   (the storage p08 class has thousands of instances — the cap is
-//!   load-bearing).
+//! The rig, built from what compile()/grounding already hand us:
+//! - One VARIABLE per invariant mutex group any preference disjunct touches
+//!   (domain: the facts that show up in some disjunct, plus ⊥ — nothing
+//!   chosen), plus a bare boolean var for every disjunct fact standing alone.
+//! - A preference reads SATISFIED the moment one DNF disjunct — the
+//!   `P3COLLECT` op's non-P3 precondition facts — has every fact lit.
+//! - Minimize violated weight. DFS branch-and-bound: variables fall in
+//!   descending touched-weight order, values in descending
+//!   immediately-satisfied-weight order, branches die the instant
+//!   violated-so-far clears best-so-far. A hard node cap keeps worst case
+//!   from running forever; whatever's best when the cap hits is what ships
+//!   (storage's p08 class runs thousands of instances deep — the cap is
+//!   load-bearing, not a nicety).
 //!
-//! The returned `bound` is ADMISSIBLE-OPTIMISTIC: per-fact relaxed
-//! reachability (implied by grounding) ignores joint resource caps (tpp's
-//! market supply, storage's crates-must-sit-somewhere), and ungrouped
-//! complement facts are not mutually excluded — the true optimum can never
-//! beat it, so `final metric == bound` PROVES optimality. Preferences with a
-//! numeric-precondition disjunct or no groupable structure are counted
-//! satisfied (keeps the bound admissible) but are never targeted.
+//! The `bound` that comes back is ADMISSIBLE-OPTIMISTIC — an upper hand, not
+//! a guess. Per-fact relaxed reachability (already implied by grounding)
+//! ignores the joint resource caps that actually bite (tpp's market supply,
+//! storage's crates-need-somewhere-to-sit), and ungrouped complement facts
+//! aren't forced to exclude each other. Nothing real can beat that bound —
+//! so when `final metric == bound`, that equality alone is the optimality
+//! proof, no further argument needed. Preferences riding a numeric
+//! precondition or with no groupable shape get counted satisfied (keeps the
+//! bound honest) but are never handed to the target — decoration, not signal.
 
 use crate::hash::FxHashMap;
 use crate::packed::PackedTask;
 
 pub struct Selection {
-    /// Chosen facts per selected preference index: `(pref_idx, disjunct facts)`.
+    /// The kill list — facts locked in per selected preference index:
+    /// `(pref_idx, disjunct facts)`.
     pub chosen: Vec<(usize, Vec<u32>)>,
-    /// Admissible-optimistic violated-weight bound for the whole task.
+    /// The upper hand: admissible-optimistic violated-weight bound across the
+    /// whole task.
     pub bound: f64,
-    /// The DFS hit its node cap: the assignment is best-found, NOT optimal,
-    /// and the bound is not trustworthy as a proof. Callers should skip
-    /// TARGETING a capped selection (measured: on storage p08's thousands of
-    /// instances a capped junk assignment burns the seed slice for nothing
-    /// and starves the tightening loop, 83 → 104).
+    /// The DFS ran out of clock and hit its node cap. What's returned is
+    /// best-found, not proven optimal — the bound can't be trusted as a
+    /// proof anymore. Callers: do not TARGET a capped selection. Confirmed
+    /// live: on storage p08's thousand-instance class, targeting a capped
+    /// junk pick torches the seed slice for nothing and starves the
+    /// tightening loop — 83 collapsing to 104.
     pub capped: bool,
 }
 
-/// One disjunct requirement on a variable: the variable must equal the fact
-/// (`positive`) or must NOT equal it (a compiled `(NOT ...)` complement fact —
-/// modeled as a ≠-constraint on its positive twin's variable, which is what
-/// couples `not (stored g1 level3)` to the stored-level mutex group and lets
-/// the solver derive coordinated choices like g5@L2-so-g6-can-match).
+/// One demand a disjunct puts on a variable: lock to the fact (`positive`),
+/// or steer clear of it — a compiled `(NOT ...)` complement fact, modeled as
+/// a ≠-lock on its positive twin's variable. That's the wire that couples
+/// `not (stored g1 level3)` back to the stored-level mutex group, and it's
+/// what lets the solver find coordinated plays like g5@L2-so-g6-can-match.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Atom {
     var: usize,
@@ -66,11 +72,12 @@ struct Pref {
 
 const NODE_CAP: usize = 200_000;
 
-/// Extract, model, and solve. `dnf` supplies each preference's disjunct fact
-/// sets (the caller already extracts them for the guidance/seed machinery).
-/// `banned` marks facts the repair loop has established unreachable: their
-/// disjuncts are dropped, and a preference with no surviving disjunct counts
-/// VIOLATED (the ban encodes ground truth, so the bound stays honest).
+/// Pull the shape out of the wreckage, model it, solve it cold. `dnf` hands
+/// over each preference's disjunct fact sets — the caller's already pulled
+/// these for the guidance/seed rig, no rework here. `banned` names facts the
+/// repair loop already proved dead: their disjuncts get cut on sight, and a
+/// preference left with no surviving disjunct reads VIOLATED — the ban is
+/// ground truth, the bound doesn't get to pretend otherwise.
 pub fn select(
     task: &PackedTask,
     groups: &[Vec<u32>],
@@ -251,10 +258,11 @@ pub fn select(
         nodes: usize,
     }
     impl Dfs<'_> {
-        /// Violated weight already forced under the current partial
-        /// assignment. An atom is CONTRADICTED when its variable is decided
-        /// against it: Eq needs the value, Neq dies only on exactly that
-        /// value (⊥ and undecided satisfy Neq).
+        /// Casualties already locked in under the partial assignment on the
+        /// table. An atom reads CONTRADICTED when its variable's already been
+        /// decided against it: an Eq needs its exact value or it's dead, a
+        /// Neq only dies on that one exact value — ⊥ and still-undecided
+        /// both let it live.
         fn split(&self) -> (f64, f64) {
             let mut forced = 0.0;
             for p in self.prefs {

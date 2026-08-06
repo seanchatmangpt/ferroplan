@@ -1,39 +1,43 @@
-//! Renewable "counter" resource detection for resource-aware search guidance.
+//! Sniffing out the fuel gauge nobody wired to the dashboard.
 //!
-//! Many planning problems encode a *renewable resource with a fixed capacity* —
-//! openstacks' `stacks-avail`, but equally a crew pool, machine count, or power
-//! budget — as a one-hot **count chain**: a mutex group whose members are levels
-//! `0..=C`, with operators that *consume* (delete level `n`, add level `n-1`) and
-//! *restore* (delete `n`, add `n+1`). Exactly one level holds at a time.
+//! Some problems run on a *renewable resource with a hard ceiling* —
+//! openstacks' `stacks-avail`, a crew pool, a machine count, a power
+//! budget — coded as a one-hot **count chain**: a mutex group of levels
+//! `0..=C`, operators that *consume* (kill level `n`, light level `n-1`)
+//! and *restore* (kill `n`, light `n+1`). One level lit at a time, nothing
+//! else.
 //!
-//! The delete-relaxed RPG ([`crate::heuristic::relaxed_to`]) is **blind** to such
-//! a resource: it drops the `(not (level n))` delete, so every level becomes
-//! simultaneously reachable — "infinite capacity" — and the heuristic gives the
-//! search no gradient toward staying within the pool. The fix (see
-//! [`crate::search::SatGuidance`]) is a penalty on the **concrete** state, which
-//! *can* see the live level. This module detects the chain and precomputes each
-//! member's **occupancy** = how much of the resource is in use at that level
-//! (distance from the full/initial end), ready for that penalty.
+//! The delete-relaxed RPG ([`crate::heuristic::relaxed_to`]) is **blind**
+//! to it — the `(not (level n))` delete gets dropped, every level lights
+//! up at once, "infinite capacity" as far as the heuristic's concerned,
+//! zero gradient telling the search to mind the tank. The fix (see
+//! [`crate::search::SatGuidance`]) is a penalty scored off the
+//! **concrete** state, which still sees which level is actually live.
+//! This module hunts the chain and precomputes each member's
+//! **occupancy** — how much of the resource is burned at that level,
+//! distance from the full/initial end — loaded and ready for that
+//! penalty.
 //!
-//! Detection is domain-independent (it keys off the consume/restore *shape*, not
-//! any predicate name) and conservative: a group only qualifies if its
-//! level-transition operators form a single simple path covering every member and
-//! the initial state sits at one end (the full-capacity level). Anything else is
-//! ignored, so non-resource domains are unaffected.
+//! Detection reads domain-blind (keys off the consume/restore *shape*,
+//! never a predicate name) and stays conservative: a group only qualifies
+//! if its level-transition operators trace a single clean path through
+//! every member, initial state parked at one end — the full-capacity
+//! edge. Anything less orderly gets waved off; non-resource domains never
+//! feel it.
 
 use crate::hash::{FxHashMap, FxHashSet};
 use crate::packed::PackedTask;
 
-/// A detected renewable counter resource: each member fact id mapped to the
-/// resource occupancy (units in use) when that member is the live level.
+/// A renewable counter, flagged and mapped: each member fact id keyed to
+/// the occupancy — units burned — when that member is the live level.
 pub struct ResourceVar {
-    /// `(member fact id, occupancy)`, occupancy 0 at the full/initial level.
+    /// `(member fact id, occupancy)`. Occupancy 0 sits at the full/initial level.
     pub members: Vec<(u32, u32)>,
 }
 
 impl ResourceVar {
-    /// Occupancy of this resource in the concrete state `bits` (0 if, defensively,
-    /// no member is set — a one-hot counter always has exactly one).
+    /// Read the gauge off the concrete state `bits`. Defensive 0 if no
+    /// member is lit — a one-hot counter should always show exactly one.
     #[inline]
     pub fn occupancy(&self, bits: &[u64]) -> u32 {
         for &(f, occ) in &self.members {
@@ -45,11 +49,11 @@ impl ResourceVar {
     }
 }
 
-/// Detect renewable counter resources among the synthesized mutex `groups`.
+/// Hunt for renewable counter resources buried in the synthesized mutex `groups`.
 ///
-/// `init` is the initial-state bitset (identifies the full-capacity level). Only
-/// groups whose consume/restore operators form a single simple path over all
-/// members, with the initial level at an endpoint, are returned.
+/// `init` — the initial-state bitset — marks the full-capacity level. Only
+/// groups whose consume/restore operators trace one clean path over every
+/// member, initial level pinned at an endpoint, make it back alive.
 pub fn detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) -> Vec<ResourceVar> {
     let mut out = Vec::new();
     for g in groups {
@@ -144,23 +148,23 @@ pub fn detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) ->
     out
 }
 
-/// Resource-trip lower bound (0.14 ext Phase 11, the semantic-landmark
-/// rung): each resource-linked goal (one whose achievers move a counter
-/// level — transport's `drop` restores `capacity`) consumes one unit of a
-/// shared pool per delivery cycle, so meeting `unmet` of them takes at
-/// least `⌈unmet / pool⌉` rounds. Folded as a best-first ORDERING term
-/// (`FF_RESLM=<w>`), never a pruning bound — the delete relaxation is
-/// blind to the counter (levels accumulate), this reads the CONCRETE
-/// state.
+/// The trip-bound accountant (0.14 ext Phase 11, the semantic-landmark
+/// rung). Every resource-linked goal — one whose achievers touch a
+/// counter level, transport's `drop` restoring `capacity` — burns one
+/// unit of a shared pool per delivery cycle. Clearing `unmet` of them
+/// costs at least `⌈unmet / pool⌉` rounds, no way around it. Folded in as
+/// a best-first ORDERING term (`FF_RESLM=<w>`) — never a pruning bound.
+/// The delete relaxation can't see the counter (levels just pile up);
+/// this reads the CONCRETE state instead.
 pub struct TripBound {
-    /// Goal facts whose achievers touch a counter level.
+    /// Goal facts whose achievers reach into a counter level.
     pub goals: Vec<u32>,
-    /// Total pool capacity: Σ max occupancy over detected counters.
+    /// Total pool capacity: Σ max occupancy across every counter found.
     pub pool: i64,
 }
 
 impl TripBound {
-    /// `⌈unmet linked goals / pool⌉` in the concrete state `bits`.
+    /// `⌈unmet linked goals / pool⌉`, read off the concrete state `bits`.
     #[inline]
     pub fn trips(&self, bits: &[u64]) -> i64 {
         let unmet = self
@@ -172,8 +176,9 @@ impl TripBound {
     }
 }
 
-/// Build the trip bound for a task, or `None` when no counter resource /
-/// linked goal exists (the term is then a no-op by construction).
+/// Assemble the trip bound for a task, or come back `None` when no
+/// counter resource or linked goal turns up — the term is a no-op by
+/// construction in that case, nothing to meter.
 pub fn trip_bound(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) -> Option<TripBound> {
     let res = detect_resources(task, groups, init);
     if res.is_empty() {

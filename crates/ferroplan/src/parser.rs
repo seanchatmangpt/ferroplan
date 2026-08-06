@@ -1,10 +1,13 @@
-//! Recursive-descent parser for the PDDL subset Metric-FF accepts.
-//! Mirrors `scan-ops_pddl.y` (domain) and `scan-fct_pddl.y` (problem).
+//! The interrogation room. Recursive descent, one token at a time, reading
+//! down through whatever PDDL subset Metric-FF still lets in the door.
+//! Mirrors the old blueprints — `scan-ops_pddl.y` for the domain,
+//! `scan-fct_pddl.y` for the problem — same walls, different building.
 
 use crate::lexer::{lex, Tok};
 use crate::types::*;
 
-/// The requirements Metric-FF's `supported()` whitelist accepts (uppercased).
+/// The clearance list — every requirement Metric-FF's `supported()` gate
+/// waves through, cased up.
 const SUPPORTED: &[&str] = &[
     ":STRIPS",
     ":NEGATION",
@@ -31,12 +34,13 @@ const SUPPORTED: &[&str] = &[
     ":TIME",
 ];
 
-/// Cap on formula/expression nesting depth. Real PDDL never approaches this;
-/// the bound turns a pathologically deep input into a parse error instead of a
-/// recursive-descent stack overflow (a published library must not crash on input).
-/// Kept well under what a 2 MiB worker-thread stack tolerates for the recursive
-/// descent here (each level is a couple of frames) AND for the downstream
-/// formula-recursive passes (grounding/normalization) on the parsed tree.
+/// The floor drops out below here. Legitimate PDDL never gets close to this
+/// depth; the cap turns a hostile, pathologically nested input into a clean
+/// parse error instead of a stack blowout mid-descent — a published library
+/// doesn't get to crash just because someone fed it a trap. Set well under
+/// what a 2 MiB worker-thread stack survives, both for the descent itself
+/// (a couple frames a level) and for the formula-recursive passes waiting
+/// downstream — grounding, normalization — that walk the same tree again.
 const MAX_NEST_DEPTH: usize = 150;
 
 struct P {
@@ -55,7 +59,8 @@ impl P {
             depth: 0,
         }
     }
-    /// Enter one nesting level, erroring if the cap is exceeded. Pair with `pop`.
+    /// One step deeper into the structure. Errors out the instant the cap
+    /// gets breached. Always paired with `pop`.
     fn push_depth(&mut self) -> Result<(), String> {
         self.depth += 1;
         if self.depth > MAX_NEST_DEPTH {
@@ -70,7 +75,8 @@ impl P {
     fn pop_depth(&mut self) {
         self.depth -= 1;
     }
-    /// 1-based source line at the current position (for error reporting).
+    /// Where we are in the source, 1-indexed — the coordinate stamped on
+    /// every error report.
     fn line(&self) -> u32 {
         self.lines
             .get(self.i)
@@ -81,7 +87,7 @@ impl P {
     fn peek(&self) -> Option<&Tok> {
         self.t.get(self.i)
     }
-    /// Look `ahead` tokens past the cursor (0 == `peek`).
+    /// Scout `ahead` tokens past the cursor without moving it (0 == `peek`).
     fn peek_at(&self, ahead: usize) -> Option<&Tok> {
         self.t.get(self.i + ahead)
     }
@@ -115,14 +121,15 @@ impl P {
             other => Err(format!("expected number, found {:?}", other)),
         }
     }
-    /// Consume a Name token, returning its (uppercase) text.
+    /// Pull a Name token off the wire, hand back its text in upper case.
     fn name(&mut self) -> Result<String, String> {
         match self.next()? {
             Tok::Name(s) => Ok(s),
             other => Err(format!("expected name, found {:?}", other)),
         }
     }
-    /// Consume `(`, expect a specific keyword name, leave cursor after it.
+    /// Take the `(`, demand a named keyword show ID, leave the cursor
+    /// standing just past it.
     fn expect_kw(&mut self, kw: &str) -> Result<(), String> {
         let n = self.name()?;
         if n == kw {
@@ -131,7 +138,8 @@ impl P {
             Err(format!("expected `{}`, found `{}`", kw, n))
         }
     }
-    /// Skip a balanced parenthesized form (cursor must be just after its `(`).
+    /// Walk past a balanced parenthesized form without reading it — cursor
+    /// must already be one step inside its `(`.
     fn skip_balanced(&mut self) -> Result<(), String> {
         let mut depth = 1;
         while depth > 0 {
@@ -145,8 +153,9 @@ impl P {
     }
 }
 
-/// Parse a typed list: `a b - T c - U d` → [(A,T),(B,T),(C,U),(D,OBJECT)].
-/// Accepts both Names and Vars as items; vars keep their `?`-stripped name.
+/// Read a typed manifest: `a b - T c - U d` → [(A,T),(B,T),(C,U),(D,OBJECT)].
+/// Takes Names or Vars off the list; Vars keep their name once the `?` is
+/// stripped from the front.
 fn parse_typed_list(p: &mut P) -> Result<Vec<(String, String)>, String> {
     let mut out = Vec::new();
     let mut pending: Vec<String> = Vec::new();
@@ -533,8 +542,9 @@ fn parse_action(p: &mut P) -> Result<Action, String> {
     })
 }
 
-/// Parse `(:durative-action name :parameters (..) :duration (= ?duration e)
-/// :condition <timed> :effect <timed>)`. Cursor is just after the name token.
+/// Read a job with a clock on it: `(:durative-action name :parameters (..)
+/// :duration (= ?duration e) :condition <timed> :effect <timed>)`. Cursor's
+/// already past the name when this fires.
 fn parse_durative_action(p: &mut P) -> Result<DurativeAction, String> {
     let name = p.name()?;
     let mut params = Vec::new();
@@ -567,8 +577,9 @@ fn parse_durative_action(p: &mut P) -> Result<DurativeAction, String> {
     })
 }
 
-/// A `:duration` constraint: a fixed `(= ?duration e)`, a single inequality
-/// `(>= ?duration e)` / `(<= ?duration e)`, or an `(and ...)` of inequalities.
+/// The `:duration` clause — how long the operation is allowed to run. A fixed
+/// window `(= ?duration e)`, a single bound `(>= ?duration e)` or
+/// `(<= ?duration e)`, or an `(and ...)` stack of bounds layered together.
 fn parse_duration(p: &mut P) -> Result<Duration, String> {
     p.expect_lparen()?;
     // `(and <constraint>+)`
@@ -591,8 +602,8 @@ fn parse_duration(p: &mut P) -> Result<Duration, String> {
     Ok(Duration { min: lo, max: hi })
 }
 
-/// Parse one parenthesized duration constraint `(<op> ?duration e)`, returning its
-/// `(lower, upper)` contribution. Used inside `(and ...)`.
+/// One bracketed duration bound, `(<op> ?duration e)`, decoded into its
+/// `(lower, upper)` cut. Called from inside an `(and ...)` stack.
 fn parse_duration_atom(p: &mut P) -> Result<(Option<Expr>, Option<Expr>), String> {
     p.expect_lparen()?;
     let r = parse_duration_inner(p)?;
@@ -600,8 +611,8 @@ fn parse_duration_atom(p: &mut P) -> Result<(Option<Expr>, Option<Expr>), String
     Ok(r)
 }
 
-/// The body of one duration constraint, cursor just after the opening paren:
-/// `<op> ?duration e`, where `<op>` is `=`, `>=`, or `<=`.
+/// Inside the bound, cursor already past the opening paren: `<op> ?duration
+/// e`, `<op>` being `=`, `>=`, or `<=` — the only three the clock accepts.
 fn parse_duration_inner(p: &mut P) -> Result<(Option<Expr>, Option<Expr>), String> {
     let op = match p.next()? {
         Tok::Op(s) => s,
@@ -633,7 +644,8 @@ fn parse_duration_inner(p: &mut P) -> Result<(Option<Expr>, Option<Expr>), Strin
     }
 }
 
-/// `h` is "AT" (followed by start/end) or "OVER" (followed by all).
+/// Reads the clock-word: `h` is "AT" — start or end follows — or "OVER",
+/// with "all" trailing behind it.
 fn timespec_from(p: &mut P, h: &str) -> Result<TimeSpec, String> {
     match h {
         "AT" => match p.name()?.as_str() {
@@ -706,9 +718,9 @@ fn parse_timed_effects(p: &mut P) -> Result<Vec<(TimeSpec, Effect)>, String> {
     }
 }
 
-/// Parse one PDDL3 `(:constraints ...)` constraint formula (modal operators)
-/// into the AST; `crate::constraints` compiles the untimed ones into monitor
-/// automata at solve time (0.7) and rejects the rest by name.
+/// One PDDL3 `(:constraints ...)` clause, modal operators and all, folded
+/// into the AST. `crate::constraints` turns the untimed ones into monitor
+/// automata come solve time (0.7) — and names the rest for rejection.
 fn parse_constraint(p: &mut P) -> Result<Constraint, String> {
     p.expect_lparen()?;
     let head = p.name()?;
@@ -899,7 +911,8 @@ fn domain_inner(p: &mut P) -> Result<Domain, String> {
     Ok(d)
 }
 
-/// Parse one `:init` element into either an atom or a fluent assignment.
+/// One line off the `:init` manifest — booked as either a bare atom or a
+/// fluent handed a value.
 fn parse_init_elt(
     p: &mut P,
     atoms: &mut Vec<(String, Vec<String>)>,
@@ -995,9 +1008,10 @@ pub fn parse_problem(src: &str) -> Result<Problem, ParseError> {
     problem_inner(&mut p).map_err(|m| ParseError::new(p.line(), m))
 }
 
-/// Parse a bare goal formula — the same GD grammar a problem's `(:goal ...)`
-/// body accepts, e.g. `(and (at v1 field) (>= (grain) 2))`. The
-/// `Session::set_goal` entry; the input must be exactly one formula.
+/// A bare goal, dropped in cold — same GD grammar a problem's `(:goal ...)`
+/// body would take, e.g. `(and (at v1 field) (>= (grain) 2))`. This is
+/// `Session::set_goal`'s entry point; the input has to be exactly one
+/// formula, nothing tagging along behind it.
 pub(crate) fn parse_goal(src: &str) -> Result<Formula, String> {
     let (toks, lines) = lex(src).map_err(|e| format!("line {}: {}", e.line, e.message))?;
     let mut p = P::new(toks, lines);

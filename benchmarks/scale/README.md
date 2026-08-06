@@ -1,7 +1,7 @@
-# Scale & complexity stress test
+# Scale & complexity — the stress test
 
-Pushes ferroplan along the three axes that matter for using it as a live game's
-planner, to find *where you have to reduce the problem*. Generators:
+Three axes, pushed hard, the way a live game would push them, until the engine
+tells you where the problem has to shrink. Generators:
 
 - `gen.py N M [E]` — an `rpg-world` problem with **N locations** (a connected map:
   chain + E extra edges each, with `dist` + the `reachable` axiom), **M agents**,
@@ -15,46 +15,46 @@ ff -o examples/rpg-world/domain.pddl -f /tmp/p.pddl
 python3 benchmarks/scale/gen_domain.py 1000 > /tmp/d.pddl
 ```
 
-## Results (M4, contended; grounding-dominated)
+## Results (M4, contended; grounding runs the show)
 
-**Domain complexity — action-schema count.** Free. Linear and negligible.
+**Domain complexity — action-schema count.** Costs nothing. Flat, linear, forgettable.
 
 | K schemas | 100 | 300 | 1000 | 3000 |
 |---|---|---|---|---|
 | parse+ground+solve | 0.03s | 0.03s | 0.04s | 0.06s |
 
-**Agents — per-agent action grounding** (fixed 60-location map). Linear, gentle.
+**Agents — per-agent action grounding** (fixed 60-location map). Linear. Gentle slope, no surprises.
 
 | M agents | 2 | 5 | 10 | 20 | 40 |
 |---|---|---|---|---|---|
 | wall | 0.25s | 0.36s | 0.56s | 1.10s | 2.40s |
 
-**Static content — map size + the `reachable` transitive-closure axiom.** The wall.
+**Static content — map size + the `reachable` transitive-closure axiom.** Here's the wall.
 
 | N locations | 20 | 50 | 100 | 150 | 200 | 300 | 500 |
 |---|---|---|---|---|---|---|---|
 | wall | 0.09s | 0.16s | 0.76s | 2.4s | 5.5s | **22s** | **97s** |
 
-Growth is ~**O(N³·⁵)** — dominated by the reachability closure computed at grounding
-(`crate::derived::compile`, a naïve datalog fixpoint that re-evaluates every
-binding each round, with an `exists` that scans all nodes).
+Growth curves at ~**O(N³·⁵)** — the reachability closure eats the clock at grounding
+time (`crate::derived::compile`, a naïve datalog fixpoint that re-walks every
+binding each round, its `exists` scanning every node in the graph).
 
-## Verdict — where you reduce
+## Verdict — where the cut goes
 
-The engine handles **arbitrarily wide domains** (3000 actions ≈ free) and **many
-agents** (linear) without trouble. The **only** scaling wall is the **reachability
-axiom on large maps** (≈300+ POIs). Practical reductions, in order of preference:
+The engine shrugs off **arbitrarily wide domains** (3000 actions, near-zero cost)
+and **crowds of agents** (linear, no complaint). One wall stands: the
+**reachability axiom on large maps** (≈300+ POIs). Reductions, best first:
 
-1. **Don't derive reachability for huge maps — precompute it.** The game already
-   owns the navigation graph; feed `(reachable a b)` (or just the edges the planner
-   needs) as init facts instead of as a `:derived` rule. Zero closure cost.
-2. **Plan per region.** A contract operates over a *local* sub-map (tens of POIs),
-   not the whole world — the same decomposition that keeps crafting chains short.
-3. **Engine optimization (identified, not yet done):** make the derived closure
-   *semi-naïve* (derive only from the previous round's new facts) and/or
-   join-aware (index `link` by source so the `exists` scans neighbours, not all
-   nodes). That turns the closure from ~O(N⁴) toward **O(N·E)**, pushing the map
-   limit from hundreds to many thousands of POIs.
+1. **Stop deriving reachability on huge maps — precompute it instead.** The game
+   already owns the navigation graph; hand the planner `(reachable a b)` (or just
+   the edges it needs) as init facts, not a `:derived` rule. Closure cost drops to zero.
+2. **Plan per region.** A contract works a *local* sub-map, tens of POIs, never
+   the whole world — the same decomposition that keeps crafting chains short.
+3. **Engine work still on the table:** make the derived closure *semi-naïve*
+   (derive only from last round's new facts), join-aware (index `link` by source
+   so `exists` scans neighbours, not the whole graph). That pulls the closure from
+   ~O(N⁴) toward **O(N·E)** and pushes the map ceiling from hundreds of POIs into
+   the thousands.
 
-Everything else — domain breadth, resource variety, agent count — is not a
-bottleneck. Make the domain as massive as you like; reduce *map scope per plan*.
+Everything else — domain breadth, resource variety, agent count — never becomes
+a bottleneck. Grow the domain as large as you like; shrink *map scope per plan*.

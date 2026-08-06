@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "model": "sonnet",
   "enabledPlugins": {
-    "chatman-ecosystem@chatman-ecosystem": true
+    "chatman-ecosystem@chatman-ecosystem": false
   },
   "extraKnownMarketplaces": {
     "chatman-ecosystem": {

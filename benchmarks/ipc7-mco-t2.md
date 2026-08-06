@@ -1,6 +1,7 @@
-# IPC-2008/2011 seq-mco full-corpus results
+# IPC-2008/2011 seq-mco — full corpus, single thread
 
-timeout 60s/instance, jobs 1, mode auto. Plans externally validated with VAL.
+Sixty seconds a instance, one job, mode auto. Every plan that lands gets
+run through VAL before it counts.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -19,4 +20,4 @@ timeout 60s/instance, jobs 1, mode auto. Plans externally validated with VAL.
 | ipc-2011/visit-all-sequential-multi-core | 10/20 | 7120 | 169.1s | 10/10 |
 | ipc-2011/woodworking-sequential-multi-core | 18/20 | 27550 | 572.9s | 18/18 |
 
-total coverage: **193/280**
+total coverage, the take: **193/280**

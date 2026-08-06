@@ -23,4 +23,5 @@ Plan `$ARGUMENTS`.
 - Otherwise call `session_think` with bounded evaluations and prefix-following enabled.
 - Return the exact candidate plan, digest, session receipt, cursor, evaluated states, and assumptions.
 
-Do not edit source or claim independent validation.
+No source editing happens here, and no claim of independent validation
+belongs to this skill.

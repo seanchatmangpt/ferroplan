@@ -1,9 +1,10 @@
-# STATUS — source of truth for the IPC6/IPC7 roadmap era
+# STATUS — the standing dispatch for the IPC6/IPC7 roadmap era
 
-Per `ferroplan-roadmap.md`: updated at the end of every phase. Where this
-file and the code disagree, the code wins and this file gets fixed.
+Per `ferroplan-roadmap.md`: filed at the close of every phase. Where this
+sheet and the code disagree, the code is the witness that's still alive —
+the file gets corrected to match it, not the other way around.
 
-Last update: **0.17 cycle** — since 0.10 the per-cycle records
+Last update: **0.19 cycle** — since 0.10 the per-cycle records
 in `docs/roadmap-0.N.md` carry the live status (measured wins, recorded
 negatives, scoreboards); this file remains the audited baseline of the
 IPC-roadmap era it covers (0.8–0.9). Highlights since: temporal
@@ -19,7 +20,15 @@ over SGPlan5 (0.16), the frontier cycle — the modern corpora
 (IPC 2014/2018/2023 classical + numeric) entered and tabled, the
 landscape memo, the opt-in novelty rung with its honest referee
 verdict, and the abstract village domain with hiring as Session
-goal contracts (0.17).
+goal contracts (0.17), the living-village cycle — the ε-emission
+fix (match-cellar VAL 0/20 → 20/20), the tick-loop village native
+and in-browser, plan introspection views, the wasm 32-bit node-cap
+corpse found and fixed, and the budget-aware classical ladder
+(`FF_TIME_LIMIT`) (0.18), the contest cycle — the reject audit
+(~120 instances freed), Mode::Optimal with 252 certified optima on
+three newly-entered seq-opt tracks, the linear numeric subgoaling
+charge (+52/-1), the RLIMIT-aware node cap, and novelty-by-default
+under budget (0.19).
 Scoreboards: `benchmarks/ipc-standings.md` (the generated
 one-table-per-competition standings) plus the per-track boards it
 links — `benchmarks/ipc67-results.md` (seq-sat),
@@ -29,7 +38,7 @@ links — `benchmarks/ipc67-results.md` (seq-sat),
 Last full audit: **0.9 cycle — Phases 0, 2, 3 (core), 4, 5 complete**; see
 `docs/roadmap-0.9.md` for that cycle record.
 
-## Current capabilities (audited v0.8.0)
+## What the machine can do (audited v0.8.0)
 
 - **Representation:** propositional, by design — bitset states over
   SoA/CSR operator tables (`packed.rs`); Helmert-style mutex-group
@@ -50,7 +59,7 @@ Last full audit: **0.9 cycle — Phases 0, 2, 3 (core), 4, 5 complete**; see
 - **Validation:** internal `--validate` / `plan::validate_plan`;
   external **VAL** wired into the benchmark harness (see below).
 
-## Phase status
+## Phase status — the ledger
 
 | Phase | State | Notes |
 |---|---|---|
@@ -64,7 +73,7 @@ Last full audit: **0.9 cycle — Phases 0, 2, 3 (core), 4, 5 complete**; see
 | 7 — optimal | not started | optional |
 | 8 — temporal | shipped (0.5–0.8); **first corpus recon done** | tempo-sat corpus (630 inst, 30 s tier): **326/630**. Sweeps: crew-planning 50/50, openstacks-strips/numeric 80/80, parking11 19/20, woodworking 28/30. Three measured wall classes: (1) `?duration` in expressions unparsed — model-train 0/30 is a pure PDDL2.1 feature gap; (2) memory blowups — big elevator/openstacks-ADL temporal instances hit 7–10 GB fast (OOM-killed under the 3-job run; needs a memory-bounded route); (3) search walls — turn-and-open, temporal-machine-shop, storage11, sokoban11, floor-tile11 all-timeouts (required-concurrency-shaped domains among them). Caveat: temporal plans internally validated only (runner writes untimestamped plans, VAL skipped) |
 
-## Benchmarking & validation scaffolding (Phase 0 deliverables)
+## Benchmarking & validation scaffolding — Phase 0's instruments
 
 - `benchmarks/ipc/costs/` — curated IPC-2008/2011 sequential-satisficing
   subset (14 domains × ≤4 instances, action-costs): elevators08,
@@ -84,7 +93,7 @@ Last full audit: **0.9 cycle — Phases 0, 2, 3 (core), 4, 5 complete**; see
 - IPC5 regression guards unchanged (CI heavy step: `espc`,
   `ipc5_pref_metric`).
 
-## Costs-subset scoreboard (vendored, `run.py --timeout 10 --only costs`)
+## Costs-subset scoreboard — the tape (vendored, `run.py --timeout 10 --only costs`)
 
 - **Pre-Phase-2 (0.8.0):** 35/54 solved at 10s, all VAL-valid, no
   metric reported anywhere (costs ignored; shortest-length plans).
@@ -132,9 +141,9 @@ Net-benefit (post-Phase-4): `run.py --timeout 30 --only netben` —
 (elevators08 33/60/21/73; crew08 2100/1988/2160/2042 of ceiling 3335;
 was: empty plans, no metric).
 
-## Full-corpus scoreboard (potassco checkout, `ipc67.py`, 60 s / 1 thread / 3 parallel jobs)
+## Full-corpus scoreboard — the whole board lit up (potassco checkout, `ipc67.py`, 60 s / 1 thread / 3 parallel jobs)
 
-First run over the WHOLE IPC-2008/2011 seq-sat corpus (580 instances,
+First pass over the WHOLE IPC-2008/2011 seq-sat corpus (580 instances,
 24 variants), 2026-07-18: **427/580 solved, every plan VAL-validated**
 (`benchmarks/ipc67-results.md`; portfolio comparison in
 `ipc67-portfolio.md`, per-instance diffs via `ipc67-diff.py`).
@@ -153,9 +162,9 @@ First run over the WHOLE IPC-2008/2011 seq-sat corpus (580 instances,
   3. **floor-tile11 5/20, visit-all11 8/20** — the known
      quality/anytime domains; sokoban 21/30 + 11/20 nearby.
 
-## Game-design answers (recorded 2026-07-18; shape, not gate)
+## Game-design answers — the questions that came back (recorded 2026-07-18; shape, not gate)
 
-The three open questions are ANSWERED:
+The three open questions came back ANSWERED:
 
 - **Real-time**, with episodic planning: agents can "stop and think" —
   a think-pause produces a plan, then the agent FOLLOWS that long plan
@@ -180,7 +189,7 @@ All four tracks ran: seq-sat 427/580 (60 s), net-benefit **223/270**
 (60 s, all VAL-valid; crew-planning 10/30 and the transport/woodworking
 numeric variants are the tails), tempo-sat 326/630 (30 s recon).
 
-## Next-cycle agenda (measured, in leverage order)
+## Next-cycle agenda — the open cases, ranked by leverage
 
 1. **transport11 eval throughput × guidance** — ANSWERED 2026-07-19
    (p01, 21,136 ops / 1,052 facts; FF_RES_DEBUG phase attribution now in

@@ -5,7 +5,8 @@ disable-model-invocation: true
 effort: high
 ---
 
-Publish `$ARGUMENTS` only after explicit user instruction.
+Publish `$ARGUMENTS` — and only after the user has said so, in words, out
+loud.
 
 Require all of the following:
 
@@ -15,4 +16,7 @@ Require all of the following:
 - independent validator result with `valid: true`;
 - receipt audit with maximum lawful standing.
 
-Then publish only the admitted scope. Prefer a draft pull request. Protected commands remain subject to the PreToolUse fence. If the hook refuses, stop and report the missing frontier; do not bypass it.
+Then publish only the admitted scope. Prefer a draft pull request.
+Protected commands remain subject to the PreToolUse fence. If the hook
+refuses, stop there and report the missing frontier — the fence does not
+get climbed, only satisfied.

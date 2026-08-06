@@ -1,28 +1,33 @@
-//! WebAssembly bindings for ferroplan — run the planner in the browser.
+//! WebAssembly bindings — smuggle the planner past the glass, run it inside
+//! the browser's own skull.
 //!
-//! Exposes [`plan`]: given a PDDL domain + problem (and optional mode/threads),
-//! return the structured [`ferroplan::Solution`] as a JSON string. WASM has no
-//! threads here, so we always solve with `threads = 1` (the lib's data-parallel
-//! map falls back to a sequential pass, producing an identical result).
+//! [`plan`] is the entry: hand it a domain, a problem, an optional
+//! mode/thread pick, and it hands back the structured [`ferroplan::Solution`]
+//! as JSON. No threads out here — the sandbox doesn't allow it — so every
+//! solve runs with `threads = 1`; the lib's data-parallel map just falls
+//! back to a single lane, same result, no shortcuts skipped.
 //!
 //! Build: `cargo build -p ferroplan-wasm --release --target wasm32-unknown-unknown`
 //! then `wasm-bindgen --target web --out-dir web/pkg target/wasm32-unknown-unknown/release/ferroplan_wasm.wasm`.
-//! See `web/index.html` for a self-contained demo.
+//! `web/index.html` runs the whole rig standalone — a self-contained demo.
 
 use ferroplan::{solve, Mode, Options, Search};
 use wasm_bindgen::prelude::*;
 
-/// Solve a PDDL domain+problem; returns a JSON string of the `Solution`, or
-/// `{"error": "..."}` on a parse/solve error. `mode` is one of "auto", "ff",
-/// "pddl3", "partition", "temporal" (case-insensitive; unknown falls back to Auto,
-/// which itself routes durative-action problems to the temporal solver).
+/// Solve a domain+problem; comes back as a `Solution` in JSON, or
+/// `{"error": "..."}` when the parse or the search dies. `mode` reads "auto",
+/// "ff", "pddl3", "partition", "temporal" — case doesn't matter, unknown
+/// falls to Auto, and Auto already knows to route durative-action work to
+/// the temporal solver.
 ///
-/// `flags` is a comma-separated list of the planner's env-gated feature switches to
-/// enable for this solve (e.g. "tdemand,tdecomp"): `tdemand` = converging-resource
-/// demand guidance + goal-relevance pruning, `tdecomp` = the partition-and-resolve
-/// decomposer — what the genuinely-hard temporal problems need. They're env vars in
-/// the lib; WASM is single-threaded, so we set them in-process here and reset the
-/// whole managed set each call so one pick never leaks into the next.
+/// `flags` is a comma-separated switchboard of the planner's env-gated
+/// feature toggles for this one solve (e.g. "tdemand,tdecomp"): `tdemand`
+/// wires in converging-resource demand guidance plus goal-relevance
+/// pruning; `tdecomp` is the partition-and-resolve decomposer — the tool
+/// the genuinely hard temporal jobs actually need. These live as env vars
+/// in the core lib, but WASM runs single-threaded, so we flip them
+/// in-process here and reset the whole set on every call — no leftover
+/// setting bleeds from one solve into the next.
 #[wasm_bindgen]
 pub fn plan(
     domain: &str,
@@ -46,9 +51,10 @@ pub fn plan(
     }
 }
 
-/// Map the demo's short feature names to ferroplan's feature overrides for this
-/// solve (env vars panic on wasm, so we use the in-process override instead).
-/// Resets the whole managed set each call so a previous pick can't carry over.
+/// Translate the demo's short feature names into ferroplan's feature
+/// overrides for this solve — env vars panic on wasm, so the in-process
+/// override stands in. Resets the whole managed set on every call; nothing
+/// from the last pick rides along into this one.
 fn apply_flags(flags: Option<&str>) {
     let want: std::collections::HashSet<&str> = flags
         .unwrap_or("")
@@ -63,7 +69,7 @@ fn apply_flags(flags: Option<&str>) {
     );
 }
 
-/// ferroplan's version, for the demo footer.
+/// The build's serial number, stamped in the demo footer.
 #[wasm_bindgen]
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
@@ -79,7 +85,8 @@ fn parse_mode(m: Option<&str>) -> Mode {
     }
 }
 
-/// Map the demo's search names to [`Search`]; unknown / `auto` ⇒ the engine default.
+/// Translate the demo's search names into [`Search`]; unknown or `auto`
+/// hands the wheel back to the engine's own default.
 fn parse_search(s: Option<&str>) -> Search {
     match s.map(|s| s.to_ascii_lowercase()).as_deref() {
         Some("ehc") => Search::Ehc,
@@ -93,12 +100,12 @@ fn err_json(msg: &str) -> String {
     serde_json::json!({ "error": msg }).to_string()
 }
 
-/// A live [`ferroplan::Session`] for the browser (0.15 Phase 5): the
-/// in-page bazaar drives real minds — fork, scope, think, observe —
-/// entirely client-side. The wrapper owns the mind's CURRENT PLAN and
-/// cursor so the JS loop mirrors the native `bazaar_live` shape: think
-/// stores the plan, `valid()` is the free suffix replay, `step_json()` /
-/// `advance()` walk it.
+/// A live [`ferroplan::Session`], caged for the browser: the in-page
+/// bazaar runs real minds — fork, scope, think, observe — all
+/// client-side, no round trip to a server. This wrapper keeps the mind's
+/// CURRENT PLAN and cursor so the JS loop matches the native `bazaar_live`
+/// shape exactly: think stashes the plan, `valid()` is a free replay of
+/// the suffix, `step_json()` / `advance()` walk it one beat at a time.
 #[wasm_bindgen]
 pub struct WasmSession {
     inner: ferroplan::Session,
@@ -114,7 +121,7 @@ extern "C" {
 
 #[wasm_bindgen]
 impl WasmSession {
-    /// Ground a world. Errors as a JS string.
+    /// Ground a world from nothing. Failure comes back as a JS string.
     #[wasm_bindgen(constructor)]
     pub fn new(domain: &str, problem: &str) -> Result<WasmSession, JsValue> {
         std::panic::set_hook(Box::new(|info| {
@@ -131,7 +138,8 @@ impl WasmSession {
         })
     }
 
-    /// Cheap mind: shares the grounded payload, private state.
+    /// A cheap mind — shares the grounded world, keeps its own private
+    /// state.
     pub fn fork(&self) -> WasmSession {
         WasmSession {
             inner: self.inner.fork(),
@@ -144,10 +152,11 @@ impl WasmSession {
         self.inner.set_goal(goal).map_err(js_err)
     }
 
-    /// Actor scoping by op-display prefix — the bazaar's `restrict_ops`
-    /// shape (`"TRADE ALICE "`), and additionally masks any op whose
-    /// 5th token (the item RECEIVED) is in `claimed` (comma-separated,
-    /// empty = no claims): the loop-side claims policy, client-side.
+    /// Scope one actor's moves by op-display prefix — the bazaar's
+    /// `restrict_ops` shape (`"TRADE ALICE "`) — then blackout anything
+    /// whose 5th token, the item RECEIVED, shows up in `claimed`
+    /// (comma-separated; empty means nobody's staked a claim yet). The
+    /// loop-side claims policy, run right here on the glass.
     pub fn restrict_prefix_claims(&mut self, prefix: String, claimed: String) {
         let claimed: std::collections::HashSet<String> = claimed
             .split(',')
@@ -163,8 +172,8 @@ impl WasmSession {
         });
     }
 
-    /// Bounded think; stores the plan internally and returns the whole
-    /// `Solution` as JSON for display.
+    /// A bounded think — burns its budget, stashes the plan internally,
+    /// hands back the whole `Solution` as JSON for the display to chew on.
     pub fn think(&mut self, evals: usize, mem_mb: usize) -> String {
         let sol = self.inner.replan_budgeted(evals, Some(mem_mb));
         self.plan = if sol.solved { sol.plan.clone() } else { None };
@@ -172,14 +181,16 @@ impl WasmSession {
         serde_json::to_string(&sol).unwrap_or_else(|e| err_json(&format!("serialize: {e}")))
     }
 
-    /// Free suffix replay of the stored plan from the cursor.
+    /// Replay the stored plan's tail from the cursor forward — free, no
+    /// search spent.
     pub fn valid(&self) -> bool {
         self.plan
             .as_ref()
             .is_some_and(|p| self.inner.plan_still_valid(p, self.cursor))
     }
 
-    /// The current step as JSON (`null` when the plan is drained/absent).
+    /// The step under the cursor right now, as JSON — `null` once the plan
+    /// runs dry or was never there.
     pub fn step_json(&self) -> String {
         match self.plan.as_ref().and_then(|p| p.steps.get(self.cursor)) {
             Some(s) => serde_json::to_string(s).unwrap_or_else(|_| "null".into()),
@@ -187,7 +198,8 @@ impl WasmSession {
         }
     }
 
-    /// Remaining plan steps as JSON (for claims + display).
+    /// Whatever's left of the plan, as JSON — feeds the claims logic and
+    /// the display alike.
     pub fn suffix_json(&self) -> String {
         match self.plan.as_ref() {
             Some(p) => serde_json::to_string(&p.steps[self.cursor.min(p.steps.len())..])
@@ -226,7 +238,8 @@ impl WasmSession {
         self.inner.goal_met()
     }
 
-    /// Believed value of a fact (`null` if unknown to the grounding).
+    /// What the mind currently believes the fact holds (`null` if the
+    /// grounding never heard of it).
     pub fn fact(&self, name: &str) -> JsValue {
         match self.inner.fact(name) {
             Some(v) => JsValue::from_bool(v),
@@ -287,9 +300,9 @@ impl WasmSession {
         self.inner.world_bytes()
     }
 
-    /// Estimated retained bytes of THIS mind's private state (current
-    /// facts/fluents, goal, fluent relevance) — what one more `fork()`
-    /// costs. Same flat-bytes caveat as `world_bytes`.
+    /// A rough weight in bytes of THIS mind's private state — facts,
+    /// fluents, goal, fluent relevance — the toll one more `fork` would
+    /// cost. Same flat-bytes caveat as `world_bytes`.
     pub fn mind_bytes(&self) -> usize {
         self.inner.mind_bytes()
     }

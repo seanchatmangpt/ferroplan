@@ -1,6 +1,6 @@
 [package]
 name = "ferroplan-cli"
-description = "Command-line interface (the `ff` binary) for the ferroplan PDDL planner"
+description = "Terminal jockey's rig for ferroplan — the `ff` binary, plans compiled at street level"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

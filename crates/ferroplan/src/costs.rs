@@ -1,47 +1,50 @@
-//! IPC6 `:action-costs` on the classical path (0.9 roadmap Phase 2).
+//! IPC6 `:action-costs`, run through the classical path (0.9 roadmap Phase 2).
 //!
-//! IPC-2008 introduced action costs: a numeric fluent (conventionally
-//! `total-cost`) initialized in `:init`, increased by constant amounts in
-//! action effects, and minimized by `(:metric minimize (total-cost))`.
-//! Ferroplan's numeric machinery already *tracks* such a fluent through
-//! grounding and `apply`; what this module adds is making the classical
-//! (non-preference) path *reason* about it:
+//! IPC-2008 put a price on every move: a numeric fluent — conventionally
+//! `total-cost` — set at `:init`, ticked up by constant amounts in action
+//! effects, and driven down by `(:metric minimize (total-cost))`. Ferroplan's
+//! numeric machinery already *tracks* that fluent through grounding and
+//! `apply`; this module is what makes the classical (non-preference) path
+//! *reason* about it:
 //!
-//! 1. [`metric_fluent`] detects the supported metric shape — `minimize` of a
-//!    single ground fluent — and names it for [`PackedTask::fluent_id`].
-//! 2. [`plan_cost`] replays a plan to read the metric's real final value
-//!    (the number the external validator will also compute).
-//! 3. [`improve`] runs the anytime cost-improvement sweep: a bounded
-//!    branch-and-bound best-first pass under the first plan's cost, ordered
-//!    by accumulated cost (`w_c`) and guided by the cost-augmented relaxed
-//!    plan ([`crate::heuristic::relaxed_costed`]), keeping the cheapest
-//!    incumbent (in-sweep anytime tightening). The first plan itself comes
-//!    from the untouched EHC / weighted-best-first machinery — fast, and
-//!    bit-identical to pre-cost behavior — so cost support can never regress
-//!    the classical baseline; only the polish pass is new.
+//! 1. [`metric_fluent`] reads the metric off the wire — `minimize` of a
+//!    single ground fluent, the only shape supported — and names it for
+//!    [`PackedTask::fluent_id`].
+//! 2. [`plan_cost`] replays the plan to pull the metric's real final tally
+//!    (the exact number the external validator will also land on).
+//! 3. [`improve`] runs the anytime sweep: a bounded branch-and-bound
+//!    best-first pass under the first plan's cost, ordered by accumulated
+//!    spend (`w_c`) and guided by the cost-augmented relaxed plan
+//!    ([`crate::heuristic::relaxed_costed`]), holding the cheapest incumbent
+//!    as it tightens. The first plan itself rides untouched EHC /
+//!    weighted-best-first machinery — fast, bit-identical to the pre-cost
+//!    days — so cost support never drags the classical baseline down; only
+//!    the polish pass is new ground.
 //!
-//! The sweep's eval budget is deliberately bounded (`sweep_budget`): a
-//! polish pass must never dwarf the solve that produced the plan.
-//! `FF_COST_SWEEP_EVALS` overrides it (`0` disables the sweep).
+//! The sweep's budget stays on a short leash (`sweep_budget`): a polish pass
+//! must never dwarf the solve that bought the plan in the first place.
+//! `FF_COST_SWEEP_EVALS` overrides it — `0` kills the sweep outright.
 
 use crate::packed::PackedTask;
 use crate::search::{search_from, PlanResult, SearchCfg};
 use crate::types::{Expr, MetricDir, Problem, Term};
 
-/// Floor for the improvement sweep's eval budget: even a plan found almost
-/// for free (EHC in a few dozen evals) gets a real polish pass.
+/// Floor on the sweep's budget: even a plan found nearly for free — EHC in
+/// a few dozen evals — earns a real polish pass, not a token gesture.
 const SWEEP_FLOOR: usize = 30_000;
-/// The sweep may spend at most this multiple of what finding the first plan
-/// cost — the polish stays proportionate to the solve (a hard instance that
-/// needed a big best-first fallback must not then double its bill polishing).
+/// The sweep spends at most this multiple of what the first plan cost to
+/// find — the polish stays proportionate. A hard instance that already
+/// needed the big best-first fallback doesn't get to double its bill
+/// polishing on top of that.
 const SWEEP_MULT: usize = 2;
 
-/// Detect the supported IPC6 cost-metric shape on a classical problem:
-/// `(:metric minimize <ground fluent>)` — returns the fluent's display
-/// string (e.g. `"(TOTAL-COST)"`) for [`PackedTask::fluent_id`]. Anything
-/// else (maximize, compound expressions, lifted terms) returns None: those
-/// metrics are NOT silently optimized — callers report a plan without a
-/// metric claim, and the PDDL3 path owns `is-violated` metrics.
+/// Read the wire for the one supported IPC6 cost-metric shape on a
+/// classical problem: `(:metric minimize <ground fluent>)`. Returns the
+/// fluent's display string (e.g. `"(TOTAL-COST)"`) for
+/// [`PackedTask::fluent_id`]. Anything else — maximize, compound
+/// expressions, lifted terms — comes back `None`: those metrics are never
+/// silently optimized. Callers report a plan with no metric claim attached,
+/// and the PDDL3 path keeps sole custody of `is-violated` metrics.
 pub fn metric_fluent(problem: &Problem) -> Option<String> {
     let (dir, e) = problem.metric.as_ref()?;
     if !matches!(dir, MetricDir::Minimize) {
@@ -65,10 +68,10 @@ pub fn metric_fluent(problem: &Problem) -> Option<String> {
     }
 }
 
-/// The metric's real value after executing `ops` from the initial state —
+/// The metric's true value after running `ops` from the initial state — an
 /// exact replay through [`PackedTask::apply`], so conditional cost effects
-/// and non-constant increases are all honored. None if the fluent ends
-/// undefined (no `:init` assignment and nothing wrote it).
+/// and non-constant increases all get their due. `None` if the fluent never
+/// resolves — no `:init` assignment, and nothing wrote it along the way.
 pub fn plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) -> Option<f64> {
     let mut s = task.initial();
     for &oi in ops {
@@ -81,24 +84,27 @@ pub fn plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) -> Option<f64> {
     }
 }
 
-/// Outcome of the anytime cost-improvement sweep.
+/// What the anytime sweep dragged back.
 pub struct CostOutcome {
-    /// Best plan known (the input plan if the sweep found nothing cheaper).
+    /// The best plan on hand — the input plan itself, if the sweep found
+    /// nothing to beat it.
     pub ops: Vec<usize>,
-    /// Its metric value (replayed, not estimated).
+    /// Its true cost, replayed, never estimated.
     pub cost: f64,
-    /// The sweep found a strictly cheaper plan.
+    /// The sweep struck something strictly cheaper.
     pub improved: bool,
-    /// The sweep EXHAUSTED the bounded space without caps: no plan cheaper
-    /// than `cost` exists — the value is proven optimal, not just best-found.
+    /// The sweep burned through the whole bounded space, no caps hit —
+    /// nothing cheaper than `cost` exists out there. Proven, not just
+    /// best-found.
     pub proven: bool,
-    /// States evaluated by the sweep (for budget accounting / statistics).
+    /// States the sweep evaluated, for the budget ledger.
     pub evaluated: usize,
 }
 
-/// Sweep eval budget: proportionate to the solve (`SWEEP_MULT` × its evals,
-/// floored at `SWEEP_FLOOR`), never exceeding what remains of the caller's
-/// overall eval budget. `FF_COST_SWEEP_EVALS` overrides (0 disables).
+/// The sweep's eval budget: proportionate to the solve (`SWEEP_MULT` times
+/// its evals, floored at `SWEEP_FLOOR`), never spilling past what's left of
+/// the caller's overall allowance. `FF_COST_SWEEP_EVALS` overrides it — `0`
+/// disables the sweep entirely.
 fn sweep_budget(spent: usize, cfg_max: usize) -> usize {
     if let Ok(v) = std::env::var("FF_COST_SWEEP_EVALS") {
         if let Ok(n) = v.trim().parse::<usize>() {
@@ -110,11 +116,11 @@ fn sweep_budget(spent: usize, cfg_max: usize) -> usize {
         .min((SWEEP_MULT * spent).max(SWEEP_FLOOR))
 }
 
-/// Anytime cost improvement: bounded B&B best-first under `first_cost`,
-/// ordered by accumulated metric cost and guided by the cost-augmented
-/// relaxed plan. Deterministic (all knobs are integer/deterministic and the
-/// underlying sweep is thread-count independent). Returns the best plan seen
-/// — never worse than the input.
+/// The anytime cost sweep: bounded branch-and-bound best-first under
+/// `first_cost`, ordered by accumulated metric spend, guided by the
+/// cost-augmented relaxed plan. Deterministic top to bottom — every knob is
+/// integer, the sweep itself is thread-count independent. Hands back the
+/// best plan it found — never worse than what walked in.
 pub fn improve(
     task: &PackedTask,
     cf: usize,
@@ -197,11 +203,11 @@ pub fn improve(
     }
 }
 
-/// Shared text-path hook (run_planner / run_ff): detect the cost metric,
-/// replay the plan's cost, run the improvement sweep (unless `optimize` is
-/// off), and swap `ops` for the cheaper plan. Returns the final cost and a
-/// short annotation for the report, or None when the problem has no
-/// supported cost metric (text output then stays byte-identical).
+/// Shared text-path hook for `run_planner` / `run_ff`: read the cost
+/// metric, replay the plan's spend, run the sweep — unless `optimize` says
+/// stand down — and swap `ops` for whatever's cheaper. Hands back the final
+/// cost and a short field note, or `None` when the problem carries no
+/// supported cost metric at all (text output then stays byte-identical).
 pub fn optimize_text(
     problem: &Problem,
     task: &PackedTask,
@@ -228,22 +234,22 @@ pub fn optimize_text(
     Some((r.cost, note))
 }
 
-/// Iterated-weight anytime for UNIT-cost quality (the 0.9 Phase 3
-/// remainder): after the first plan on a metric-FREE problem, re-run the
-/// complete weighted best-first at decreasing heuristic weights
-/// (w_h = 3, 2, 1 — greedy toward optimal-leaning, the LAMA recipe), each
-/// rung bounded to an equal slice of the sweep budget, keeping the SHORTEST
-/// plan seen. No engine changes: each rung is a plain `search_from` run, so
-/// determinism is inherited and the result is never worse than the input.
-/// OPT-IN (`FF_LEN_SWEEP_EVALS=<evals>`; unset or 0 = off, byte-identical
-/// first-found behavior) — a measured-negative default: at the cost sweep's
-/// proportionate budgets the restarts move NOTHING on the visitall targets
-/// (2x-solve budgets, zero gain), and the improvement that does exist is
-/// paid far above the polish doctrine's price (2M evals — ~28x the p01
-/// solve — buys 226 -> 222, ~1.8%). The restart SHAPE is the limit, not
-/// the machinery: a future length-anytime that tightens within ONE search
-/// (the cost sweep's shape) or landmark-guided restarts are the recorded
-/// next ideas.
+/// The iterated-weight anytime pass for unit-cost quality (the 0.9 Phase 3
+/// remainder): once the first plan lands on a metric-free problem, re-run
+/// the whole weighted best-first at decreasing heuristic weights — w_h = 3,
+/// 2, 1, greedy sliding toward optimal, the LAMA recipe — each rung
+/// bounded to an equal slice of the sweep budget, keeping the shortest plan
+/// standing. No new engine underneath: each rung is a plain `search_from`
+/// run, so determinism carries through and the result is never worse than
+/// what walked in. Opt-in only (`FF_LEN_SWEEP_EVALS=<evals>`; unset or `0`
+/// means off, byte-identical first-found behavior) — a measured negative
+/// default: under the cost sweep's proportionate budgets these restarts
+/// move nothing on the visitall targets (2x-solve budgets, zero gain), and
+/// the gain that does exist elsewhere is bought far above the polish
+/// doctrine's price (2M evals — ~28x the p01 solve — buys 226 -> 222, about
+/// 1.8%). The restart SHAPE is the ceiling here, not the machinery — a
+/// length-anytime that tightens inside one search (the cost sweep's own
+/// shape), or landmark-guided restarts, are the next recorded ideas.
 pub fn improve_length(
     task: &PackedTask,
     ops: Vec<usize>,

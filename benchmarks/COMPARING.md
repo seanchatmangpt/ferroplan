@@ -1,13 +1,14 @@
 # Reproducing the cross-planner comparison
 
-`ferroplan` is benchmarked against two C reference planners. **Neither is bundled
-in this repository** — Metric-FF is GPL and SGPlan is distributed under a
+`ferroplan` steps into the ring against two C reference planners, but neither
+oracle rides along — Metric-FF is GPL and SGPlan is distributed under a
 non-commercial research licence, both incompatible with ferroplan's MIT/Apache-2.0
-licensing. The comparison harness ([`compare.py`](compare.py)) shells out to
+licensing, so the comparison happens off the record and has to be rebuilt each
+time. The comparison harness ([`compare.py`](compare.py)) shells out to
 whatever oracle binaries you point it at, and skips any that are absent — so a
 clean checkout still runs (ferroplan-only), and the committed
 [`results.md`](results.md) records the numbers from a local run that *did* have the
-oracles.
+oracles present.
 
 ## Get the oracles
 
@@ -49,9 +50,9 @@ larger problem set than the small vendored subset under [`ipc/`](ipc).
 
 ## Temporal: validating plans with VAL
 
-For PDDL2.1 temporal domains, plans are validated with **VAL** (the IPC plan
-validator) under continuous-time ε-semantics — see
-[`temporal-results.md`](temporal-results.md).
+No plan is trusted on its own word. For PDDL2.1 temporal domains, every plan
+is run past **VAL** (the IPC plan validator) under continuous-time
+ε-semantics before it counts — see [`temporal-results.md`](temporal-results.md).
 
 ```sh
 # build VAL (modern cmake rejects its old minimum — pass the policy flag)

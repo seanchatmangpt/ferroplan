@@ -1,6 +1,8 @@
 # Chatman Phase Engine
 
-A phase-changing Claude Code plugin that makes Ferroplan its first managed world.
+A phase-changing Claude Code plugin. Ferroplan is its first managed world —
+the territory it watches, allocates, plans, and rebuilds, one receipted step
+at a time.
 
 It composes:
 
@@ -15,7 +17,9 @@ It composes:
 
 ## Design law
 
-The plugin follows **design for combinatorial maximalism**. It does not encode one fixed workflow. It defines orthogonal primitives and laws for composing them.
+The plugin follows **design for combinatorial maximalism**. There is no
+single fixed workflow baked into the machine — only orthogonal primitives,
+and the laws that govern how they may be wired together.
 
 The live operating state is a product of six dimensions:
 
@@ -28,23 +32,25 @@ The live operating state is a product of six dimensions:
 | Drift | stable, drifted, refused |
 | Configuration | unknown, nonconformant, conformant |
 
-This produces 648 raw combinations, of which **136 (21.0%) are lawful** —
-`profiles/phase-space.json` declares the transitions and invariants that admit
-only those. Both numbers are derived at runtime by `phase.py status` (see the
-`census` field), never read from a literal, so an invariant that stops
-constraining anything shows up as a change in the lawful count. Publication is
-the narrowest state in the space: exactly one lawful vector is `publishable`.
+Six dimensions fan out to 648 raw combinations. Only **136 (21.0%) are
+lawful** — `profiles/phase-space.json` declares the transitions and
+invariants that admit those and refuse the rest. Both numbers are computed
+at runtime by `phase.py status` (see the `census` field), never hardcoded,
+so the day an invariant stops pulling weight, the lawful count itself moves
+and says so. Publication sits at the far edge of the space: exactly one
+lawful vector reaches `publishable`.
 
-The active agents, skills, and capabilities are the set union associated with
-the current vector.
+The active agents, skills, and capabilities at any moment are the set union
+tied to whichever vector the world currently occupies.
 
-Repository mutations deliberately collapse affected dimensions back to:
+A repository mutation is a small earthquake. It collapses the affected
+dimensions straight back to:
 
 ```text
 observed × unallocated × unplanned × sealed × drifted × unknown
 ```
 
-Nothing re-enters an advanced phase without a receipt.
+Nothing climbs back to an advanced phase without a receipt to show for it.
 
 ## Authority graph
 
@@ -62,12 +68,14 @@ Nothing re-enters an advanced phase without a receipt.
 | Hooks | observation and protected-command refusal |
 | Receipt auditor | replay and maximum lawful standing |
 
-These ceilings are a review discipline, not a mechanical check. The projection
-in `phase.py` computes the set union of capabilities, agents, and skills across
-the selected dimension states; nothing compares the result against the table
-above, because no ordering over these claim values is defined anywhere. Agents
-and skills are instructed to respect the ceilings, and an auditor is expected to
-report violations — but a composition that exceeded one would load and run.
+These ceilings are read, not enforced by machinery — a review discipline,
+not a runtime lock. `phase.py` computes the set union of capabilities,
+agents, and skills across the selected dimension states; nothing in that
+projection checks the result against the table above, because no ordering
+over these claim values exists anywhere in code. Agents and skills are
+instructed to respect the ceilings, an auditor is expected to flag
+violations — but a composition that overstepped one would still load, and
+still run.
 
 ## Installation
 
@@ -84,7 +92,8 @@ At enable time, the plugin can accept optional checkout locations for:
 
 - `claude-code-config-lsp`;
 
-If omitted, resolvers first use an installed binary and then look for a sibling checkout beside Ferroplan. They never install from the network automatically.
+If omitted, resolvers first reach for an installed binary, then a sibling
+checkout beside Ferroplan. They never phone the network on their own.
 
 ## Main skills
 
@@ -104,7 +113,7 @@ If omitted, resolvers first use an installed binary and then look for a sibling 
 | `/chatman-ecosystem:doctor` | Diagnose every plugin surface |
 | `/chatman-ecosystem:publish` | Explicitly perform protected publication |
 
-`publish` cannot be invoked automatically by the model.
+`publish` is the one door the model can never open by itself.
 
 ## MCP servers
 
@@ -134,11 +143,16 @@ python3 "$CLAUDE_PLUGIN_ROOT/scripts/project-world.py" \
   --metadata /tmp/ferroplan-live.json
 ```
 
-The problem is deterministic for the same ledger and phase state. Ferroplan therefore plans against its actual observed repository standing rather than a static example.
+Feed it the same ledger and the same phase state twice, and it hands back
+the same problem twice — Ferroplan plans against the repository's actual
+observed standing, never a static fixture wearing the world's clothes.
 
 ## Configuration schema epochs
 
-`claude-code-config-lsp` is ontology-generated and valuable, but its current ontology models an earlier Claude Code plugin schema. `profiles/config-schema-epoch.json` records known differences, including:
+`claude-code-config-lsp` is ontology-generated and genuinely useful, but the
+ontology it carries models an earlier Claude Code plugin schema — a map
+drawn before the territory finished moving. `profiles/config-schema-epoch.json`
+records the known gap, including:
 
 - optional commit-SHA plugin versions;
 - object marketplace sources;
@@ -148,7 +162,11 @@ The problem is deterministic for the same ledger and phase state. Ferroplan ther
 - expanded hook types;
 - plugin-root agent and skill locations.
 
-The current Claude loader and `claude plugin validate` govern loadability. The LSP governs only the surfaces represented in its ontology. Known epoch differences cannot create false refusals. Unknown disagreements remain `UNKNOWN`.
+The current Claude loader and `claude plugin validate` govern loadability.
+The LSP governs only the surfaces its ontology actually reaches. A known
+epoch gap can never masquerade as a false refusal. An unknown disagreement
+stays `UNKNOWN` until someone reconciles it — it doesn't get rounded up or
+down.
 
 ## Receipt chain
 
@@ -162,13 +180,20 @@ Allocation and plan envelopes bind canonical forms of:
 - independent validator result;
 - predecessor receipt.
 
-The admission server uses recursively key-sorted JSON, length-framed inputs, and BLAKE3. Verification recomputes both the payload digest and receipt.
+The admission server uses recursively key-sorted JSON, length-framed inputs,
+and BLAKE3. Verification recomputes both the payload digest and the receipt
+— trust nothing that wasn't rebuilt from the raw bytes.
 
 ## Protected actuation
 
-Hooks deny protected Bash operations when repository observations are ahead of the admitted receipt frontier. Protected surfaces include publication, destructive git operations, package publishing, recursive forced deletion, and state-changing HTTP requests.
+Hooks deny protected Bash operations the moment repository observations run
+ahead of the admitted receipt frontier. Protected surfaces include
+publication, destructive git operations, package publishing, recursive
+forced deletion, and state-changing HTTP requests.
 
-A source change is allowed only as reversible manufacturing. It immediately becomes a new observation and seals advanced actuation until the loop closes again.
+A source change is only ever allowed as reversible manufacturing. The
+instant it lands, it becomes a new observation, and it seals advanced
+actuation shut until the loop closes around it again.
 
 ## Standing
 
@@ -177,7 +202,8 @@ A source change is allowed only as reversible manufacturing. It immediately beco
 - `BUILD_BROKEN`: an exercised build, validation, or execution surface failed.
 - `UNKNOWN`: the required executor or evidence was unavailable.
 
-Source presence, plans, confidence, and prose do not establish `ALIVE`.
+Source presence, plans, confidence, and prose buy none of these on their
+own.
 
 ## Development check
 
@@ -187,4 +213,6 @@ Run the plugin doctor inside Claude Code:
 /chatman-ecosystem:doctor
 ```
 
-The doctor checks loader validation, LSP resolution, Python syntax, shell resolvers, Rust binaries, MCP startup, live PDDL projection, phase invariants, and receipt replay.
+The doctor checks loader validation, LSP resolution, Python syntax, shell
+resolvers, Rust binaries, MCP startup, live PDDL projection, phase
+invariants, and receipt replay.

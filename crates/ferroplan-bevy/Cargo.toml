@@ -1,6 +1,6 @@
 [package]
 name = "ferroplan-bevy"
-description = "Bevy-based GUI for the ferroplan PDDL planner — visualize, inspect, and animate domains/problems"
+description = "Bevy-rendered heads-up display for the ferroplan planner — domains and problems visualized, inspected, animated in the dark"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

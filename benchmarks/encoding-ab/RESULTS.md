@@ -1,6 +1,6 @@
-# Encoding A/B/C results — specific vs data-table vs forall-numeric
+# Encoding A/B/C — the raw numbers: specific vs data-table vs forall-numeric
 
-_ff @ `dbb9bb9` · threads=1 · max_evaluated=2000000 · timeout=45.0s · lower is better (fewer node expansions / shorter makespan)._
+_ff @ `dbb9bb9` · threads=1 · max_evaluated=2000000 · timeout=45.0s · lower reads better (fewer node expansions, shorter makespan)._
 
 **specific** = one `:action` per recipe · **data-table** = one `craft ?rec ?in ?out` + static `(recipe …)` table over `:constants` · **forall** = one `craft ?rec` quantifying over all resources via `(need/make ?rec ?res)`.
 

@@ -1,22 +1,24 @@
-//! Shared tool-result plumbing for every tool group in this binary.
+//! Common wire, every channel routed through it. One relay station for the
+//! outbound signal.
 //!
-//! The `Result<Value, String>` tool-body convention is used by the `session`,
-//! `admission`, and stateless-planning tool groups alike; `to_result` is the
-//! single place that maps it onto rmcp's `CallToolResult`. Success carries the
-//! JSON both as pretty text (for models reading `content`) and as
-//! `structuredContent` (for callers that consume the object). Failure carries
-//! the message as text only — an error result must never set
-//! `structured_content`.
+//! The `Result<Value, String>` convention is the dispatch format shared by
+//! `session`, `admission`, and the stateless-planning tools; `to_result` is
+//! the single relay that maps it onto rmcp's `CallToolResult`. A clean
+//! signal carries the JSON payload twice — pretty text for the model reading
+//! `content`, and `structuredContent` for callers parsing the object
+//! straight. A dead signal carries the failure message as text only, no
+//! structured payload riding along — a broken transmission doesn't get
+//! dressed up as data.
 //!
-//! Note: this module's `pretty` is deliberately distinct from `crate::pretty`,
-//! which is a generic fallible `Serialize` → `Result<String, String>` helper.
-//! This one is infallible and `Value`-specific.
+//! Note: this module's `pretty` is a different unit from `crate::pretty`,
+//! which is a generic fallible `Serialize` → `Result<String, String>`
+//! helper. This one never fails, and only speaks `Value`.
 
 use rmcp::model::{CallToolResult, ContentBlock, ErrorData as McpError};
 use serde_json::Value;
 
-/// Map the `Result<Value, String>` tool-body convention onto rmcp's
-/// `CallToolResult`, setting `structuredContent` on success only.
+/// Route the `Result<Value, String>` signal onto rmcp's `CallToolResult`.
+/// `structuredContent` rides along only when the transmission is clean.
 pub(crate) fn to_result(result: Result<Value, String>) -> Result<CallToolResult, McpError> {
     Ok(match result {
         Ok(value) => {
@@ -28,7 +30,8 @@ pub(crate) fn to_result(result: Result<Value, String>) -> Result<CallToolResult,
     })
 }
 
-/// Pretty-print a JSON value, falling back to its compact form.
+/// Pretty-print a JSON value. If the printer chokes, fall back to the
+/// compact form — the signal still gets through, just flatter.
 pub(crate) fn pretty(value: &Value) -> String {
     serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string())
 }

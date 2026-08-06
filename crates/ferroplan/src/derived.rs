@@ -1,27 +1,33 @@
-//! Derived predicates (`:derived` axioms), compiled away before grounding.
+//! Derived predicates (`:derived` axioms) — burned off before grounding
+//! ever sees them.
 //!
-//! A `:derived` rule defines a predicate's truth by a formula rather than by
-//! action effects. Rather than thread derived facts through the grounder, state,
-//! and heuristic, we handle the common case as a **preprocessing transform**:
+//! A `:derived` rule hands a predicate's truth to a formula instead of an
+//! action effect. Rather than thread that logic through the grounder, the
+//! state, and the heuristic, the common case gets cut at the door as a
+//! **preprocessing transform**:
 //!
-//! * **Static** rules — whose body references only *static* facts (predicates no
-//!   action ever changes), e.g. `reachable` over a fixed map graph. Their full
-//!   ground closure is computed once here (a small datalog fixpoint) and added to
-//!   the problem's init facts. Recursion is fine (it's what reachability needs).
+//! * **Static** rules — body reads only *static* facts, predicates no
+//!   action ever touches, e.g. `reachable` over a fixed map graph. Their
+//!   full ground closure gets computed once, right here, a small datalog
+//!   fixpoint, then folded into the problem's init facts. Recursion is
+//!   fine — reachability needs it.
 //!
-//! * **Dynamic** rules — whose body depends on facts actions change — are not yet
-//!   supported (a clear error is returned); they need a per-state fixpoint.
+//! * **Dynamic** rules — body leans on facts actions change — aren't
+//!   carried yet. A clear error comes back instead; they'd need a
+//!   per-state fixpoint this module doesn't run.
 //!
-//! The transformed domain has no `:derived` rules, so the rest of the pipeline
-//! (grounding, search, heuristic) is unchanged.
+//! What comes out the other side has no `:derived` rules left standing, so
+//! the rest of the pipeline — grounding, search, heuristic — never knows
+//! the difference.
 
 use std::collections::{HashMap, HashSet};
 
 use crate::types::{Domain, Effect, Formula, Problem, Sym, Term};
 
-/// Compile `:derived` rules away, returning the transformed `(domain, problem)`.
-/// Static derived facts are added to the problem's init; the domain's `derived`
-/// list is cleared. Errors on dynamic derived predicates.
+/// Burn the `:derived` rules off, hand back the transformed
+/// `(domain, problem)`. Static derived facts land in the problem's init;
+/// the domain's `derived` list comes back empty. Throws on any dynamic
+/// derived predicate.
 pub fn compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> {
     if domain.derived.is_empty() {
         return Ok((domain.clone(), problem.clone()));
@@ -101,7 +107,7 @@ pub fn compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), 
     Ok((dom, prob))
 }
 
-/// Predicate names that some action effect adds or deletes.
+/// Every predicate name some action effect ever adds or strikes.
 fn modified_predicates(domain: &Domain) -> HashSet<Sym> {
     let mut out = HashSet::new();
     for a in &domain.actions {
@@ -139,8 +145,9 @@ fn collect_pred_refs(f: &Formula, out: &mut HashSet<Sym>) {
     }
 }
 
-/// For each type, the objects (problem objects + domain constants) that are that
-/// type or a subtype of it. `OBJECT` / untyped matches everything.
+/// For each type, every object — problem objects plus domain constants —
+/// that answers to it or one of its subtypes. `OBJECT` / untyped catches
+/// everything.
 fn objects_by_type(domain: &Domain, problem: &Problem) -> HashMap<Sym, Vec<Sym>> {
     let all: Vec<(Sym, Sym)> = domain
         .constants
@@ -192,7 +199,8 @@ fn objects_by_type(domain: &Domain, problem: &Problem) -> HashMap<Sym, Vec<Sym>>
     map
 }
 
-/// Cartesian product of objects for each typed parameter.
+/// Every combination of objects across a set of typed parameters, laid out
+/// full Cartesian.
 fn enumerate(params: &[(Sym, Sym)], objs: &HashMap<Sym, Vec<Sym>>) -> Vec<HashMap<Sym, Sym>> {
     let mut out = vec![HashMap::new()];
     for (name, ty) in params {
@@ -217,7 +225,8 @@ fn resolve(t: &Term, b: &HashMap<Sym, Sym>) -> Sym {
     }
 }
 
-/// Evaluate a (static) rule body under a binding against the current fact set.
+/// Read a (static) rule body true or false under a binding, against the
+/// fact set standing right now.
 fn eval(
     f: &Formula,
     b: &HashMap<Sym, Sym>,

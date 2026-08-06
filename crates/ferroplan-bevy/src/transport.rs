@@ -1,23 +1,23 @@
-//! A bottom-docked transport bar for the plan animation: a play/pause button, a
-//! scrubbable timeline (click or drag to seek) with one notch per step, a molten
-//! progress fill + playhead, and a step/time readout. It mirrors the keyboard
-//! controls (Space / ←→ / R) so the animator is usable with the mouse alone.
+//! The transport deck, docked bottom-screen: a run/hold switch, a scrubbable
+//! timeline — click or drag to seek — notched once per step, a molten fill and
+//! playhead tracking the burn, and a step/time readout. It shadows the keyboard
+//! rig (Space / ←→ / R) so the whole run stays workable off the mouse alone.
 //!
-//! The bar only shows while a plan with steps is loaded. The track reports the
-//! pointer's normalized position via `RelativeCursorPosition`, which we map to a
-//! timeline `t` on press/drag.
+//! The deck only lights up while a plan with steps is loaded. The track hands
+//! back the pointer's normalized position via `RelativeCursorPosition`, mapped
+//! straight onto timeline `t` on press or drag.
 
 use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
 
 use crate::anim::Plan;
 
-/// True while the pointer is over the transport bar — lets world interaction
-/// (node selection) ignore clicks that are really scrubbing.
+/// Lit while the pointer sits over the deck — tells world interaction (node
+/// selection) to look away from clicks that are really just scrubbing.
 #[derive(Resource, Default)]
 pub struct Transport {
     pub hovering: bool,
-    /// Step count the notches were last built for (so we only rebuild on change).
+    /// The step count the notches were last cut for — rebuild only when it moves.
     built_for: usize,
 }
 
@@ -38,8 +38,8 @@ pub struct StepNotch;
 #[derive(Component)]
 pub struct TransportLabel;
 
-/// One notch per step is drawn while the plan is short enough to read; denser
-/// plans rely on the fill + playhead alone.
+/// One notch burns per step while the run's still short enough to read; past
+/// that, the fill and playhead alone carry the signal.
 const MAX_NOTCHES: usize = 80;
 
 pub fn setup_transport(mut commands: Commands) {
@@ -149,7 +149,7 @@ pub fn setup_transport(mut commands: Commands) {
         });
 }
 
-/// Show the bar only while a plan with steps is loaded.
+/// Keep the deck dark until a plan with steps actually loads.
 pub fn transport_visibility(plan: Res<Plan>, mut bar: Query<&mut Visibility, With<TransportBar>>) {
     let Ok(mut vis) = bar.single_mut() else {
         return;
@@ -164,7 +164,7 @@ pub fn transport_visibility(plan: Res<Plan>, mut bar: Query<&mut Visibility, Wit
     }
 }
 
-/// Rebuild the per-step notches when the plan length changes.
+/// Recut the per-step notches the instant the run's length shifts underfoot.
 pub fn rebuild_notches(
     mut commands: Commands,
     plan: Res<Plan>,
@@ -213,7 +213,7 @@ pub fn rebuild_notches(
     });
 }
 
-/// Drive the fill width, playhead position, play icon and readout from `Plan`.
+/// Slave the fill width, playhead, play icon, and readout to whatever `Plan` says.
 pub fn transport_sync(
     plan: Res<Plan>,
     mut fill: Query<&mut Node, (With<ScrubFill>, Without<Playhead>)>,
@@ -239,8 +239,8 @@ pub fn transport_sync(
     }
 }
 
-/// Temporal: `t=…/makespan · k active · <action>` (the actions in flight at the
-/// current time). Classic: `step k/n · <action>`.
+/// Temporal reads `t=…/makespan · k active · <action>` — whatever's still
+/// burning at this instant. Classic reads flat: `step k/n · <action>`.
 fn readout(plan: &Plan) -> String {
     let n = plan.steps.len();
     if n == 0 {
@@ -275,7 +275,7 @@ fn readout(plan: &Plan) -> String {
     format!("step {}/{} · {}", k + 1, n, step.action.to_lowercase())
 }
 
-/// Handle the play button and scrubbing on the track.
+/// Field the play button and any scrub across the track.
 pub fn transport_input(
     mouse: Res<ButtonInput<MouseButton>>,
     mut transport: ResMut<Transport>,

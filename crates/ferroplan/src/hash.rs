@@ -1,8 +1,9 @@
-//! In-tree FxHash — a fast, deterministic hasher (the rustc-hash algorithm), so
-//! we drop SipHash for the hot visited-set and the grounding interner without a
-//! dependency. Deterministic: no random seed, so results are reproducible and
-//! thread-count-independent (bucket layout never affects the search order, which
-//! is driven by the heap, not set iteration).
+//! Home-built FxHash — fast, cold-blooded, the rustc-hash algorithm running
+//! in-house. Cuts SipHash out of the loop for the hot visited-set and the
+//! grounding interner, no outside dependency riding along. No random seed means
+//! no chance element: same input, same output, every machine, every thread count
+//! — bucket layout never leans on the search order, which answers to the heap,
+//! not to how a set happens to iterate.
 
 use std::collections::{HashMap, HashSet};
 use std::hash::{BuildHasherDefault, Hasher};

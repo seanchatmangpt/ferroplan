@@ -1,8 +1,10 @@
-//! `ff` — the ferroplan command-line interface.
+//! `ff` — the terminal you talk to the planner through.
 //!
-//! Drop-in for Metric-FF's `ff -o domain.pddl -f problem.pddl` (classic text
-//! output), plus `--json` for a structured [`ferroplan::Solution`] and
-//! `--json-request` for a self-contained `{domain, problem, options}` job.
+//! Same handshake as Metric-FF's `ff -o domain.pddl -f problem.pddl` — old
+//! rig, old wire format, still boots clean. Flag `--json` pulls a structured
+//! [`ferroplan::Solution`] instead of scrolling text; `--json-request` takes
+//! a whole job — domain, problem, options — sealed in one packet, no
+//! back-and-forth over the wire.
 
 use std::io::Read;
 use std::path::PathBuf;
@@ -12,8 +14,8 @@ use clap::{Parser, ValueEnum};
 use ferroplan::{Decomposition, Mode, Options, Search};
 use serde::Deserialize;
 
-/// Human-readable rendering of a [`Decomposition`]: the ordered contracts (each goal
-/// + its sub-plan) and the stitched whole-goal plan.
+/// Field readout of a [`Decomposition`]: the contracts laid end to end, each
+/// goal riding its own sub-plan, then the stitched whole run underneath.
 fn render_decomposition(d: &Decomposition) -> String {
     use std::fmt::Write;
     let mut s = String::new();
@@ -79,65 +81,70 @@ fn render_decomposition(d: &Decomposition) -> String {
     about = "ferroplan — a data-parallel PDDL planner"
 )]
 struct Cli {
-    /// Domain file (PDDL).
+    /// The domain file. PDDL, the rules of the world.
     #[arg(short = 'o', long = "domain", value_name = "DOMAIN")]
     domain: Option<PathBuf>,
 
-    /// Problem file (PDDL).
+    /// The problem file. PDDL, the job you're actually here for.
     #[arg(short = 'f', long = "problem", value_name = "PROBLEM")]
     problem: Option<PathBuf>,
 
-    /// Read a JSON job `{domain, problem, options}` from FILE (or `-` for stdin).
+    /// A JSON job `{domain, problem, options}` from FILE — or `-` to read it
+    /// straight off stdin, no file needed.
     #[arg(long, value_name = "FILE")]
     json_request: Option<String>,
 
-    /// Emit a structured JSON solution instead of classic FF text.
+    /// Cut the classic FF scroll-text; hand back a structured JSON solution.
     #[arg(long)]
     json: bool,
 
-    /// Planning mode (`auto` routes by problem features).
+    /// Planning mode. `auto` reads the problem's shape and routes itself.
     #[arg(long, value_enum, default_value_t = ModeArg::Auto)]
     mode: ModeArg,
 
-    /// Search strategy (applies to ff / library / --json paths).
+    /// Search strategy — the ff / library / --json paths all answer to it.
     #[arg(long, value_enum, default_value_t = SearchArg::Auto)]
     search: SearchArg,
 
-    /// Disable helpful-action pruning (used by EHC).
+    /// Kill helpful-action pruning. EHC's usual shortcut, off the table.
     #[arg(long = "no-helpful")]
     no_helpful: bool,
 
-    /// Best-first g (path-length) weight.
+    /// Best-first's g weight — how much the path already walked counts.
     #[arg(long, default_value_t = 1.0)]
     weight_g: f64,
 
-    /// Best-first h (heuristic) weight.
+    /// Best-first's h weight — how much the heuristic's guess counts.
     #[arg(long, default_value_t = 5.0)]
     weight_h: f64,
 
-    /// Cap on evaluated states (default: engine default).
+    /// Ceiling on states evaluated before the search gives up. Default:
+    /// whatever the engine trusts.
     #[arg(long, value_name = "N")]
     max_evaluated: Option<usize>,
 
-    /// PDDL3: return a satisficing plan over hard goals instead of optimizing.
+    /// PDDL3: settle for a satisficing plan over the hard goals instead of
+    /// chasing the optimum.
     #[arg(long)]
     satisfice: bool,
 
-    /// Worker threads (0 = auto).
+    /// Worker threads on the line. 0 lets the engine pick its own crew.
     #[arg(long, default_value_t = 0)]
     threads: usize,
 
-    /// IPC time-stamped plan format (classic text mode only).
+    /// IPC time-stamped plan format — classic text mode only, no JSON.
     #[arg(long)]
     ipc: bool,
 
-    /// Validate a plan FILE against the domain/problem under ferroplan's own
-    /// semantics instead of solving. Auto-detects classical vs temporal.
+    /// Don't solve — check a supplied plan FILE against the domain/problem
+    /// under ferroplan's own semantics. Reads the shape and knows classical
+    /// from temporal on sight.
     #[arg(long, value_name = "FILE")]
     validate: Option<PathBuf>,
 
-    /// Decompose a (too-big) temporal goal into ordered, solvable contracts and print
-    /// the breakdown plus the stitched plan (`--json` for the structured form).
+    /// A temporal goal too big to swallow whole: split it into ordered,
+    /// solvable contracts, print the breakdown and the stitched plan
+    /// (`--json` for the wire form).
     #[arg(long)]
     decompose: bool,
 }
@@ -201,11 +208,11 @@ impl From<SearchArg> for Search {
 
 #[derive(Deserialize)]
 struct JobRequest {
-    /// PDDL domain source text.
+    /// The world, in PDDL source.
     domain: String,
-    /// PDDL problem source text.
+    /// The job, in PDDL source.
     problem: String,
-    /// Solver options (any subset; omitted fields use defaults).
+    /// Solver options — any subset; whatever's left unsaid falls to default.
     #[serde(default)]
     options: Options,
 }

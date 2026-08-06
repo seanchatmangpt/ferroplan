@@ -1,9 +1,12 @@
-//! Canonical evidence admission tools, merged into the single `ferroplan-mcp`
-//! binary's `Ferroplan` tool handler (see `crate::main` for the merge).
+//! The ledger station. Canonical evidence admission tools, wired into the
+//! single `ferroplan-mcp` binary's `Ferroplan` handler (see `crate::main`
+//! for the merge).
 //!
-//! These tools do not plan, allocate, validate, or actuate. They bind the
-//! exact outputs of those independent authorities into replayable BLAKE3
-//! envelopes with explicit predecessor commitments.
+//! No planning here, no allocating, no validating, no actuating — this
+//! station only witnesses. It takes the exact outputs of those independent
+//! authorities and seals them into replayable BLAKE3 envelopes, each one
+//! chained to its predecessor by an explicit commitment. Signal in, receipt
+//! out.
 
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ErrorData as McpError};
@@ -48,29 +51,10 @@ pub(crate) fn ontology_comment(name: &str) -> Option<&'static str> {
     })
 }
 
-/// Schema for an unconstrained JSON value.
-///
-/// `schemars` renders `serde_json::Value` as the boolean schema `true`. That is
-/// valid JSON Schema, but MCP clients reject a boolean where an object subschema
-/// is required, which fails the whole `tools/list` response. An empty object
-/// schema accepts exactly the same instances and validates as an object.
 fn any_json(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
     schemars::json_schema!({})
 }
 
-/// Some MCP clients, faced with the unconstrained `any_json` schema above,
-/// serialize the argument as a JSON-encoded *string* instead of passing the
-/// array/object natively — observed reproducibly against `canonical_digest`,
-/// `bind_allocation_receipt`, and `bind_plan_receipt` in the same session
-/// (the returned "canonical" form preserved the caller's original key order
-/// instead of `canonicalize`'s alphabetical sort, proving the value never
-/// reached `Value::Object`/`Value::Array` in the first place).
-///
-/// Defensively re-parse: a string that itself parses as a JSON array or
-/// object is treated as that parsed value. A plain string that is not JSON
-/// (or that parses to a scalar) is left untouched, so a legitimately
-/// string-typed field can never be corrupted by this — it only ever
-/// recovers structure that was already lost in transit, never invents any.
 fn coerce_stringified_json(value: Value) -> Value {
     if let Value::String(text) = &value {
         if let Ok(parsed) = serde_json::from_str::<Value>(text) {
@@ -100,17 +84,9 @@ struct BindAllocationInput {
     observation_frontier: Value,
     #[serde(default)]
     previous_receipt: Option<String>,
-    /// The complete, previously-bound allocation envelope this call descends
-    /// from (recursive CMCA: this local frontier is the eight-candidate
-    /// expansion of one node inside that parent allocation). Must pair with
-    /// `selected_node`. The envelope is independently re-verified, not
-    /// trusted from its own `receipt` field, so a tampered or fabricated
-    /// parent envelope is refused rather than silently bound.
     #[serde(default)]
     #[schemars(schema_with = "any_json")]
     parent_allocation: Option<Value>,
-    /// The `id` of the parent allocation's candidate this local eight-node
-    /// frontier expands. Must exist in `parent_allocation`'s candidate array.
     #[serde(default)]
     selected_node: Option<String>,
 }
@@ -215,7 +191,6 @@ fn tool_bind_allocation(input: BindAllocationInput) -> Result<Value, String> {
     require_array_len(allocations, "allocation_result.payload.allocations", 8)?;
 
     let observation_frontier = canonicalize(&coerce_stringified_json(input.observation_frontier));
-
     let descent = match (input.parent_allocation, input.selected_node) {
         (Some(parent_allocation), Some(selected_node)) => Some(bind_descent(
             coerce_stringified_json(parent_allocation),
@@ -253,15 +228,6 @@ fn tool_bind_allocation(input: BindAllocationInput) -> Result<Value, String> {
     make_envelope("allocation", payload, input.previous_receipt)
 }
 
-/// Independently re-verify a claimed parent allocation envelope (recomputing
-/// its payload digest and receipt exactly as `verify_receipt` would, not
-/// trusting its self-declared fields) and confirm `selected_node` names one
-/// of its eight candidates. Returns the parent's verified receipt, the
-/// selected node id, and the matched candidate for embedding in the child
-/// payload — this is the "parent allocation receipt" and "selected node"
-/// half of Checkpoint 9's descent diagram. A tampered or fabricated parent
-/// envelope, or a `selected_node` absent from the parent's candidates,
-/// refuses here rather than being silently bound.
 fn bind_descent(
     parent_allocation: Value,
     selected_node: String,

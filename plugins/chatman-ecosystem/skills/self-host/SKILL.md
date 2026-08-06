@@ -21,4 +21,5 @@ Execute the closed loop without collapsing roles:
 11. `/chatman-ecosystem:audit` — compute maximum lawful standing.
 12. Continue until the goal is met, bounded search refuses, or evidence establishes a typed refusal.
 
-Do not invoke publication unless the user separately invokes `/chatman-ecosystem:publish` or explicitly requests it.
+Publication never enters this loop uninvited — only when the user
+separately calls `/chatman-ecosystem:publish` or asks for it directly.

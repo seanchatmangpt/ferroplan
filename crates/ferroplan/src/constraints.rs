@@ -1,71 +1,73 @@
 //! PDDL3 trajectory-constraint ENFORCEMENT (0.7, docs/roadmap-0.7.md).
 //!
-//! From 0.4.1 to 0.6 every `(:constraints ...)` block was parsed and then
-//! cleanly REJECTED. 0.7 narrows that fence operator-by-operator: the six
-//! untimed modal operators (`always`, `sometime`, `at-most-once`,
-//! `sometime-after`, `sometime-before`, `at end`) compile into small
-//! **monitor automata** over state trajectories — fresh 0-ary monitor facts
-//! transitioned by `Effect::When` conditional effects appended to every real
-//! action (the grounder and heuristic already handle everything this emits).
-//! A HARD constraint's acceptance is conjoined into the goal; a SOFT
+//! 0.4.1 through 0.6, every `(:constraints ...)` block got parsed and then
+//! shot down clean. 0.7 cuts a narrower fence, operator by operator: the
+//! six untimed modal operators (`always`, `sometime`, `at-most-once`,
+//! `sometime-after`, `sometime-before`, `at end`) compile down into small
+//! **monitor automata** riding the state trajectory — fresh 0-ary monitor
+//! facts flipped by `Effect::When` conditional effects welded onto every
+//! real action (the grounder and heuristic already know how to eat this).
+//! A HARD constraint's acceptance rides into the goal, conjoined; a SOFT
 //! `(preference name ...)` constraint (Phase 2) becomes a goal-side
 //! `(preference name <acceptance>)`, priced by the PDDL3 metric machinery
-//! like any native goal preference. Anything this build cannot enforce (the
-//! timed operators; any constraint on a temporal domain) keeps a rejection
-//! that NAMES the operator — the "never silently ignore" contract is
-//! narrowed, never deleted.
+//! same as any native preference. Anything this build can't enforce — the
+//! timed operators, any constraint parked on a temporal domain — still
+//! gets turned away with the operator NAMED. The "never silently ignore"
+//! contract narrows here; it never gets deleted.
 //!
-//! THE OBSERVATION OFFSET (load-bearing): `PackedTask::apply` evaluates
-//! conditional-effect conditions against the SOURCE state, so a monitor
-//! riding action a_k observes S_{k-1}. The trajectory S_0..S_n is covered
-//! three ways — S_0 by compile-time evaluation against init (this module),
-//! S_0..S_{n-1} by the per-action `When`s, and S_n by the END construction
-//! below (0.8) or a goal-side formula (`FF_NO_TRAJ_END=1`, the 0.7 shape).
-//! For `sometime-before` the one-step lag implements "strictly earlier"
-//! exactly. All transition conditions on one monitor fact are mutually
-//! exclusive, so the add-wins conflict rule can never co-fire a set and a
-//! clear of the same bit.
+//! THE OBSERVATION OFFSET (load-bearing): `PackedTask::apply` reads
+//! conditional-effect conditions off the SOURCE state, so a monitor riding
+//! action a_k is watching S_{k-1}, one step behind. The trajectory
+//! S_0..S_n gets covered three ways — S_0 by compile-time evaluation
+//! against init (this module), S_0..S_{n-1} by the per-action `When`s, and
+//! S_n by the END construction below (0.8) or a goal-side formula
+//! (`FF_NO_TRAJ_END=1`, the 0.7 shape). For `sometime-before` that one-step
+//! lag is exactly what gives "strictly earlier" its teeth. Every
+//! transition condition on one monitor fact stays mutually exclusive, so
+//! the add-wins conflict rule can never co-fire a set and a clear on the
+//! same bit.
 //!
 //! THE END CONSTRUCTION (0.8, docs/roadmap-0.8.md Phase 1): a HARD
-//! monitor's S_n acceptance check used to be conjoined into the goal, and
-//! several operators contribute disjunctions — the grounder compiles a
-//! disjunctive goal into one synthetic REACH-GOAL operator per DNF
-//! disjunct, EXPONENTIAL in the monitor count (storage hard fixture:
-//! 3^10 = 59,049 ops, docs/roadmap-0.7.md Phase 1 Recorded). Since 0.8 the
-//! acceptance rides a forced-terminal synthetic action instead: every real
-//! action requires the init-true phase fact `TRAJ-PLANNING`; one synthetic
-//! 0-ary action `TRAJ-END` deletes it, adds `TRAJ-ENDED`, and carries one
-//! `Effect::When` latch per hard monitor (condition = that monitor's
-//! acceptance over monitor bits + the S_n body, add = `TRAJ{i}-ACC`).
-//! Because `When` conditions read the SOURCE state, `TRAJ-END` fired after
-//! the last real action observes exactly S_n. The compiled goal is then
-//! all positive literals — original goal ∧ `TRAJ-ENDED` ∧ the ACC facts —
-//! so the goal-DNF product never fires: cost is LINEAR in monitors (2-3
-//! conditional latches each, on ONE op). SOFT acceptance does not move:
-//! `(preference name <acc>)` wrappers stay in the goal with their S_n
-//! bodies intact (they are invisible to the classical grounder's DNF, and
-//! the whole PDDL3 metric stack keeps pricing them unchanged — the exact
-//! reason the 0.7 deferral risk dissolves). The synthetic `TRAJ-END` step
-//! is stripped from every reported plan by the callers that ran this gate
-//! (planner/api filter it by display name, conditionally — never on the
-//! constraint-free path).
+//! monitor's S_n acceptance check used to ride into the goal conjoined,
+//! and several operators throw disjunctions into that mix — the grounder
+//! compiles a disjunctive goal into one synthetic REACH-GOAL operator per
+//! DNF disjunct, EXPONENTIAL in the monitor count (storage hard fixture:
+//! 3^10 = 59,049 ops, docs/roadmap-0.7.md Phase 1, on record). Since 0.8
+//! the acceptance rides a forced-terminal synthetic action instead: every
+//! real action needs the init-true phase fact `TRAJ-PLANNING` standing;
+//! one synthetic 0-ary action `TRAJ-END` strikes it, raises `TRAJ-ENDED`,
+//! and carries one `Effect::When` latch per hard monitor (condition = that
+//! monitor's acceptance over its bits plus the S_n body, add =
+//! `TRAJ{i}-ACC`). Because `When` conditions read the SOURCE state,
+//! `TRAJ-END` firing after the last real action is watching exactly S_n.
+//! The compiled goal comes out all positive literals — original goal ∧
+//! `TRAJ-ENDED` ∧ the ACC facts — so the goal-DNF product never fires
+//! again: cost runs LINEAR in monitors (2-3 conditional latches each, on
+//! ONE op). SOFT acceptance doesn't move: `(preference name <acc>)`
+//! wrappers stay parked in the goal with their S_n bodies intact — they're
+//! invisible to the classical grounder's DNF, and the whole PDDL3 metric
+//! stack keeps pricing them exactly as before, which is why the 0.7
+//! deferral risk simply dissolves. The synthetic `TRAJ-END` step gets
+//! stripped from every reported plan by the callers who ran this gate —
+//! planner/api filter it by display name, conditionally, never touching
+//! the constraint-free path.
 //!
-//! The independent verifier does NOT use this compilation: `verify.rs` folds
-//! the ORIGINAL constraint semantics over its replay (see [`Fold`]), so the
-//! oracle stays independent of the compiled monitors.
+//! The independent verifier stays clear of this compilation entirely:
+//! `verify.rs` folds the ORIGINAL constraint semantics over its own replay
+//! (see [`Fold`]), so the oracle never depends on the compiled monitors.
 
 use std::collections::HashMap;
 
 use crate::pddl3::{combos, subst_formula};
 use crate::types::{Action, Constraint, Domain, Effect, Formula, Problem, Sym};
 
-/// Display name of the forced-terminal acceptance action (0.8 END
-/// construction). Callers that ran [`gate`] strip ops with this display
-/// from reported plans; the name is fenced against user collision by the
-/// reserved-name check whenever a `(:constraints ...)` block exists.
+/// Display name of the forced-terminal acceptance action (the 0.8 END
+/// construction). Callers who ran [`gate`] strip ops carrying this display
+/// name from reported plans; the reserved-name check fences it against
+/// user collision whenever a `(:constraints ...)` block exists.
 pub const END_ACTION: &str = "TRAJ-END";
 
-/// One ground untimed trajectory-constraint instance.
+/// One ground untimed trajectory-constraint, live.
 #[derive(Clone, Debug)]
 pub enum Traj {
     Always(Formula),
@@ -76,27 +78,27 @@ pub enum Traj {
     AtEnd(Formula),
 }
 
-/// The expanded constraint sets of a task: `Forall` quantifiers grounded,
-/// `And` flattened, hard and soft (`preference`-wrapped) separated.
+/// The task's constraint sets, expanded: `Forall` quantifiers ground out,
+/// `And` flattened flat, hard and soft (`preference`-wrapped) split clean.
 pub struct Expanded {
     pub hard: Vec<Traj>,
     /// `(preference name <constraint>)` INSTANCES. The quantifier-instance
-    /// boundary is exactly PDDL3's (Gerevini & Long): a `forall` OUTSIDE the
-    /// preference multiplies INSTANCES (all sharing the name, so
-    /// `(is-violated name)` counts violated instances), while `and`/`forall`
-    /// INSIDE the preference body stay ONE instance — the inner `Vec<Traj>`
-    /// holds that body's member constraints, and the instance is violated
-    /// iff ANY member is (it contributes its weight at most once). Anonymous
-    /// preferences get a deterministic generated name (`TRAJPREF{n}` in
-    /// source order), mirroring goal-preference handling. Enforced since
-    /// Phase 2: [`compile`] lowers each instance to monitors plus ONE
-    /// goal-side `(preference name <acceptance>)` priced by the metric
-    /// machinery.
+    /// line is drawn exactly where PDDL3 draws it (Gerevini & Long): a
+    /// `forall` OUTSIDE the preference multiplies INSTANCES — all sharing
+    /// the name, so `(is-violated name)` counts violated instances —
+    /// while `and`/`forall` INSIDE the preference body stays ONE instance.
+    /// The inner `Vec<Traj>` holds that body's member constraints, and the
+    /// instance goes down iff ANY member does (its weight counts at most
+    /// once). Anonymous preferences get a deterministic generated name
+    /// (`TRAJPREF{n}` in source order), same convention as goal-preference
+    /// handling. Enforced since Phase 2: [`compile`] lowers each instance
+    /// to monitors plus ONE goal-side `(preference name <acceptance>)`,
+    /// priced by the metric machinery.
     pub soft: Vec<(String, Vec<Traj>)>,
 }
 
-/// Expand and validate a task's `(:constraints ...)` trees. Errors name the
-/// unsupported operator (the timed family) or the malformed nesting.
+/// Expand and check a task's `(:constraints ...)` trees. Errors name the
+/// unsupported operator — the timed family — or the malformed nesting.
 pub fn expand(domain: &Domain, problem: &Problem) -> Result<Expanded, String> {
     let objs = crate::ground::objects_by_type(domain, problem);
     let mut out = Expanded {
@@ -110,16 +112,17 @@ pub fn expand(domain: &Domain, problem: &Problem) -> Result<Expanded, String> {
     Ok(out)
 }
 
-/// Ground the FORMULA-level quantifiers of a formula (`forall` → a
-/// conjunction, `exists` → a disjunction over the type's objects). The IPC-5
-/// qualitative suite nests these inside modal operators (storage/tpp/trucks,
-/// e.g. `(sometime-before (exists (?c - crate) ...) ...)`), and the
-/// simple-preferences goals nest them inside preference bodies; expanding
-/// keeps every monitor transition ground for the grounder AND makes the
-/// verifier's evaluation exact (its formula evaluator does not bind
-/// quantifiers — `verify.rs` calls this for goal-preference scoring too).
-/// An empty type yields the correct constants: `forall` → true (`And []`),
-/// `exists` → false (`Or []`).
+/// Ground the FORMULA-level quantifiers of a formula — `forall` unrolls
+/// into a conjunction, `exists` into a disjunction over the type's
+/// objects. The IPC-5 qualitative suite buries these inside modal operators
+/// (storage/tpp/trucks, e.g. `(sometime-before (exists (?c - crate) ...)
+/// ...)`), and the simple-preferences goals bury them inside preference
+/// bodies; expanding keeps every monitor transition ground for the
+/// grounder and makes the verifier's own evaluation exact (its formula
+/// evaluator never binds quantifiers — `verify.rs` calls this for
+/// goal-preference scoring too). An empty type still yields the right
+/// constants: `forall` collapses to true (`And []`), `exists` to false
+/// (`Or []`).
 pub(crate) fn expand_quantifiers(f: &Formula, objs: &HashMap<Sym, Vec<Sym>>) -> Formula {
     match f {
         Formula::Forall(vars, inner) => Formula::And(
@@ -193,9 +196,10 @@ fn walk(
     Ok(())
 }
 
-/// Collect the ground member constraints of one constraint tree (the inside
-/// of a preference body, or a hard modal subtree). Nested preferences are
-/// malformed here — PDDL3 gives them no semantics.
+/// Pull the ground member constraints out of one constraint tree — the
+/// inside of a preference body, or a hard modal subtree. A preference
+/// nested inside a preference is malformed here; PDDL3 gives it no
+/// semantics at all.
 fn walk_members(
     c: &Constraint,
     objs: &HashMap<Sym, Vec<Sym>>,
@@ -237,9 +241,10 @@ fn walk_members(
     Ok(())
 }
 
-/// Incremental trajectory fold for ONE constraint instance — the verifier's
-/// independent semantics (never the compiled monitors). Feed every state of
-/// the replay in order (S_0 first), then ask [`Fold::accepted`].
+/// Incremental trajectory fold for ONE constraint instance — the
+/// verifier's own independent semantics, never the compiled monitors. Feed
+/// it every state of the replay in order, S_0 first, then ask
+/// [`Fold::accepted`].
 pub struct Fold<'a> {
     traj: &'a Traj,
     ok: bool,
@@ -265,7 +270,7 @@ impl<'a> Fold<'a> {
         }
     }
 
-    /// Observe the next state of the trajectory via a formula evaluator.
+    /// Watch the trajectory's next state land, through a formula evaluator.
     pub fn step(&mut self, holds: &mut dyn FnMut(&Formula) -> bool) {
         match self.traj {
             Traj::Always(f) => {
@@ -311,7 +316,7 @@ impl<'a> Fold<'a> {
         }
     }
 
-    /// The verdict once the final state has been observed.
+    /// The verdict, once the last state has come in.
     pub fn accepted(&self) -> bool {
         match self.traj {
             Traj::Always(_) => self.ok,
@@ -323,7 +328,7 @@ impl<'a> Fold<'a> {
         }
     }
 
-    /// Human name of the operator (for verifier reports).
+    /// The operator's name in plain speech, for verifier reports.
     pub fn op_name(&self) -> &'static str {
         match self.traj {
             Traj::Always(_) => "always",
@@ -336,21 +341,23 @@ impl<'a> Fold<'a> {
     }
 }
 
-/// STATIC SIMPLIFICATION (planner-side only — the verifier keeps folding the
-/// unsimplified [`expand`] output, so the oracle stays independent): partially
-/// evaluate every constraint body against the facts that can never change
-/// (`pddl3::peval_static` — static predicates decided by init, `(= a b)` by
-/// symbol equality, connectives folded), then DROP instances whose fold
-/// verdict is statically ACCEPTED in every trajectory. This is what makes the
-/// qualitative storage instances compile at all: p03's
-/// `forall (?c1 ?c2 - crate ?s1 ?s2 - storearea) (always (imply (... static
-/// connected/compatible ...) ...))` expands quadratically, but ~90%+ of the
-/// instances simplify to `always true` — without the drop, each surviving as
-/// a monitor with a `When` transition on EVERY action, grounding OOMs a
-/// 15 GB container. Survivors keep the simplified body (cheaper `When` DNF).
-/// A statically-VIOLATED instance (e.g. `always false`) is NEVER dropped —
-/// the monitors must enforce/price it. `FF_PREF_NO_STATIC=1` restores the
-/// blind expansion (the same hatch as the goal-preference pass).
+/// STATIC SIMPLIFICATION — planner-side only; the verifier keeps folding
+/// the unsimplified [`expand`] output, so the oracle stays clean of this.
+/// Partially evaluate every constraint body against the facts that can
+/// never change (`pddl3::peval_static` — static predicates settled by
+/// init, `(= a b)` by symbol equality, connectives folded), then DROP any
+/// instance whose fold verdict is statically ACCEPTED across every
+/// trajectory. This is the only reason the qualitative storage instances
+/// compile at all: p03's `forall (?c1 ?c2 - crate ?s1 ?s2 - storearea)
+/// (always (imply (... static connected/compatible ...) ...))` expands
+/// quadratically, but ~90%+ of the instances simplify down to `always
+/// true` — skip the drop and each one survives as a monitor with a `When`
+/// transition riding EVERY action, and grounding OOMs a 15 GB container.
+/// Survivors keep their simplified body (a cheaper `When` DNF). A
+/// statically-VIOLATED instance (`always false`, say) is NEVER dropped —
+/// the monitors still have to enforce and price it. `FF_PREF_NO_STATIC=1`
+/// restores the blind expansion, the same hatch the goal-preference pass
+/// uses.
 fn simplify_static(exp: &mut Expanded, domain: &Domain, problem: &Problem) {
     if std::env::var("FF_PREF_NO_STATIC").is_ok() {
         return;
@@ -426,15 +433,16 @@ fn simplify_static(exp: &mut Expanded, domain: &Domain, problem: &Problem) {
     }
 }
 
-/// Reject inputs whose own names collide with the generated monitor
-/// namespace. A user predicate named e.g. `TRAJ0-VIOL` would intern to the
-/// SAME grounded fact as a monitor bit, so a user effect could silently
-/// clear a hard-constraint violation — the exact failure class the "never
-/// silently ignore" contract forbids. Likewise a user preference literally
-/// named `TRAJPREF{n}` would alias an anonymous constraint-preference's
-/// generated name in the `(is-violated ...)` namespace. Both are rejected
-/// BY NAME (only when a `(:constraints ...)` block is present — this runs
-/// from `compile`, never on the constraint-free no-op path).
+/// Turn away any input whose own names collide with the generated
+/// monitor namespace. A user predicate named `TRAJ0-VIOL`, say, would
+/// intern to the SAME grounded fact as a monitor bit — a user effect could
+/// then silently clear a hard-constraint violation, exactly the failure
+/// class the "never silently ignore" contract exists to forbid. Same risk
+/// for a user preference literally named `TRAJPREF{n}`: it would alias an
+/// anonymous constraint-preference's generated name in the
+/// `(is-violated ...)` namespace. Both get rejected BY NAME — only when a
+/// `(:constraints ...)` block is present. This runs from `compile`, never
+/// touching the constraint-free no-op path.
 fn reject_reserved_names(domain: &Domain, problem: &Problem) -> Result<(), String> {
     let monitor_fact = |n: &str| -> bool {
         // The 0.8 END-construction phase facts are 0-ary and fixed-name.
@@ -516,24 +524,24 @@ fn reject_reserved_names(domain: &Domain, problem: &Problem) -> Result<(), Strin
     Ok(())
 }
 
-/// Remove the synthetic [`END_ACTION`] step from a grounded op sequence
-/// before any reporting surface sees it. Callers apply this IFF [`gate`]
-/// compiled the task — never on the constraint-free path, where a user
-/// action may legitimately carry any name (the fence in
-/// [`reject_reserved_names`] only runs when a `(:constraints ...)` block
-/// exists, deliberately).
+/// Cut the synthetic [`END_ACTION`] step out of a grounded op sequence
+/// before any reporting surface lays eyes on it. Callers apply this only
+/// when [`gate`] compiled the task — never on the constraint-free path,
+/// where a user action can legitimately carry any name at all (the fence
+/// in [`reject_reserved_names`] runs only when a `(:constraints ...)`
+/// block exists, on purpose).
 pub(crate) fn strip_end(task: &crate::packed::PackedTask, ops: &mut Vec<usize>) {
     ops.retain(|&oi| task.op_display[oi] != END_ACTION);
 }
 
 /// The 0.7 entrypoint gate, shared by `solve`/`decompose`/`run_planner`/
-/// `run_ff` so no gate can silently diverge: `Ok(None)` = no constraints
-/// (byte-identical no-op path), `Ok(Some(pair))` = untimed constraints (hard
-/// AND soft since Phase 2) compiled into the rewritten task, `Err(msg)` = a
-/// NAMED rejection — the timed operators, any constraint on a
-/// durative-action domain (Phase 3), or the `FF_CONSTRAINTS_REJECT=1`
-/// hatch, which restores the 0.4.1 blanket rejection byte-for-byte (it
-/// restores *rejection*, never ignoring).
+/// `run_ff` so no path can quietly diverge from another: `Ok(None)` means
+/// no constraints, the byte-identical no-op path; `Ok(Some(pair))` means
+/// untimed constraints — hard AND soft since Phase 2 — compiled into the
+/// rewritten task; `Err(msg)` is a NAMED turn-away — the timed operators,
+/// any constraint riding a durative-action domain (Phase 3), or the
+/// `FF_CONSTRAINTS_REJECT=1` hatch, which restores the 0.4.1 blanket
+/// rejection byte-for-byte. It restores *rejection*, never silence.
 pub fn gate(domain: &Domain, problem: &Problem) -> Result<Option<(Domain, Problem)>, String> {
     if domain.constraints.is_empty() && problem.constraints.is_empty() {
         return Ok(None);
@@ -553,18 +561,19 @@ pub fn gate(domain: &Domain, problem: &Problem) -> Result<Option<(Domain, Proble
     compile(domain, problem).map(Some)
 }
 
-/// Compile the untimed constraints into the domain/problem: monitor
-/// predicates + per-action `When` transitions, per the module-level table.
-/// A HARD constraint's acceptance rides the forced-terminal `TRAJ-END`
-/// action's conditional latches, leaving the hard goal literal-only (the
-/// 0.8 END construction; `FF_NO_TRAJ_END=1` restores the 0.7 goal-side
-/// conjunction). A SOFT (`preference`-wrapped) constraint's acceptance
-/// becomes a goal-side `(preference name <acceptance>)` — the PDDL3 metric
-/// machinery (`pddl3::compile`'s collect/forgo pricing, the closure
-/// optimizer, the selection layer) then scores it exactly like a native
-/// goal preference, because a monitor's final-state acceptance formula is
-/// true iff the constraint held over the whole trajectory. Returns the
-/// rewritten pair. Errors on timed operators (naming them).
+/// Burn the untimed constraints into the domain/problem: monitor
+/// predicates plus per-action `When` transitions, per the module-level
+/// table. A HARD constraint's acceptance rides the forced-terminal
+/// `TRAJ-END` action's conditional latches, leaving the hard goal
+/// literal-only (the 0.8 END construction; `FF_NO_TRAJ_END=1` restores
+/// the 0.7 goal-side conjunction). A SOFT (`preference`-wrapped)
+/// constraint's acceptance becomes a goal-side
+/// `(preference name <acceptance>)` — the PDDL3 metric machinery
+/// (`pddl3::compile`'s collect/forgo pricing, the closure optimizer, the
+/// selection layer) then scores it exactly like a native goal preference,
+/// because a monitor's final-state acceptance formula reads true iff the
+/// constraint held across the whole trajectory. Hands back the rewritten
+/// pair. Throws on timed operators, naming them.
 pub fn compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> {
     reject_reserved_names(domain, problem)?;
     let mut exp = expand(domain, problem)?;
@@ -817,9 +826,9 @@ pub fn compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), 
     Ok((d, p))
 }
 
-/// Evaluate an (assumed ground) formula against the raw init atom set —
-/// S_0 for the monitor initialization. Numeric comparisons evaluate against
-/// init fluents; unknown fluents make the comparison false.
+/// Read a (assumed ground) formula against the raw init atom set — S_0
+/// for the monitor's own wake-up state. Numeric comparisons check against
+/// init fluents; an unknown fluent reads the comparison false.
 fn eval_static(f: &Formula, p: &Problem) -> bool {
     match f {
         Formula::True => true,
@@ -879,26 +888,27 @@ fn eval_init_expr(e: &crate::types::Expr, p: &Problem) -> Option<f64> {
 
 #[cfg(test)]
 mod grounding_cost {
-    //! Heavy fixtures per docs/roadmap-0.7.md Phase 1 acceptance: the
-    //! grounding cost of a hard-`(:constraints ...)` overlay on vendored
-    //! IPC-5 instances — conditional-effect count and grounding wall time
-    //! vs. the unconstrained input. Run with
+    //! Heavy fixtures, docs/roadmap-0.7.md Phase 1 acceptance: the
+    //! grounding cost of a hard-`(:constraints ...)` overlay riding
+    //! vendored IPC-5 instances — conditional-effect count and grounding
+    //! wall time, measured against the unconstrained input. Run it with
     //! `cargo test -p ferroplan --release --lib grounding_cost -- --ignored --nocapture`
     //!
-    //! Recorded (0.8 Phase 1, the END construction, docs/roadmap-0.8.md):
+    //! On record (0.8 Phase 1, the END construction, docs/roadmap-0.8.md):
     //! the goal-DNF product is GONE — storage p05 with 10 at-most-once
-    //! monitors dropped 59,969 ops (59,049 REACH-GOAL) -> 921 ops
+    //! monitors dropped 59,969 ops (59,049 REACH-GOAL) down to 921 ops
     //! (0 REACH-GOAL, one TRAJ-END), ground ~2.2 s -> ~0.8 s; trucks p03
     //! with 3 monitors 1,083 (18 REACH-GOAL) -> 1,066. Conditional-effect
     //! counts grew only by the linear ACC latches (3 per at-most-once
     //! monitor: storage 36,800 -> 36,830). The remaining monitor x op
-    //! When-product (36,830 cond effects) is Phase 2's target. The asserts
-    //! below LOCK the one-extra-op shape: a goal-DNF regression re-explodes it.
+    //! When-product (36,830 cond effects) is Phase 2's target now. The
+    //! asserts below LOCK the one-extra-op shape — a goal-DNF regression
+    //! would re-explode it.
 
-    /// Parse, gate (compiling any constraints), ground, and report
+    /// Parse, gate (compiling any constraints), ground, then report
     /// `(ops, facts, conditional effects, ground millis)`. Also prints the
-    /// monitor count and how many ops are synthetic REACH-GOAL disjunct ops —
-    /// the goal-DNF cost of the monitors' S_n acceptance checks.
+    /// monitor count and how many ops are synthetic REACH-GOAL disjunct
+    /// ops — the goal-DNF cost of the monitors' S_n acceptance checks.
     fn measure(dom: &str, prob: &str, label: &str) -> (usize, usize, usize, u128) {
         let d = crate::parser::parse_domain(dom).expect("domain");
         let p = crate::parser::parse_problem(prob).expect("problem");
@@ -923,7 +933,8 @@ mod grounding_cost {
         (task.n_ops, task.n_facts, cond, ms)
     }
 
-    /// Insert a `(:constraints ...)` block before the problem's final paren.
+    /// Slot a `(:constraints ...)` block in right before the problem's
+    /// final paren.
     fn overlay(prob: &str, constraints: &str) -> String {
         let i = prob.rfind(')').expect("problem has a closing paren");
         format!("{}(:constraints {}){}", &prob[..i], constraints, &prob[i..])

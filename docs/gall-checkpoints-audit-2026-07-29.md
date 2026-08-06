@@ -1,38 +1,42 @@
 # Gall Checkpoints Audit — 2026-07-29
 
-Independent, read-only re-verification of every checkpoint in
-`docs/gall-checkpoints.md` (0 through 21 prose-style, CE-GALL-22 through
-CE-GALL-40 receipt-backed — 40 entries; CE-GALL-27 is not a standalone
-checkpoint, see below). This audit does not modify
-`docs/gall-checkpoints.md`, any `CE-GALL-NN.json` receipt, or any test
-file — it is external verification of the existing record.
+Cold read on someone else's ledger. Forty entries in `docs/gall-checkpoints.md`
+— zero through 21 written in prose, CE-GALL-22 through CE-GALL-40 wired to
+receipts. CE-GALL-27's a ghost in the numbering, not a body; details below.
+Nothing here gets touched — no edit to `docs/gall-checkpoints.md`, no
+`CE-GALL-NN.json` receipt rewritten, no test file altered. Walk in, verify,
+walk out. Everything below is what the record said back.
 
 ## How this was produced
 
-- Full test suites re-run for real: `cd plugins/chatman-ecosystem && python3
-  -m pytest tests/ -q` (all green) and `cargo test -p ferroplan-mcp` (all
-  green — 48 tests across `protocol.rs`, `session_protocol.rs`,
-  `session_goal_advance.rs`, `session_lifecycle_bookends.rs`,
-  `merged_server.rs`, `dogfood_chain.rs`, plus crate unit tests).
-- Track A (CE-GALL-22–40): every receipt's `standing`/`reason` cross-checked
-  against its doc section, every named `positive_witness`/`negative_falsifier`
-  test function confirmed to exist at (or within a few lines of) its cited
-  location, `test_receipts.py` re-run (166/166 passed, includes schema
-  validation + the promotion-law test), and five self-flagged items
-  spot-checked individually.
-- Track B (checkpoints 0–21): the four checkpoints citing a concrete,
-  re-runnable artifact were actually re-run; the rest were classified by
-  what their own text does or doesn't give a reader to check.
+Ran the suites cold, no assumptions. `cd plugins/chatman-ecosystem &&
+python3 -m pytest tests/ -q` — green across the board. `cargo test -p
+ferroplan-mcp` — also green, 48 tests spread across `protocol.rs`,
+`session_protocol.rs`, `session_goal_advance.rs`,
+`session_lifecycle_bookends.rs`, `merged_server.rs`, `dogfood_chain.rs`,
+plus the crate's own unit tests.
+
+Two tracks, two disciplines. Track A (CE-GALL-22–40): pulled every
+receipt's `standing`/`reason` and set it against its doc section, line by
+line. Chased down every named `positive_witness`/`negative_falsifier` test
+function — confirmed each one exists at, or within a few lines of, the
+spot it claims. Re-ran `test_receipts.py` (166/166 passed — schema
+validation and the promotion-law test both in that count), then went back
+and hand-checked five items that had flagged themselves. Track B
+(checkpoints 0–21): the four that pointed at something concrete and
+re-runnable got re-run, live. The other eighteen got sorted by what their
+own words actually hand a reader to check — nothing invented, nothing
+assumed.
 
 ## Track A — CE-GALL-22 through CE-GALL-40 (receipt-backed)
 
-All 18 checkpoints: **doc prose and receipt JSON agree exactly** on
-`standing`/`reason` — no discrepancies found. All named test functions
-exist (line numbers have drifted a few lines from later edits in five
-cases — 35, 36, 37, 38, 39 — never at the wrong file or missing entirely).
-No checkpoint is marked `ALIVE`; every receipt has
-`replayed_outside_session: false` and `sealed_at_commit: null`, consistent
-with the promotion law (`test_promotion_law_actually_refuses` passes).
+Eighteen checkpoints, eighteen clean matches. **Doc prose and receipt
+JSON agree exactly** on `standing`/`reason` — nothing off. Every named
+test function is where it says it is (line numbers drifted a few lines
+under later edits in five cases — 35, 36, 37, 38, 39 — but never wrong
+file, never missing). Nothing here wears `ALIVE`; every receipt carries
+`replayed_outside_session: false` and `sealed_at_commit: null`, holding
+the promotion law's line (`test_promotion_law_actually_refuses` passes).
 
 | Checkpoint | Standing (reason) | Verdict | Note |
 |---|---|---|---|
@@ -57,8 +61,8 @@ with the promotion law (`test_promotion_law_actually_refuses` passes).
 
 ## Track B — Checkpoints 0 through 21 (prose-only)
 
-Four checkpoints cite a concrete, re-runnable artifact — all four re-run
-live and pass:
+Four checkpoints handed over something solid — a file, a command, a name
+to run. All four ran clean:
 
 | # | Artifact | Result |
 |---|---|---|
@@ -67,8 +71,8 @@ live and pass:
 | 7 | `cargo check --workspace` + `cargo test --workspace` | PASS (clean, all green) |
 | 13 | `benchmarks/get-val.sh` / VAL binary, run against `kiln-pack-domain.pddl`/`kiln-pack-6.pddl` | RECONFIRMED, not stale (exit 0, real output) |
 
-The remaining 18 checkpoints were classified by what their own text
-supports checking — not by inventing evidence they don't cite:
+The other eighteen got no such gift. Sorted them by what their own words
+actually support — never by evidence they didn't cite:
 
 | # | Standing | Verdict | Note |
 |---|---|---|---|
@@ -93,52 +97,51 @@ supports checking — not by inventing evidence they don't cite:
 
 ## Checkpoints the audit could **not** independently confirm
 
-`1, 2, 4, 5, 6, 8, 9, 10, 12, 17, 18` — eleven checkpoints whose own text
-gives nothing concrete (no file, command, or quoted output) to check
-against. This is not evidence they're wrong; it's the honest limit of
-auditing prose. Checkpoints 10, 17, 18 already self-report as
-`UNSUPPORTED`/`UNKNOWN`, so this matches their own claims. Checkpoints
-1, 2, 4, 5, 6, 8, 9, 12 claim `PARTIAL_ALIVE` or `ALIVE (fixture scope)`
-on narrative evidence alone — a future audit with access to the original
-session transcripts, or a fresh live replay, would be needed to actually
-confirm or refute them.
+`1, 2, 4, 5, 6, 8, 9, 10, 12, 17, 18` — eleven doors that wouldn't open.
+No file behind them, no command, no quoted output — nothing to press
+against. That's not proof they're lying. That's the ceiling on what
+prose alone lets you check. Checkpoints 10, 17, 18 already carry
+`UNSUPPORTED`/`UNKNOWN` on their own label, so nothing contradicts them.
+Checkpoints 1, 2, 4, 5, 6, 8, 9, 12 stand on `PARTIAL_ALIVE` or `ALIVE
+(fixture scope)` with nothing but narrative behind it — closing that gap
+takes the original session transcripts, or a fresh live replay. Neither
+is on the table here.
 
 ## Contradiction chains
 
 | Chain | Status | Detail |
 |---|---|---|
-| Checkpoint 13 → CE-GALL-30 → CE-GALL-38 | **Self-correcting** | CE-GALL-30's hand-fabrication finding stands as historical record; CE-GALL-38 explicitly self-describes as a partial mechanical re-witness, not a full resolution. No overclaim resurfaces. |
-| Checkpoint 14/19 → CE-GALL-31 → CE-GALL-39 | **NOT self-correcting** | Both Checkpoint 14 and Checkpoint 19's own "Required proof" bullet lists still assert fork detection/refusal unqualified. The correction exists only in a prepended update box, not woven into the original checklist text — a reader who reads only the bullet list, not the update box, is still misled. |
-| Checkpoint 9 → CE-GALL-37 | **NOT self-correcting** | Checkpoint 9's body still reads "architecturally absent from the MCP tool schema" as a blanket claim. CE-GALL-37 narrows this (recursive descent exists via `cmca_allocate_recursive`; only `bind_allocation_receipt`'s flat `previous_receipt` chaining is the actual remaining gap). No forward-pointer was added to Checkpoint 9's text. |
-| Checkpoint 20 | **Self-correcting** | Its own update box already carries the CE-GALL-30 hand-fabrication caveat in place. |
+| Checkpoint 13 → CE-GALL-30 → CE-GALL-38 | **Self-correcting** | CE-GALL-30's hand-fabrication finding sits untouched in the record, where it belongs; CE-GALL-38 calls itself a partial mechanical re-witness straight up, not a fix. Nothing slips back in. |
+| Checkpoint 14/19 → CE-GALL-31 → CE-GALL-39 | **NOT self-correcting** | Checkpoint 14 and Checkpoint 19 both still run their "Required proof" bullets asserting fork detection/refusal, no qualifier, no flinch. The correction lives in a prepended update box — never stitched into the checklist itself. A reader who skips the box and reads only the bullets walks away misled. |
+| Checkpoint 9 → CE-GALL-37 | **NOT self-correcting** | Checkpoint 9's body still calls it "architecturally absent from the MCP tool schema," flat, no hedge. CE-GALL-37 cuts that down — recursive descent exists via `cmca_allocate_recursive`; the actual remaining gap is `bind_allocation_receipt`'s flat `previous_receipt` chaining, nothing broader. No pointer was ever dropped back into Checkpoint 9's text. |
+| Checkpoint 20 | **Self-correcting** | The update box already carries the CE-GALL-30 hand-fabrication caveat, in place, no gap. |
 
 **Follow-up candidate (not fixed by this audit):** Checkpoints 9, 14, and
-19 would benefit from an in-place correction (a one-line strike-through or
-forward-pointer in their original bullet text, not just a prepended update
-box) so a reader stopping at the checkpoint's own section isn't misled by
-claims later checkpoints refute.
+19 are still open wounds — a one-line strike-through or forward-pointer
+worked into the original bullet text, not just parked in a prepended
+update box, would stop a reader who lands on the checkpoint's own section
+from walking away holding a claim later checkpoints already refuted.
 
 ## CE-GALL-27 status
 
-Confirmed: **not a standalone checkpoint.** It appears exactly once in the
-whole file, as an inline note inside Checkpoint 3's section body (no
-standalone `## ... (CE-GALL-27)` header — the header sequence goes
-CE-GALL-26 → CE-GALL-28), and no
-`plugins/chatman-ecosystem/receipts/CE-GALL-27.json` exists. This is a
-revision-event label, not a numbering gap to be treated as missing.
+Checked, closed: **not a standalone checkpoint.** It surfaces exactly
+once in the whole file, an inline note buried in Checkpoint 3's section
+body — no standalone `## ... (CE-GALL-27)` header anywhere (the header
+sequence runs CE-GALL-26 straight to CE-GALL-28), and no
+`plugins/chatman-ecosystem/receipts/CE-GALL-27.json` on disk. A
+revision-event label, not a gap in the numbering worth chasing.
 
 ## Non-claims
 
-- This audit does not itself replay anything in a separate session, so it
-  cannot promote any checkpoint's standing under the promotion law — it is
-  evidence for a future replay, not a replay itself.
-- No defect found here was fixed, including the already-known
+- This audit doesn't replay anything in a separate session — it can't
+  promote a single checkpoint's standing under the promotion law. Call
+  it evidence staged for a future replay, not the replay itself.
+- Nothing found here got fixed. The already-known
   `bind_allocation_receipt` / `cmca_allocate_recursive` schema mismatch
-  surfaced by CE-GALL-40's own receipt, and the two uncorrected-in-place
-  contradiction chains (14/19, 9) above — these are named as follow-up
-  candidates only.
-- Checkpoints 1, 2, 4, 5, 6, 8, 9, 12's `PARTIAL_ALIVE`/`ALIVE` claims are
-  not confirmed or refuted by this audit — they remain exactly as
-  verifiable (or not) as they were before this pass; "UNVERIFIABLE FROM
-  RECORD" is a statement about the record, not a downgrade of the
-  checkpoint's standing.
+  surfaced by CE-GALL-40's own receipt stays open, same as the two
+  uncorrected-in-place contradiction chains (14/19, 9) above — flagged
+  as follow-up candidates, touched by nothing else.
+- Checkpoints 1, 2, 4, 5, 6, 8, 9, 12's `PARTIAL_ALIVE`/`ALIVE` claims
+  leave this pass exactly as they entered it — neither confirmed nor
+  refuted, exactly as verifiable (or not) as before. "UNVERIFIABLE FROM
+  RECORD" reads on the record, not a downgrade stamped on the checkpoint.

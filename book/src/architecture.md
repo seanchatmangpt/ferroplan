@@ -1,10 +1,11 @@
 # Architecture
 
-ferroplan is **data-oriented**: states are bitsets of fact ids plus dense fluent
-vectors; operators are stored column-wise (CSR) so the hot loops stream
-contiguous memory and parallelize over immutable shared task data.
+No objects, no indirection. ferroplan runs **data-oriented**: states are
+bitsets of fact ids plus dense fluent vectors; operators sit column-wise
+(CSR). The hot loops stream contiguous memory, parallel over immutable shared
+task data.
 
-Pipeline:
+The pipeline, four stages:
 
 1. **Parse** (`parser`, `lexer`) — PDDL domain + problem to an AST.
 2. **Ground** (`ground`) — parallel per-action binding enumeration, DNF of
@@ -21,6 +22,6 @@ Pipeline:
    once, think forever — with a fixpoint grounding path whose transient
    memory is up to ~117× smaller on sparse-reachable worlds).
 
-Performance notes: an in-tree FxHash hasher, a compact relevant-only visited
-key, and size-gated parallelism (serial for small frontiers, capped threads)
-keep both small and large problems fast.
+Under the hood: an in-tree FxHash hasher, a compact relevant-only visited key,
+size-gated parallelism — serial when the frontier is small, threads capped
+when it isn't. Small problems stay fast. Large ones don't stall.

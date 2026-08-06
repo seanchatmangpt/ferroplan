@@ -1,25 +1,31 @@
-//! ESPC — Extended Saddle-Point Condition penalty-resolution outer loop.
+//! ESPC — Extended Saddle-Point Condition, the penalty-resolution outer
+//! loop.
 //!
-//! SGPlan's defining contribution on top of Metric-FF (Wah & Chen; Hsu, Wah,
-//! Huang & Chen, IPC-2006): coordinate cross-partition / global constraints by a
-//! **finite penalty-update loop** that re-solves under fixed penalties, raises the
-//! penalty on still-violated constraints, and converges to an *extended saddle
-//! point* (a constrained local minimum) — keeping the best plan as an anytime
-//! incumbent. See docs/sgplan6-spec.md §4 and ferroplan/docs/espc-preferences-spec.md.
+//! SGPlan's defining move laid on top of Metric-FF (Wah & Chen; Hsu, Wah,
+//! Huang & Chen, IPC-2006): pull cross-partition and global constraints
+//! into line with a **finite penalty-update loop** — re-solve under fixed
+//! penalties, raise the penalty on whatever's still violated, converge on
+//! an *extended saddle point* (a constrained local minimum), and keep the
+//! best plan standing as an anytime incumbent the whole way through. See
+//! docs/sgplan6-spec.md §4 and ferroplan/docs/espc-preferences-spec.md.
 //!
-//! Here the "global constraint" is the openstacks make/start coordination: a
-//! once-only conditional achievement (`make-product`) that fires while its enabling
-//! orders are still `waiting` permanently forfeits the delivery preference. The
-//! delete-relaxed RPG is blind to this (it can re-add the deliverable), so the
-//! penalty is read on the CONCRETE state (see [`crate::search::SatGuidance::deadline`]).
-//! The loop adapts a **per-trigger** penalty `λ[M]` — raising it only on the products
-//! whose deliveries were actually missed — so it auto-tunes per instance, which a
-//! single fixed penalty (the Phase-0 `FF_DEADLINE_WEIGHT` lever) cannot. Penalty
-//! multipliers are SEPARATE from preference weights: weights compute the reported
-//! metric, λ only reorders the search (never changing legality or the metric).
+//! Here the "global constraint" is the openstacks make/start coordination:
+//! a once-only conditional achievement (`make-product`) firing while its
+//! enabling orders are still `waiting` burns the delivery preference for
+//! good. The delete-relaxed RPG can't see this coming — it can re-add the
+//! deliverable in its own blind spot — so the penalty gets read off the
+//! CONCRETE state instead (see
+//! [`crate::search::SatGuidance::deadline`]). The loop runs a
+//! **per-trigger** penalty `λ[M]`, raising it only on the products whose
+//! deliveries actually got missed — auto-tuned per instance, something no
+//! single fixed penalty (the Phase-0 `FF_DEADLINE_WEIGHT` lever) can pull
+//! off. Penalty multipliers stay SEPARATE from preference weights: weights
+//! compute the reported metric, λ only reshuffles the search order — never
+//! touches legality, never touches the metric itself.
 //!
-//! Anytime + monotone-ascent: λ never decreases, but the returned plan is the best
-//! seen across all iterations, so an overshooting λ can never regress the result.
+//! Anytime plus monotone-ascent: λ never backs down, but the plan handed
+//! back is the best seen across every iteration — so an overshooting λ can
+//! never drag the result backward.
 
 use std::time::{Duration, Instant};
 
@@ -35,34 +41,38 @@ pub struct EspcResult {
     pub iterations: usize,
 }
 
-/// The partitioned coupling ("increment 2", docs/espc-preferences-spec.md): the
-/// real (non-`P3*`) goal split into interaction components — shared guidance
-/// variables excluded from edge formation, priced by the λ schedule instead —
-/// plus the exact phase tail that closes the `P3END`/collect/forgo bookkeeping
-/// after composition. Built by the PDDL3 gate (`pddl3::metric_optimize`); `None`
-/// or fewer than 2 components (or `FF_ESPC_MONO=1`) runs the monolithic loop.
+/// The partitioned coupling ("increment 2", docs/espc-preferences-spec.md):
+/// the real (non-`P3*`) goal cut into interaction components — shared
+/// guidance variables held out of edge formation, priced by the λ schedule
+/// instead — plus the exact phase tail that closes out the
+/// `P3END`/collect/forgo bookkeeping after composition. Built by the
+/// PDDL3 gate (`pddl3::metric_optimize`); `None`, fewer than 2 components,
+/// or `FF_ESPC_MONO=1` and the monolithic loop runs instead.
 pub struct EspcPartition {
     pub comps: Vec<Subgoal>,
     pub tail: PhaseTail,
-    /// Real-goal fact → the preference deliverable facts structurally tied to it
-    /// (the deliverable's conditional-achievement CONDITION shares a mutex
-    /// variable with the goal fact — openstacks: `delivered(o,p)` fires on
-    /// `started(o)`, same variable as goal `shipped(o)`). Each stage first tries
-    /// its goal PLUS its own deliverables — the per-stage quality pressure that
-    /// replaces the monolithic B&B's cost bound (stage plans are cost-flat, so a
-    /// bound can't do it) — and falls back to the bare goal when infeasible.
+    /// Real-goal fact → the preference deliverable facts structurally
+    /// wired to it (the deliverable's conditional-achievement CONDITION
+    /// shares a mutex variable with the goal fact — openstacks:
+    /// `delivered(o,p)` fires on `started(o)`, same variable as goal
+    /// `shipped(o)`). Each stage tries its goal PLUS its own deliverables
+    /// first — the per-stage quality pressure standing in for the
+    /// monolithic B&B's cost bound, since stage plans run cost-flat and a
+    /// bound can't touch them — and falls back to the bare goal when that
+    /// doesn't hold.
     pub assoc: FxHashMap<u32, Vec<u32>>,
 }
 
-/// Why a partitioned composition attempt didn't produce a plan.
+/// Why a partitioned composition attempt came back empty-handed.
 enum ComposeErr {
-    /// Stage `i` failed or broke already-done sibling `j` — merge and retry.
+    /// Stage `i` failed, or broke an already-done sibling `j` — merge and
+    /// try again.
     Conflict(usize, Option<usize>),
-    /// Budget (eval pool, or the optional wall-clock cap) exhausted between
-    /// stages — stop the outer loop.
+    /// The budget — eval pool, or the optional wall-clock cap — ran dry
+    /// between stages. Stop the outer loop.
     Budget,
-    /// The composed plan failed the full-goal safety check (never expected;
-    /// falls back to the monolithic pass for this iteration).
+    /// The composed plan failed the full-goal safety check — never
+    /// expected. Falls back to the monolithic pass for this iteration.
     Invalid,
 }
 
@@ -73,16 +83,18 @@ fn env_i64(key: &str, default: i64) -> i64 {
         .unwrap_or(default)
 }
 
-/// The deterministic outer budget: an evaluated-state pool (`pool`, decremented
-/// by every inner search) plus an OPTIONAL wall-clock cap (`wall`, set only when
-/// `FF_ESPC_TIME_MS` is given explicitly — for interactive use; the eval pool is
-/// the primary contract, so default runs are thread-count independent exactly
-/// like the B&B's `FF_PREF_EVAL_BUDGET`).
+/// The deterministic outer budget: an evaluated-state pool (`pool`,
+/// bled down by every inner search) plus an OPTIONAL wall-clock cap
+/// (`wall`, set only when `FF_ESPC_TIME_MS` is given explicitly — for
+/// interactive use). The eval pool is the real contract; default runs
+/// stay thread-count independent, same as the B&B's
+/// `FF_PREF_EVAL_BUDGET`.
 fn exhausted(pool: i64, wall: Option<Instant>) -> bool {
     pool <= 0 || wall.is_some_and(|d| Instant::now() >= d)
 }
 
-/// Cap an inner search at the per-call cfg cap AND the remaining pool.
+/// Clamp an inner search to the per-call cfg cap AND whatever's left in
+/// the pool.
 fn capped_cfg(cfg: SearchCfg, pool: i64) -> SearchCfg {
     SearchCfg {
         max_eval: cfg.max_eval.min(pool.max(1) as usize),
@@ -90,15 +102,16 @@ fn capped_cfg(cfg: SearchCfg, pool: i64) -> SearchCfg {
     }
 }
 
-/// One sequential composition pass over the current components (the resolve.rs
-/// Phase-B pattern on the evolving state, λ-guided): solve each subgoal in fixed
-/// order under sibling protection (forbid ops deleting a done sibling's goal
-/// fact; retry unprotected before declaring conflict), then close with the phase
-/// tail and check the FULL goal. Stages carry no cost bound — during the
-/// planning phase `total-cost` is flat (forgo/pref-variant actions only), so
-/// bounds can't prune here; quality pressure comes from `sat`'s global
-/// λ-weighted penalty in the heap key, which pushes each stage to coordinate
-/// with orders it shares triggers with.
+/// One sequential composition pass over the current components — the
+/// resolve.rs Phase-B pattern run on the evolving state, λ-guided: solve
+/// each subgoal in fixed order under sibling protection (forbid ops that
+/// delete a done sibling's goal fact; retry unprotected before calling it
+/// a conflict), then close with the phase tail and check the FULL goal.
+/// Stages carry no cost bound — during the planning phase `total-cost`
+/// runs flat (forgo/pref-variant actions only), so a bound can't prune
+/// anything here. Quality pressure instead comes from `sat`'s global
+/// λ-weighted penalty riding the heap key, which pushes each stage to
+/// coordinate with whatever orders it shares triggers with.
 #[allow(clippy::too_many_arguments)]
 fn compose_once(
     task: &PackedTask,
@@ -219,13 +232,14 @@ fn compose_once(
     Ok(plan)
 }
 
-/// The partitioned inner solve: compose under the current penalties, coarsening
-/// on conflict (semantic `merge_at` for a known breaker pair, positional
-/// neighbor otherwise) and retrying within the same outer iteration. Merges
-/// persist in `part` across iterations (dynamic grain-size control, as in
-/// `resolve::solve`); the retry count is bounded by the component count. Errors:
-/// `Budget` stops the outer loop, `Invalid`/1-component-conflict falls back to
-/// one monolithic pass for the iteration.
+/// The partitioned inner solve: compose under the current penalties,
+/// coarsen on conflict — semantic `merge_at` for a known breaker pair,
+/// positional neighbor otherwise — and try again inside the same outer
+/// iteration. Merges persist in `part` across iterations, dynamic
+/// grain-size control same as `resolve::solve`; the retry count stays
+/// bounded by the component count. Errors: `Budget` stops the outer loop
+/// cold, `Invalid` or a 1-component conflict falls back to one monolithic
+/// pass for the iteration.
 #[allow(clippy::too_many_arguments)]
 fn solve_partitioned(
     task: &PackedTask,
@@ -257,10 +271,11 @@ fn solve_partitioned(
     }
 }
 
-/// Per-trigger locked-loss counts in the final state of `ops`: for each deadline
-/// pair `(M, D, _)`, count it when `M` is present and `D` is absent — a once-only
-/// achievement that fired without delivering (a permanently lost preference). The
-/// returned map is keyed by trigger; summing its values gives the total violation.
+/// Per-trigger locked-loss counts in the final state of `ops`: for each
+/// deadline pair `(M, D, _)`, count it when `M` stands and `D` doesn't — a
+/// once-only achievement that fired without ever delivering, a preference
+/// lost for good. The returned map keys by trigger; sum its values for
+/// the total damage.
 fn measure_violation(
     task: &PackedTask,
     ops: &[usize],
@@ -279,14 +294,14 @@ fn measure_violation(
     v
 }
 
-/// Solve to (local) cost optimum under the penalties currently baked into `sat`:
-/// an anytime branch-and-bound that starts at `bound0` (`INFINITY` for the
-/// monolithic iterations, so the first pass always returns a measurable plan;
-/// the partitioned incumbent's cost for the leftover-budget polish, so it only
-/// spends time on strictly-cheaper plans) and tightens until no strictly-cheaper
-/// plan is found or the inner cap is hit. Returns the best plan + its true
-/// metric, or None if no plan beats `bound0` within budget under this penalty
-/// setting.
+/// Solve to a (local) cost optimum under whatever penalties `sat` is
+/// carrying right now: an anytime branch-and-bound starting at `bound0` —
+/// `INFINITY` for the monolithic iterations, so the first pass always
+/// returns something measurable; the partitioned incumbent's cost for the
+/// leftover-budget polish, so it only spends time chasing strictly
+/// cheaper plans — tightening until nothing cheaper turns up or the inner
+/// cap runs out. Returns the best plan plus its true metric, or `None` if
+/// nothing beats `bound0` inside budget under this penalty setting.
 #[allow(clippy::too_many_arguments)]
 fn solve_under_penalties(
     task: &PackedTask,
@@ -337,15 +352,17 @@ fn solve_under_penalties(
     best
 }
 
-/// Run the ESPC penalty-resolution outer loop. `sat` must be preloaded with the
-/// satisfaction/resource guidance and the static deadline pairs `(M, D, base_val)`;
-/// this function owns the per-trigger λ schedule and mutates `sat.deadline`'s
-/// effective weights in place each iteration. `seed` is the stage-1 incumbent (used
-/// as the anytime starting point and never lost). When `part` supplies ≥2
-/// components (and `FF_ESPC_MONO` is unset), each iteration runs the partitioned
-/// composition instead of the monolithic tightening B&B — far cheaper per
-/// iteration, so the default outer cap rises 16 → 64 and many more λ adaptations
-/// fit in the same budget. Returns the best plan found.
+/// Run the ESPC penalty-resolution outer loop. `sat` walks in preloaded
+/// with the satisfaction/resource guidance and the static deadline pairs
+/// `(M, D, base_val)`; this function owns the per-trigger λ schedule and
+/// rewrites `sat.deadline`'s effective weights in place, iteration by
+/// iteration. `seed` is the stage-1 incumbent — the anytime starting
+/// point, never lost along the way. When `part` supplies 2 or more
+/// components (and `FF_ESPC_MONO` stays unset), each iteration runs the
+/// partitioned composition instead of the monolithic tightening B&B — far
+/// cheaper per pass, which is why the default outer cap climbs 16 → 64
+/// and a lot more λ adaptations fit inside the same budget. Returns the
+/// best plan it found.
 pub fn espc_optimize(
     task: &PackedTask,
     cost_fluent: usize,

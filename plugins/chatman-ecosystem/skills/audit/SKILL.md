@@ -13,4 +13,5 @@ Audit `$ARGUMENTS`.
 - Check event counts, chain continuity, authority claim ceilings, and phase invariants.
 - Return the maximum lawful Gall standing and every missing obligation.
 
-Do not edit, plan, allocate, or publish.
+This is read-only work. No editing, planning, allocating, or publishing
+happens here.

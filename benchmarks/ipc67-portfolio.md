@@ -1,6 +1,7 @@
-# IPC-2008/2011 seq-sat full-corpus results
+# IPC-2008/2011 seq-sat — full corpus, portfolio mode
 
-timeout 60s/instance, jobs 3, mode portfolio. Plans externally validated with VAL.
+Sixty seconds a instance, three jobs, the portfolio running loaded. Every
+plan that survives gets run through VAL before it's trusted.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -29,4 +30,4 @@ timeout 60s/instance, jobs 3, mode portfolio. Plans externally validated with VA
 | ipc-2011/visit-all-sequential-satisficing | 4/20 | 1249 | 53.4s | 4/4 |
 | ipc-2011/woodworking-sequential-satisficing | 13/20 | 18140 | 334.5s | 13/13 |
 
-total coverage: **416/580**
+total coverage, the take: **416/580**

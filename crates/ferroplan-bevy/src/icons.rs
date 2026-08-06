@@ -1,7 +1,7 @@
-//! Procedural type "icons" — distinct mesh shapes per entity type (no external
-//! art, so nothing to license). A name heuristic maps a type to a shape; the type
-//! also picks a stable color. Meshes/materials are cached per (shape, size) and
-//! per color so a graph reuses a handful of handles.
+//! No art department, no license to chase — every entity type gets a mesh cut
+//! on the fly. A name heuristic reads the type and forges a shape for it; the
+//! same type locks a stable colour. Meshes and materials are cached by (shape,
+//! size) and by colour, so a graph runs on a handful of recycled handles.
 
 use std::collections::HashMap;
 
@@ -19,7 +19,7 @@ pub enum IconShape {
     Diamond, // default
 }
 
-/// Heuristic: map a (lowercased or any-case) type name to an icon shape.
+/// Read a type name, any case, and cast it into a shape — pattern-matching, not magic.
 pub fn shape_for(ty: &str) -> IconShape {
     let t = ty.to_ascii_uppercase();
     let has = |words: &[&str]| words.iter().any(|w| t.contains(w));
@@ -64,9 +64,9 @@ pub fn shape_for(ty: &str) -> IconShape {
     }
 }
 
-/// Colour per type, by its icon category, in the forge palette: locations purple,
-/// vehicles/rigs green, packages amber, everything else a steel grey (so the graph
-/// reads as the redesign intends rather than as arbitrary hashed hues).
+/// Colour keyed off icon category, out of the forge palette: locations run
+/// purple, rigs run green, cargo runs amber, everything unclassified fades to
+/// steel grey — a graph that reads by intent, not by the luck of a hash.
 pub fn color_for(ty: &str) -> Color {
     use crate::palette;
     match shape_for(ty) {

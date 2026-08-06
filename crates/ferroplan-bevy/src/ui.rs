@@ -1,4 +1,5 @@
-//! A `bevy_ui` side panel: status + the selected object's facts/goal (inspector).
+//! The inspector — a `bevy_ui` side panel reading out status plus whatever facts
+//! and goals belong to the object currently under the crosshair.
 
 use bevy::prelude::*;
 
@@ -125,8 +126,8 @@ pub fn update_info(
     *text = Text::new(s);
 }
 
-/// Does a fact display string (e.g. `(PKG-AT CRATE1 MARKET)`) name `obj` as one
-/// of its arguments/predicate tokens?
+/// Does a fact's display string — say, `(PKG-AT CRATE1 MARKET)` — name `obj`
+/// anywhere among its tokens?
 fn fact_mentions(fact: &str, obj: &str) -> bool {
     fact.split(['(', ')', ' ']).any(|t| t == obj)
 }

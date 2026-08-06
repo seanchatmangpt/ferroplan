@@ -1,13 +1,14 @@
 # Profiling & performance tracking
 
-Two complementary tools: a **metrics harness** to track whether changes improve or
-regress the planner (over time, across machines), and **sampling profilers** to
-find the hotspots to optimize.
+Two instruments, two jobs: a **metrics harness** that tells you whether a change
+made the planner faster or worse (across time, across machines), and **sampling
+profilers** that show you exactly where the cycles are burning.
 
 ## 1. Track improvement/regression — `benchmarks/perf.py`
 
-The harness records **deterministic** metrics that compare cleanly across runs and
-machines, so progress is real and not measurement noise:
+The harness only trusts **deterministic** metrics — numbers that hold their
+shape across runs and machines, so a win reads as a win and not as noise on
+the line:
 
 | metric | meaning | deterministic? |
 |---|---|---|
@@ -27,14 +28,16 @@ FF=target/release/ff python3 benchmarks/perf.py run \
 python3 benchmarks/perf.py compare benchmarks/metrics/baseline.json /tmp/now.json
 ```
 
-`compare` flags, per problem and in aggregate: coverage lost/gained, more/fewer
-states evaluated, worse/better plans. The verdict ignores `ms` (noisy). Point
-`--corpus` at the larger external IPC set (see `COMPARING.md`) for a stronger
-signal than the small vendored subset.
+`compare` reads the tape back, per problem and in aggregate: coverage lost or
+gained, more or fewer states evaluated, worse or better plans. The verdict
+never looks at `ms` — too noisy to testify. Point `--corpus` at the larger
+external IPC set (see `COMPARING.md`) for a signal with more weight behind it
+than the small vendored subset gives you.
 
 ### The committed baseline
 
-`benchmarks/metrics/baseline.json` is the reference point. The optimization loop:
+`benchmarks/metrics/baseline.json` is the fixed point everything else answers
+to. The loop:
 
 1. `perf.py run --out /tmp/before.json` (or just use the committed baseline).
 2. Make a change.
@@ -43,11 +46,13 @@ signal than the small vendored subset.
 4. When an improvement lands, **refresh the baseline** (`perf.py run --out
    benchmarks/metrics/baseline.json`, commit it) so the gain is locked in and
    future work is measured against the new bar. Commit baselines alongside the
-   change that moved them — the file's git history *is* the performance log.
+   change that moved them — the file's git history *is* the performance log,
+   the only record here that doesn't lie about what happened.
 
 ## 2. Find hotspots — samply (recommended on macOS)
 
-A profiling build is release-optimized **with debug symbols**:
+A profiling build is release-optimized **with debug symbols left in** —
+nothing hidden from the sampler:
 
 ```sh
 cargo build --profile profiling -p ferroplan-cli      # -> target/profiling/ff
@@ -57,9 +62,10 @@ samply record -- target/profiling/ff \
     -o <domain.pddl> -f <hard-problem.pddl> --threads 1
 ```
 
-Pick a workload with real work — a large numeric/ADL instance or a PDDL3 metric
-problem (`--mode pddl3`); trivial problems finish before the sampler gets samples.
-Use `--threads 1` so the profile reflects single-core hotspots, not scheduling.
+Pick a workload with real weight to it — a large numeric/ADL instance or a
+PDDL3 metric problem (`--mode pddl3`); trivial problems finish before the
+sampler ever catches a sample. Use `--threads 1` so the profile shows
+single-core hotspots, not scheduling noise.
 
 `samply record --save-only -o profile.json.gz -- …` saves a profile without opening
 a browser (for CI/headless capture).
@@ -90,8 +96,9 @@ cargo flamegraph --profile profiling --bin ff -- -o domain.pddl -f problem.pddl
 
 ## 3. Micro-benchmarks — criterion baselines
 
-`crates/ferroplan/benches/planning.rs` times parse+ground+search on a few problems
-with statistical rigor. Use named baselines to catch micro-regressions:
+`crates/ferroplan/benches/planning.rs` clocks parse+ground+search on a few
+problems with statistical rigor. Use named baselines to catch micro-regressions
+before they compound:
 
 ```sh
 cargo bench -- --save-baseline main      # record a reference
@@ -99,13 +106,14 @@ cargo bench -- --save-baseline main      # record a reference
 cargo bench -- --baseline main           # report % change vs the reference
 ```
 
-CI already gates `cargo bench --no-run` so the benchmarks never bit-rot.
+CI already gates `cargo bench --no-run` so the benchmarks never quietly rot.
 
 ## What to optimize, in order
 
-`evaluated` states dominate runtime, so the highest-leverage wins reduce them
-(better heuristic guidance, helpful-action quality, dead-end detection) — and they
-show up deterministically in `perf.py compare`. Only after that does per-evaluation
-cost (the samply hotspots: relaxed-plan construction, state hashing, apply) matter.
-Always confirm a wall-time win with `perf.py compare` so you know it's a real
-algorithmic gain, not noise.
+`evaluated` states dominate runtime, so the highest-leverage wins cut them
+down (better heuristic guidance, helpful-action quality, dead-end detection) —
+and they show up cleanly, deterministically, in `perf.py compare`. Only after
+that does per-evaluation cost matter (the samply hotspots: relaxed-plan
+construction, state hashing, apply). Always confirm a wall-time win with
+`perf.py compare` so you know it's a real algorithmic gain, not the machine
+breathing differently.

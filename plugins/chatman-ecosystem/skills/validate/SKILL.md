@@ -8,7 +8,8 @@ effort: max
 
 Validate `$ARGUMENTS` without editing.
 
-Exercise the exact claimed surfaces using distinct authorities where available:
+Exercise the exact claimed surfaces using distinct authorities where
+available:
 
 - claude-code-config-lsp conformance;
 - Cargo format/check/Clippy/tests;
@@ -16,6 +17,9 @@ Exercise the exact claimed surfaces using distinct authorities where available:
 - external VAL or another independent semantic implementation when required;
 - canonical digest and receipt verification.
 
-Return structured JSON containing `valid`, exact commands/tools, inputs, outputs, executable identity when available, failures, independence class, and maximum lawful standing.
+Return structured JSON containing `valid`, exact commands/tools, inputs,
+outputs, executable identity when available, failures, independence
+class, and maximum lawful standing.
 
-Do not repair failures inside this skill.
+Failures found here get named, not fixed — repair is somebody else's
+skill.

@@ -1,24 +1,26 @@
-//! Minimal data-parallel primitives over `std::thread::scope` (no external deps).
-//! The thread count comes from `FFDP_THREADS` (if set) else available cores;
-//! `threads <= 1` falls back to a plain sequential map, so behaviour is
-//! deterministic regardless of parallelism.
+//! Bare-metal wetware: data-parallel primitives riding raw `std::thread::scope`,
+//! no external deps, no chrome. Worker count reads off `FFDP_THREADS` if the
+//! console's set it, else counts cores itself; drop to `threads <= 1` and the
+//! rig folds back to a straight sequential pass — same output, no matter how
+//! many hands are on deck.
 //!
-//! Two cost-control knobs keep parallelism a net win across problem sizes:
-//!  - `MIN_PAR`: rounds with fewer than this many items run SERIALLY, so a tiny
-//!    frontier (the common case on small problems, and the tail of large ones)
-//!    never pays thread-spawn cost. Output is identical either way.
-//!  - `MAX_DEFAULT_THREADS`: the auto thread count is capped, because measured
-//!    scaling plateaus by ~4 cores (Amdahl: serial successor-gen/dedup/heap);
-//!    spawning one thread per core per round past that is pure overhead. An
-//!    explicit `FFDP_THREADS` is honoured uncapped.
+//! Two chokes keep the parallel run from eating its own gains:
+//!  - `MIN_PAR`: a frontier thinner than this runs SERIAL, full stop. Small
+//!    jobs and the dying tail of big ones never foot the thread-spawn tax.
+//!    Output's identical either way — the choke just decides who pays for it.
+//!  - `MAX_DEFAULT_THREADS`: auto-picked worker count gets capped — the scaling
+//!    curve flatlines past ~4 cores (Amdahl's ghost: serial successor-gen,
+//!    dedup, heap-work bottlenecking the rest). Past that, more threads is
+//!    just spinning rotors for nobody. Hand it an explicit `FFDP_THREADS` and
+//!    the cap's off — you take the wheel, you take the risk.
 
-/// Below this item count a round runs serially (spawning isn't worth it).
+/// Under this headcount, run it solo — spawning threads is dead weight.
 pub const MIN_PAR: usize = 32;
-/// Cap on the auto-selected worker count (scaling plateaus ~4; small margin).
+/// Ceiling on auto-picked workers. Curve goes flat past ~4; padding for margin.
 const MAX_DEFAULT_THREADS: usize = 6;
 
-/// Resolve the worker count: `FFDP_THREADS` env override (uncapped), else
-/// `min(cores, MAX_DEFAULT_THREADS)`.
+/// Reads the worker count off the wire: `FFDP_THREADS` override (no ceiling),
+/// otherwise `min(cores, MAX_DEFAULT_THREADS)`.
 pub fn num_threads() -> usize {
     if let Ok(s) = std::env::var("FFDP_THREADS") {
         if let Ok(n) = s.parse::<usize>() {
@@ -33,9 +35,9 @@ pub fn num_threads() -> usize {
         .min(MAX_DEFAULT_THREADS)
 }
 
-/// Map `f` over `items` across `threads` scoped workers, preserving input order.
-/// Each worker owns a contiguous chunk; results are concatenated in order, so
-/// the output is identical to a sequential map (only the cost is parallel).
+/// Fans `f` out across `threads` scoped hands, one contiguous chunk per worker,
+/// order held the whole way. Results stitch back seamless — output's a dead
+/// ringer for sequential, only the clock runs parallel.
 pub fn par_map<T, R, F>(items: &[T], threads: usize, f: F) -> Vec<R>
 where
     T: Sync,
@@ -63,9 +65,10 @@ where
     parts.into_iter().flatten().collect()
 }
 
-/// Like `par_map`, but each worker first builds a private `state` via `init`
-/// (e.g. reusable scratch buffers) and threads it through `f`, so per-item
-/// allocation is amortised across a chunk. Output order matches input.
+/// `par_map`'s cousin, sharper teeth: each worker forges its own private
+/// `state` off `init` (scratch buffers, whatever needs reusing) and runs it
+/// through `f` for the whole chunk — allocation cost spread thin across the
+/// run instead of paid per item. Input order survives intact.
 pub fn par_map_with<T, R, S, I, F>(items: &[T], threads: usize, init: I, f: F) -> Vec<R>
 where
     T: Sync,

@@ -1,11 +1,13 @@
-//! Independent PDDL3 plan/metric verifier (conformance oracle).
+//! Independent PDDL3 plan/metric verifier — a conformance oracle running its
+//! own wire, cross-checking the dispatch.
 //!
-//! Re-derives, from scratch over ffdp's verified execution engine, what a plan
-//! actually achieves: it grounds the ORIGINAL problem (soft goals ignored),
-//! replays the plan, checks the hard goals hold in the final state, evaluates
-//! each preference's formula in that final state, and recomputes the metric.
-//! Used to confirm a planner's REPORTED metric equals the plan's true metric —
-//! authoritative and self-contained (no external VAL/cmake dependency).
+//! Re-derives, from a cold start over ffdp's verified execution engine, what
+//! a plan actually achieves: grounds the ORIGINAL problem (soft goals cut
+//! from the signal), replays the plan tick by tick, checks the hard goals
+//! hold in the final state, reads each preference's formula against that
+//! same state, and recomputes the metric from the ground up. Confirms a
+//! planner's REPORTED metric matches the plan's true metric — no external
+//! VAL/cmake dependency in the loop, this ledger closes on its own.
 
 use crate::ground::ground_task;
 use crate::packed::{PackedTask, State};
@@ -19,16 +21,18 @@ pub struct Verified {
     pub hard_goal_met: bool,
     pub satisfied: usize,
     pub violated: usize,
-    /// 0.7: every HARD untimed trajectory constraint held over the replayed
-    /// state trajectory (folded from the ORIGINAL `(:constraints ...)`
-    /// semantics — never the compiled monitors, so this stays an independent
-    /// oracle). `true` when the problem has no constraints.
+    /// 0.7: every HARD untimed trajectory constraint held clean over the
+    /// replayed state trajectory — folded straight from the ORIGINAL
+    /// `(:constraints ...)` semantics, never the compiled monitors, so this
+    /// stays an independent read on the signal. `true` when the problem
+    /// carries no constraints at all.
     pub constraints_met: bool,
-    /// The operators of any violated constraints (for reports).
+    /// The operators behind any violated constraints — the failure ledger,
+    /// for reports.
     pub constraint_failures: Vec<String>,
-    /// Per SOFT constraint-preference INSTANCE (0.7 Phase 2): the preference
-    /// name and whether its trajectory fold ACCEPTED the replay. Instances
-    /// expanded from one `forall` preference share the name.
+    /// Per SOFT constraint-preference INSTANCE (0.7 Phase 2): the preference's
+    /// name and whether its trajectory fold held through the replay without
+    /// drift. Instances expanded from one `forall` preference share the name.
     pub constraint_prefs: Vec<(String, bool)>,
 }
 
@@ -66,7 +70,7 @@ fn eval_expr(task: &PackedTask, s: &State, e: &Expr) -> Option<f64> {
     })
 }
 
-/// Evaluate a ground formula in a concrete state.
+/// Read a ground formula against a concrete state — one pulse, true or dark.
 fn eval_formula(task: &PackedTask, s: &State, f: &Formula) -> bool {
     match f {
         Formula::True => true,
@@ -107,7 +111,8 @@ fn eval_formula(task: &PackedTask, s: &State, f: &Formula) -> bool {
     }
 }
 
-/// Independently verify a plan and compute its true PDDL3 metric.
+/// Independently verify a plan and compute its true PDDL3 metric — the
+/// oracle's own dispatch, run outside the planner's own bookkeeping.
 /// `plan` is the executed action sequence as `(NAME, [ARGS])` (uppercased).
 pub fn verify(
     domain_src: &str,

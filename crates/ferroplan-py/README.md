@@ -1,8 +1,9 @@
 # ferroplan (Python)
 
-Python bindings for the [ferroplan](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan) PDDL planner, via
-[pyo3](https://pyo3.rs) + [maturin](https://maturin.rs). Builds a portable
-**abi3** wheel (one wheel works on CPython 3.8+).
+Python bindings for the [ferroplan](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan) PDDL planner —
+the Rust engine reached across the FFI wall via [pyo3](https://pyo3.rs) +
+[maturin](https://maturin.rs). One portable **abi3** wheel, built once, runs on
+CPython 3.8 and every version after it without a rebuild.
 
 ## Install / build
 

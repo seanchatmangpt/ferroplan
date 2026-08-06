@@ -1,11 +1,11 @@
-//! Grounding into the data-oriented `PackedTask`.
+//! Compiling raw intel into the data-oriented `PackedTask`.
 //!
-//! Phase B (the expensive cartesian binding enumeration + DNF + effect
-//! instantiation) runs in parallel across actions via scoped threads, each
-//! producing string-form `RawOp`s without touching shared state. Phase C
-//! (interning, negative-precondition compilation, defined-fluent/illegal
-//! pruning, relaxed reachability, goal simplification, CSR packing) is a fast
-//! sequential merge.
+//! Phase B — the costly cartesian binding sweep, DNF collapse, effect
+//! instantiation — runs parallel across actions on scoped threads, each one
+//! writing string-form `RawOp`s in its own lane, no shared state touched.
+//! Phase C — interning, negative-precondition compilation, defined-fluent
+//! and illegal pruning, relaxed reachability, goal simplification, CSR
+//! packing — is one fast sequential pass to close the file.
 
 use std::collections::{HashMap, HashSet};
 
@@ -85,7 +85,7 @@ fn merge_conj(a: &Conjunct, b: &Conjunct) -> Conjunct {
     }
 }
 
-/// AND-combine two DNF lists (cartesian product of conjuncts).
+/// Splice two DNF lists together, AND fashion — cartesian product of conjuncts.
 fn and_merge(acc: &[Conjunct], cd: &[Conjunct]) -> Vec<Conjunct> {
     let mut next = Vec::with_capacity(acc.len() * cd.len());
     for a in acc {
@@ -100,8 +100,9 @@ fn and_merge(acc: &[Conjunct], cd: &[Conjunct]) -> Vec<Conjunct> {
     next
 }
 
-/// Expand a quantifier over typed objects: AND the per-binding DNFs (universal)
-/// or OR them (existential). Empty domain -> True (AND) / False (OR), vacuously.
+/// Unfold a quantifier across typed objects: AND the per-binding DNFs for a
+/// universal, OR them for an existential. An empty domain resolves True on
+/// AND, False on OR — the vacuous case, no exceptions.
 #[allow(clippy::too_many_arguments)]
 fn quant_expand(
     vars: &[(Sym, Sym)],
@@ -146,23 +147,24 @@ fn quant_expand(
     }
 }
 
-/// Static-resolution context for DNF expansion: a fully-bound literal on a
-/// STATIC predicate (never added by any action) resolves to True/False
-/// against init DURING expansion, and a disjunction with a True disjunct
-/// collapses to True. This kills the 2^k conjunct explosion of
-/// `forall (imply (static ...) (dynamic ...))` preconditions —
-/// openstacks-ADL's make-product/ship-order ground instance-5 to 45k
-/// redundant ops and instance-7 to 15 GB RSS and death; collapsed, the DNF
-/// is a single conjunct. `None` (the `FF_NO_DNF_STATIC=1` hatch) restores
-/// the raw expansion.
+/// Static-resolution intel for DNF expansion: a fully-bound literal sitting
+/// on a STATIC predicate — one no action ever touches — resolves True or
+/// False against init mid-expansion, and any disjunction carrying a True
+/// disjunct collapses whole. This is what stops the 2^k conjunct blowout in
+/// `forall (imply (static ...) (dynamic ...))` preconditions — openstacks-ADL's
+/// make-product/ship-order was grounding instance-5 out to 45k redundant ops
+/// and instance-7 to 15 GB RSS before it died; collapsed, the DNF folds to a
+/// single conjunct. `None` — the `FF_NO_DNF_STATIC=1` escape hatch — puts the
+/// raw expansion back.
 struct DnfStatics<'a> {
     init: &'a HashSet<(Sym, Vec<Sym>)>,
     add_preds: &'a HashSet<Sym>,
-    /// Predicates some action/monitor DELETES. Folding a literal AWAY (to
-    /// True) needs full inertia — never added AND never deleted (a
-    /// delete-only predicate like the END construction's TRAJ-PLANNING is
-    /// init-true yet must keep gating after its delete fires). Dropping a
-    /// conjunct (to False) only needs "can never become true" (never added).
+    /// Predicates some action or monitor DELETES. Folding a literal away —
+    /// collapsing it to True — demands full inertia: never added, never
+    /// deleted, no exceptions. A delete-only predicate like the END
+    /// construction's TRAJ-PLANNING starts init-true and still has to keep
+    /// gating once its delete fires — so it can't be folded. Dropping a
+    /// conjunct to False is a lower bar: just "never added, can't ever go true."
     del_preds: &'a HashSet<Sym>,
 }
 
@@ -280,8 +282,8 @@ fn to_dnf(
 }
 
 /// String-form ground effect.
-/// A grounded conditional effect (string form): apply add/del/num iff the
-/// condition holds in the source state.
+/// A grounded conditional effect, still string form: fires add/del/num only
+/// when its condition reads true in the source state — otherwise stays dark.
 #[derive(Clone)]
 struct RCondEff {
     cond_pos: Vec<(Sym, Vec<Sym>)>,
@@ -303,10 +305,10 @@ fn ctx_empty(c: &Conjunct) -> bool {
     c.pos.is_empty() && c.neg.is_empty() && c.num.is_empty()
 }
 
-/// Ground an effect tree, carrying the accumulated when-condition `ctx`.
-/// `forall` expands over objects; `when` DNF-expands its condition (each disjunct
-/// becomes a separate conditional effect); leaves under a non-empty condition
-/// become conditional effects, else unconditional.
+/// Walk an effect tree to ground, carrying the accumulated when-condition
+/// `ctx` at every step. `forall` fans out over objects; `when` expands its
+/// condition to DNF, each disjunct spinning off its own conditional effect;
+/// a leaf under a live condition becomes conditional, otherwise it fires clean.
 fn ground_effect(
     e: &Effect,
     b: &HashMap<Sym, Sym>,
@@ -408,8 +410,9 @@ fn static_top_atoms(f: &Formula, add_preds: &HashSet<Sym>) -> Vec<(Sym, Vec<Term
     out
 }
 
-/// Top-level positive conjunct atoms whose predicate IS in `preds` — the
-/// stratum-2 gating literals of the stratified grounding (see `ground_v`).
+/// Top-level positive conjunct atoms whose predicate shows up in `preds` —
+/// the stratum-2 gating literals for the stratified grounding pass (see
+/// `ground_v`).
 fn gating_top_atoms(f: &Formula, preds: &HashSet<Sym>) -> Vec<(Sym, Vec<Term>)> {
     let mut out = Vec::new();
     fn rec(f: &Formula, preds: &HashSet<Sym>, out: &mut Vec<(Sym, Vec<Term>)>) {
@@ -425,7 +428,7 @@ fn gating_top_atoms(f: &Formula, preds: &HashSet<Sym>) -> Vec<(Sym, Vec<Term>)> 
     out
 }
 
-/// A grounded operator in string form (produced in parallel, interned later).
+/// A grounded operator in string form — produced parallel, interned after.
 struct RawOp {
     display: String,
     pos: Vec<(Sym, Vec<Sym>)>,
@@ -433,22 +436,22 @@ struct RawOp {
     num_pre: Vec<(CompOp, Expr, Expr)>,
     eff: REff,
     multi: bool,
-    /// This op applies the domain's shared monitor block (0.8 Phase 2).
+    /// This op is wired into the domain's shared monitor block (0.8 Phase 2).
     monitored: bool,
 }
 
-/// Enumerate parameter bindings in row-major (natural declaration) order,
-/// pruning a whole subtree as soon as a STATIC precondition literal has all
-/// its variables bound and fails against init. This is the join-style
-/// grounding that makes grid-coordinate domains tractable: tidybot11's
-/// 9-parameter actions over `sum-x/sum-y/leftof` statics enumerate ~10^8
-/// raw bindings under the plain cartesian product (91 s to ground p01) but
-/// only thousands survive — checking each static at the FIRST level where
-/// it is fully bound visits the survivors' prefixes only (p01: 0.2 s).
-/// The visiting ORDER of surviving bindings is identical to the plain
-/// product's (pruning only skips bindings the post-filter would reject), so
-/// the emitted op sequence — and every downstream tie-break — is
-/// byte-identical.
+/// Walk parameter bindings row-major, declaration order, pruning a whole
+/// subtree the instant a STATIC precondition literal has every variable
+/// bound and fails against init. This is the join-style grounding that
+/// makes grid-coordinate domains survivable: tidybot11's 9-parameter actions
+/// over `sum-x/sum-y/leftof` statics enumerate ~10^8 raw bindings under the
+/// plain cartesian sweep (91 s to ground p01) — only a few thousand actually
+/// survive. Checking each static at the FIRST level it's fully bound means
+/// only the survivors' prefixes ever get visited (p01: 0.2 s). The ORDER
+/// survivors get visited in matches the plain product exactly — pruning
+/// only skips what the post-filter would've thrown out anyway — so the
+/// emitted op sequence, and every downstream tie-break riding on it, comes
+/// out byte-identical.
 fn for_each_binding(
     params: &[(Sym, Sym)],
     domains: &[Vec<Sym>],
@@ -525,16 +528,16 @@ fn for_each_binding(
     );
 }
 
-/// Phase B (parallelisable): all ground RawOps for a single action.
+/// Phase B — parallel-safe: every ground RawOp for one action, run standalone.
 ///
 /// `extra_join_lits` / `join_atoms`: the stratified-grounding hook. For a
-/// stratum-2 action, `extra_join_lits` are its gating literals (positive
-/// preconds on producer-known predicates) and `join_atoms` is init PLUS the
-/// atoms stratum 1 actually produced, so the gating literals prune binding
-/// subtrees exactly like statics do. Static predicates are disjoint from
-/// producer predicates (statics are never added), so checking BOTH literal
-/// kinds against the union set is exact. Stratum-1 callers pass `&[]` and
-/// the plain init set — byte-identical to the unstratified path.
+/// stratum-2 action, `extra_join_lits` carries its gating literals — positive
+/// preconds on producer-known predicates — and `join_atoms` is init PLUS
+/// whatever stratum 1 actually produced, so the gating literals prune binding
+/// subtrees the same way statics do. Static predicates never overlap producer
+/// predicates (statics are never added), so checking both literal kinds
+/// against the union set stays exact, no false prunes. Stratum-1 callers pass
+/// `&[]` and the plain init set — byte-identical to the unstratified path.
 #[allow(clippy::too_many_arguments)]
 fn ground_action(
     action: &Action,
@@ -713,7 +716,8 @@ impl Interner {
     }
 }
 
-/// A mid-form operator: fact ids interned, numeric resolved, neg still string.
+/// A mid-transit operator: fact ids interned, numeric already resolved,
+/// negatives still riding as raw strings.
 #[allow(clippy::type_complexity)]
 struct MidOp {
     display: String,
@@ -726,24 +730,25 @@ struct MidOp {
     del_atoms: Vec<(Sym, Vec<Sym>)>,
     num_eff: Vec<NumEff>,
     reads: Vec<u32>,
-    /// interned conditional effects (negative conditions checked directly at
-    /// apply time, so they need no complementary-fact compilation)
+    /// Conditional effects, already interned — negative conditions get
+    /// checked straight at apply time, so no complementary-fact compilation
+    /// is owed here.
     cond: Vec<CondEff>,
-    /// per-conditional-effect (add_atoms, del_atoms) — kept for complementary
-    /// toggling of negated facts in the final-op pass
+    /// Per-conditional-effect `(add_atoms, del_atoms)`, held onto for the
+    /// complementary toggling of negated facts the final-op pass does.
     cond_atoms: Vec<CondAtoms>,
-    /// this op applies the shared monitor block (0.8 Phase 2)
+    /// This op is wired into the shared monitor block (0.8 Phase 2).
     monitored: bool,
 }
 
-/// A conditional effect's `(add_atoms, del_atoms)` string form, kept for
-/// complementary-fact toggling in the final-op pass.
+/// A conditional effect's `(add_atoms, del_atoms)`, still string form —
+/// held for the complementary-fact toggling the final-op pass runs.
 type CondAtoms = (Vec<(Sym, Vec<Sym>)>, Vec<(Sym, Vec<Sym>)>);
 
-/// Intern one string-form conditional effect (shared by the per-op Phase-C
-/// loop and the shared monitor block). Returns the interned [`CondEff`] plus
-/// its [`CondAtoms`]. Condition reads are NOT recorded as op reads: an
-/// undefined fluent in a condition means it simply won't fire.
+/// Intern one string-form conditional effect — shared by the per-op Phase-C
+/// loop and the shared monitor block. Hands back the interned [`CondEff`]
+/// plus its [`CondAtoms`]. Condition reads never get logged as op reads: an
+/// undefined fluent inside a condition just means the effect stays quiet.
 fn intern_cond(intern: &mut Interner, rc: &RCondEff) -> (CondEff, CondAtoms) {
     let cond_pos: Vec<u32> = rc.cond_pos.iter().map(|k| intern.fact(k)).collect();
     let cond_neg: Vec<u32> = rc.cond_neg.iter().map(|k| intern.fact(k)).collect();
@@ -780,38 +785,48 @@ fn intern_cond(intern: &mut Interner, rc: &RCondEff) -> (CondEff, CondAtoms) {
     )
 }
 
-/// Grounding entry. `ground` does PDDL goal simplification (TRUE/FALSE early
-/// exits); `ground_task` forces a Task even for trivial/unreachable goals — for
-/// validators that must execute a plan regardless of goal triviality.
+/// Entry point. `ground` runs PDDL goal simplification — TRUE/FALSE bail
+/// early; `ground_task` forces a Task out regardless, even on trivial or
+/// unreachable goals, for validators that have to execute a plan no matter
+/// how the goal trivially resolves.
+///
+/// The solve entries (`ground`, `ground_stratified`) fold and compact the
+/// fluent space (0.21 Phase 6); the session entry (`ground_fixpoint`) and the
+/// validator entry (`ground_task`) hold onto FULL fluent tables instead —
+/// `set_fluent` on a fluent no op ever touches has to stay live, the MCP
+/// world-edit contract, pinned by session.rs tests.
 pub fn ground(domain: &Domain, problem: &Problem, threads: usize) -> Outcome {
     ground_v(domain, problem, threads, false, false, false)
 }
 
-/// Like [`ground_stratified`] with reached-restricted FIXPOINT enumeration
-/// (0.12 Phase 3): enumeration cost tracks the REACHABLE op set instead of
-/// the typed product (elevator-11 p04: 5.7 GB → 48.8 MB transient). The
-/// SURVIVING op set is identical to the other entries, but fact-id
-/// first-reference order shifts (doomed candidates are never enumerated, so
-/// they no longer intern atoms early) — search tie-breaks move with it,
-/// which cost sokoban-t real coverage in the corpus A/B. The corpus solve
-/// paths therefore stay on [`ground_stratified`]; the temporal SESSION (the
-/// game track) uses this entry, where the memory win is the point and no
-/// scoreboard baseline is disturbed. `FF_NO_FIXPOINT_GROUND=1` falls back.
+/// Like [`ground_stratified`] but with reached-restricted FIXPOINT
+/// enumeration (0.12 Phase 3): enumeration cost tracks the REACHABLE op set
+/// instead of the typed product — elevator-11 p04 drops from 5.7 GB to
+/// 48.8 MB transient. The SURVIVING op set matches the other entries exactly,
+/// but fact-id first-reference order drifts — doomed candidates are never
+/// enumerated, so they never get to intern atoms early — and search
+/// tie-breaks move with that drift, which cost sokoban-t real coverage in
+/// the corpus A/B. So the corpus solve paths stay parked on
+/// [`ground_stratified`]; the temporal SESSION (the game track) runs this
+/// entry instead, where the memory win is the whole point and no scoreboard
+/// baseline gets disturbed. `FF_NO_FIXPOINT_GROUND=1` pulls the fallback.
 pub fn ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) -> Outcome {
     ground_v(domain, problem, threads, false, true, true)
 }
 
-/// Like [`ground`], with stratified Phase B (see the block in `ground_v`):
+/// Like [`ground`], but with stratified Phase B (see the block in `ground_v`):
 /// actions gated on producer-known predicates ground join-restricted to the
-/// atoms stratum 1 produced. Same post-reachability op set and order; fact-id
-/// first-reference order may differ from [`ground`], so the classical path
-/// stays on the plain entry. The temporal snap path uses this.
+/// atoms stratum 1 actually produced. Post-reachability op set and order
+/// match [`ground`] exactly; fact-id first-reference order can differ, so the
+/// classical path stays parked on the plain entry. The temporal snap path
+/// runs this one.
 pub fn ground_stratified(domain: &Domain, problem: &Problem, threads: usize) -> Outcome {
     ground_v(domain, problem, threads, false, true, false)
 }
 
-/// Always return the grounded Task (skips goal TRUE/FALSE/undefined verdicts);
-/// None only on a fatal empty-type error.
+/// Hands back the grounded Task no matter what — skips past goal
+/// TRUE/FALSE/undefined verdicts entirely. `None` only on a fatal empty-type
+/// error, nothing softer.
 pub fn ground_task(domain: &Domain, problem: &Problem, threads: usize) -> Option<PackedTask> {
     match ground_v(domain, problem, threads, true, false, false) {
         Outcome::Task(t) => Some(t),
@@ -819,9 +834,9 @@ pub fn ground_task(domain: &Domain, problem: &Problem, threads: usize) -> Option
     }
 }
 
-/// Build the `type -> objects` map honoring the type hierarchy (subtypes
-/// included; `OBJECT` is every object). Shared by grounding and the PDDL3
-/// compiler's forall-preference expansion.
+/// Build the `type -> objects` map, honoring the full type hierarchy —
+/// subtypes ride along, `OBJECT` catches everything. Shared ground truth for
+/// grounding and for the PDDL3 compiler's forall-preference expansion.
 pub fn objects_by_type(domain: &Domain, problem: &Problem) -> HashMap<Sym, Vec<Sym>> {
     let mut type_parent: HashMap<Sym, Sym> = domain.type_parent.iter().cloned().collect();
     let mut all_objects: Vec<(Sym, Sym)> = domain.constants.clone();

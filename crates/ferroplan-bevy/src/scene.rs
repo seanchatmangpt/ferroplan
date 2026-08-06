@@ -1,7 +1,7 @@
-//! The graph as a Bevy world: load a domain+problem (drag-drop), build the
-//! `VizGraph`, spawn nodes/mobiles as entities, draw edges with gizmos, and
-//! navigate with the camera. Interaction (drag/select), the inspector, and plan
-//! animation are layered on in later stages.
+//! The graph, wired straight into a Bevy world: drop a domain and problem onto
+//! the canvas, forge the `VizGraph`, spawn nodes and mobiles as living entities,
+//! trace edges as gizmos, and let the camera roam the wreckage. Interaction,
+//! the inspector, and plan playback all stack on top in later passes.
 
 use std::collections::HashMap;
 
@@ -19,7 +19,8 @@ pub const NODE_SIZE: f32 = 44.0;
 pub const MOBILE_SIZE: f32 = 18.0;
 const GOLDEN: f32 = 2.399_963_2;
 
-/// The loaded domain/problem + derived graph. `dirty` triggers a respawn.
+/// The loaded domain and problem, plus the graph forged from them. `dirty` is
+/// the trigger that calls a full respawn.
 #[derive(Resource, Default)]
 pub struct Scene {
     pub domain: Option<Domain>,
@@ -86,8 +87,8 @@ pub struct MobileObj(pub String);
 #[derive(Component)]
 pub struct MainCamera;
 
-/// Per-mobile fan offset from its node center (so co-located mobiles don't stack);
-/// reused by the animation system.
+/// A mobile's fan-out from its node's dead center — keeps two units on the same
+/// spot from stacking into one blur. Read again later by the animation pass.
 #[derive(Component)]
 pub struct FanOffset(pub Vec2);
 
@@ -95,7 +96,8 @@ pub fn setup(mut commands: Commands) {
     commands.spawn((Camera2d, MainCamera));
 }
 
-/// Read dropped `.pddl` files and load them (content-routed domain vs problem).
+/// Catch a dropped `.pddl` file and pull it in — the content itself decides
+/// whether it's a domain or a problem.
 pub fn handle_drops(mut drops: MessageReader<FileDragAndDrop>, mut scene: ResMut<Scene>) {
     for ev in drops.read() {
         if let FileDragAndDrop::DroppedFile { path_buf, .. } = ev {
@@ -107,9 +109,9 @@ pub fn handle_drops(mut drops: MessageReader<FileDragAndDrop>, mut scene: ResMut
     }
 }
 
-/// Despawn + respawn all graph entities when the scene changes. Nodes are laid
-/// out on a circle; mobiles sit (fanned) on their node. Each gets a type icon
-/// (mesh shape + color).
+/// Wipe the graph and rebuild it clean whenever the scene turns. Nodes ring out
+/// on a circle; mobiles fan out on whichever node they're parked at. Each one
+/// draws its type icon — a mesh shape wearing a colour.
 pub fn respawn_graph(
     mut commands: Commands,
     mut scene: ResMut<Scene>,
@@ -195,9 +197,9 @@ pub fn respawn_graph(
     }
 }
 
-/// Draw connection edges between node entities each frame, plus a molten ring around
-/// each goal location (the redesign's "target" marker). Edges a mobile is currently
-/// traversing (per the animation timeline) are recoloured molten and drawn thicker.
+/// Trace the connection lines between nodes, every frame, plus a molten ring
+/// staked around each goal location — the house mark for "target." Any edge a
+/// mobile is currently crossing, per the timeline, burns molten and thick.
 pub fn draw_edges(
     mut gizmos: Gizmos,
     scene: Res<Scene>,
@@ -237,8 +239,8 @@ pub fn draw_edges(
     }
 }
 
-/// The (unordered) node pairs some mobile is moving along at the current timeline
-/// position — the edges to highlight while the animation plays/scrubs.
+/// The unordered node pairs some mobile is crossing right now — the edges worth
+/// lighting up while the tape runs or gets scrubbed by hand.
 fn active_edges(scene: &Scene, plan: &crate::anim::Plan) -> Vec<(String, String)> {
     if plan.snapshots.is_empty() {
         return Vec::new();
@@ -272,7 +274,7 @@ fn is_active(active: &[(String, String)], a: &str, b: &str) -> bool {
         .any(|(x, y)| (x == a && y == b) || (x == b && y == a))
 }
 
-/// Camera navigation: right-drag to pan, scroll to zoom.
+/// Camera on a leash: right-drag walks it, the wheel pulls it in or lets it go.
 pub fn camera_nav(
     mouse: Res<ButtonInput<MouseButton>>,
     editor: Res<crate::blocks::Editor>,

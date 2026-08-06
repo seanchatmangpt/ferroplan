@@ -1,8 +1,7 @@
 # cabin — raise a log cabin from standing trees
 
-A deliberately **deep, linear crafting chain**: a single goal (`cabin-finished`)
-drags out one long, ordered sequence of work. It's the "whole sequence of shit"
-example — chop, process, then build, in order.
+One goal (`cabin-finished`), one long ordered sequence of work — a deliberately
+**deep, linear crafting chain**. Chop, process, build, in order, no shortcuts.
 
 ```
 fell-tree ─┬─ saw-planks ──┐
@@ -16,21 +15,21 @@ quarry-stone ──────────────────────�
       → build-door → hang-door → set-window-frames → glaze-windows → finish-cabin
 ```
 
-The build stages are a **strict linear chain** (each needs the previous one done),
-so the plan is a forced sequence the planner can follow. The full cabin is a
-**~52-step plan**: fell ~a dozen trees, mill them into planks/beams/shingles,
-forge nails from ore, fire window glass from sand, quarry stone, then build.
+The build stages are a **strict linear chain** — each waits on the last — so the
+plan is a forced march the planner just has to follow. The full cabin runs
+**~52 steps**: fell a dozen-odd trees, mill them to planks/beams/shingles, forge
+nails from ore, fire window glass from sand, quarry stone, then raise it.
 
 ## Why classical (not durative)?
 
-This is modeled as a **numeric classical** domain (instantaneous actions; each
-adds its time to `(total-time)`), not `:durative-actions`. ferroplan's metric/FF
-search handles a long ~50-step numeric plan; the temporal decision-epoch search
-**can't** — it exhausts around ~20 steps on a chain this deep (it's tuned for
-shorter, more-concurrent durative problems like [`../rpg-world`](../rpg-world)).
-So the lesson this example also teaches: pick the encoding to the solver's
-strength — long sequential numeric builds → classical; concurrent durative work →
-temporal.
+Modeled as a **numeric classical** domain — instantaneous actions, each one
+ticking its cost onto `(total-time)` — not `:durative-actions`. ferroplan's
+metric/FF search carries a ~50-step numeric plan without strain; the temporal
+decision-epoch search **can't** — it runs dry around ~20 steps on a chain this
+deep, tuned instead for shorter, more-concurrent durative work like
+[`../rpg-world`](../rpg-world). The second lesson buried in this example: match
+the encoding to the solver — long sequential numeric builds go classical,
+concurrent durative work goes temporal.
 
 ## Run it
 
@@ -43,14 +42,15 @@ ff -o examples/cabin/domain.pddl -f examples/cabin/raise-cabin.pddl
 ```
 
 In the web demo, "The whole log cabin" is flagged slow — run it in **Web Worker**
-mode so the page stays responsive while it solves (~7s).
+mode, keeps the page responsive while it grinds through (~7s).
 
 ## Parallel crew — `crew.pddl` (makespan drops with more workers)
 
-`crew.pddl` is the **durative** twin: the same job, but actions take time and the
-planner's **scheduling phase** packs them onto a crew of workers (one job per worker
-at a time). Independent work — chopping, mining, digging, firing glass — then
-overlaps, so **more workers finish sooner**. Same 34-step job, different makespan:
+`crew.pddl` is the **durative** twin. Same job, but now actions take time, and the
+planner's **scheduling phase** packs them onto a crew of workers, one job per
+worker at a time. Independent work — chopping, mining, digging, firing glass —
+starts to overlap, and **more workers finish sooner**. Same 34-step job, different
+makespan:
 
 ```sh
 ff -o examples/cabin/crew.pddl -f examples/cabin/crew-solo.pddl --mode temporal   # 1 worker  -> makespan 109
@@ -58,22 +58,23 @@ ff -o examples/cabin/crew.pddl -f examples/cabin/crew-pair.pddl --mode temporal 
 ff -o examples/cabin/crew.pddl -f examples/cabin/crew-trio.pddl --mode temporal   # 3 workers -> makespan 47
 ```
 
-This needs the concurrent scheduler, which is gated: set `FF_TDEMAND=1 FF_TCONC=1`
-(or, in the web demo, the example carries flags `tdemand,tconc`). Why a separate
-phase? ferroplan's temporal *search* is guided by action count, not makespan, so on
-its own it lays actions out sequentially (makespan = the serial sum, regardless of
-crew size). The scheduler (`crate::tsched`) searches a single-actor reduction for
-*what* to do, then repacks it across the crew for *who does what, when* — validated,
-and only kept if it's genuinely shorter. The crew domain is **lockless** (workers
-interchangeable) so the search stays small and the scheduler owns the parallelism.
+Requires the concurrent scheduler, gated behind `FF_TDEMAND=1 FF_TCONC=1` (in the
+web demo, the flags `tdemand,tconc` on the example). Why a separate phase at all:
+ferroplan's temporal *search* is guided by action count, not makespan, so left to
+itself it lays actions out one after another — makespan collapses to the serial
+sum, crew size irrelevant. The scheduler (`crate::tsched`) runs a single-actor
+reduction first, for *what* gets done, then repacks that across the crew for *who
+does what, when* — validated, kept only if it comes out genuinely shorter. The
+crew domain stays **lockless** (workers interchangeable), so the search itself
+stays small and the scheduler carries the parallelism alone.
 
 ## Skilled crew — `crew-skilled.pddl` (tasks need the right specialist)
 
-Workers aren't always interchangeable. `crew-skilled.pddl` gates tasks on **skills**:
-only a `(sawyer ?w)` may mill (saw/hew/split), only a `(smith ?w)` may smelt + forge.
-The scheduler reads a task's actor-referencing precondition as its required skill and
-assigns the task **only to a worker who has it** (location works the same way) —
-`validate()` confirms the routing.
+Workers aren't always interchangeable. `crew-skilled.pddl` gates tasks on
+**skills**: only a `(sawyer ?w)` mills (saw/hew/split), only a `(smith ?w)` smelts
+and forges. The scheduler reads a task's actor-referencing precondition as its
+required skill and routes the task **only to a worker who holds it** — location
+works the same way — and `validate()` confirms the routing held.
 
 ```sh
 # specialists: 1 sawyer (ana), 1 smith (ben), 1 labourer (cal)
@@ -83,15 +84,16 @@ ff -o examples/cabin/crew-skilled.pddl -f examples/cabin/skilled-specialists.pdd
 ff -o examples/cabin/crew-skilled.pddl -f examples/cabin/skilled-crosstrained.pddl --mode temporal
 ```
 
-(Run with `FF_TDEMAND=1 FF_TCONC=1`.) The single-actor search reduction becomes a
-*super-worker* with the union of all skills so it can still find the plan; the
-scheduler then reassigns each task to a real worker who has the needed skill. If a
-task needs a skill no worker has, the problem is correctly unsolvable.
+(Run with `FF_TDEMAND=1 FF_TCONC=1`.) The single-actor search reduction turns into
+a *super-worker* holding the union of all skills, so the plan still gets found; the
+scheduler then hands each task off to a real worker carrying the needed skill. Ask
+for a skill no worker has, and the problem is correctly unsolvable.
 
 ### Skill scarcity bites — `forge-*.pddl` (forge 80 nails)
 
-When the skilled work is on the critical path, a missing specialist shows up in the
-makespan. These forge a keg of nails (smelt + forge are smith-only, mining is labour):
+Put the skilled work on the critical path, and a missing specialist shows up
+straight in the makespan. These forge a keg of nails — smelt and forge are
+smith-only, mining is labour:
 
 | crew | makespan |
 |---|---|
@@ -100,10 +102,10 @@ makespan. These forge a keg of nails (smelt + forge are smith-only, mining is la
 | `forge-2smith` — **2 smiths**, 3 workers | **44** |
 | `forge-3smith` — 3 smiths, 3 workers | 38 |
 
-Two extra *labourers* barely move it (65 → 62) — the lone smith caps the job. A
-second *smith*, same crew size, cuts ~a third (65 → 44). A third helps less (ore
-supply + the smelt→forge dependency start to bind). That's skill scarcity, not
-headcount.
+Two extra *labourers* barely move the number (65 → 62) — the lone smith is the
+cap. A second *smith*, same crew size, shaves off a third (65 → 44). A third
+smith buys less: ore supply and the smelt→forge dependency start to bind. Skill
+scarcity, not headcount.
 
 ## Files
 - `domain.pddl` — the cabin domain (harvest + mill + smith + glass + masonry + the

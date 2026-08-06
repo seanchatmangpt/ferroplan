@@ -1,73 +1,78 @@
-//! Goal-respecting object-symmetry orbits (0.14 ext Phase 10) — the
-//! research lever the 0.13 TMS diagnosis spec'd: temporal-machine-shop is
-//! 0/20 because interchangeable pieces, distinguished ONLY by which
-//! `(baked-structure p q)` goal pair they serve, make every
-//! subset-assignment of "which identical piece is baking" a distinct
-//! visited state.
+//! Goal-respecting object-symmetry orbits (0.14 ext Phase 10) — the lever
+//! the 0.13 TMS autopsy called for: temporal-machine-shop was flatlining
+//! 0/20 because interchangeable pieces, told apart ONLY by which
+//! `(baked-structure p q)` goal pair they happen to be serving, turn every
+//! subset-assignment of "which identical piece is baking" into its own
+//! distinct visited state — the state space bloats on a distinction that
+//! never mattered.
 //!
-//! The reduction: detect orbits of interchangeable MEMBER UNITS (single
-//! objects, or the goal-pair tuples of the TMS shape), then canonicalize
-//! every visited key under member relabeling — states differing only by a
-//! permutation of interchangeable members collapse to one representative.
-//! Plans stay concrete; only the visited space shrinks.
+//! The cut: find orbits of interchangeable MEMBER UNITS — single objects,
+//! or the goal-pair tuples the TMS shape throws up — then canonicalize
+//! every visited key under member relabeling. States that differ only by
+//! swapping interchangeable members collapse down to one representative.
+//! Plans stay concrete on the way out; only the visited space shrinks.
 //!
-//! Grounded machinery: every fact/op/fluent display touching an orbit
-//! object joins a FAMILY — displays sharing one (head, literal/slot
-//! pattern), stored as a dense table over member coordinates. A member
-//! permutation σ then acts on the whole grounded task by table lookup,
-//! so facts COUPLING several members (TMS grounds `(assemble p q)` for
-//! every cross-pair combination) permute right along with the per-member
-//! ones instead of killing the orbit.
+//! Grounded machinery: every fact/op/fluent display that touches an orbit
+//! object gets pulled into a FAMILY — displays sharing one (head,
+//! literal/slot pattern), held as a dense table over member coordinates.
+//! A member permutation σ then walks the whole grounded task by table
+//! lookup, so facts COUPLING several members (TMS grounds `(assemble p
+//! q)` across every cross-pair combination) permute in step with the
+//! per-member ones instead of breaking the orbit apart.
 //!
-//! Soundness by construction, conservative at every step:
+//! Soundness by construction, conservative at every checkpoint:
 //!
-//! - Candidate members must have identical init profiles (statics and
-//!   fluents included), appear in no action schema literally, and pass a
+//! - Candidate members need matching init profiles (statics and fluents
+//!   both), no literal appearance in any action schema, and a clean
 //!   per-family CLOSURE check: within each equality-pattern class of
-//!   member coordinates, cells are uniformly present or uniformly absent
-//!   — i.e. the grounded task really is closed under every member
-//!   transposition. Any violation drops detection entirely.
-//! - Goal facts must be per-member and shared by every member of their
-//!   orbit (the goal SET is then σ-invariant); numeric goals over touched
-//!   fluents, TILs, derived rules, PDDL3 constraints, and non-total-time
-//!   metrics all bail — each could distinguish members invisibly.
-//! - The canonical form σ(s) is a pure function of the state, chosen by
-//!   sorting per-member signatures, so determinism and t1 ≡ t8 hold. Any
-//!   σ is sound: canon(s1) = canon(s2) implies s2 = σ2⁻¹σ1(s1), a true
-//!   automorphism image (ties may MISS merges, never mis-merge).
-//! - Applied to the TEMPORAL visited key only (state bits, relevant
+//!   member coordinates, cells read uniformly present or uniformly absent
+//!   — proof the grounded task is actually closed under every member
+//!   transposition. One violation and detection drops out entirely.
+//! - Goal facts must sit per-member and be shared across every member of
+//!   their orbit (so the goal SET itself stays σ-invariant); numeric
+//!   goals over touched fluents, TILs, derived rules, PDDL3 constraints,
+//!   and non-total-time metrics all bail out — any one of them could be
+//!   telling members apart where nothing else can see it.
+//! - The canonical form σ(s) is a pure function of the state, picked by
+//!   sorting per-member signatures — determinism holds, t1 ≡ t8 holds.
+//!   Any σ chosen this way is sound: canon(s1) = canon(s2) implies s2 =
+//!   σ2⁻¹σ1(s1), a genuine automorphism image (ties can MISS a merge,
+//!   never fake one).
+//! - Wired into the TEMPORAL visited key only (state bits, relevant
 //!   fluent values, and the pending-end agenda's op ids all permute
-//!   together); the classical paths are untouched by construction.
-//!   Callers must pass a σ-invariant `forbidden` mask (the CLI passes
-//!   none; Session/tresolve pass no orbit at all — recorded decision).
+//!   together); the classical paths never see this machinery, by
+//!   construction. Callers owe a σ-invariant `forbidden` mask (the CLI
+//!   passes none; Session/tresolve skip orbits entirely — a recorded
+//!   call, not an oversight).
 //!
-//! `FF_NO_ORBIT=1` disables detection entirely.
+//! `FF_NO_ORBIT=1` kills detection at the source.
 
 use crate::hash::FxHashMap;
 use crate::packed::{PackedTask, State};
 use crate::types::{Domain, Expr, Formula, Problem, Sym, Term};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// One orbit: `k` interchangeable member units. Per member, the SAME
-/// template list (single-member facts / relevant-fluent slots / ops, in
-/// family order) — the sort key that picks σ. Cross-member entries live
-/// in the families, not here.
+/// One orbit: `k` bodies, cut from the same mold. Every member carries the
+/// identical template — facts, relevant-fluent slots, ops, same family
+/// order — that's the sort key σ reads off. Cross-member wiring lives in
+/// the families; the orbit itself doesn't see it.
 pub struct Orbit {
-    /// member -> fact ids, in template order.
+    /// member -> fact ids, template order. The manifest.
     pub facts: Vec<Vec<u32>>,
-    /// member -> relevant-fluent SLOT indexes (into `rel_fluents`), template order.
+    /// member -> relevant-fluent slot indexes (into `rel_fluents`), template order.
     pub fluent_slots: Vec<Vec<usize>>,
-    /// member -> op ids, in template order (for agenda signatures).
+    /// member -> op ids, template order — the raw material for agenda signatures.
     pub ops: Vec<Vec<usize>>,
 }
 
-/// All displays sharing one (head, pattern) — the pattern fixes literals
-/// and (orbit, obj-within-member) slots; the table stores the concrete id
-/// per member-coordinate tuple, row-major, `u32::MAX` = absent.
+/// Every display sharing one (head, pattern) pours into this table. The
+/// pattern locks literals and (orbit, obj-within-member) slots; the table
+/// holds the concrete id per member-coordinate tuple, row-major.
+/// `u32::MAX` marks the empty cell — nobody home.
 struct Family {
-    /// orbit index per slot position.
+    /// orbit index, one per slot position.
     axes: Vec<u16>,
-    /// member count per slot position.
+    /// member count, one per slot position.
     dims: Vec<u32>,
     table: Vec<u32>,
 }
@@ -80,7 +85,8 @@ impl Family {
         }
         ix
     }
-    /// Image id under per-orbit member permutations (`sigma[orbit][src] = dst`).
+    /// The id this cell becomes under a member permutation
+    /// (`sigma[orbit][src] = dst`) — where the shadow falls after σ moves.
     fn map(&self, coords: &[u16], sigma: &[Vec<u16>]) -> u32 {
         let mut ix = 0usize;
         for (d, &c) in coords.iter().enumerate() {
@@ -88,8 +94,9 @@ impl Family {
         }
         self.table[ix]
     }
-    /// [`Family::map`] with a functional σ — avoids materializing per-orbit
-    /// permutation vectors for the pairwise stabilizer tests.
+    /// [`Family::map`], but σ arrives as a closure — skips building the
+    /// per-orbit permutation vectors when all the pairwise stabilizer
+    /// checks want is a function call.
     fn map_with(&self, coords: &[u16], sigma: impl Fn(u16, u16) -> u16) -> u32 {
         let mut ix = 0usize;
         for (d, &c) in coords.iter().enumerate() {
@@ -97,11 +104,11 @@ impl Family {
         }
         self.table[ix]
     }
-    /// Closure under every member transposition: cells whose coordinates
-    /// share an equality pattern (per orbit — different orbits never
-    /// interact) must be uniformly present/absent. σ preserves equality
-    /// and distinctness of same-orbit coordinates, so class uniformity is
-    /// exactly "the table is closed under the whole product group".
+    /// Closure check under every member swap: cells sharing an equality
+    /// pattern — same orbit only, different orbits never touch — must all
+    /// be present or all be absent, no stragglers. σ preserves which
+    /// same-orbit coordinates match and which don't, so uniform classes
+    /// are exactly the signature of "closed under the whole product group."
     fn closed(&self) -> bool {
         let n = self.axes.len(); // ≤ 16, enforced at creation
         let mut coords = vec![0u16; n];
@@ -145,17 +152,18 @@ enum Pat {
     Slot(u16, u8),
 }
 
-/// Family index under construction for one id space (facts, ops, fluents).
+/// Family index, still being assembled, for one id space (facts, ops, fluents).
 struct FamSet {
     idx: FxHashMap<(String, Vec<Pat>), u32>,
     fams: Vec<Family>,
-    /// (id, family, coords) for every touched display.
+    /// (id, family, coords) — a trace for every display that got touched.
     touch: Vec<(u32, u32, Vec<u16>)>,
 }
 
-/// Total table cells across all families — a runaway grounded space (huge
-/// same-type object counts × arity) bails detection rather than eating
-/// memory. TMS instance 20 sits far below this.
+/// Hard ceiling on table cells, summed across every family. A grounded
+/// space that runs wild — huge same-type object counts crossed with high
+/// arity — bails out of detection clean rather than eating all the memory
+/// in the room. TMS instance 20 sits nowhere near this wall.
 const CELL_CAP: usize = 1 << 22;
 
 impl FamSet {
@@ -166,11 +174,12 @@ impl FamSet {
             touch: Vec::new(),
         }
     }
-    /// Register one display. `record` gates the touch (rewrite) list: a
-    /// STATIC fact still enters its family table — closure must verify the
-    /// automorphism fixes statics — but its bit is init-constant and
-    /// σ-invariant, so the per-node rewrite skips it. `Ok(true)` = touched,
-    /// `Ok(false)` = no orbit object, `Err(())` = table budget blown.
+    /// Book one display into the ledger. `record` is the gate on the touch
+    /// (rewrite) list: a STATIC fact still checks into its family table —
+    /// closure still has to confirm the automorphism fixes statics — but
+    /// its bit never moves, init-constant and σ-invariant, so the per-node
+    /// rewrite passes over it. `Ok(true)` = made contact, `Ok(false)` = no
+    /// orbit object here, `Err(())` = blew the table budget.
     fn add(
         &mut self,
         disp: &str,
@@ -233,15 +242,15 @@ impl FamSet {
     }
 }
 
-/// `FF_ORBIT_DEBUG=1` narration of why detection bailed (probe eyes only —
-/// the planner itself never prints).
+/// `FF_ORBIT_DEBUG=1` cracks the channel open — the whispered reason
+/// detection bailed, for probe eyes only. The planner itself stays silent.
 fn odbg(msg: impl FnOnce() -> String) {
     if std::env::var("FF_ORBIT_DEBUG").is_ok() {
         eprintln!("orbit: {}", msg());
     }
 }
 
-/// `(head with NOT folded in, args)` from a grounded display string.
+/// Strips a grounded display string down to `(head with NOT folded in, args)`.
 fn parse(disp: &str) -> (String, Vec<String>) {
     let inner = disp
         .trim()
@@ -263,7 +272,8 @@ fn parse(disp: &str) -> (String, Vec<String>) {
 
 pub struct OrbitMap {
     pub orbits: Vec<Orbit>,
-    /// op id -> (orbit, member, template) for per-member agenda signatures.
+    /// op id -> (orbit, member, template) — the paper trail for
+    /// per-member agenda signatures.
     pub op_owner: FxHashMap<usize, (usize, usize, usize)>,
     fact_fams: Vec<Family>,
     fact_touch: Vec<(u32, u32, Vec<u16>)>,
@@ -273,8 +283,9 @@ pub struct OrbitMap {
     flu_touch: Vec<(u32, u32, Vec<u16>)>,
 }
 
-/// Detect orbits on the lifted problem, then materialize them against the
-/// grounded task. `None` = no usable symmetry (or `FF_NO_ORBIT=1`).
+/// Sweep the lifted problem for orbits, then burn them into the grounded
+/// task. `None` = no exploitable symmetry out there (or `FF_NO_ORBIT=1`
+/// killed the scan).
 pub fn detect(domain: &Domain, problem: &Problem, task: &PackedTask) -> Option<OrbitMap> {
     if std::env::var("FF_NO_ORBIT").is_ok() {
         return None;
@@ -753,13 +764,13 @@ pub fn detect(domain: &Domain, problem: &Problem, task: &PackedTask) -> Option<O
 }
 
 impl OrbitMap {
-    /// The canonical visited key under member relabeling: per orbit, sort
-    /// members by their (fact-bits, fluent-values, pending-agenda)
-    /// signature to pick σ, then rewrite the ENTIRE key — per-member and
-    /// cross-member facts, relevant fluents, and pending-end agenda ops —
-    /// through the family tables. Returns (canonical StateKey, canonical
-    /// agenda). Sound for ANY σ; the signature sort just makes π-related
-    /// states usually agree.
+    /// Burns off the relabeling — the canonical visited key. Per orbit,
+    /// sort members on their (fact-bits, fluent-values, pending-agenda)
+    /// signature to fix σ, then run the WHOLE key through the family
+    /// tables: per-member and cross-member facts, relevant fluents,
+    /// pending-end agenda ops, all of it. Returns (canonical StateKey,
+    /// canonical agenda). Sound under any σ you throw at it — the
+    /// signature sort just biases π-twin states to land on the same key.
     pub fn canonical_key(
         &self,
         task: &PackedTask,
@@ -842,18 +853,19 @@ impl OrbitMap {
         (task.state_key(&canon), ag)
     }
 
-    /// Stabilizer classes for GENERATION-side symmetry skipping (0.15
-    /// Phase 1): per orbit, group members whose pairwise TRANSPOSITION
-    /// provably fixes the whole state — every touched fact bit, fluent
-    /// value/definedness, and pending-agenda entry maps to an equal one
-    /// (cross-member facts included; the per-member signature alone is NOT
-    /// enough — `(STRUCTURE m1 x)` true with `(STRUCTURE m2 x)` false
-    /// distinguishes m1 from m2 even when their own facts agree). Two ops
-    /// that are the same template on same-class members produce
-    /// π-equivalent successors, so the expansion generates only the first:
-    /// the duplicate never exists instead of being deduped after the fact.
-    /// Swap-fixes is transitive on a chain of pairwise checks
-    /// ((a c) = (a b)(b c)(a b)), so greedy class assignment is exact.
+    /// Stabilizer classes, the quiet weapon for GENERATION-side symmetry
+    /// skipping (0.15 Phase 1): per orbit, cluster members whose pairwise
+    /// TRANSPOSITION provably leaves the whole state untouched — every
+    /// fact bit, fluent value and definedness, every pending-agenda entry
+    /// maps to its twin (cross-member facts included; the per-member
+    /// signature alone won't cut it — `(STRUCTURE m1 x)` true against
+    /// `(STRUCTURE m2 x)` false is enough to make m1 and m2 strangers even
+    /// when their own facts match). Two ops on the same template, same
+    /// class of members, spawn π-equivalent successors — so expansion
+    /// mints only the first: the duplicate never gets born, no cleanup
+    /// after the fact needed. Swap-fixes chains transitively across
+    /// pairwise checks ((a c) = (a b)(b c)(a b)), so greedy class
+    /// assignment is exact, no approximation.
     pub fn stabilizer_classes(&self, state: &State, agenda: &[(f64, usize)]) -> Vec<Vec<u16>> {
         let mut out = Vec::with_capacity(self.orbits.len());
         for (oi, orbit) in self.orbits.iter().enumerate() {
@@ -877,15 +889,15 @@ impl OrbitMap {
         out
     }
 
-    /// Class-canonical GENERATION key for `op` under `classes` (from
-    /// [`Self::stabilizer_classes`]): two ops with equal keys are images of
-    /// one another under a state-fixing σ — same family, per-coordinate
-    /// stabilizer-class representatives, and the same equality pattern
-    /// among same-orbit coordinates (so `(REL m1 m2)` never conflates with
-    /// a hypothetical `(REL m3 m3)`). Any within-class permutation is a
-    /// product of class transpositions, each of which fixes the state, so
-    /// the composed σ fixes it too. `None` = op touches no orbit (always
-    /// generate).
+    /// Class-canonical GENERATION key for `op`, read through `classes`
+    /// (from [`Self::stabilizer_classes`]): two ops keying equal are
+    /// shadows of each other under some state-fixing σ — same family,
+    /// same stabilizer-class reps per coordinate, same equality pattern
+    /// among same-orbit coordinates (so `(REL m1 m2)` never blurs into a
+    /// hypothetical `(REL m3 m3)`). Any permutation inside a class factors
+    /// into class transpositions, each one state-fixing, so the composite
+    /// σ fixes it too. `None` = op touches no orbit — always generate,
+    /// nothing to skip.
     pub fn gen_key(&self, op: usize, classes: &[Vec<u16>]) -> Option<(u32, Vec<u16>)> {
         let (fam_ix, coords) = self.op_touch.get(&op)?;
         let fam = &self.op_fams[*fam_ix as usize];
@@ -905,7 +917,8 @@ impl OrbitMap {
         Some((*fam_ix, key))
     }
 
-    /// Does the transposition (a b) within orbit `oi` fix `state` + `agenda`?
+    /// The test itself: does swapping (a b) inside orbit `oi` leave
+    /// `state` + `agenda` untouched?
     fn swap_fixes(&self, oi: u16, a: u16, b: u16, state: &State, agenda: &[(f64, usize)]) -> bool {
         let sig = |orb: u16, c: u16| -> u16 {
             if orb == oi {

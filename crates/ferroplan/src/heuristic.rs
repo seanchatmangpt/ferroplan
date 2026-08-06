@@ -1,14 +1,15 @@
-//! FF relaxed-plan heuristic over the packed task, allocation-free on the hot
-//! path: all working buffers live in a reusable `Scratch` that a worker thread
-//! creates once and resets per evaluation (cleared, never re-allocated). This
-//! removes the per-state allocation churn — and the global-allocator contention
-//! it caused across worker threads — which was the main limit on both raw speed
-//! and parallel scaling.
+//! Recon over the packed task, no allocator on the hot circuit: every working
+//! buffer lives in a reusable `Scratch` a worker claims once and wipes clean
+//! between passes — never rebuilt from scratch, never handed back to the heap.
+//! That kills the per-state allocation churn — and the cross-thread contention
+//! it was feeding the global allocator — the choke point capping both raw
+//! speed and how far this scales across workers.
 //!
-//! Same algorithm as the (oracle-verified) metricff heuristic: a delete-relaxed
-//! planning graph with monotone numeric interval bounds, two-phase layering,
-//! lowest-layer achiever selection, and numeric repetition counting. The
-//! best-first engine only needs `h`, so the helpful-action set is not computed.
+//! Same tradecraft as the (oracle-verified) metricff heuristic: strip the
+//! deletes, build the graph, walk it in two passes with monotone numeric
+//! interval bounds, take the earliest achiever, count the numeric repeats.
+//! The best-first engine only wants `h` — the helpful-action set stays dark
+//! unless someone asks for it.
 
 use crate::bitset;
 use crate::packed::PackedTask;
@@ -17,20 +18,22 @@ use crate::types::{eval_numpre, AssignOp, CompOp, NExpr, NumEff, NumPre};
 const LAYER_CAP: u32 = 2000;
 const INF: u32 = u32::MAX;
 
-/// Measurement-only phase accumulators (FF_RES_DEBUG; printed by the search
-/// cap dump). Atomic because h runs on worker threads.
+/// Instrumentation only, no load-bearing role — tallies for FF_RES_DEBUG,
+/// dumped when the search hits its cap. Kept atomic; `h` runs hot across
+/// worker threads and these counters take hits from all of them.
 pub static T_RESET: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 pub static T_BUILD: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 pub static T_EXTRACT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-/// Reusable per-worker working memory for `relaxed`.
+/// Standing kit, issued once per worker, reused every run of `relaxed`.
 pub struct Scratch {
     reached: Vec<bool>,
     fact_layer: Vec<u32>,
     op_layer: Vec<u32>,
-    /// Generation stamp for `op_layer` / `selected` / `need_fact` membership: a
-    /// cell is "set this evaluation" iff its stamp == `gen`. Lets `reset()` bump
-    /// `gen` in O(1) instead of clearing these arrays every evaluation.
+    /// Timestamp tag for `op_layer` / `selected` / `need_fact` membership — a
+    /// cell reads "live this pass" only when its stamp matches `gen`. Lets
+    /// `reset()` advance the clock in one tick instead of scrubbing every
+    /// array by hand each pass.
     gen: u32,
     op_stamp: Vec<u32>,
     applicable: Vec<u32>,
@@ -39,13 +42,15 @@ pub struct Scratch {
     selected: Vec<u32>,
     need_fact: Vec<u32>,
     queue: Vec<u32>,
-    /// applied ops with ≥1 relevant numeric effect (re-widened each layer).
+    /// Ops already fired that carry ≥1 numeric effect worth tracking —
+    /// re-widened every layer.
     num_applied: Vec<u32>,
-    /// applied ops with ≥1 conditional effect (re-checked each layer; their
-    /// conditional adds fire once the condition becomes relaxed-reached).
+    /// Ops already fired that carry ≥1 conditional effect — re-checked every
+    /// layer; the conditional payload triggers once its trigger condition
+    /// goes relaxed-reached.
     cond_ops: Vec<u32>,
-    /// FF helpful actions: relaxed-plan ops applicable in the current state
-    /// (op_layer 0). Populated during extraction; read by EHC.
+    /// The helpful-action manifest: relaxed-plan ops already live in the
+    /// current state (op_layer 0). Filled during extraction, read by EHC.
     helpful: Vec<u32>,
 }
 
@@ -97,10 +102,11 @@ impl Scratch {
     }
 }
 
-/// Widen monotone bounds from op `oi`'s numeric effects on RELEVANT fluents
-/// (effects on fluents that no precondition/goal reads cannot change the
-/// heuristic, so skipping them is exact and also stops irrelevant unbounded
-/// growth). Returns whether any relevant bound changed.
+/// Push the monotone bounds outward from op `oi`'s numeric effects, RELEVANT
+/// fluents only — a fluent no precondition or goal ever reads can't move the
+/// heuristic's needle, so it's left alone. Skipping it costs nothing on
+/// accuracy and shuts down unbounded drift nobody's watching. Reports back
+/// whether any watched bound actually shifted.
 fn widen(
     neffs: &[NumEff],
     relevant: &[bool],
@@ -226,10 +232,11 @@ fn goal_done(
         && goal_num.iter().all(|np| num_sat(np, lb, ub, def))
 }
 
-/// Build the delete-relaxed planning graph into `sc` (op_layer / reached /
-/// bounds). With `to_fixpoint` it ignores the goal and runs to a fixpoint
-/// (so every reachable op gets a layer); otherwise it stops once the goal is
-/// relaxed-reached. `sc` must be reset first.
+/// Build the stripped-down planning graph into `sc` — op_layer, reached
+/// facts, bounds. With `to_fixpoint` it ignores the goal entirely and keeps
+/// pushing until the graph stops moving, so every reachable op ends up with
+/// a layer stamped on it. Otherwise it cuts the run the instant the goal
+/// goes relaxed-reached. `sc` has to be wiped before this runs.
 fn build_rpg(
     task: &PackedTask,
     sc: &mut Scratch,
@@ -357,10 +364,10 @@ fn build_rpg(
     }
 }
 
-/// Goal-blind relaxed reachability to a FIXPOINT: returns `(fact_layer,
-/// op_layer)` with `u32::MAX` for unreached entries. One RPG build; used by
-/// landmark extraction ([`crate::landmarks`]), which needs every reachable
-/// op's layer, not just enough layers to touch a goal.
+/// Goal-blind sweep, run to a FIXPOINT: hands back `(fact_layer, op_layer)`
+/// with `u32::MAX` marking anything never reached. One graph build, that's
+/// all — landmark extraction ([`crate::landmarks`]) needs every reachable
+/// op's layer on record, not just the shallow slice that touches a goal.
 pub fn reachability_layers(
     task: &PackedTask,
     sc: &mut Scratch,
@@ -382,9 +389,9 @@ pub fn reachability_layers(
     (sc.fact_layer.clone(), op_layer)
 }
 
-/// Relaxed-plan heuristic toward an ARBITRARY (sub)goal, using reusable `sc`.
-/// None == dead end. This is the subplanner heuristic SGPlan-style partitioning
-/// drives with per-subproblem goals.
+/// Range-check toward an ARBITRARY (sub)goal, `sc` reused across the call.
+/// `None` reads as dead end. This is the subplanner's compass — SGPlan-style
+/// partitioning steers by it, one subproblem goal at a time.
 pub fn relaxed_to(
     task: &PackedTask,
     sc: &mut Scratch,
@@ -470,7 +477,7 @@ fn relaxed_extract(
     Some(count)
 }
 
-/// Convenience: relaxed-plan heuristic toward the task's own goal.
+/// Shortcut: point the range-check at the task's own goal, no detours.
 pub fn relaxed(
     task: &PackedTask,
     sc: &mut Scratch,
@@ -481,10 +488,10 @@ pub fn relaxed(
     relaxed_to(task, sc, bits, fv, def, &task.goal_pos, &task.goal_num)
 }
 
-/// Relaxed-plan heuristic plus the FF helpful-action set (relaxed-plan ops
-/// applicable in this state). Used by enforced hill-climbing to restrict
-/// expansion. None == relaxed dead end. The returned op ids are in a
-/// deterministic order (relaxed-plan selection order).
+/// Range-check plus the helpful-action manifest — relaxed-plan ops already
+/// live in this state. Enforced hill-climbing reads it to narrow which
+/// moves it bothers expanding. `None` means dead end at this range. Op ids
+/// come back in fixed order — the order the relaxed plan picked them.
 pub fn relaxed_helpful(
     task: &PackedTask,
     sc: &mut Scratch,
@@ -568,15 +575,15 @@ pub fn relaxed_helpful(
     Some((h, helpful))
 }
 
-/// Lax preferred-operator fallback (0.11 Phase 2): really-applicable ops
-/// whose ADD achieves a fact some relaxed-plan op still NEEDS (a positive
-/// precondition not true in this state). Valid immediately after a
-/// `relaxed_to`/`relaxed_helpful` call on the SAME state (reads
-/// `sc.selected` at the current generation). The temporal path uses it when
-/// the strict helpful set filters to nothing — its relaxed plans often lead
-/// through END ops (fired by the agenda, not chosen), and the Start-only
-/// filter starved the pruned pass into full scans (storage/model-train:
-/// stored helpful averaged 0.0).
+/// Fallback net when the primary pick comes up empty (0.11 Phase 2): grab
+/// every truly-applicable op whose ADD lands a fact some relaxed-plan op is
+/// still owed — a positive precondition not yet true in this state. Only
+/// good for the instant right after a `relaxed_to`/`relaxed_helpful` call on
+/// the SAME state — it reads `sc.selected` at the current clock tick. The
+/// temporal path leans on this when the strict helpful set turns up nothing:
+/// its relaxed plans often route through END ops the agenda fires rather
+/// than chooses, and the Start-only filter was starving the pruned pass into
+/// full scans (storage/model-train: stored helpful averaged 0.0).
 pub fn helpful_needed_adders(
     task: &PackedTask,
     sc: &Scratch,
@@ -617,15 +624,15 @@ pub fn helpful_needed_adders(
         .collect()
 }
 
-/// Relaxed completion COST of a subgoal from this state: run the relaxed-plan
-/// extraction toward `goal_pos`/`goal_num`, then sum the SELECTED ops'
-/// `increase` effects on `cost_fluent`, each evaluated against this state's
-/// fluent values — exact when the increase amounts read only static fluents
-/// (the IPC numeric-metric shape, e.g. rovers' traverse costs). Ops are
-/// counted once (set semantics), so this UNDERestimates a plan that must
-/// repeat an op — the safe direction for the forgo-aware seed (an
-/// underestimate never prices a cheap preference out). None == relaxed dead
-/// end (the subgoal is unreachable even ignoring deletes).
+/// Completion COST of a subgoal, priced from this state: run the extraction
+/// toward `goal_pos`/`goal_num`, then tally the SELECTED ops' `increase`
+/// hits on `cost_fluent`, each priced against this state's readings — exact
+/// when the increase amounts read only static fluents (the IPC numeric-metric
+/// shape, rovers' traverse costs and the like). Ops get counted once, set
+/// semantics, so a plan forced to repeat an op reads UNDER its real price —
+/// the safe lean for the forgo-aware seed, an underestimate never prices a
+/// cheap preference out of consideration. `None` reads as dead end even with
+/// the deletes stripped out.
 #[allow(clippy::too_many_arguments)]
 pub fn relaxed_plan_cost(
     task: &PackedTask,
@@ -641,10 +648,10 @@ pub fn relaxed_plan_cost(
     Some(selected_increase_sum(task, sc, fv, def, cost_fluent))
 }
 
-/// Summed `increase cost_fluent` amounts of the ops SELECTED by the last
-/// relaxed-plan extraction left in `sc` (valid until the next reset), each
-/// evaluated against this state's fluent values. Ops count once (set
-/// semantics) — an underestimate when a plan must repeat an op.
+/// Tally of `increase cost_fluent` amounts across the ops SELECTED by the
+/// last extraction sitting in `sc` — good until the next reset scrubs it —
+/// each priced against this state's readings. Ops count once, set semantics,
+/// so a plan forced to repeat an op reads under its real price.
 fn selected_increase_sum(
     task: &PackedTask,
     sc: &Scratch,
@@ -668,12 +675,12 @@ fn selected_increase_sum(
     cost
 }
 
-/// Cost-augmented relaxed-plan heuristic: relaxed-plan LENGTH plus the summed
-/// `increase cost_fluent` of the selected ops — the "cost + 1 per action"
-/// shape, so search guided by it prefers cheap achievers while zero-cost
-/// regions still keep a distance gradient (a pure-cost h flatlines wherever
-/// remaining actions are free). Units are cost+steps; callers weight it like
-/// any h. None == relaxed dead end.
+/// Cost-augmented reading: relaxed-plan LENGTH plus the tallied `increase
+/// cost_fluent` across selected ops — "cost + 1 per action," so a search
+/// steered by it favors cheap achievers while zero-cost stretches still
+/// carry a distance signal (a pure-cost h goes flat the moment remaining
+/// moves are free). Units run cost+steps; callers weight it like any h.
+/// `None` reads as dead end.
 #[allow(clippy::too_many_arguments)]
 pub fn relaxed_costed(
     task: &PackedTask,
@@ -690,8 +697,8 @@ pub fn relaxed_costed(
     Some(count.saturating_add(cost.min(1e9).round() as i32))
 }
 
-/// Lowest-layer op that adds fact `f` (FF prefers earliest achievers).
-/// Uses the precomputed add-by-fact index instead of scanning all ops.
+/// Earliest-layer op that lands fact `f` — the doctrine is earliest achiever
+/// wins. Pulls from the precomputed add-by-fact index, no full-op scan.
 fn achiever(
     task: &PackedTask,
     op_layer: &[u32],
@@ -716,9 +723,9 @@ fn achiever(
     best
 }
 
-/// When fact `f` is achieved by op `oi` through a CONDITIONAL effect (not an
-/// unconditional add), queue that effect's positive condition facts as extra
-/// subgoals so the relaxed plan accounts for establishing the condition.
+/// When fact `f` only lands through op `oi`'s CONDITIONAL effect — no clean
+/// unconditional add — flag that effect's trigger facts as extra subgoals so
+/// the relaxed plan doesn't skip the cost of earning the condition.
 fn queue_cond_for(task: &PackedTask, sc: &mut Scratch, oi: usize, f: usize) {
     if task.add.slice(oi).iter().any(|&x| x as usize == f) {
         return; // unconditional add — nothing extra
@@ -750,7 +757,7 @@ fn queue_cond_for(task: &PackedTask, sc: &mut Scratch, oi: usize, f: usize) {
     }
 }
 
-/// Select op `oi` (×`reps`) into the relaxed plan and queue its preconditions.
+/// Draft op `oi` (×`reps`) into the relaxed plan and flag its preconditions.
 fn select(task: &PackedTask, sc: &mut Scratch, oi: usize, reps: i32, count: &mut i32) {
     if sc.selected[oi] == sc.gen {
         return;

@@ -6,7 +6,8 @@ agent: chatman-ecosystem:config-law-architect
 effort: max
 ---
 
-Compose a capability for `$ARGUMENTS` using design for combinatorial maximalism.
+Compose a capability for `$ARGUMENTS` using design for combinatorial
+maximalism.
 
 1. Enumerate the smallest orthogonal primitives already present.
 2. Read `profiles/phase-space.json`; select a lawful product-state combination.
@@ -17,4 +18,7 @@ Compose a capability for `$ARGUMENTS` using design for combinatorial maximalism.
 7. Preserve reversibility: every composition must decompose into independently inspectable components.
 8. Preserve authority: composition cannot raise any component above its claim ceiling.
 
-Return the selected combination, rejected combinations, new primitive requirements, projection changes, and exact conformance obligations. Do not edit in this skill.
+Return the selected combination, rejected combinations, new primitive
+requirements, projection changes, and exact conformance obligations. No
+editing happens inside this skill — only the design of what could be
+built.

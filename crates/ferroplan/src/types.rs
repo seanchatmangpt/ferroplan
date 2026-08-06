@@ -1,16 +1,19 @@
-//! AST (parser output) and the numeric intermediate representation shared by
-//! grounding and the heuristic. The *grounded* representation is data-oriented
-//! and lives in `packed.rs`.
+//! Raw signal off the parser's wire: the AST, and the numeric intermediate
+//! representation shared downstream by grounding and the heuristic. The
+//! *grounded* form is the packed, data-oriented dispatch — that lives in
+//! `packed.rs`.
 
 pub type Sym = String;
 
-/// Reserved 0-ary pseudo-fluent the parser emits for `?duration` inside an
-/// expression (PDDL2.1 duration-dependent effects/conditions). Real fluent
-/// names cannot start with `?`, so it can never collide; the temporal snap
-/// compiler substitutes the action's duration expression before grounding.
+/// A ghost fluent, 0-ary, reserved. The parser plants it wherever `?duration`
+/// shows up inside an expression (PDDL2.1 duration-dependent effects and
+/// conditions). Real fluent names never start with `?` — no collision, ever —
+/// and the temporal snap compiler swaps in the action's real duration
+/// expression before the grid gets grounded.
 pub const DURATION_PSEUDO: &str = "?DURATION";
 
-/// A PDDL parse error with the 1-based source line it occurred on.
+/// Static on the line. A PDDL parse error, tagged with the 1-based source
+/// line where the signal dropped.
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 #[error("line {line}: {message}")]
 pub struct ParseError {
@@ -60,29 +63,34 @@ pub enum Formula {
     Not(Box<Formula>),
     Atom(Sym, Vec<Term>),
     Comp(CompOp, Expr, Expr),
-    /// ADL quantified preconditions over typed variables.
+    /// ADL quantified preconditions, sweeping typed variables like a scanner
+    /// over the grid.
     Forall(Vec<(Sym, Sym)>, Box<Formula>),
     Exists(Vec<(Sym, Sym)>, Box<Formula>),
-    /// ADL object equality `(= a b)` (distinct from numeric `Comp(Eq, ..)`).
+    /// ADL object equality `(= a b)` — identity check, distinct from the
+    /// numeric `Comp(Eq, ..)` wire.
     Eq(Term, Term),
-    /// PDDL3 `(preference [name] phi)` — a SOFT goal. Classical planners treat it
-    /// as `True` (ignore); the metric/optimizer (sgp) consumes it.
+    /// PDDL3 `(preference [name] phi)` — a soft ask, not a hard order.
+    /// Classical planners flatten it to `True` and walk past; the
+    /// metric/optimizer (sgp) is the only one that reads the fine print.
     Pref(Option<Sym>, Box<Formula>),
     True,
     False,
 }
 
-/// PDDL3 `:metric` optimization direction.
+/// PDDL3 `:metric` optimization heading — which way the needle should move.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MetricDir {
     Minimize,
     Maximize,
 }
 
-/// PDDL3 `(:constraints ...)` trajectory constraint. The six untimed modal
-/// operators are ENFORCED on the classical path since 0.7 (compiled into
-/// monitor automata by [`crate::constraints`]); the timed ones (`Within`,
-/// `HoldDuring`, `HoldAfter`, ...) are parsed but rejected by name.
+/// PDDL3 `(:constraints ...)` trajectory constraint — the standing orders
+/// a plan has to answer to over its whole run, not just at the finish line.
+/// The six untimed modal operators are enforced on the classical path since
+/// 0.7, compiled down into monitor automata by [`crate::constraints`]; the
+/// timed ones (`Within`, `HoldDuring`, `HoldAfter`, ...) get parsed off the
+/// wire but flagged and refused by name — no clock on this grid yet.
 #[derive(Clone, Debug)]
 pub enum Constraint {
     And(Vec<Constraint>),
@@ -115,9 +123,11 @@ pub enum Effect {
     Del(Sym, Vec<Term>),
     Num(AssignOp, Sym, Vec<Term>, Expr),
     And(Vec<Effect>),
-    /// ADL conditional effect `(when condition effect)`.
+    /// ADL conditional effect `(when condition effect)` — the trigger stays
+    /// dark until the condition lights up.
     When(Formula, Box<Effect>),
-    /// ADL universal effect `(forall (vars) effect)`.
+    /// ADL universal effect `(forall (vars) effect)` — one dispatch, fanned
+    /// out across every binding.
     Forall(Vec<(Sym, Sym)>, Box<Effect>),
 }
 
@@ -127,61 +137,68 @@ pub struct Action {
     pub params: Vec<(Sym, Sym)>,
     pub precond: Formula,
     pub effect: Effect,
-    /// This action applies the domain's shared monitor block
-    /// ([`Domain::monitors`]) in addition to its own effect (0.8 Phase 2,
-    /// docs/roadmap-0.8.md). Set by `constraints::compile` on every action
-    /// present at gate time; always `false` for parsed actions and for
-    /// synthetic actions created after the gate (P3 bookkeeping, TRAJ-END).
+    /// This action is wired into the domain's shared monitor block
+    /// ([`Domain::monitors`]) on top of its own effect (0.8 Phase 2,
+    /// docs/roadmap-0.8.md) — the grid is watching, not just the action
+    /// itself. Set by `constraints::compile` on every action live at gate
+    /// time; always `false` on fresh-parsed actions and on synthetic actions
+    /// spun up after the gate (P3 bookkeeping, TRAJ-END) — those never got
+    /// patched into the wire.
     pub monitored: bool,
 }
 
-/// When a PDDL2.1 durative-action condition/effect applies.
+/// When, on the timeline, a PDDL2.1 durative-action condition or effect
+/// keys in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TimeSpec {
-    /// `at start`
+    /// `at start` — fires the instant the dispatch opens.
     Start,
-    /// `at end`
+    /// `at end` — fires the instant the dispatch closes.
     End,
-    /// `over all` — an invariant that must hold throughout (conditions only).
+    /// `over all` — an invariant the signal must hold clean through, no
+    /// static, no drift (conditions only).
     All,
 }
 
-/// A durative action's duration constraint. A fixed `(= ?duration e)` sets both
-/// bounds to `e`; an inequality leaves the open side `None`. The decision-epoch
-/// search commits to the **shortest feasible** duration (the lower bound), and the
-/// validator accepts any duration in `[min, max]`.
+/// A durative action's duration constraint — the window it's allowed to run
+/// in. A fixed `(= ?duration e)` clamps both bounds to `e`; an inequality
+/// leaves the open side `None`. The decision-epoch search always takes the
+/// **shortest feasible** duration (the lower bound), and the validator will
+/// pass any duration landing in `[min, max]`.
 #[derive(Clone, Debug)]
 pub struct Duration {
-    /// Lower bound (`>=` / `=`). `None` = unbounded below (only an upper bound given).
+    /// Floor (`>=` / `=`). `None` means no floor at all — only a ceiling given.
     pub min: Option<Expr>,
-    /// Upper bound (`<=` / `=`). `None` = unbounded above (only a lower bound given).
+    /// Ceiling (`<=` / `=`). `None` means no ceiling at all — only a floor given.
     pub max: Option<Expr>,
 }
 
 impl Duration {
-    /// A fixed duration `(= ?duration e)`.
+    /// A fixed duration, `(= ?duration e)` — no slack either side.
     pub fn fixed(e: Expr) -> Self {
         Duration {
             min: Some(e.clone()),
             max: Some(e),
         }
     }
-    /// The bound the search commits to: the lower bound (shortest feasible) if given,
-    /// otherwise the upper bound. `None` only if the duration is entirely unconstrained.
+    /// The bound the search actually commits to: the floor (shortest
+    /// feasible) when there is one, otherwise the ceiling. `None` only when
+    /// the duration is wide open — unconstrained static, no clamp anywhere.
     pub fn chosen(&self) -> Option<&Expr> {
         self.min.as_ref().or(self.max.as_ref())
     }
 }
 
-/// A PDDL2.1 `:durative-action`.
+/// A PDDL2.1 `:durative-action` — a dispatch with a clock on it.
 #[derive(Clone, Debug)]
 pub struct DurativeAction {
     pub name: Sym,
     pub params: Vec<(Sym, Sym)>,
-    /// Duration constraint: a fixed `(= ?duration e)` or an inequality range.
+    /// Duration constraint: fixed `(= ?duration e)`, or an inequality range.
     pub duration: Duration,
     pub conditions: Vec<(TimeSpec, Formula)>,
-    /// Effects are only `at start` / `at end` (`over all` is not a legal effect).
+    /// Effects only ever land `at start` / `at end` — `over all` is not a
+    /// legal effect, only a legal watch.
     pub effects: Vec<(TimeSpec, Effect)>,
 }
 
@@ -197,25 +214,28 @@ pub struct Domain {
     pub actions: Vec<Action>,
     pub durative_actions: Vec<DurativeAction>,
     pub constraints: Vec<Constraint>,
-    /// `:derived` rules (axioms). Compiled away before grounding by
-    /// [`crate::derived::compile`]: static rules (body over static facts, e.g.
-    /// `reachable` from the map) become init facts; dynamic non-recursive rules
-    /// are inlined into preconditions/goals.
+    /// `:derived` rules (axioms) — signal computed, never dispatched.
+    /// Compiled away before grounding by [`crate::derived::compile`]: static
+    /// rules (body over static facts, e.g. `reachable` off the map) resolve
+    /// straight into init facts; dynamic non-recursive rules get inlined
+    /// into preconditions and goals.
     pub derived: Vec<DerivedRule>,
     /// The shared monitor-transition block (0.8 Phase 2,
-    /// docs/roadmap-0.8.md): fully-ground `Effect::When` transitions emitted
-    /// by `constraints::compile`, applied by every action whose
-    /// [`Action::monitored`] flag is set. The grounder grounds this block
-    /// ONCE and shares it across all monitored ops — the transitions are
-    /// byte-identical for every binding of every action, so per-op storage
-    /// (the monitor-count x ground-action product that OOM'd storage
-    /// qualpref p07/p08 at 15 GB) is pure duplication. Never produced by
-    /// the parser; empty on every constraint-free input.
+    /// docs/roadmap-0.8.md): fully-ground `Effect::When` transitions wired
+    /// by `constraints::compile`, applied by every action carrying
+    /// [`Action::monitored`]. The grounder builds this block ONCE and
+    /// broadcasts it across every monitored op — the transitions are
+    /// byte-identical for every binding of every action, so per-op copies
+    /// (the monitor-count times ground-action blowup that ran storage
+    /// qualpref p07/p08 out to 15 GB, pure blackout) would be dead
+    /// duplication. The parser never emits this; it sits empty on every
+    /// constraint-free input.
     pub monitors: Vec<Effect>,
 }
 
-/// A PDDL `:derived` rule `(:derived (head ?params) body)`: the head predicate's
-/// truth is defined by `body` over its parameters, not by action effects.
+/// A PDDL `:derived` rule `(:derived (head ?params) body)` — the head
+/// predicate's truth is computed off `body`, not carried by any action's
+/// effect wire.
 #[derive(Clone, Debug)]
 pub struct DerivedRule {
     pub head: Sym,
@@ -223,9 +243,10 @@ pub struct DerivedRule {
     pub body: Formula,
 }
 
-/// A PDDL2.2 timed initial literal: `(at <time> <literal>)` in `:init` — a fact
-/// that becomes true (`add`) or false (`!add`) at a fixed absolute `time`,
-/// independent of any action. Only meaningful under temporal planning.
+/// A PDDL2.2 timed initial literal: `(at <time> <literal>)` in `:init` — a
+/// fact that flips true (`add`) or false (`!add`) at a fixed absolute
+/// `time`, on its own clock, no action pulling the trigger. Only meaningful
+/// under temporal planning.
 #[derive(Clone, Debug)]
 pub struct TimedLiteral {
     pub time: f64,
@@ -241,7 +262,8 @@ pub struct Problem {
     pub objects: Vec<(Sym, Sym)>,
     pub init_atoms: Vec<(Sym, Vec<Sym>)>,
     pub init_fluents: Vec<((Sym, Vec<Sym>), f64)>,
-    /// Timed initial literals (PDDL2.2): exogenous facts scheduled at absolute times.
+    /// Timed initial literals (PDDL2.2): exogenous facts scheduled onto the
+    /// timeline at fixed absolute times.
     pub til: Vec<TimedLiteral>,
     pub goal: Formula,
     pub constraints: Vec<Constraint>,

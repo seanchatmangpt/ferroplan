@@ -1,6 +1,6 @@
-# IPC-2014 seq-mco t4 results
+# seq-mco t4 — four cores, one clock, the competition's own rule
 
-timeout 60s/instance, jobs 1, threads 4 (competition wall-clock rule), mode auto. Plans externally validated with VAL.
+60s a head, single job, four threads (wall-clock as the rule demands), mode auto. Every plan checked against VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -19,4 +19,4 @@ timeout 60s/instance, jobs 1, threads 4 (competition wall-clock rule), mode auto
 | ipc-2014/transport-sequential-multi-core | 0/20 | 0 | 0.0s | 0/0 |
 | ipc-2014/visit-all-sequential-multi-core | 2/20 | 0 | 72.1s | 2/2 |
 
-total coverage: **107/280**
+final tally: **107/280**

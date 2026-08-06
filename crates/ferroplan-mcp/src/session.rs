@@ -1,23 +1,23 @@
-//! Persistent repository planning and CMCA allocation tools, merged into the
-//! single `ferroplan-mcp` binary's `Ferroplan` tool handler (see `crate::main`
-//! for the merge). This module owns ground-once repository minds: observe
-//! admitted drift, replay the remaining plan, and search only when the
-//! suffix no longer stands.
+//! The repository minds. Persistent planning and CMCA allocation tools,
+//! wired into the single `ferroplan-mcp` binary's `Ferroplan` handler (see
+//! `crate::main` for the merge). This module holds the ground-once
+//! stations: watch the admitted drift come in over the wire, replay the
+//! plan that's already staked out, and only burn cycles on a fresh search
+//! when the suffix has gone dark.
 //!
-//! Session storage is a two-level lock: an outer
-//! `BTreeMap<String, Arc<AsyncMutex<ManagedSession>>>` guarded briefly to
-//! look up/clone a session's own `Arc<AsyncMutex<..>>`, then the per-session
-//! mutex is held for the duration of the call. This means concurrent tool
-//! calls against *different* sessions never block each other (the outer
-//! lock is only held for the lookup), and concurrent calls against the
-//! *same* session queue on that session's own mutex rather than racing or
-//! erroring — see `KNOWN LIMITATION` below for what queuing does *not* give
-//! you. `session_think` runs its CPU-bound synchronous search
+//! Session storage runs a two-level lock: an outer
+//! `BTreeMap<String, Arc<AsyncMutex<ManagedSession>>>`, held only long
+//! enough to pull a session's own `Arc<AsyncMutex<..>>` off the shelf, then
+//! the per-session mutex carries the call the rest of the way. Concurrent
+//! calls against *different* sessions never touch each other's wire — the
+//! outer lock releases the instant the lookup's done. Concurrent calls
+//! against the *same* session queue up on that session's own mutex instead
+//! of racing or erroring out — see `KNOWN LIMITATION` below for what
+//! queuing does *not* buy you. `session_think` runs its CPU-bound search
 //! (`Session::replan_budgeted`/`replan_following`) via
-//! `tokio::task::block_in_place` while still holding the per-session lock,
-//! which requires the multi-thread tokio runtime (enabled via
-//! `rt-multi-thread` in Cargo.toml and the merged binary's `#[tokio::main]`'s
-//! default flavor).
+//! `tokio::task::block_in_place` while still gripping the per-session lock,
+//! which is why this station needs the multi-thread tokio runtime (`rt-multi-thread`
+//! in Cargo.toml, the merged binary's `#[tokio::main]` default flavor).
 
 use bcinr_cmca::{
     allocator::{
@@ -96,10 +96,10 @@ struct ManagedSession {
     receipt_head: Option<String>,
 }
 
-/// Session map: outer lock briefly guards lookup of a session's own
+/// The switchboard: outer lock briefly guards lookup of a session's own
 /// `Arc<AsyncMutex<ManagedSession>>`; the per-session lock then serializes
-/// all operations (including `session_think`'s search) against that one
-/// session without blocking calls against other sessions.
+/// every operation on that one line — including `session_think`'s search —
+/// without ever putting other sessions on hold.
 #[derive(Clone, Default)]
 pub(crate) struct SessionState {
     sessions: Arc<AsyncMutex<BTreeMap<String, Arc<AsyncMutex<ManagedSession>>>>>,
@@ -124,8 +124,9 @@ struct OpenInput {
     domain: String,
     problem: String,
     /// Optional solver Options (same shape as `ferroplan-mcp`'s `solve` tool).
-    /// `Options`'s own `Deserialize` impl (with its field-level defaults)
-    /// covers the "missing means default" case directly.
+    /// `Options`'s own `Deserialize` impl carries its own field-level
+    /// defaults — silence on the wire means default, no extra handling
+    /// needed here.
     #[serde(default)]
     options: Option<Options>,
     #[serde(default)]
@@ -173,14 +174,14 @@ fn default_budget() -> usize {
     50_000
 }
 
-/// Upper bound on `max_evaluated`: since there is no cooperative-cancellation
-/// hook in the search loop (see `do_session_think`'s doc comment), an
-/// unbounded value combined with a client that never sends a sane budget
-/// would tie up a session's per-session lock indefinitely. This is generous
-/// relative to `default_budget` (200x) while still being a real ceiling.
+/// Hard ceiling on `max_evaluated`. No cooperative-cancellation hook lives
+/// in the search loop (see `do_session_think`'s doc comment), so an
+/// unbounded value plus a client that never sends a sane budget would
+/// choke the session's lock indefinitely — a stuck signal nobody can clear.
+/// Generous against `default_budget` (200x over) but still a real wall.
 const MAX_EVALUATED_CEILING: usize = 10_000_000;
 
-/// Upper bound on `memory_mb`, for the same reason.
+/// Hard ceiling on `memory_mb`, same reasoning as above.
 const MAX_MEMORY_MB_CEILING: usize = 16_384;
 
 fn default_follow() -> bool {
@@ -226,12 +227,13 @@ struct CmcaInput {
 #[derive(Debug, Deserialize, serde::Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct CmcaDescendStep {
-    /// Candidate id from the PREVIOUS depth's admitted frontier being
-    /// descended into. Must have been an admitted candidate id at the
-    /// previous depth, and must not repeat any id already used to enter an
-    /// earlier depth on this same chain (cyclic-ancestry refusal).
+    /// Candidate id off the PREVIOUS depth's admitted frontier — the node
+    /// this descent walks into. Must have been admitted at that prior
+    /// depth, and must never repeat an id already burned to enter an
+    /// earlier depth on this same chain — no looping back through your own
+    /// wire.
     selected_parent_node: String,
-    /// The local admitted frontier at this depth -- same shape and same
+    /// The local admitted frontier at this depth — same shape, same
     /// exactly-N-nodes law as the root frontier.
     candidates: Vec<CmcaCandidate>,
 }
@@ -239,11 +241,11 @@ struct CmcaDescendStep {
 #[derive(Debug, Deserialize, serde::Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct CmcaRecursiveInput {
-    /// Depth-one (root) admitted frontier -- identical shape to `CmcaInput`.
+    /// Depth-one (root) admitted frontier — identical shape to `CmcaInput`.
     root: Vec<CmcaCandidate>,
-    /// Zero or more further descents. Depth of the chain is
-    /// `descents.len() + 1`; each descent is keyed to a specific admitted
-    /// node selected out of the immediately preceding depth's frontier.
+    /// Zero or more further descents down the chain. Chain depth is
+    /// `descents.len() + 1`; each descent locks onto a specific admitted
+    /// node picked out of the frontier one depth up.
     #[serde(default)]
     descents: Vec<CmcaDescendStep>,
 }
@@ -475,18 +477,19 @@ impl Ferroplan {
         }))
     }
 
-    /// Concurrency: the per-session lock (see `SessionState::get`) means a
+    /// Concurrency: the per-session lock (see `SessionState::get`) puts a
     /// second `session_think` (or any other) call against the *same*
-    /// session_id queues on this session's mutex until this call finishes,
-    /// rather than racing a remove/reinsert or seeing "unknown session".
-    /// Cancellation `KNOWN LIMITATION` (documented, not silently dropped):
-    /// rmcp's `notifications/cancelled` reaches `ServerHandler::on_cancelled`,
-    /// but there is no cooperative-cancellation hook inside
-    /// `Session::replan_budgeted`/`replan_following` to abort an in-flight
-    /// search early — a prior decision explicitly rejected adding one. A
-    /// cancelled `session_think` call still runs its search to completion
-    /// while holding the per-session lock (queued callers wait it out) and
-    /// its result is applied normally rather than being interrupted.
+    /// session_id in the queue behind this one, no racing a remove/reinsert,
+    /// no phantom "unknown session" on the wire. Cancellation `KNOWN
+    /// LIMITATION` — flagged, not buried: rmcp's `notifications/cancelled`
+    /// reaches `ServerHandler::on_cancelled`, but there's no
+    /// cooperative-cancellation hook inside
+    /// `Session::replan_budgeted`/`replan_following` to pull the plug on an
+    /// in-flight search — a prior call explicitly refused to add one. A
+    /// cancelled `session_think` still runs its search out to completion
+    /// gripping the per-session lock (queued callers sit in the dark and
+    /// wait), and its result lands normally instead of getting cut off mid
+    /// transmission.
     async fn do_session_think(&self, input: ThinkInput) -> Result<Value, String> {
         if input.max_evaluated == 0 {
             return Err("max_evaluated must be greater than zero".to_owned());
@@ -665,13 +668,13 @@ impl Ferroplan {
     }
 }
 
-/// One admitted CMCA allocation pass: validate the forest, run the pinned
-/// allocator, and canonicalize a payload. Shared by `cmca_allocate` and by
-/// `cmca_allocate_recursive`'s per-depth descent -- the parent-receipt
-/// binding for a descent is computed at the recursive envelope level (see
-/// `tool_cmca_allocate_recursive`), not inside this payload, so this
-/// function's output is byte-identical whether it's called at depth one or
-/// as a descent step.
+/// One admitted CMCA allocation pass: check the forest, run the pinned
+/// allocator, canonicalize the payload onto the wire. Shared by
+/// `cmca_allocate` and by `cmca_allocate_recursive`'s per-depth descent —
+/// the parent-receipt binding for a descent gets computed one level up, at
+/// the recursive envelope (see `tool_cmca_allocate_recursive`), never
+/// inside this payload — so this function's output reads byte-identical
+/// whether it fires at depth one or mid-descent.
 struct AllocationOutcome {
     payload: Value,
     payload_digest: String,
@@ -812,17 +815,17 @@ fn tool_cmca_allocate(input: CmcaInput) -> Result<Value, String> {
 }
 
 /// Gall Checkpoint 9 ("Recursive Multifractal Allocation"): a chain of
-/// admitted CMCA allocations, each depth binding the previous depth's real
-/// receipt by digest. Each depth's envelope is:
+/// admitted CMCA allocations, each depth wired to the previous depth's real
+/// receipt by digest. Each depth's envelope on the wire:
 /// `{ depth, selected_parent_node, parent_payload_digest, allocation_payload_digest, allocation_payload }`
-/// with `parent_payload_digest` recomputed server-side from the ACTUAL
-/// previous depth's outcome (never trusted from the caller), so a caller
-/// cannot fabricate a detached depth-2 result -- this is the parent-receipt
-/// mismatch refusal the checkpoint requires, structural rather than an
-/// explicit check. On any failure -- unknown parent node, cyclic ancestry,
-/// or a depth's own admission refusal -- the WHOLE call refuses; no partial
-/// chain is ever returned ("consequence returned upward" honored by never
-/// computing a consequence above a failed depth).
+/// with `parent_payload_digest` recomputed server-side off the ACTUAL prior
+/// depth's outcome — never taken on faith from the caller — so nobody can
+/// splice in a forged, detached depth-2 result. That's the parent-receipt
+/// mismatch refusal the checkpoint demands, built into the structure rather
+/// than bolted on as a check. Any failure along the chain — unknown parent
+/// node, cyclic ancestry, a depth's own admission refusal — and the WHOLE
+/// call goes dark; no partial chain ever ships. No consequence gets
+/// computed above a failed depth.
 fn tool_cmca_allocate_recursive(input: CmcaRecursiveInput) -> Result<Value, String> {
     let root_outcome = run_one_allocation(&CmcaInput {
         candidates: input.root,

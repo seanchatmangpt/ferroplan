@@ -1,9 +1,9 @@
 # RPG crafting example — durative actions + resource allocation
 
-A worked example of using ferroplan as the **low-level operational planner** for a
-game agent: gather → craft → build, scheduled around a limited crew.
+A worked example: ferroplan as the **low-level operational planner** for a
+game agent. Gather → craft → build, scheduled against a limited crew.
 
-It demonstrates the primitives a live game needs:
+The primitives a live game needs, laid out here:
 
 | primitive | how it's modeled |
 |---|---|
@@ -19,15 +19,15 @@ ff -o examples/rpg/domain.pddl -f examples/rpg/build-1worker.pddl    # serialize
 ff -o examples/rpg/domain.pddl -f examples/rpg/build-3workers.pddl   # parallel,  makespan ~13
 ```
 
-The only difference between the two problems is `(= (workers) N)`. ferroplan holds
-a worker for each in-progress action and releases it at the action's end, so the
-crew size sets how much of the chain can run concurrently — exactly the
+The only difference between the two problems: `(= (workers) N)`. ferroplan holds
+a worker for each in-progress action, releases it at the action's end — crew
+size sets how much of the chain runs concurrently. Exactly the
 resource-allocation behavior a workforce/contract system needs.
 
 ## Notes / current limits
 
-- Plans are **satisficing**, not makespan-optimal (a good plan fast, not a proven
-  shortest one) — the right trade-off for a live game where an agent can plan,
-  act, and replan as the world changes.
+- Plans are **satisficing**, not makespan-optimal — a good plan fast, not a
+  proven shortest one. The right trade-off for a live game, where an agent
+  plans, acts, replans as the world shifts under it.
 - The same pattern models tools (`(axes)`), mana/cooldowns (a fluent that
-  regenerates over time), and machines — any renewable or consumable resource.
+  regenerates over time), machines — any renewable or consumable resource.

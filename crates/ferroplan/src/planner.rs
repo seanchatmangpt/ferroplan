@@ -293,14 +293,16 @@ fn plan_pddl3(
     }
 }
 
-/// Satisficing fallback for unsupported metrics: solve the HARD goals only,
-/// emit the plan with an explicit "metric not optimized" note (never claims a
-/// metric it did not optimize) — EXCEPT when the metric is the plain
-/// single-fluent `:action-costs` shape ([`crate::costs::metric_fluent`]),
-/// which the classical cost path optimizes even where the PDDL3 B&B compile
-/// refuses (e.g. fluent-valued cost increases fail its `cost_monotone`
-/// constant-only check). `optimize=false` (--satisfice) still reports the
-/// plan's cost without sweeping.
+/// The fallback run when the metric refuses to cooperate: solve the hard
+/// goals, nothing more, and stamp the plan with an honest "metric not
+/// optimized" note — no false credit taken for work not done. One
+/// exception on the books: the plain single-fluent `:action-costs` shape
+/// ([`crate::costs::metric_fluent`]) still gets optimized through the
+/// classical cost path, even when the PDDL3 branch-and-bound compile turns
+/// it away (fluent-valued cost increases fail its `cost_monotone`
+/// constant-only check, a wall the classical path just walks around).
+/// `optimize=false` (--satisfice) reports the plan's cost anyway — it just
+/// skips the sweep.
 #[allow(clippy::too_many_arguments)]
 fn satisficing_fallback(
     out: &mut String,
@@ -419,7 +421,8 @@ fn render_plan(
         }
     }
 }
-/// Plain FF best-first over the whole task (no partitioning) — the engine mode.
+/// No borders drawn — best-first runs the whole task raw, unpartitioned.
+/// The engine mode.
 pub fn run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) -> (String, i32) {
     let threads = if opts.threads == 0 {
         crate::par::num_threads()

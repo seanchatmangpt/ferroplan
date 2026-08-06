@@ -1,9 +1,9 @@
 # `rpg-world` — the universal RPG planning domain
 
 `domain.pddl` is the canonical low-level planning domain for a survival /
-village-building multiplayer RPG. It is **broad, not deep**: **~120 durative
-actions** over **~80 numeric resource stockpiles** and ~100 predicates, spanning a
-whole economy —
+village-building multiplayer RPG — a whole economy laid out flat, wired for a
+planner. **Broad, not deep**: **~120 durative actions** over **~80 numeric
+resource stockpiles** and ~100 predicates —
 
 > gathering · woodline · **metallurgy tiers** (copper/tin→bronze, iron→steel,
 > precious metals) · **farming** (till/plant/irrigate/harvest→flour) · **animal
@@ -13,11 +13,12 @@ whole economy —
 > recipes · **transport** · construction (build your own workstations, towers,
 > temple) · **civic / skill-training** · trade —
 
-with worker **roles**, a **reachable** map axiom, and a forall-gated village square.
-You never plan the whole thing at once: a scheduler hands out **contract-sized
-sub-tasks** (see below).
+wired to worker **roles**, a **reachable** map axiom, a forall-gated village
+square. Nobody plans the whole thing at once. A scheduler hands out
+**contract-sized sub-tasks** — the field runs on rations, not banquets (see
+below).
 
-It exercises essentially the whole engine at once:
+It runs the whole engine through its paces in one pass:
 
 | feature | in the domain |
 |---|---|
@@ -32,29 +33,29 @@ It exercises essentially the whole engine at once:
 
 ## The decomposition model (how it's meant to be used)
 
-A live game does **not** ask the planner for one monolithic "build the whole
-village" plan. A higher-level AI/scheduler carves the world goal into
+A live game never asks the planner for one monolithic "build the whole
+village" order. A higher-level AI/scheduler cuts the world goal into
 **contract-sized sub-tasks** — "make 8 planks", "forge 2 axes", "raise the
-square" — and hands each to an available worker for a time window. ferroplan plans
-each contract: an easy, **non-optimal, fast** plan.
+square" — and hands each to a worker for a time window. ferroplan clears each
+contract: an easy, **non-optimal, fast** plan, in and out.
 
-This isn't just convenient — it's load-bearing. The full gather→process→build
-chain in one shot exceeds the current temporal search ([#45](../../)): a smithing
-contract that must *also* synthesize all its own gathering does not solve, but the
-same contract with raw materials **pre-delivered** solves in 5 actions. So the
-decomposition is the architecture: **gathering is one contract, processing
-another, building another** — connected through the shared stockpile.
+Not a convenience — the architecture itself. The full gather→process→build
+chain in one shot overruns the current temporal search ([#45](../../)): a smithing
+contract forced to also synthesize its own gathering doesn't solve. Feed it the
+same job with raw materials **pre-delivered**, and it clears in 5 actions. So the
+decomposition holds the weight: **gathering is one contract, processing
+another, building another** — chained through the shared stockpile.
 
 ## Validated contracts (`contracts/`)
 
 **23 self-contained sub-tasks, all verified to solve** against `domain.pddl` —
-spanning every subsystem (gathering, smithing, masonry, textiles, cooking,
+every subsystem covered: gathering, smithing, masonry, textiles, cooking,
 alchemy, farming, husbandry, glass/pottery, carpentry, weapons, leatherworking,
-hunting, transport, defense, civic, trade, and full village builds). Below is a
-representative slice; see the directory for all of them. (Several multi-step
-crafting chains — `weapons`, `leatherworking`, `hunting`, `transport` — only became
-solvable after the [#45](../../) temporal-search improvement: weighted-`g` +
-two-phase helpful-action pruning, which raised the per-contract plan ceiling.)
+hunting, transport, defense, civic, trade, full village builds. A representative
+slice below; the directory holds the rest. (Several multi-step crafting chains —
+`weapons`, `leatherworking`, `hunting`, `transport` — didn't clear until the
+[#45](../../) temporal-search improvement: weighted-`g` + two-phase
+helpful-action pruning, which raised the per-contract plan ceiling.)
 
 | contract | what it shows | makespan |
 |---|---|---|
@@ -83,16 +84,16 @@ ff -o examples/rpg-world/domain.pddl -f examples/rpg-world/contracts/smithing.pd
 ```
 
 **Long chains need decomposing.** A few subsystems (metallurgy, weapons, leather,
-hunting, transport) have crafting chains long enough that a *single* contract
-trying to do the whole chain from raw inputs exceeds the temporal search — exactly
-the signal to split it: one contract gathers/refines the intermediate, another
-consumes it. The actions are all in the domain and work; keep each contract short.
+hunting, transport) run crafting chains long enough that one contract trying the
+whole thing from raw inputs blows the temporal search — the signal to split:
+one contract gathers/refines the intermediate, another burns it. Every action
+in the domain works fine on its own; keep the contract short and it clears.
 
 ## Authoring your own contracts — tips that keep them fast
 
-- Keep each contract **small** (a few goal units); let the scheduler chain them.
-- **Cluster** the workstations a contract needs at one location to avoid travel.
+- Keep each contract **small** (a few goal units); the scheduler chains them.
+- **Cluster** the workstations a contract needs at one site — travel costs time.
 - Give the worker its tools/role in `:init` (`has-axe`, `smith`, …).
 - Initialize every numeric fluent you reference (`(= (logs) 0)`).
-- You only need to declare the **objects/types you actually use** — empty types
-  are tolerated (a smithing contract needn't declare building `slot`s).
+- Declare only the **objects/types you actually use** — empty types pass
+  clean (a smithing contract needs no building `slot`s on the manifest).

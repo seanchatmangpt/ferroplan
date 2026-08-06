@@ -1,11 +1,13 @@
-//! Output rendering. Default = classic Metric-FF format (drop-in for the planner
-//! crate + the differential validator); `-ipc` = SGPlan6's IPC temporal format.
+//! Signal out to the wire. Default channel speaks classic Metric-FF — the dialect
+//! the planner crate and the differential validator already trust. Flip `-ipc` and
+//! the transmission shifts to SGPlan6's IPC temporal cipher.
 
 use crate::packed::PackedTask;
 
 use crate::resolve::Stats;
 
-/// Classic-FF plan body: `step    0: NAME ARGS` framing + trailing 5-space line.
+/// The classic-FF dispatch log: `step    0: NAME ARGS`, each line stamped, trailing
+/// five spaces like a cursor left waiting for the next order.
 pub fn ff_plan(task: &PackedTask, ops: &[usize]) -> String {
     let mut s = String::from("\nff: found legal plan as follows\n\nstep ");
     for (i, &oi) in ops.iter().enumerate() {
@@ -15,8 +17,9 @@ pub fn ff_plan(task: &PackedTask, ops: &[usize]) -> String {
     s
 }
 
-/// SGPlan6 IPC temporal format: `0.001: (NAME ARGS) [1]` + `; ` headers.
-/// `metric` fills the `; MetricValue` line when present (PDDL3 optimization).
+/// SGPlan6's IPC cipher: `0.001: (NAME ARGS) [1]`, headers pinned with `; `.
+/// `metric` slots into the `; MetricValue` line when the PDDL3 optimizer left a number
+/// behind — otherwise the line reads empty, a blank confirming nothing was optimized.
 pub fn ipc_plan(task: &PackedTask, ops: &[usize], metric: Option<f64>) -> String {
     let mv = match metric {
         Some(v) => format!("; MetricValue {}\n", v),
@@ -54,7 +57,7 @@ pub fn timing(stats: &Stats, threads: usize) -> String {
     )
 }
 
-/// Footer for the PDDL3 metric-optimization path (classic-FF mode).
+/// Sign-off for the PDDL3 metric-optimization run, classic-FF dialect.
 pub fn metric_footer(
     cost: f64,
     iterations: usize,
@@ -75,7 +78,7 @@ pub fn metric_footer(
     )
 }
 
-/// The post-parse search-config banner.
+/// The banner that fires the moment parsing clears and the search rig spins up.
 pub fn preamble(threads: usize) -> String {
     format!(
         "\n\nno metric specified. plan length assumed.\n\n\

@@ -1,16 +1,18 @@
-//! Temporal partition-and-resolve decomposer (Phase B) — the SGPlan partition loop
-//! ([`crate::resolve`]) brought to the durative/numeric path, gated by `FF_TDECOMP`.
+//! Phase B, wire-side: the partition-and-resolve decomposer for the durative/numeric
+//! path. Same signal as the SGPlan partition loop ([`crate::resolve`]), rerouted
+//! through the temporal grid, behind the `FF_TDECOMP` breaker.
 //!
-//! Partition the world goal into contracts, solve each as a TEMPORAL subproblem from
-//! the running composed state (`temporal::solve_from`), compose the timed subplans
-//! strictly SEQUENTIALLY (each contract offset past the previous makespan + an ε seam),
-//! and MERGE groups on conflict down to a monolithic `temporal::solve` — so the
-//! decomposer is solvable EXACTLY when `temporal::solve` is. Each subplan is already
-//! ε-separated internally; `validate`/`treplay` order same-epoch happenings on an
-//! ε-grid-rounded time key (ends before starts), so the offset concatenation stays
-//! valid without re-separation. Sequential composition is completeness-preserving here
-//! because the RPG domain is single-agent with no `over all` invariants spanning
-//! contracts; anything needing cross-contract concurrency falls through to monolithic.
+//! Cut the world goal into contracts. Run each as its own TEMPORAL subproblem off the
+//! running composed state (`temporal::solve_from`). Splice the timed subplans in
+//! strict SEQUENCE — each contract dispatched past the previous makespan plus an ε
+//! seam — and when two contracts collide, MERGE the groups down toward a monolithic
+//! `temporal::solve`. Net effect: the decomposer is solvable EXACTLY when the
+//! monolith is — no dead channel. Every subplan already carries its own ε-separation;
+//! `validate`/`treplay` order same-epoch happenings on an ε-grid-rounded time key
+//! (ends clear before starts), so the spliced timeline holds without re-separation.
+//! Sequential composition doesn't lose completeness here — the RPG domain runs single
+//! agent, no `over all` invariant spans contracts — anything needing cross-contract
+//! concurrency drops straight through to the monolith.
 
 use crate::ground::{ground_stratified, Outcome};
 use crate::hash::FxHashSet;
@@ -21,29 +23,31 @@ use crate::temporal::{
 };
 use crate::types::{Domain, Problem};
 
-/// PDDL2.1 ε-separation between mutex happenings (matches `temporal::EPS`).
+/// The ε gap kept between mutex happenings — PDDL2.1 spec, matches `temporal::EPS`.
+/// Small enough to be noise, big enough to keep two events from landing on the same
+/// tick.
 const EPS: f64 = 0.001;
 
-/// One solved contract in a [`Decomp`]: the sub-goal it discharges (rendered for
-/// inspection), the timed sub-plan that achieves it, and where that sub-plan sits in
-/// the stitched global timeline (`offset`).
+/// One cleared contract inside a [`Decomp`]: the sub-goal it settled (rendered for the
+/// log), the timed sub-plan that ran it, and where that sub-plan sits on the stitched
+/// global timeline (`offset`).
 pub(crate) struct ContractRec {
     pub goal: String,
     pub plan: TimedPlan,
     pub offset: f64,
 }
 
-/// The inspectable result of decomposing a temporal goal: the ordered contracts, the
-/// stitched whole-goal plan, and whether the goal had to fall back to a monolithic
-/// solve (un-splittable, or the split didn't validate).
+/// The full dispatch record for a decomposed temporal goal: the ordered contracts, the
+/// stitched whole-goal plan, and whether the run had to fall back to a monolithic
+/// solve (un-splittable goal, or a split that failed validation).
 pub(crate) struct Decomp {
     pub contracts: Vec<ContractRec>,
     pub plan: TimedPlan,
     pub monolithic: bool,
 }
 
-/// Render a contract's sub-goal (positive facts + numeric thresholds) for inspection,
-/// e.g. `(order o1), (order o2)` or `coin >= 15`.
+/// Render a contract's sub-goal — positive facts plus numeric thresholds — into a
+/// readable log line, e.g. `(order o1), (order o2)` or `coin >= 15`.
 fn render_subgoal(task: &PackedTask, g: &crate::partition::Subgoal) -> String {
     let mut parts: Vec<String> = g
         .pos
@@ -60,8 +64,9 @@ fn render_subgoal(task: &PackedTask, g: &crate::partition::Subgoal) -> String {
     }
 }
 
-/// Render a numeric goal. The canonical recipe-gate shape `(fluent op number)` reads
-/// as `fluent op number`; anything else falls back to a compact debug form.
+/// Render a numeric goal for the dispatch log. The canonical recipe-gate shape
+/// `(fluent op number)` prints clean as `fluent op number`; anything stranger falls
+/// back to a compact debug form.
 fn render_numpre(task: &PackedTask, np: &crate::types::NumPre) -> String {
     use crate::types::{CompOp, NExpr};
     let op = match np.op {
@@ -84,8 +89,9 @@ fn render_numpre(task: &PackedTask, np: &crate::types::NumPre) -> String {
     }
 }
 
-/// Monolithic fallback as a single-contract [`Decomp`] (the goal couldn't be split, or
-/// the split didn't validate). `plan` is the whole-goal plan from `temporal::solve`.
+/// Blackout fallback: wrap a whole-goal solve as a single-contract [`Decomp`] — the
+/// partition failed to cut, or the cut plan didn't validate. `plan` is the raw
+/// whole-goal plan straight off `temporal::solve`.
 fn monolithic_decomp(goal: String, plan: TimedPlan) -> Decomp {
     Decomp {
         contracts: vec![ContractRec {
@@ -102,11 +108,12 @@ pub fn solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<Timed
     decompose(domain, problem, threads).map(|d| d.plan)
 }
 
-/// The escalation ladder's decomposer rung ([`temporal::solve`]): decompose, but
-/// WITHOUT the monolithic fallbacks — by the time the ladder gets here it has
-/// already exhausted the monolithic search at both the ambient and `Full` tiers,
-/// so re-running it (single-group collapse, or a failed composition validate)
-/// would burn the same node budget a third time for a guaranteed `None`.
+/// The escalation ladder's decomposer rung, called from [`temporal::solve`]: run the
+/// decompose pass but cut the monolithic fallback wire — by the time the ladder
+/// reaches here it has already burned the monolithic search at both the ambient and
+/// `Full` tiers. Re-running it (single-group collapse, or a failed composition
+/// validate) would spend the same node budget a third time chasing a guaranteed
+/// `None`.
 pub(crate) fn solve_after_ladder(
     domain: &Domain,
     problem: &Problem,
@@ -119,18 +126,19 @@ pub(crate) fn solve_after_ladder(
     decompose_inner(domain, problem, threads, tier, false).map(|d| d.plan)
 }
 
-/// Decompose `problem`'s temporal goal into ordered contracts, solve and stitch them,
-/// and return the full inspectable [`Decomp`] (or `None` if even the monolithic
-/// fallback fails). `solve` is this minus the contract breakdown.
+/// Cut `problem`'s temporal goal into ordered contracts, run and splice them, and
+/// hand back the full dispatch record as a [`Decomp`] — or `None` if even the
+/// monolithic fallback goes dark. `solve` is this signal, stripped of the contract
+/// breakdown.
 pub(crate) fn decompose(domain: &Domain, problem: &Problem, threads: usize) -> Option<Decomp> {
     let tier = crate::features::demand_mode();
     decompose_inner(domain, problem, threads, tier, true)
 }
 
-/// `monolithic_fallback`: whether a single-group collapse / failed composition
-/// validate falls back to the whole-goal search (direct `FF_TDECOMP` / `decompose`
-/// API calls — the completeness guarantee) or returns `None` (the ladder, which has
-/// already run the monolithic search at both tiers and failed).
+/// `monolithic_fallback`: whether a single-group collapse or a failed composition
+/// validate drops back to the whole-goal search (direct `FF_TDECOMP` / `decompose`
+/// calls — the completeness guarantee holds) or goes straight to `None` (the ladder
+/// path, where the monolithic search already ran both tiers and came back empty).
 fn decompose_inner(
     domain: &Domain,
     problem: &Problem,
@@ -351,13 +359,13 @@ fn decompose_inner(
     }
 }
 
-/// Partition the world goal into contracts. v1: positive goal facts grouped by the
-/// goal-interaction graph over synthesized mutex vars, numeric goals as singletons
-/// (exactly [`interaction_partition`]); then ORDER the contracts so a goal that is
-/// itself a recipe input to another goal is produced LAST (consumer before the
-/// consumed goal) — without it, the consumer drains the producer-goal and the
-/// resolver merges them back into the hard conjunction. The resolver still coarsens
-/// by merge on any residual conflict.
+/// Cut the world goal into contracts. v1: positive goal facts grouped by the
+/// goal-interaction graph over synthesized mutex vars, numeric goals riding solo
+/// (straight [`interaction_partition`]); then ORDER the contracts so a goal that is
+/// itself a recipe input to another goal fires LAST — consumer dispatched before the
+/// consumed goal. Skip this and the consumer drains the producer-goal dry, and the
+/// resolver merges them back into one hard conjunction. Residual conflicts still get
+/// coarsened by merge, same as ever.
 fn partition_temporal(task: &PackedTask, kind: &[Kind], mutex: &[Vec<u32>]) -> Vec<Subgoal> {
     let mut groups = regress_predicate_preconds(task, kind);
     let base = interaction_partition(task, mutex);
@@ -374,12 +382,13 @@ fn partition_temporal(task: &PackedTask, kind: &[Kind], mutex: &[Vec<u32>]) -> V
     order_contracts(task, kind, groups)
 }
 
-/// Stage 3: for each PREDICATE goal fact, regress its achiever's PERSISTENT predicate
-/// preconditions (`forall`-expanded by grounding) into their own contracts — e.g.
-/// `built-square` needs `(forall (?s) (built-house ?s))`, but no contract builds the
-/// houses, so the square branch is the failing monolith. Emit `{built-house s0}`,
-/// `{built-house s1}`. Filtered to facts whose achiever has numeric preconditions
-/// (real structural builds), which excludes trivially-achieved travel/location facts.
+/// Stage 3: for each PREDICATE goal fact, trace its achiever's PERSISTENT predicate
+/// preconditions back (`forall`-expanded at grounding) into contracts of their own —
+/// e.g. `built-square` needs `(forall (?s) (built-house ?s))`, but if no contract
+/// builds the houses, the square branch is the dead channel that fails monolithic.
+/// Emit `{built-house s0}`, `{built-house s1}`. Filtered down to facts whose achiever
+/// carries a numeric precondition (real structural builds) — trivially-achieved
+/// travel/location facts don't make the cut.
 fn regress_predicate_preconds(task: &PackedTask, kind: &[Kind]) -> Vec<Subgoal> {
     let goal: FxHashSet<u32> = task.goal_pos.iter().copied().collect();
     // Bridge a fact `f`'s achiever (an END snap) to its matching START (via the
@@ -441,7 +450,8 @@ fn regress_predicate_preconds(task: &PackedTask, kind: &[Kind]) -> Vec<Subgoal> 
         .collect()
 }
 
-/// The goal fluents a contract directly demands (numeric goal LHS fluents).
+/// The goal fluents a contract calls on directly — the numeric goal LHS fluents, the
+/// wire's demand signature.
 fn group_resources(g: &Subgoal) -> Vec<u32> {
     g.num
         .iter()
@@ -452,10 +462,11 @@ fn group_resources(g: &Subgoal) -> Vec<u32> {
         .collect()
 }
 
-/// Stable topological order: edge a→b (a before b) when producing contract `a`
-/// CONSUMES a resource that is contract `b`'s own goal — so `b` (the consumed goal)
-/// is produced after its consumers and its final value survives. Cycles (mutual
-/// consumption) fall back to original order and are handled by merge.
+/// Stable topological dispatch order: edge a→b (a before b) when running contract
+/// `a` CONSUMES a resource that is contract `b`'s own goal — so `b`, the consumed
+/// goal, fires after its consumers and its final ledger value survives the run.
+/// Cycles (mutual consumption, a closed loop with no clean exit) fall back to
+/// original order and get handled downstream by merge.
 fn order_contracts(task: &PackedTask, kind: &[Kind], groups: Vec<Subgoal>) -> Vec<Subgoal> {
     let n = groups.len();
     if n < 2 {

@@ -1,47 +1,50 @@
 //! # ferroplan
 //!
-//! A fast, data-parallel [PDDL](https://en.wikipedia.org/wiki/Planning_Domain_Definition_Language)
-//! planner in Rust — a deterministic planning core for the age of AI. The engine is a
-//! delete-relaxation FF heuristic over a data-oriented (bitset / structure-of-arrays)
-//! task representation, with enforced hill-climbing + best-first fallback and parallel
-//! grounding / heuristic evaluation.
+//! Night-shift dispatcher for [PDDL](https://en.wikipedia.org/wiki/Planning_Domain_Definition_Language)
+//! problems — a deterministic core running cold and fast through the search
+//! space, built for an era that stopped trusting hand-tuned intuition. Under
+//! the hood: a delete-relaxation FF heuristic riding a data-oriented (bitset,
+//! structure-of-arrays) task grid, hill-climbing until it stalls, best-first
+//! standing by to pick up the slack, grounding and heuristic work sharded
+//! across threads.
 //!
-//! PDDL coverage: STRIPS, typing, ADL (conditional/`forall` effects, equality),
-//! numeric fluents, derived axioms, **PDDL3** soft-goal preferences/metric, and
-//! **PDDL2.1 temporal** durative actions (constant / parameter-dependent durations,
-//! duration inequalities, timed initial literals). Plus an SGPlan-style
-//! **partition-and-resolve** mode.
+//! Coverage across the wire: STRIPS, typing, ADL (conditional/`forall`
+//! effects, equality), numeric fluents, derived axioms, **PDDL3** soft-goal
+//! preferences and metric, **PDDL2.1 temporal** durative actions, and
+//! **PPDDL 1.0** probabilistic planning — explicit-MDP policy synthesis,
+//! rewards, simulation, validation, the whole chain. An SGPlan-style
+//! **partition-and-resolve** mode runs the split jobs too.
+//!
+//! [`eve`] is the relational contract layer above the engine: human intent
+//! gets grounded against a Genesis ontology, run through SPARQL, cut into
+//! HDDL pieces, kept honest by PPDDL when the world won't commit to a single
+//! outcome, then handed off to ggen/MCP+ — Truex receipt and replay chain
+//! unbroken the whole way down.
 //!
 //! ## The public API (all `serde`-serializable)
 //!
-//! - [`solve`] — plan a domain + problem; returns a [`Solution`] (mode auto-detected).
-//! - [`decompose`] — split a temporal goal too big for one-shot search into ordered,
-//!   individually-solved [`Contract`]s, stitched into one validated plan
-//!   ([`Decomposition`]).
-//! - [`parse`] — syntax-check PDDL and summarize its structure ([`ParseReport`])
-//!   *without* grounding or solving — fast feedback for an authoring loop.
-//! - [`Session`] — ground once, **replan many**: hold a mutable world state
-//!   (`set_fact`/`set_fluent`) and re-solve per tick paying only the search
-//!   (~10x per-tick on small contracts) — the embedding API for games/simulations.
-//! - [`plan::validate_plan`] — independently check a plan under ferroplan's semantics.
+//! - [`solve`] — hand it a domain and a problem, it hands back a [`Solution`].
+//! - [`solve_ppddl`] — cuts a bounded stochastic policy out of PPDDL.
+//! - [`simulate_ppddl`] / [`validate_ppddl_policy`] — receipts from the probabilistic run.
+//! - [`decompose`] — breaks a temporal goal into ordered [`Contract`]s and works them.
+//! - [`Eve::enter`] — compiles human intent into the Genesis/HDDL/PPDDL/ggen/MCP+
+//!   handoff chain, no actuation authority granted along the way.
+//! - [`route_planning_request`] — picks the lawful rail for a typed planning request.
+//! - [`solve_planning_type`] — runs every admitted planning family over the bounded universal model.
+//! - [`parse`] / [`parse_ppddl`] — quick read on syntax and structure, no full commitment.
+//! - [`Session`] — ground once, replan as many times as the world keeps shifting.
+//! - [`plan::validate_plan`] — a second set of eyes on a deterministic plan.
 //!
 //! ## Quick start
 //! ```no_run
 //! let domain = std::fs::read_to_string("domain.pddl").unwrap();
 //! let problem = std::fs::read_to_string("problem.pddl").unwrap();
 //!
-//! // Catch syntax mistakes before solving.
-//! let report = ferroplan::parse(&domain);
-//! assert!(report.ok, "{:?}", report.error);
-//!
 //! let solution = ferroplan::solve(&domain, &problem, &ferroplan::Options::default()).unwrap();
 //! if let Some(plan) = solution.plan {
 //!     for step in &plan.steps { println!("{}", step.action); }
 //! }
 //! ```
-//!
-//! The lower-level text-rendering entry points (`run_planner`, `run_ff`) produce
-//! classic Metric-FF / IPC output and back the `ff` binary.
 
 // engine (data-oriented core)
 pub mod bitset;

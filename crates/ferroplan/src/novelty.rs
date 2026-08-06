@@ -1,38 +1,39 @@
-//! Novelty rung (0.17 roadmap Phase 3): greedy best-first ordered by
-//! **state novelty** first, heuristic second — the BFWS recipe (Lipovetzky
-//! & Geffner; the engine idea inside the IPC 2018 agile winner and both
-//! IPC 2023 classical winners) in its width-1 form.
+//! Third rung down, third chance at the exit. Greedy best-first, but the
+//! sort order is inverted from what you'd expect: **novelty** first,
+//! heuristic a distant second — the BFWS play (Lipovetzky & Geffner, the
+//! same engine riding under the IPC 2018 agile crown and both 2023
+//! classical wins), run here in its width-1 cut.
 //!
-//! Novelty here: a successor is NOVEL iff it makes some fact true that no
-//! previously kept state in the same PARTITION CELL has made true. Cells
-//! are the ⟨unachieved-goal count⟩ — the classic BFWS partition, kept
-//! deliberately COARSE: a finer cell (an early draft partitioned by
-//! parent-h too) makes nearly every state novel, and the order
-//! degenerates back to plain h-greed (measured on the catalog-consume
-//! fixture: the same 895-step wandering plan, byte-identical length).
-//! Novel states are expanded before non-novel ones regardless of h;
-//! within a novelty class the order is ⟨goal count, parent h⟩.
+//! What counts as novel: a successor earns the tag iff it lights up a fact
+//! nobody in its PARTITION CELL has lit before. Cells are keyed on
+//! ⟨unachieved-goal count⟩ — the standard BFWS cut, held deliberately
+//! COARSE on purpose. Sharpen the cell (an early build also split on
+//! parent-h) and almost everything reads novel — the order collapses back
+//! into plain h-greed, no better than not having the rung at all (checked
+//! against the catalog-consume fixture: identical 895-step wander, same
+//! length to the byte). Novel states jump the queue ahead of stale ones no
+//! matter what h says; inside one novelty class the tiebreak runs
+//! ⟨goal count, parent h⟩.
 //!
-//! Why a third rung: EHC and the LAMA rung both die where the relaxed
-//! plan's gradient is wrong or exhausted — the modern corpora
-//! (IPC 2018/2023) are full of exactly those domains, and every winner
-//! there carries a novelty component (docs/landscape-2026.md). Novelty-
-//! first exploration does not ask h for permission to visit a
-//! structurally new state. This rung runs BOUNDED after the LAMA rung
-//! gives up and before the complete weighted fallback — and the corpus
-//! referee made it OPT-IN (`FF_NOVELTY=1`): "can only add coverage"
-//! is true per-instance but not per-BUDGET — the rung's wall-time tax
-//! ahead of the complete fallback cost 51 budget-edge instances against
-//! 7 gained across the classical boards (full arithmetic in the 0.17
-//! Phase 3 record). The gains are real where h truly dies (+3 on
-//! 2018-sat, +3 on prop-2006) and stay reachable via the flag.
-//! (`FF_NOVELTY_ONLY=1` is the probe hatch; `--search bfs` never
-//! enters either.)
+//! Why bolt on a third rung at all: EHC and the LAMA rung both flatline
+//! exactly where the relaxed plan's gradient goes bad or runs dry — and the
+//! current corpora (IPC 2018/2023) are stacked with domains built to do
+//! precisely that, every winner among them carrying a novelty component
+//! (docs/landscape-2026.md). Novelty-led search doesn't wait on h's
+//! permission to step into unfamiliar territory. This rung fires BOUNDED,
+//! after LAMA taps out and before the weighted fallback takes the case —
+//! and the corpus referee kept it OPT-IN (`FF_NOVELTY=1`): "can only help"
+//! holds per-instance, not per-BUDGET — the wall-clock toll paid ahead of
+//! the fallback cost 51 budget-edge instances against 7 clawed back across
+//! the classical boards (full ledger in the 0.17 Phase 3 record). Where h
+//! genuinely dies the wins are real (+3 on 2018-sat, +3 on prop-2006) —
+//! still one flag-flip away.
+//! (`FF_NOVELTY_ONLY=1` is the isolation switch; `--search bfs` skips both.)
 //!
-//! Determinism: identical contract and structure to the LAMA rung —
-//! fixed pop batches from dual (preferred/normal) heaps, order-preserving
-//! parallel h evaluation, serial insertion; plans are identical at any
-//! thread count.
+//! Determinism: same contract, same shape as the LAMA rung — fixed pop
+//! batches off dual (preferred/normal) heaps, order-preserving parallel h
+//! pass, serial insert. Same plan out no matter how many threads are on
+//! the clock.
 
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -44,7 +45,8 @@ use crate::par;
 
 const PREF_BATCH: usize = 192;
 const NORM_BATCH: usize = 64;
-/// Key layout: novel flag dominates, then unachieved goals, then parent h.
+/// Sort key, top to bottom: the novel flag rules the room, unachieved
+/// goals next, parent h left to settle the rest.
 const W_NOVEL: i64 = 1 << 40;
 const W_GOALS: i64 = 1 << 20;
 
@@ -98,8 +100,9 @@ fn unachieved(task: &PackedTask, s: &State, goal_pos: &[u32]) -> u16 {
     n
 }
 
-/// Bounded novelty-first greedy search toward the task goal. Returns the
-/// plan ops and states evaluated, or None (dead end, cap, or node cap).
+/// Bounded novelty-led run toward the task's goal state. Comes back with
+/// the plan's ops and the states it burned through, or nothing at all —
+/// dead end, eval cap, node cap, take your pick.
 pub fn search(
     task: &PackedTask,
     threads: usize,
@@ -118,8 +121,9 @@ pub fn search(
     )
 }
 
-/// [`search`] generalized over a start state and subgoal (the partition
-/// cascade's form; novelty tables are fresh per call by construction).
+/// [`search`], generalized to run from any start state against any
+/// subgoal — the shape the partition cascade needs. Novelty tables come
+/// up clean on every call, by construction.
 #[allow(clippy::too_many_arguments)]
 pub fn search_subgoal(
     task: &PackedTask,

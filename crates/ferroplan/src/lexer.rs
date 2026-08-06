@@ -1,12 +1,17 @@
-//! Hand-written PDDL tokenizer (mirrors `lex-ops_pddl.l` / `lex-fct_pddl.l`).
+//! Streetside decoder for raw PDDL feed — a hand-cut tokenizer walking the
+//! same beat as `lex-ops_pddl.l` / `lex-fct_pddl.l`, ghost-cloned byte for
+//! byte.
 //!
-//! Faithful quirks reproduced:
-//! - every NAME / VARIABLE is uppercased (`strupcase`);
-//! - `;` line comments and `"`-delimited block comments are skipped;
-//! - commas (and any other stray char) are treated as whitespace;
-//! - a name may contain internal `-`/`_` (so `pick-up`, `consumed-resources`,
-//!   `load_vehicle` are single tokens), while a standalone `-` is `Dash`
-//!   (the type separator / arithmetic minus).
+//! Old-world scars, kept on purpose:
+//! - every NAME / VARIABLE gets forced to upper-case, no exceptions — the
+//!   legacy chrome demands it;
+//! - `;` bleeds a line to static, `"..."` blocks go dark until the next
+//!   quote closes the circuit;
+//! - commas and other stray glyphs are noise — swallowed, not logged;
+//! - a name can carry `-`/`_` welded inside it (`pick-up`,
+//!   `consumed-resources`, `load_vehicle` read as one token), but a lone `-`
+//!   standing clear of digits is `Dash` — the type-separator, the minus
+//!   sign, take your pick.
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Tok {
@@ -19,7 +24,9 @@ pub enum Tok {
     Op(String), // = < <= > >= + * /
 }
 
-/// Tokenize, returning the tokens and the parallel 1-based source line of each.
+/// Run the feed through the decoder. Returns the token stream paired with a
+/// shadow trail of 1-based source lines — one line-tag per token, so a fault
+/// downstream can be traced back to its exact origin in the wire.
 pub fn lex(input: &str) -> Result<(Vec<Tok>, Vec<u32>), crate::types::ParseError> {
     let b = input.as_bytes();
     let n = b.len();

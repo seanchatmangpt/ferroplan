@@ -1,11 +1,11 @@
-//! Read the "Animate this plan" handoff the Solver web page (`ferroplan-wasm/web/`)
-//! writes to `localStorage['ferroplan.handoff']` before navigating here — the domain,
-//! problem, and the solution ALREADY SOLVED there, so clicking "Animate" shows that
-//! exact plan instead of falling back to the embedded demo or re-solving (which could
-//! disagree with the Solver's result if search options ever differ).
+//! A dead-drop from the Solver page. Before it routes here, `ferroplan-wasm/web/`
+//! stashes the domain, the problem, and a plan ALREADY SOLVED into
+//! `localStorage['ferroplan.handoff']` — so a click on "Animate" plays back the
+//! exact run instead of falling to the embedded demo, or worse, re-solving and
+//! risking a mismatch if search options ever drift apart.
 //!
-//! wasm32-only; `main.rs` calls [`try_load`] at startup and falls back to the
-//! embedded demo when it returns `false` (no handoff, or it failed to parse).
+//! wasm32-only. `main.rs` calls [`try_load`] at startup and falls back to the
+//! embedded demo the moment it comes back `false` — no drop found, or it wouldn't parse.
 
 use bevy::prelude::*;
 
@@ -14,8 +14,8 @@ use crate::scene::Scene;
 
 const KEY: &str = "ferroplan.handoff";
 
-/// Read, parse, and apply the handoff if present. Returns `true` on success (the
-/// scene + plan are populated and the caller should skip loading the demo).
+/// Pull the drop, crack it open, wire it in — if it's there at all. Returns `true`
+/// on a clean hit, scene and plan both loaded, telling the caller to skip the demo.
 pub(crate) fn try_load(scene: &mut Scene, plan: &mut Plan) -> bool {
     let Some(raw) = read_local_storage(KEY) else {
         return false;

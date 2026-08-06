@@ -43,7 +43,7 @@ cut).
   satisficing; the organizers' retrospective (Taitler et al., AI
   Magazine 2024) names the field's biggest struggle as **PDDL
   feature support** — quantifiers, disjunctions, `imply`, negative
-  goal conditions. That is a ferroplan STRENGTH (the 0.10 DNF-static
+  goal conditions. That's a ferroplan STRENGTH (the 0.10 DNF-static
   fix took openstacks-ADL 6/30 → 30/30); showing up with full ADL
   may be worth real coverage against the modern field.
   (ipc2023-classical.github.io; dataset:
@@ -300,3 +300,4 @@ the user publishes.
 - The 0.15/0.16 carried list (h-surgery end-gated credit, transport
   route-structure fence, continuous `#t`, fixpoint/stratified
   unification, belief-aware dormancy) — unchanged.
+</content>

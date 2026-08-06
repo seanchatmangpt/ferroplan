@@ -1,7 +1,8 @@
-//! Solve off-thread and animate the plan trace: a timeline scrubbed by keyboard,
-//! with mobiles tweened between the node they're on in successive snapshots.
+//! The solver runs dark, off the main thread, while the timeline waits on a
+//! keystroke. Mobiles ghost between snapshots — the shadow of one node bleeding
+//! into the next — tweened frame by frame across the recorded trace.
 //!
-//! Controls: **S** solve · **Space** play/pause · **←/→** step · **R** reset.
+//! Controls: **S** wake the solver · **Space** run/hold · **←/→** step the tape · **R** wipe.
 
 use std::collections::HashMap;
 
@@ -25,20 +26,20 @@ pub(crate) struct SolveResult {
 pub struct Plan {
     pub steps: Vec<Step>,
     pub snapshots: Vec<StateSnapshot>,
-    /// Timeline cursor. For classic/numeric plans this is a step index in
-    /// `0..=steps.len()`; for temporal plans it is wall-clock plan time in
-    /// `0..=makespan` (so it lines up with the Gantt time axis).
+    /// The needle. Classic runs count it in steps, `0..=steps.len()`; temporal
+    /// runs count it in seconds of plan-time, `0..=makespan`, synced to the
+    /// Gantt axis so both views read the same clock.
     pub t: f32,
     pub playing: bool,
     pub status: String,
-    /// True for temporal plans (overlapping durative actions): `t` is time, the
-    /// graph isn't snapshot-animated, and the Gantt timescale view is shown.
+    /// Marks a temporal run — overlapping durative actions. The graph stops
+    /// tweening between snapshots and the timescale readout takes over.
     pub temporal: bool,
     pub makespan: f32,
 }
 
 impl Plan {
-    /// Upper bound of the timeline cursor `t` — makespan (temporal) or step count.
+    /// Where the needle runs out — makespan for a temporal job, step count otherwise.
     pub fn span(&self) -> f32 {
         if self.temporal {
             self.makespan.max(1e-3)
@@ -47,13 +48,13 @@ impl Plan {
         }
     }
 
-    /// Cursor as a `0..=1` fraction of the timeline (for the fill / playhead).
+    /// The needle's read, `0..=1` — feeds the fill bar and the playhead.
     pub fn frac(&self) -> f32 {
         (self.t / self.span()).clamp(0.0, 1.0)
     }
 
-    /// Action start time (temporal) or step start index, as a fraction of the
-    /// timeline — where the transport notches and Gantt bars begin.
+    /// Where an action ignites, as a fraction of the run — the coordinate the
+    /// transport notches and Gantt bars key off of.
     pub fn start_frac(&self, step: &Step, idx: usize) -> f32 {
         let v = if self.temporal {
             step.time.unwrap_or(0.0) as f32
@@ -109,9 +110,9 @@ pub fn controls(
     }
 }
 
-/// Sorted, de-duplicated timeline marks to snap stepping to: every action's
-/// start (and end, temporally), plus 0 and the span. Classic plans fall back to
-/// integer step boundaries.
+/// The waypoints the step keys snap to — every action's ignition (and, on a
+/// temporal run, its burnout), plus zero and the far edge. Classic runs fall
+/// back to plain integer boundaries.
 fn marks(plan: &Plan) -> Vec<f32> {
     if !plan.temporal {
         return (0..=plan.steps.len()).map(|i| i as f32).collect();
@@ -158,10 +159,10 @@ fn solve_blocking(domain: String, problem: String) -> SolveResult {
     }
 }
 
-/// Build the animator's [`SolveResult`] (steps + replayed snapshots) from an
-/// already-computed [`ferroplan::Solution`] — shared by the native `S`-key solve
-/// path and the web Solver page's "Animate this plan" handoff (`webhandoff`),
-/// which hands over a plan already solved there instead of resolving it.
+/// Assemble the animator's [`SolveResult`] — steps plus replayed snapshots — from
+/// a [`ferroplan::Solution`] already pulled off the wire. Two callers converge
+/// here: the native `S`-key job, and the web Solver page's handoff (`webhandoff`),
+/// which arrives pre-solved and asks only to be replayed, not recomputed.
 pub(crate) fn result_from_solution(
     domain: &str,
     problem: &str,
@@ -206,10 +207,10 @@ pub(crate) fn result_from_solution(
     }
 }
 
-/// Load a [`SolveResult`] straight into the timeline, as if it had just finished
-/// solving — used by both `poll_solve` (native solve completion) and the web
-/// handoff (a plan already solved on the Solver page). `autoplay` starts playback
-/// immediately (the handoff path: the user explicitly clicked "Animate this plan").
+/// Drop a [`SolveResult`] straight onto the timeline, as if the solve had just
+/// landed — called from `poll_solve` on native completion, and from the web
+/// handoff when the Solver page already did the work. `autoplay` fires the tape
+/// immediately: the signature of a user who clicked "Animate this plan."
 pub(crate) fn load_result(plan: &mut Plan, res: SolveResult, autoplay: bool) {
     plan.steps = res.steps;
     plan.snapshots = res.snapshots;
@@ -229,10 +230,10 @@ pub fn poll_solve(mut job: ResMut<SolveJob>, mut plan: ResMut<Plan>) {
     }
 }
 
-/// Baseline classic-plan playback rate, in (unit-duration) steps per second.
+/// Idle speed for a classic run — unit-duration steps ticking by, per second.
 const PLAY_RATE: f32 = 1.5;
-/// Temporal plans play their whole makespan in roughly this many real seconds,
-/// so a long horizon stays watchable while preserving relative durations.
+/// A temporal run burns its whole makespan in about this many real seconds —
+/// long horizons stay watchable, ratios between durations stay honest.
 const TEMPORAL_SECONDS: f32 = 7.0;
 
 pub fn advance(time: Res<Time>, mut plan: ResMut<Plan>) {
@@ -257,8 +258,8 @@ pub fn advance(time: Res<Time>, mut plan: ResMut<Plan>) {
     }
 }
 
-/// Move each mobile to its position for the current timeline `t`, tweening between
-/// the node it's on in snapshot k and k+1.
+/// Drag every mobile to its coordinate at time `t`, tweened between the node it
+/// held in snapshot k and where it's headed in k+1.
 pub fn animate(
     plan: Res<Plan>,
     scene: Res<Scene>,
@@ -295,7 +296,8 @@ pub fn animate(
     }
 }
 
-/// Ease-in-out-cubic — smooth acceleration then deceleration over `t` in `0..=1`.
+/// The motion curve: a cold launch, a hard glide, then a dead stop — ease-in-out
+/// cubic over `t` in `0..=1`.
 fn ease_in_out_cubic(t: f32) -> f32 {
     if t < 0.5 {
         4.0 * t * t * t

@@ -1,15 +1,15 @@
-//! The "forge" palette — the single source of truth for colours across the Bevy
-//! visualizer/animator, matching the web redesign tokens (see the design handoff).
-//! Values are non-linear sRGB (hex / 255), the same space `Color::srgb` expects.
+//! The forge palette — one ledger of colour, binding across the whole Bevy rig,
+//! matched byte for byte against the web's design tokens. Every value is
+//! non-linear sRGB, hex over 255, exactly the space `Color::srgb` burns in.
 #![allow(dead_code)] // a complete token set — not every token is referenced yet
 
 use bevy::prelude::Color;
 
-/// `(r,g,b)` from 0–255 hex bytes as a `Color::srgb`.
+/// `(r,g,b)` cut from 0–255 hex bytes into a `Color::srgb`.
 const fn rgb(r: u8, g: u8, b: u8) -> Color {
     Color::srgb(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0)
 }
-/// …with an alpha (0–1).
+/// …the same cut, with an alpha bled in (0–1).
 const fn rgba(r: u8, g: u8, b: u8, a: f32) -> Color {
     Color::srgba(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a)
 }

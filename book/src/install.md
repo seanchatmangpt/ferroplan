@@ -1,12 +1,12 @@
 # Install & quick start
 
-Both crates are on crates.io:
+Both crates sit on crates.io, one command deep:
 
 ```sh
 cargo install ferroplan-cli    # -> the `ff` binary
 ```
 
-or build from source:
+Or pull from source and build it yourself:
 
 ```sh
 git clone https://github.com/seanchatmangpt/ferroplan
@@ -14,13 +14,13 @@ cd ferroplan
 cargo build --release      # -> target/release/ff
 ```
 
-Solve a problem:
+Point it at a problem, get a plan:
 
 ```sh
 ff -o domain.pddl -f problem.pddl
 ```
 
-Or from code — `cargo add ferroplan` and:
+Or skip the binary — `cargo add ferroplan`, then call it direct:
 
 ```rust,no_run
 let domain  = std::fs::read_to_string("domain.pddl").unwrap();

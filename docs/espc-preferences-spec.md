@@ -1,45 +1,48 @@
 # ESPC preference optimization — implementation spec (groundwork)
 
-> **Status update — ESPC is implemented and now LEADS SGPlan5 on openstacks
+> **Dispatch — ESPC is live, and it's outrunning SGPlan5 on openstacks
 > p04–p08** (opt-in `FF_ESPC`), see `crate::espc`, `benchmarks/ipc5-scoreboard.md`,
-> and the CHANGELOG. Two increments:
+> and the CHANGELOG. Two increments got it there:
 >
-> - *Increment 1 (0.3-era):* rather than a soft *occupancy* penalty (which
->   §"Conclusion" correctly found inert), the loop penalizes — on the **concrete**
->   state — once-only conditional achievements that fire *without delivering* (a
->   product made while its orders still wait), adapting a per-trigger penalty across
->   the outer loop with iteration 0 as a penalty-free floor. This narrowed the gap
->   (p01 63→42 … p08 608→227) but did **not** reach SGPlan's level — the monolithic
->   loop, reproducible today with `FF_ESPC_MONO=1`.
-> - *Increment 2 (0.4.0):* the λ schedule now drives a **partitioned composition** —
->   one subproblem per order-interaction component, with the shared `stacks-avail`
->   variable excluded from partition edges and priced as a **global constraint**
->   instead of being solved inside any one stage. This took p01–p08 to
->   19/23/17/16/21/22/66/87, **ahead of SGPlan5 (13/16/12/26/36/33/67/123) on
->   p04–p08** — the shift the design record below anticipated. The remaining gap is
->   p01–p03, where the per-order grain is too coarse to help.
+> - *Increment 1 (0.3-era):* the soft *occupancy* penalty was dead weight —
+>   §"Conclusion" caught it inert and buried it. In its place: the loop hits,
+>   on the **concrete** state, once-only conditional achievements that fire
+>   *without delivering* (a product built while its orders still sit in the
+>   queue), adapting a per-trigger penalty across the outer loop, iteration 0
+>   left clean as a penalty-free floor. It narrowed the gap
+>   (p01 63→42 … p08 608→227) but never closed on SGPlan's level — the
+>   monolithic loop, still reachable today with `FF_ESPC_MONO=1`.
+> - *Increment 2 (0.4.0):* the λ schedule stopped nursing one big problem and
+>   started running a **partitioned composition** — one subproblem per
+>   order-interaction component, the shared `stacks-avail` variable pulled
+>   out of partition edges and priced instead as a **global constraint**,
+>   never solved inside any single stage. p01–p08 dropped to
+>   19/23/17/16/21/22/66/87 — **ahead of SGPlan5 (13/16/12/26/36/33/67/123) on
+>   p04–p08**, the exact move this design record called in advance. What's
+>   left standing is p01–p03, where the per-order grain is too coarse to bite.
 >
-> The notes below are kept as the original design record.
+> Everything below the line is the original design record, untouched.
 
-How SGPlan5 (Hsu, Wah, Huang & Chen, IPC-2006) gets good metrics on hard PDDL3
-**preference** problems, distilled from deep research (primary sources: IJCAI-2007
-#310; AIJ-2006 Wah & Chen; IPC-2006 booklet; ICAPS-06 workshop). This is the
-*genuine* fix for ferroplan's IPC-5 **quality** gap (coverage is already on par;
-metric quality trails, e.g. openstacks 70 vs 13). Not yet implemented — the
-`forbidden`/`plan_avoiding` plumbing in `search.rs` + `Compiled.forgos` in
-`pddl3.rs` are the groundwork.
+How SGPlan5 (Hsu, Wah, Huang & Chen, IPC-2006) wrings good metrics out of
+hard PDDL3 **preference** problems — traced back through the primary sources
+(IJCAI-2007 #310; AIJ-2006 Wah & Chen; IPC-2006 booklet; ICAPS-06 workshop).
+This is the *real* fix for ferroplan's IPC-5 **quality** gap: coverage is
+already holding even, but metric quality is bleeding out (openstacks 70 vs
+13). Not built yet. The `forbidden`/`plan_avoiding` plumbing in `search.rs`
+and `Compiled.forgos` in `pddl3.rs` are the groundwork already down.
 
 ## Why our current approach can't close the gap (measured)
 
-- Monolithic anytime B&B: 10× the eval budget left openstacks/p01 at metric 70 —
-  it's a *search-direction* problem (length-first can't reach the longer plans
-  that satisfy more preferences), not a budget problem.
-- Per-preference "force-collect" (forbid a forgo, re-solve): helps marginally on
-  few-preference problems (rovers 698→646) but **does not** help openstacks (stays
-  70) and times out many-preference instances. Reverted.
-- Root cause (research): in openstacks the *subproblems are trivial* — the whole
-  difficulty is **joint global-constraint coordination across preferences**, which
-  neither monolithic B&B nor per-preference forcing performs.
+- Monolithic anytime B&B: run the eval budget up 10× and openstacks/p01 still
+  sits at metric 70 — this is a *search-direction* wound (length-first can't
+  reach the longer plans that satisfy more preferences), not a budget one.
+- Per-preference "force-collect" (forbid a forgo, re-solve): buys a little on
+  few-preference problems (rovers 698→646) but leaves openstacks cold (still
+  70) and times out on the many-preference instances. Pulled.
+- Root cause, per the research: in openstacks the *subproblems are trivial* —
+  the whole fight is **joint global-constraint coordination across
+  preferences**, and neither monolithic B&B nor per-preference forcing is
+  built to run that fight.
 
 ## The SGPlan method
 
@@ -85,17 +88,17 @@ metric quality trails, e.g. openstacks 70 vs 13). Not yet implemented — the
 
 ## Mapping to our Keyder–Geffner compilation (the actionable plan)
 
-IPC-5 "simple-preferences" metrics depend only on the **final state**, so (per the
-research) the optimal collect/forgo assignment is computable from final-state
-constraints + reachability:
+IPC-5 "simple-preferences" metrics answer to the **final state** alone, so per
+the research the optimal collect/forgo assignment is computable straight from
+final-state constraints + reachability:
 
 1. Treat each `collect_i / forgo_i` decision as a binary guidance variable.
 2. Build the interaction graph over the **objects/predicates** the preferences'
    `phi_i` share; partition into loosely-coupled groups (union-find or METIS).
 3. Per group, find the max-weight jointly-satisfiable subset of its preferences
    (force those collects, via the existing `plan_avoiding` forbidden-forgo
-   mechanism) — small groups make this tractable where the monolithic problem
-   isn't.
+   mechanism) — small groups keep this tractable where the monolithic problem
+   chokes.
 4. Resolve cross-group conflicts (satisfying group A's prefs forbids group B's)
    with the penalty loop: penalize the shared/global constraints, re-solve groups,
    iterate to an ESP; keep the best metric as an anytime incumbent.
@@ -107,14 +110,15 @@ constraints + reachability:
 
 ## Conclusion of the implementation study (decision: deferred)
 
-A 4-design / adversarial-critique / synthesis study was run on top of this spec,
-plus six measured implementation attempts. The honest finding:
+A 4-design / adversarial-critique / synthesis study ran on top of this spec,
+backed by six measured implementation attempts. The finding, no hedging:
 
-**A general ESPC-style preference optimizer is NOT tractable in ferroplan as it
-stands.** Every approach that fits the architecture (the Keyder–Geffner
-collect/forgo representation + delete-relaxation heuristic) reduces to a
-"force-collect" lever — forbid `forgo_i` so the search must achieve `phi_i` — and
-*all variants were built and measured to NOT improve the metric*:
+**A general ESPC-style preference optimizer does NOT hold up in ferroplan as
+it stands.** Every approach that fits the architecture (the Keyder–Geffner
+collect/forgo representation + delete-relaxation heuristic) collapses to the
+same "force-collect" lever — forbid `forgo_i` so the search must achieve
+`phi_i` — and *every variant was built, run, and caught NOT moving the
+metric*:
 
 | variant | result |
 |---|---|
@@ -132,46 +136,47 @@ Two root causes, both architectural:
    preference `phi` and is **invisible to any phi-based partitioning**. A faithful
    ESPC needs SAS+/mutex-group guidance variables over `stacks-avail`.
 
-**Two future paths (neither pursued now):**
+**Two roads ahead, neither taken yet:**
 - *General:* build a SAS+/mutex-group translation layer, then the real partition +
-  penalty-resolution loop. Multi-week; the right architecture but a large build.
+  penalty-resolution loop. Multi-week; the right architecture but a heavy lift.
 - *Scoreboard-only:* a bespoke `openstacks` min-open-stacks oracle (detect the
   structure, schedule outside the relaxation-blinded search, inject as a
-  fail-closed incumbent). ~3 days; reaches ~20 not 13; domain-specific code, **not
-  a general planner advance** — explicitly a scoreboard fix.
+  fail-closed incumbent). ~3 days; lands around 20, not 13; domain-specific
+  code, **not a general planner advance** — a scoreboard patch and nothing
+  more.
 
-Decision: **coverage is already on par with SGPlan6 (39/48); the remaining gap is
-metric quality on solved instances.** Neither future path is justified for the
-current milestone, so ESPC is deferred. The `forbidden`/`plan_avoiding` plumbing
-and `Compiled.forgos` are retained as groundwork for the general path.
+Decision: **coverage already sits even with SGPlan6 (39/48); what's left
+bleeding is metric quality on solved instances.** Neither road pays for
+itself against the current milestone, so ESPC waits. The `forbidden`/`plan_avoiding`
+plumbing and `Compiled.forgos` stay in the ground as groundwork for the general path.
 
 ## Revisit (2026-07) — the general path's blocker has since been built
 
-Two facts have changed since the "deferred" decision above, re-verified live:
+Two facts have changed since the "deferred" call above, re-verified live:
 
 1. **Root cause 2 no longer holds.** The multi-predicate (Helmert-style)
    monotonicity-invariant synthesis in `crates/ferroplan/src/invariants.rs`
-   (see `docs/invariants-measurement.md`) recovers **exactly one mutex group on
-   every openstacks instance: `(STACKS-AVAIL n)`** — the precise guidance
+   (see `docs/invariants-measurement.md`) turns up **exactly one mutex group
+   on every openstacks instance: `(STACKS-AVAIL n)`** — the precise guidance
    variable this study said a faithful ESPC needs and phi-based partitioning
-   can't see (verified: `cargo run --release -p ferroplan --example
+   was blind to (verified: `cargo run --release -p ferroplan --example
    invariants_coverage -- benchmarks/ipc/pref/openstacks`). The groups are
-   already consumed by classical partitioning
+   already being consumed by classical partitioning
    (`partition::interaction_partition` → `resolve::solve`).
 
-2. **The penalty loop exists** (`crate::espc`, opt-in `FF_ESPC`) but is still
-   coupled to the bespoke make-deadline trigger on the *monolithic* search, and
-   its win is **budget-bound**: on a 4-core box at the default 15 s budget only
-   p01/p02/p06 improve (42/43/100); at `FF_ESPC_TIME_MS=90000` the loop
+2. **The penalty loop is running** (`crate::espc`, opt-in `FF_ESPC`) but still
+   chained to the bespoke make-deadline trigger on the *monolithic* search, and
+   its payoff is **budget-bound**: on a 4-core box at the default 15 s budget only
+   p01/p02/p06 improve (42/43/100); push `FF_ESPC_TIME_MS=90000` and the loop
    reproduces the recorded quality (e.g. p05 135→81).
 
-So the "multi-week translation layer" half of the general path is done and wired;
-what remains is **increment 2** (named at the end of
+So the "multi-week translation layer" half of the general path is built and
+wired in; what's left is **increment 2** (named at the end of
 `docs/invariants-measurement.md`): couple the `espc.rs` penalty schedule to the
 partitioned search — subproblems from the goal-interaction components, global
 constraints = cross-partition transitions of shared mutex variables
 (openstacks: `stacks-avail`), λ raised per the existing per-trigger schedule.
-That is also the fix the classical measurement predicts for the
+That's also the fix the classical measurement predicts for the
 resource-coupled partition regressions (gripper/logistics re-traversal).
 
 ## Closed (2026-07) — increment 2 built and measured
@@ -192,7 +197,7 @@ the monolithic tightening B&B:
   `delivered(o,p)` fires), skipping deliverables already locked out. This
   replaces the monolithic B&B's cost bound, which cannot prune cost-flat stage
   plans; infeasible enrichment degrades to the bare goal, never a conflict.
-- The `P3*` bookkeeping is closed by an exact phase tail (`P3END`, then
+- The `P3*` bookkeeping closes on an exact phase tail (`P3END`, then
   collect-iff-applicable-else-forgo per preference), and leftover budget goes
   to a monolithic polish B&B bounded by the incumbent (restores the plain-B&B
   floor). `FF_ESPC_MONO=1` reproduces the pre-increment monolithic loop.
@@ -201,7 +206,7 @@ Measured (release, 4 threads, `FF_ESPC_TIME_MS=90000`, 3 identical runs per
 instance, stall/saddle-terminated well inside budget): openstacks p01–p08
 42/43/55/66/81/90/151/227 → **19/23/17/16/21/22/66/87** — ahead of SGPlan5
 (13/16/12/26/36/33/67/123) on p04–p08. The other five preference domains carry
-no deadline pairs, so `FF_ESPC=1` remains a verified no-op there. See
+no deadline pairs, so `FF_ESPC=1` stays a verified no-op there. See
 `benchmarks/ipc5-scoreboard.md`.
 
 ## Follow-on (2026-07) — the closure optimizer generalizes the tail to the default path
@@ -210,10 +215,10 @@ The phase-tail machinery built for increment 2 became the core of the DEFAULT
 preference-metric optimizer (see CHANGELOG "exact-closure metric optimizer"):
 static preference simplification at compile, real-state search with
 metric-bounded acceptance (`cost + closure(state) < bound`), the exact tail as
-closure, and barrier-free full-DNF satisfaction guidance. Effects on the other
-IPC-5 preference domains: storage 2/8 coverage → 8/8 and ahead of SGPlan5 on
-p01–p05; tpp/pathways parity with SGPlan5 on their small instances; trucks
-lifted across the row. The `FF_ESPC` openstacks path is unchanged (verified:
-locked results, t1≡t8); the openstacks DEFAULT dropped 63 → 49 by riding the
-same closure optimizer. Remaining gaps and the next levers are tracked in
-`benchmarks/ipc5-scoreboard.md` ("Path to climb" items 4–5).
+closure, and barrier-free full-DNF satisfaction guidance. Effects ripple across
+the other IPC-5 preference domains: storage 2/8 coverage → 8/8 and ahead of
+SGPlan5 on p01–p05; tpp/pathways draw level with SGPlan5 on their small
+instances; trucks lifted across the row. The `FF_ESPC` openstacks path holds
+steady (verified: locked results, t1≡t8); the openstacks DEFAULT dropped
+63 → 49 riding the same closure optimizer. Remaining gaps and the next levers
+are tracked in `benchmarks/ipc5-scoreboard.md` ("Path to climb" items 4–5).

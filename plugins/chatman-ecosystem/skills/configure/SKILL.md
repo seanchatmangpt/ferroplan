@@ -26,4 +26,6 @@ Design or validate `$ARGUMENTS`.
 5. Compute legal component combinations and the law rejecting each illegal combination.
 6. Return the minimum ontology/profile/config change and whether `conformance=conformant` may lawfully be admitted.
 
-The current loader governs loadability. The LSP governs only its modeled epoch. Neither proves semantic correctness. Do not edit in this skill.
+The current loader governs loadability. The LSP governs only its modeled
+epoch. Neither one proves semantic correctness on its own. No editing
+happens inside this skill.

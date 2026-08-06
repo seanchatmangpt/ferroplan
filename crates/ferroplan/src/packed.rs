@@ -1,18 +1,19 @@
-//! Data-oriented grounded task (Structure-of-Arrays / CSR) and bitset state.
+//! The grounded task, stripped for the run: Structure-of-Arrays / CSR, bitset
+//! state. No struct-per-op padding, no pointer chasing.
 //!
-//! Operators are stored column-wise in CSR arrays (`flat` + `off`) rather than
-//! as a `Vec` of structs, so the hot loops (applicability, successor generation,
-//! heuristic relaxation) stream contiguous memory and parallelise cleanly over
-//! immutable shared task data.
+//! Operators live column-wise in CSR arrays (`flat` + `off`), not a `Vec` of
+//! structs — so the hot loops (applicability, successor gen, heuristic
+//! relaxation) burn straight through contiguous memory and split clean
+//! across threads over one shared, immutable task.
 
 use crate::bitset;
 use crate::types::{eval_numpre, AssignOp, NumEff, NumPre};
 use std::sync::Arc;
 
-/// A grounded ADL conditional effect `(when condition effect)`: if `cond_pos`
-/// hold, `cond_neg` are absent, and `cond_num` are satisfied IN THE SOURCE STATE,
-/// then `add`/`del`/`num` are applied (simultaneously with the unconditional
-/// effects, all evaluated against the source state).
+/// A trip-wire: ADL conditional effect `(when condition effect)`. Check the
+/// source state — if `cond_pos` are lit, `cond_neg` are dark, `cond_num`
+/// clears — the charge goes off: `add`/`del`/`num` fire, alongside the
+/// unconditional effects, all read off the SAME source-state snapshot.
 #[derive(Clone, Debug, Default)]
 pub struct CondEff {
     pub cond_pos: Vec<u32>,
@@ -23,9 +24,10 @@ pub struct CondEff {
     pub num: Vec<NumEff>,
 }
 
-/// Compressed-sparse-row container: item `i` owns `flat[off[i]..off[i+1]]`.
-/// `Arc`-backed since 0.13 so a [`PackedTask`] clone shares the payload —
-/// N sessions over one world cost one grounding, not N (`Session::fork`).
+/// Compressed-sparse-row rig: item `i` claims `flat[off[i]..off[i+1]]`.
+/// `Arc`-backed since 0.13 — a [`PackedTask`] clone shares the payload, no
+/// re-copy. N sessions riding one world pay for one grounding, not N
+/// (`Session::fork`).
 #[derive(Debug)]
 pub struct Csr<T> {
     pub flat: Arc<[T]>,
@@ -48,7 +50,7 @@ impl<T> Csr<T> {
     }
 }
 
-/// Builder that appends one row at a time, tracking offsets.
+/// Row-by-row assembler: bolt on one row, offsets keep pace.
 pub struct CsrBuilder<T> {
     pub flat: Vec<T>,
     pub off: Vec<u32>,
@@ -78,20 +80,21 @@ impl<T> CsrBuilder<T> {
     }
 }
 
-/// The grounded planning task in data-oriented form.
+/// The task, grounded and data-oriented. This is the world after recon.
 ///
-/// `Clone` is CHEAP by design (0.13 Phase 2): the grounded payload — operator
-/// CSR columns, names, achiever indexes, the monitor block — sits behind `Arc`
-/// and is shared by every clone; only the small per-clone state (current
-/// facts/fluents, goal, fluent relevance) is copied. `Session::fork` builds a
-/// population of minds over ONE world this way.
+/// `Clone` runs CHEAP by design (0.13 Phase 2): the grounded payload —
+/// operator CSR columns, names, achiever indexes, the monitor block — sits
+/// behind `Arc`, shared across every clone. Only the thin per-clone slice
+/// (live facts/fluents, goal, fluent relevance) actually gets copied.
+/// `Session::fork` spins up a whole population of minds over ONE world this
+/// way — no re-grounding tax per instance.
 #[derive(Clone)]
 pub struct PackedTask {
     pub n_facts: usize,
     pub words: usize,
     pub n_ops: usize,
 
-    /// Per-op pretty name for the plan line, e.g. `WALK A0 P0 P1`.
+    /// Per-op call sign for the plan readout, e.g. `WALK A0 P0 P1`.
     pub op_display: Arc<[String]>,
 
     pub pre_pos: Csr<u32>,
@@ -99,27 +102,31 @@ pub struct PackedTask {
     pub del: Csr<u32>,
     pub pre_num: Csr<NumPre>,
     pub num_eff: Csr<NumEff>,
-    /// Per-op ADL conditional effects (empty for the common STRIPS/numeric case).
+    /// Per-op ADL conditional effects — dark, empty rows for the plain
+    /// STRIPS/numeric jobs.
     pub cond: Csr<CondEff>,
-    /// The SHARED monitor conditional-effect block (0.8 Phase 2,
-    /// docs/roadmap-0.8.md): trajectory-monitor transitions ground ONCE and
-    /// applied — after the op's own `cond` row, matching the 0.7 suffix
-    /// order — by every op whose [`Self::monitored`] bit is set. Empty on
-    /// every constraint-free task. Iterate per-op conditional effects
-    /// through [`Self::cond_effs`], never `cond` alone.
+    /// The SHARED monitor block (0.8 Phase 2, docs/roadmap-0.8.md):
+    /// trajectory-monitor transitions grounded ONCE, then patched in — after
+    /// the op's own `cond` row, same 0.7 tail order — for every op flagged
+    /// live in [`Self::monitored`]. Dark on every constraint-free task. Read
+    /// per-op conditional effects through [`Self::cond_effs`] only — never
+    /// crack `cond` open alone.
     pub shared_cond: Arc<[CondEff]>,
-    /// Per-op: does this op apply [`Self::shared_cond`]? Set for ops
-    /// grounded from actions carrying the monitor block; false for the
+    /// Per-op tripwire: does this one carry [`Self::shared_cond`]? Live for
+    /// ops grounded off actions with the monitor block; dark for the
     /// synthetic bookkeeping ops (P3*, TRAJ-END, REACH-GOAL).
     pub monitored: Arc<[bool]>,
 
-    /// fact id -> ops that add it (achiever lookup, avoids O(n_ops) scans).
+    /// fact id -> ops that light it up (achiever lookup — skips the O(n_ops)
+    /// crawl).
     pub add_by_fact: Csr<u32>,
-    /// fluent id -> ops with a numeric effect on it (numeric-achiever lookup).
+    /// fluent id -> ops carrying a numeric hit on it (numeric-achiever
+    /// lookup).
     pub neff_by_fluent: Csr<u32>,
-    /// fluent id -> read by some numeric precondition or goal (widening filter).
+    /// fluent id -> flagged live by some numeric precondition or goal
+    /// (widening filter).
     pub relevant_fluent: Vec<bool>,
-    /// the relevant fluent ids (sorted) — the compact `state_key` value vector.
+    /// the live fluent ids, sorted — the compact `state_key` value vector.
     pub rel_fluents: Vec<u32>,
 
     pub init_bits: Vec<u64>,
@@ -130,7 +137,8 @@ pub struct PackedTask {
     pub goal_num: Vec<NumPre>,
 
     pub fact_names: Arc<[String]>,
-    /// fluent id -> display string `(NAME ARGS)` (for metric/cost-fluent lookup).
+    /// fluent id -> display string `(NAME ARGS)` for metric/cost-fluent
+    /// lookup.
     pub fluent_names: Arc<[String]>,
 
     // timing-footer stats
@@ -158,9 +166,9 @@ impl PackedTask {
                 .all(|np| eval_numpre(np, &s.fv, &s.fdef).unwrap_or(false))
     }
 
-    /// All conditional effects op `oi` applies: its own `cond` row, then —
-    /// for monitored ops — the shared monitor block (the 0.7 suffix order,
-    /// preserved so achiever/bucket/apply orders stay identical).
+    /// Every conditional effect op `oi` runs: its own `cond` row first, then
+    /// — for monitored ops — the shared monitor block. 0.7 tail order held,
+    /// so achiever/bucket/apply orders stay identical.
     #[inline]
     pub fn cond_effs(&self, oi: usize) -> impl Iterator<Item = &CondEff> + Clone {
         let shared: &[CondEff] = if self.monitored[oi] {
@@ -171,7 +179,7 @@ impl PackedTask {
         self.cond.slice(oi).iter().chain(shared.iter())
     }
 
-    /// Number of conditional effects op `oi` applies (own + shared).
+    /// Body count: conditional effects op `oi` runs (own + shared).
     #[inline]
     pub fn n_cond_effs(&self, oi: usize) -> usize {
         self.cond.slice(oi).len()
@@ -182,7 +190,7 @@ impl PackedTask {
             }
     }
 
-    /// Does conditional effect `ce` fire in source state `s`?
+    /// Does the tripwire `ce` snap in source state `s`?
     #[inline]
     fn cond_holds(&self, ce: &CondEff, s: &State) -> bool {
         ce.cond_pos
@@ -198,10 +206,11 @@ impl PackedTask {
                 .all(|np| eval_numpre(np, &s.fv, &s.fdef).unwrap_or(false))
     }
 
-    /// Apply op `oi` to `s`, returning the successor (assumes applicable).
-    /// All effects — unconditional and any firing conditional effects — are
-    /// evaluated against the SOURCE state and applied simultaneously (dels then
-    /// adds so add wins on conflict; numeric deltas summed from the source).
+    /// Run op `oi` against `s`, hand back the successor state. No safety
+    /// check — assumes applicable, you called `op_applicable` already.
+    /// Every effect, unconditional and any tripwire that snapped, reads off
+    /// the SAME source-state snapshot and lands at once: dels first, adds
+    /// after (add wins on conflict); numeric deltas summed from source.
     pub fn apply(&self, oi: usize, s: &State) -> State {
         let mut ns = s.clone();
         let conds: Vec<&CondEff> = self.cond_effs(oi).collect();
@@ -269,7 +278,7 @@ impl PackedTask {
         ns
     }
 
-    /// Look up a fluent id by display string, e.g. `(TOTAL-COST)`.
+    /// Trace a fluent id from a display string, e.g. `(TOTAL-COST)`.
     pub fn fluent_id(&self, disp: &str) -> Option<usize> {
         self.fluent_names.iter().position(|s| s == disp)
     }
@@ -291,15 +300,17 @@ impl PackedTask {
         self.goal_met_with(s, &self.goal_pos, &self.goal_num)
     }
 
-    /// Visited-set key: facts + only the RELEVANT fluent values. A fluent is
-    /// irrelevant iff it appears in no precondition/goal AND (transitively) in no
-    /// RHS of any effect that writes a relevant fluent — i.e. a purely write-only
-    /// accumulator (walkedTime/drivenTime/fuelUsed). Such a fluent cannot change
-    /// applicability or goal satisfaction now or later, so two states differing
-    /// only in it are behaviourally identical and must dedup; otherwise an
-    /// unbounded accumulator yields infinitely many "distinct" states and the
-    /// search never terminates on unsolvable problems. `relevant_fluent` is built
-    /// as the transitive closure in ground.rs, which makes this sound.
+    /// The visited-set fingerprint: facts, plus only the fluent values that
+    /// matter. A fluent goes dark iff it never surfaces in a
+    /// precondition/goal AND, transitively, never feeds the RHS of an
+    /// effect writing a live fluent — a pure write-only accumulator
+    /// (walkedTime/drivenTime/fuelUsed, ticking away unread). Such a fluent
+    /// can't move applicability or the goal, ever — two states differing
+    /// only there are the same mark and must collapse to one; skip that and
+    /// an unbounded counter spins out infinite "distinct" states, the
+    /// search never closes on an unsolvable board. `relevant_fluent` is the
+    /// transitive closure built in ground.rs — that's what keeps this
+    /// sound.
     pub fn state_key(&self, s: &State) -> StateKey {
         // Compact: only the RELEVANT fluents (usually few) go in the key, in a
         // fixed order. Irrelevant/undefined ones never distinguish states, so
@@ -323,10 +334,11 @@ impl PackedTask {
         }
     }
 
-    /// Visited key for the branch-and-bound bounded search: the compact key plus
-    /// the cost fluent's value appended, so equal-fact/different-cost states stay
-    /// distinct (the cost fluent is read by no precond/goal, so it isn't in
-    /// `rel_fluents`). One code path for both init and successors.
+    /// Visited-key variant for the branch-and-bound bounded search: the
+    /// compact key with the cost fluent's value tacked on, so two states
+    /// with matching facts but different cost stay distinct (the cost
+    /// fluent is read by no precond/goal, so `rel_fluents` never sees it).
+    /// One code path serves both init and successors.
     pub fn state_key_with_cost(&self, s: &State, cost_fluent: Option<usize>) -> StateKey {
         let mut k = self.state_key(s);
         if let Some(cf) = cost_fluent {
@@ -348,7 +360,7 @@ impl PackedTask {
     }
 }
 
-/// A search state: fact bitset + dense fluent values.
+/// A snapshot of the world mid-run: fact bitset + dense fluent values.
 #[derive(Clone)]
 pub struct State {
     pub bits: Vec<u64>,

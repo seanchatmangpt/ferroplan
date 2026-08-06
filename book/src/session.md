@@ -1,14 +1,14 @@
 # Game embedding (the `Session`)
 
-`ferroplan::solve` re-parses and re-grounds on every call. A **`Session`**
-is the embedding API for callers that re-solve the *same world* every
-tick — a game's villagers, a simulation loop, an agent runtime. It
-parses, compiles axioms, and grounds **once**, then holds the current
-world state; every "think" afterward pays only the search.
+`ferroplan::solve` re-parses and re-grounds on every call — dead weight if
+you're solving the *same world* every tick: a game's villagers, a
+simulation loop, an agent runtime. A **`Session`** is the embedding API for
+that case. It parses, compiles axioms, and grounds **once**, then holds the
+current world state. Every "think" after that pays only for the search.
 
-Everything below is deterministic and thread-count independent: the same
-session state, budget, and goal produce byte-identical plans at any
-`threads` setting.
+Everything below is deterministic, thread-count independent: same session
+state, same budget, same goal — byte-identical plans at any `threads`
+setting.
 
 ```rust,no_run
 use ferroplan::{Options, Session};
@@ -21,115 +21,114 @@ let next = s.replan();                        // replan from HERE
 # Ok::<(), String>(())
 ```
 
-Classical, numeric, and ADL domains are supported — and **temporal
-(durative-action) domains** since 0.12: thinks return timed,
-genuinely-concurrent plans with per-step `time`/`duration` and a
-`makespan`.
+Classical, numeric, and ADL domains work here — and, since 0.12,
+**temporal (durative-action) domains**: thinks come back timed,
+genuinely concurrent, per-step `time`/`duration` and a `makespan` attached.
 
 ## Bounded thinks
 
 `replan_budgeted(max_evaluated, memory_mb)` is the real-time surface: an
 **eval budget** (the deterministic unit — never wall clock) and a memory
-target. A think either returns a plan or an honest budget-exhausted
-`solved: false` the game can react to — think again later, escalate, or
-pick a fallback behavior.
+target. A think returns a plan or it doesn't. If it doesn't, that's an
+honest budget-exhausted `solved: false` — the game reacts: think again
+later, escalate, fall back.
 
 ## Follow before you rethink
 
 `plan_still_valid(&plan, from_step)` replays a plan's remaining suffix
-against the current state — **no search, no budget**. An agent whose
-world drifted irrelevantly keeps following its plan for free; only a
-broken suffix warrants a real rethink. When one does break,
-`replan_following(&plan, from_step, budget, memory_mb)` biases the
-rethink toward the broken plan: it replays the still-applicable prefix
-and searches only for a new tail, so plan **churn** stays confined to
-what drift actually broke (measured: a deep break re-plans in 3 evals
-with churn 1 where an unbiased rethink spends 2,899 evals churning 16
-steps). If no tail exists, it falls back to an unbiased rethink — the
-bias can cost budget, never completeness.
+against the current state — **no search, no budget**. An agent whose world
+drifted somewhere irrelevant keeps following its plan for free; only a
+broken suffix earns a real rethink. When one breaks,
+`replan_following(&plan, from_step, budget, memory_mb)` biases the rethink
+toward the break: replays the still-applicable prefix, searches only for a
+new tail. Plan **churn** stays confined to what drift actually broke
+(measured: a deep break re-plans in 3 evals, churn 1, where an unbiased
+rethink burns 2,899 evals churning 16 steps). No tail, no bias — it falls
+back to an unbiased rethink. The bias can cost budget. It never costs
+completeness.
 
 ## One world, changing desires
 
 `set_goal("(and (has a0 item5) …)")` retargets a session with **zero
 regrounding** — any ground conjunction (atoms, negated atoms with
 grounded mirrors, numeric comparisons) over the already-interned fact
-space. Desires the world cannot express are an honest error, not a
-silent unsolvable. `goal_met()` is the pure state test ("is it done
-*now*") — distinct from a think, which answers "could I still plan."
+space. A desire the world can't express comes back an honest error, never
+a silent unsolvable. `goal_met()` is the pure state test — "is it done
+*now*" — a different question from a think's "could I still plan."
 
 ## One grounding, a population of minds
 
 `fork()` clones a mind over the **same grounded world**: the grounded
-payload (operator tables, names, indexes) is shared behind `Arc`, so N
-minds cost one grounding plus kilobytes of private state each — measured
-on the vendored bazaar, 12 NPCs fork in ~0 ms with **+0 MB** RSS.
-Forks start from the parent's current state and goal, then diverge
-freely; no fork's writes or tie-breaks ever touch a sibling.
+payload — operator tables, names, indexes — sits shared behind `Arc`, so N
+minds cost one grounding plus kilobytes of private state apiece. Measured
+on the vendored bazaar: 12 NPCs fork in ~0 ms, **+0 MB** RSS. Forks start
+from the parent's current state and goal, then go their own way — no
+fork's writes or tie-breaks ever touch a sibling.
 
 `restrict_ops(|display| …)` scopes a mind to **its own actions** — the
-many-minds correctness primitive. A rival's moves reach it as
-`set_fact` drift, never as plan steps, and loop-side policies (like
-masking exchanges a rival's plan has claimed) compose on top of it.
+correctness primitive for a population of minds. A rival's moves reach it
+only as `set_fact` drift, never as plan steps; loop-side policies (masking
+exchanges a rival's plan has already claimed, say) compose on top of it.
 The [`bazaar_live` example](https://github.com/seanchatmangpt/ferroplan/blob/main/crates/ferroplan/examples/bazaar_live.rs)
-drives the whole tick loop — and the
+runs the whole tick loop — the
 [browser demo replays a real run](./demo/bazaar-live.html).
 
 ## The scheduled world
 
-`set_timed_fact(dt, "(power)", false)` plants a **clock-relative**
-event: in `dt` time units, the fact flips. Pending events ride into
-every temporal think — plans beat closing windows or fail honestly, and
-can *wait through* an outage whose repair is scheduled — and into
-`plan_still_valid` replays. `elapse(dt)` advances the schedule as the
-game's clock moves, firing due events. (Absolute-clock TILs stay
-rejected at construction: session time is always relative to *now*.)
+`set_timed_fact(dt, "(power)", false)` plants a **clock-relative** event: in
+`dt` time units, the fact flips. Pending events ride into every temporal
+think — plans beat closing windows or fail honestly, and can *wait through*
+an outage whose repair is already scheduled — and into `plan_still_valid`
+replays too. `elapse(dt)` moves the schedule forward as the game's clock
+advances, firing whatever's due. (Absolute-clock TILs stay rejected at
+construction: session time is always relative to *now*.)
 
-The domain contract: a scheduled fact must be **dynamic** — touched by
-some action in the domain. A truly static fact is compiled into the
-grounded operators, so flipping it at runtime could not soundly change
-behavior; model exogenous-changeable facts (market-open, power) with an
+The domain contract: a scheduled fact has to be **dynamic** — touched by
+some action in the domain. A truly static fact gets compiled straight into
+the grounded operators; flipping it at runtime couldn't soundly change
+behavior. Model exogenous-changeable facts (market-open, power) with an
 action that touches them.
 
 ## In-flight intervals
 
-`apply_start("(fire urn)")` begins a durative action **now**: its start
-effects apply, and its end joins the session's in-flight set. Thinks
-happen **mid-interval** — plans cover what remains, never restart the
-running action, and are valid *through* every pending end (a think can
-even be pure waiting: zero steps, makespan = the pending end's moment).
-`elapse(dt)` fires due interval ends with their own at-end effects; an
-end whose preconditions drift broke is reported, its effects dropped —
-the game decides what a ruined firing means.
+`apply_start("(fire urn)")` starts a durative action **now**: start
+effects apply, its end joins the session's in-flight set. Thinks happen
+**mid-interval** — plans cover what's left, never restart a running
+action, stay valid *through* every pending end (a think can even be pure
+waiting: zero steps, makespan = the pending end's moment).
+`elapse(dt)` fires due interval ends with their own at-end effects. An end
+whose preconditions drift broke gets reported, its effects dropped — the
+game decides what a ruined firing means.
 
 ## Belief and observation (fog)
 
-A mind's session **is** a belief state: a world copy that drifts from
-the authoritative one. `observe(&[(fact, value)])` is the seeing
-surface — sighted facts snap to the observed truth, everything else
-stays *believed*, and the call returns exactly the facts whose value
-differed from belief: the **surprises**. Feed the news to
-`plan_still_valid` / `goal_met` and rethink only when observation
-breaks something — surprise-driven rethinks, not wall-clock paranoia.
-The fogged bazaar loop (`bazaar_live`, the `claims + fog` rows in
+A mind's session **is** a belief state: a world copy that drifts from the
+authoritative one. `observe(&[(fact, value)])` is the seeing surface —
+sighted facts snap to observed truth, everything else stays *believed*,
+and the call hands back exactly the facts whose value differed from
+belief: the **surprises**. Feed the news to `plan_still_valid` / `goal_met`
+and rethink only when observation breaks something — surprise-driven
+rethinks, not wall-clock paranoia. The fogged bazaar loop (`bazaar_live`,
+the `claims + fog` rows in
 [`benchmarks/bazaar-thinks.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/benchmarks/bazaar-thinks.md))
-shows the measured shape: a mind sees its own stall each turn and its
-trading partner's stall on arrival; a theft at a third-party stall is
-discovered on contact, one tick late, and information asymmetry
-visibly reshuffles who wins — deterministically, at any thread count.
+shows the measured shape: a mind sees its own stall each turn, its trading
+partner's stall on arrival. A theft at a third-party stall surfaces on
+contact, one tick late — information asymmetry visibly reshuffles who
+wins, deterministically, at any thread count.
 
 ## Fences (why some writes are errors)
 
 Honesty over silent wrongness, everywhere:
 
-- **Static facts** are rejected by `set_fact`/`set_timed_fact`: grounding
-  enumerates operators against statics, so flipping one could require
-  operators that were never enumerated.
+- **Static facts** get rejected by `set_fact`/`set_timed_fact`: grounding
+  enumerates operators against statics, so flipping one could demand
+  operators that were never enumerated in the first place.
 - **`RUNNING-*` tokens** (the temporal compiler's interval bookkeeping)
-  are managed by `apply_start`/`elapse`, never by hand.
+  stay managed by `apply_start`/`elapse` — never by hand.
 - **ADL goal connectives** in `set_goal` (or goals over never-interned
-  atoms) error with the reason — recreate the session for an ADL goal.
-- **PDDL3 constraints/preferences** and **absolute-clock TILs** are
-  rejected at construction with pointers to the per-solve API.
+  atoms) error out with the reason. Recreate the session for an ADL goal.
+- **PDDL3 constraints/preferences** and **absolute-clock TILs** get
+  rejected at construction, with pointers to the per-solve API.
 
-`world_bytes()` / `mind_bytes()` report the shared-vs-private memory
-split (flat-byte floors) for embedders budgeting a population.
+`world_bytes()` / `mind_bytes()` report the shared-vs-private memory split
+(flat-byte floors) for embedders budgeting a population.

@@ -1,37 +1,41 @@
-//! Fact landmarks by first-achiever backchaining (0.9 roadmap Phase 3).
+//! Fact landmarks, traced backward from the goal, first-achiever by first-achiever
+//! (0.9 roadmap Phase 3).
 //!
-//! A fact landmark is a fact every plan must make true at some point. This
-//! module computes the classic delete-relaxation landmark set (LAMA's
-//! backbone, à la Hoffmann/Porteous/Sebastia): build the relaxed planning
-//! graph from the initial state to fixpoint, then backchain from the goal —
-//! for a landmark `f` not true initially, every plan uses one of its FIRST
-//! achievers (ops adding `f` whose own layer precedes `f`'s), so any fact
-//! common to ALL first achievers' preconditions is itself a landmark.
-//! Sound (never claims a non-landmark), incomplete (misses some), cheap:
-//! O(landmarks × achiever preconditions) after one RPG build, and O(n_facts)
-//! memory — no quadratic per-fact landmark table.
+//! A landmark is a fact no plan can dodge — every route through the job makes it
+//! true somewhere along the way. This module runs the classic delete-relaxation
+//! trace, LAMA's own backbone, the Hoffmann/Porteous/Sebastia play: build the
+//! relaxed planning graph out from the initial state to fixpoint, then walk
+//! backward from the goal. For a landmark `f` that isn't already true, every plan
+//! has to pass through one of its FIRST achievers — the ops that add `f` from a
+//! layer strictly earlier than `f`'s own — so any fact sitting in every first
+//! achiever's precondition list is a landmark too, no exceptions. Sound (never
+//! calls a bluff on a non-landmark), incomplete (some hide from it), cheap to run:
+//! O(landmarks × achiever preconditions) after one graph build, O(n_facts) memory
+//! — no bloated per-fact table dragging behind it.
 //!
-//! Consumed by the LAMA-style rung ([`crate::lama`]) as a path-dependent
-//! landmark-count heuristic: landmarks not yet accepted on the path measure
-//! remaining necessary work, a signal the FF heuristic lacks exactly where
-//! it plateaus (long goal-interaction chains: parking, floortile, barman).
+//! Feeds the LAMA-style rung ([`crate::lama`]) a path-dependent landmark count:
+//! landmarks not yet banked on the current path measure what's still owed, a
+//! signal the FF heuristic goes blind on exactly where it stalls out — the long
+//! goal-interaction chains (parking, floortile, barman).
 
 use crate::heuristic::{reachability_layers, Scratch};
 use crate::packed::PackedTask;
 
-/// The goal's fact-landmark set (sorted, deduped fact ids). Includes the goal
-/// facts themselves (trivial landmarks) minus any already true in `:init` —
-/// counting those would reward standing still. Deterministic.
+/// The goal's landmark set, sorted and deduped, fact ids only. Carries the goal
+/// facts themselves — the easy landmarks — minus anything already true in
+/// `:init`; crediting those would be paying out for standing still. No noise, same
+/// answer every time.
 pub fn goal_landmarks(task: &PackedTask) -> Vec<u32> {
     let init = task.initial();
     landmarks_for(task, &init, &task.goal_pos)
 }
 
-/// [`goal_landmarks`] generalized over a start state and goal-fact subset —
-/// the per-SUBGOAL form the partition cascade's LAMA rung needs
-/// (`resolve::solve` solves subgoals from evolving states). Same
-/// backchaining, same soundness argument; landmarks already true in `start`
-/// are dropped for the same standing-still reason.
+/// [`goal_landmarks`], cut loose from a fixed starting point — takes any start
+/// state and any goal-fact subset, the per-SUBGOAL cut the partition cascade's
+/// LAMA rung needs (`resolve::solve` chases subgoals through states that keep
+/// shifting under it). Same backward walk, same soundness case; landmarks already
+/// live at `start` get dropped, same reason as always — no credit for standing
+/// still.
 pub fn landmarks_for(
     task: &PackedTask,
     start: &crate::packed::State,

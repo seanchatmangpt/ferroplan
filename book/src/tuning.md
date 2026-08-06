@@ -1,16 +1,16 @@
 # Tuning & environment knobs
 
-ferroplan's defaults are chosen so that a plain `ff -o domain -f problem` is the
-measured-best path — you should rarely need any of these. When you do, every knob is
+The defaults are the measured-best path. A plain `ff -o domain -f problem` is
+tuned already — you should rarely need any of this. When you do, every knob is
 an **environment variable**, read at solve time. Reads are panic-free on
-`wasm32`; the boolean features additionally have in-process overrides in
+`wasm32`; the boolean features carry in-process overrides too, in
 [`ferroplan::features`](https://docs.rs/ferroplan) (`set_overrides`,
-`set_escalate_override`, `set_espc_override`) for WASM/embedded callers, where
+`set_escalate_override`, `set_espc_override`), for WASM/embedded callers where
 `std::env::set_var` panics.
 
-Almost every knob is a **restore hatch**: it exists to reproduce an earlier
-behavior or to run an experiment, and the default is the recommended setting. All
-results are deterministic and thread-count independent.
+Almost every knob is a **restore hatch** — built to reproduce an earlier
+behavior, or run an experiment. The default stays the recommended setting.
+Every result is deterministic, thread-count independent.
 
 ## Temporal
 
@@ -42,7 +42,8 @@ results are deterministic and thread-count independent.
 
 | var | default | effect |
 |---|---|---|
-| `FF_NOVELTY` | off | **experimental**: the width-1 BFWS-style novelty rung (0.17) — a third bounded classical rung after EHC and LAMA fail, open list ordered by state novelty then h. Referee-measured: +7/−51 across the classical boards at wall-clock budgets (the rung's wall-time tax ahead of the complete fallback prices out budget-edge instances); the +3 on 2018-sat and +3 on prop-2006 are real where h dies outright. `FF_NOVELTY_ONLY=1` probes the rung alone. |
+| `FF_NOVELTY` | auto |  the width-1 BFWS-style novelty rung (0.17) — a third bounded classical rung after EHC and LAMA fail, open list ordered by state novelty then h. 0.19: DEFAULT-ON when `FF_TIME_LIMIT` is declared and >40% of the budget remains (the 0.18 gated referee measured +4/−0, reversing 0.17's ungated +7/−51 tax); `FF_NO_NOVELTY=1` opts out, `FF_NOVELTY=1` forces it without a budget. No budget declared ⇒ rung off, byte-identical ladder. `FF_NOVELTY_ONLY=1` probes the rung alone. |
+| `FF_TIME_LIMIT` | unset | the process's REAL wall budget in seconds (0.18 budget-aware ladder). The clock arms at solve entry (grounding counts as spent budget); a bounded rung (LAMA, novelty) is entered only while **more than 40% of the budget remains**, so late-ladder rungs stop starving the complete fallback near the budget edge — the mechanism behind the novelty referee's −51. Unset = all-rungs behavior, byte-identical to 0.17. `benchmarks/ipc67.py` passes its per-instance `--timeout` automatically. Informational, never kills the process. `FF_WALL_DEBUG=1` narrates the gate's verdict on stderr (the probe eyes, never affects the search). |
 | `FF_NO_DNF_STATIC` | resolve | disable static resolution inside precondition DNF expansion (restore the 2^k `imply` blowup the 0.10 fix removed — openstacks-ADL 6/30 → 30/30). |
 | `FF_NO_TRAJ_END` | end-action | restore the exponential goal-DNF construction for hard trajectory monitors (pre-0.8). |
 | `FF_CLM` | off | **experimental**: classical landmark-count guidance term. Measured negative (transport unchanged, floor-tile worse). |
@@ -51,8 +52,8 @@ results are deterministic and thread-count independent.
 
 ## PDDL3 preference optimizer
 
-The default path is the exact-closure metric optimizer; these restore its
-predecessor pieces or tune its budget.
+The default path runs the exact-closure metric optimizer. These knobs restore
+its predecessor pieces, or tune its budget.
 
 | var | default | effect |
 |---|---|---|
@@ -74,11 +75,11 @@ predecessor pieces or tune its budget.
 
 ## ESPC penalty loop (default-on where it bites)
 
-The extended-saddle-point penalty loop for resource-coupled preference domains
-(openstacks-shaped). **On by default since 0.5**, with a deterministic
-evaluated-state budget; it engages only when the compiled task carries once-only
-conditional-achievement deadline pairs — on every other task it is a verified
-no-op.
+The extended-saddle-point penalty loop, built for resource-coupled preference
+domains (openstacks-shaped). **On by default since 0.5**, running a
+deterministic evaluated-state budget. It engages only when the compiled task
+carries once-only conditional-achievement deadline pairs — everywhere else,
+a verified no-op.
 
 | var | default | effect |
 |---|---|---|
@@ -102,5 +103,5 @@ before termination, `4`).
 ## Reproducing a specific benchmark
 
 The [IPC-5 scoreboard](https://github.com/seanchatmangpt/ferroplan/blob/main/benchmarks/ipc5-scoreboard.md)
-records the exact env for each domain — e.g. openstacks's domain lead is
+logs the exact env per domain — openstacks's domain lead runs
 `FF_ESPC=1 FF_ESPC_TIME_MS=90000`.

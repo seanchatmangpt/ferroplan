@@ -1,11 +1,11 @@
-//! A native, Blockly-style problem editor: build a PDDL problem by assembling
-//! object/fact blocks with click fields (no syntax, no text typing). Objects are
-//! auto-named; clicking a block field cycles it through the valid choices
-//! (type / predicate / type-compatible object). "Apply" regenerates the problem
-//! (`viz::to_pddl`) and revisualizes it via `Scene::load_src`; "Export" writes it.
+//! A block-built rig for assembling a PDDL problem with no syntax and no typed
+//! word — objects and facts snap together like cargo modules, fields cycling
+//! through their legal states on a click (type / predicate / compatible object).
+//! Auto-named on arrival. "Apply" recompiles the problem (`viz::to_pddl`) and
+//! reflashes the scene through `Scene::load_src`; "Export" burns it to disk.
 //!
-//! `bevy_ui` has no dropdown widget, so fields are buttons that cycle on click;
-//! the panel is rebuilt from `Editor` whenever it changes.
+//! `bevy_ui` carries no dropdown — so every field is a button cycling on click,
+//! and the whole panel gets torn down and rebuilt from `Editor` on each change.
 
 use std::collections::HashMap;
 
@@ -26,7 +26,7 @@ pub enum Mode {
     Domain,
 }
 
-/// Which text field currently captures keyboard input.
+/// The one field, if any, currently drinking every keystroke.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)] // *Name fields are clearer than bare names here
 pub enum Focus {
@@ -36,13 +36,13 @@ pub enum Focus {
     ActionName(usize),
 }
 
-/// A literal in a precondition/effect: `(neg, predicate, [arg vars])`.
+/// One clause of a precondition or effect: `(neg, predicate, [arg vars])`.
 type Lit = (bool, String, Vec<String>);
 
-/// A conditional effect: `(when-condition literals, when-effect literals)`.
+/// A conditional trigger: `(when-condition literals, when-effect literals)`.
 type When = (Vec<Lit>, Vec<Lit>);
 
-/// Where a literal lives inside an action (used by the edit actions).
+/// The address of a literal inside an action's anatomy — where the edit lands.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum LitLoc {
     Pre,
@@ -51,9 +51,10 @@ pub enum LitLoc {
     WhenEff(usize),
 }
 
-/// An editor action. Actions built from literals + `or`-preconditions + flat
-/// `when` conditional effects are modeled and editable; anything richer
-/// (forall/exists/numeric/nested) is preserved verbatim.
+/// An action as the editor sees it. Anything built from bare literals,
+/// `or`-preconditions, and flat `when` triggers gets fully modeled and
+/// editable; anything heavier — forall, exists, numerics, nesting — is
+/// carried through untouched, dead weight the editor won't crack open.
 enum EdAction {
     Modeled {
         name: String,
@@ -94,21 +95,21 @@ pub struct Editor {
 #[derive(Component)]
 pub struct EditorRoot;
 
-/// A draggable fact block (its list + index at build time).
+/// A fact block loose on the table — its list and its position, as of build time.
 #[derive(Component, Clone, Copy)]
 pub enum DragKind {
     Init(usize),
     Goal(usize),
 }
 
-/// A drop target column.
+/// A landing column — where a dragged block can be dropped.
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub enum Zone {
     Init,
     Goal,
 }
 
-/// The label that follows the cursor while dragging.
+/// The tag that trails the cursor mid-drag, a ghost of the thing you're carrying.
 #[derive(Component)]
 pub struct Ghost;
 
@@ -118,8 +119,8 @@ pub struct Drag {
     ghost: Option<Entity>,
 }
 
-/// Move a dragged fact into the zone it was dropped on (cross-zone only; a drop
-/// back on the same zone is a no-op). Pure — unit-tested.
+/// Land a dragged fact in the zone it was released over. A drop back on home
+/// ground is a dead swing — no-op. Pure function, no side channels; unit-tested.
 fn resolve_drop(held: DragKind, zone: Zone, editor: &mut Editor) -> bool {
     match (held, zone) {
         (DragKind::Init(i), Zone::Goal) if i < editor.init.len() => {
@@ -206,8 +207,8 @@ pub fn toggle_editor(
     }
 }
 
-/// Type into the focused text field (domain/type/predicate names). Captures all
-/// keys while a field is focused, so global shortcuts are suppressed meanwhile.
+/// Feed keystrokes into whichever field is lit up — domain, type, or predicate
+/// name. While it's live, every key belongs to it; global shortcuts go dark.
 pub fn text_input(mut evr: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>) {
     if editor.focus.is_none() {
         evr.clear();
@@ -260,8 +261,8 @@ enum TextEdit {
     Pop,
 }
 
-/// Drag a fact block (by its grip) and drop it on the other zone to move it
-/// between Init and Goal. A ghost label follows the cursor while dragging.
+/// Grip a fact block, haul it across the line, drop it in the other zone —
+/// Init to Goal or back. A ghost tag rides the cursor for the whole run.
 #[allow(clippy::too_many_arguments)]
 pub fn editor_drag(
     mouse: Res<ButtonInput<MouseButton>>,
@@ -337,8 +338,8 @@ fn ghost_text(editor: &Editor, kind: DragKind) -> String {
         .unwrap_or_default()
 }
 
-/// Scroll the editor panel with the mouse wheel (the panel can be taller than the
-/// window). Only active while the editor is open.
+/// Ride the wheel down the editor panel — it can run taller than the viewport.
+/// Dead when the editor's shut.
 pub fn scroll_editor(
     mut wheel: MessageReader<MouseWheel>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -452,8 +453,8 @@ fn seed_domain(editor: &mut Editor, scene: &Scene) {
     editor.dseeded = true;
 }
 
-/// Model an action if its precond/effect are flat (conjunction of literals);
-/// otherwise keep the raw text.
+/// Model the action if its precondition and effect lie flat — a plain
+/// conjunction of literals. Anything with teeth gets kept raw, untouched.
 fn seed_action(a: &Action, raw: Option<&String>) -> EdAction {
     match (flatten_pre(&a.precond), flatten_eff(&a.effect)) {
         (Some((pre_or, pre)), Some((eff, whens))) => EdAction::Modeled {
@@ -488,7 +489,7 @@ fn term_str(t: &Term) -> String {
     }
 }
 
-/// A single literal (atom or negated atom), else None.
+/// One literal — bare atom or its negation — or nothing, if the shape doesn't fit.
 fn flat_lit(f: &Formula) -> Option<Lit> {
     match f {
         Formula::Atom(p, ts) => Some((false, p.to_lowercase(), ts.iter().map(term_str).collect())),
@@ -502,7 +503,8 @@ fn flat_lit(f: &Formula) -> Option<Lit> {
     }
 }
 
-/// A flat precondition: `(is_or, literals)`. None if it nests beyond and/or of literals.
+/// A precondition flattened to `(is_or, literals)` — None the moment it nests
+/// past a single layer of and/or.
 fn flatten_pre(f: &Formula) -> Option<(bool, Vec<Lit>)> {
     match f {
         Formula::True => Some((false, vec![])),
@@ -520,8 +522,8 @@ fn flatten_pre(f: &Formula) -> Option<(bool, Vec<Lit>)> {
     }
 }
 
-/// A flat effect: `(unconditional literals, [(when-cond, when-eff)])`. None if it
-/// uses forall / numeric / nested whens.
+/// An effect flattened to `(unconditional literals, [(when-cond, when-eff)])`.
+/// None the instant forall, numerics, or nested whens show up in the wreckage.
 fn flatten_eff(e: &Effect) -> Option<(Vec<Lit>, Vec<When>)> {
     let mut lits = Vec::new();
     let mut whens = Vec::new();
@@ -575,7 +577,7 @@ fn lit_str(l: &Lit) -> String {
     }
 }
 
-/// Render literals grouped under `and`/`or`. A single `and` literal is bare.
+/// Bundle literals under `and`/`or` for printing. A lone `and` literal walks bare.
 fn lits_grouped(lits: &[Lit], or: bool) -> String {
     let kw = if or { "or" } else { "and" };
     match lits.len() {
@@ -629,7 +631,7 @@ fn action_to_pddl(a: &EdAction) -> String {
     }
 }
 
-/// The literal list addressed by `loc` within a modeled action.
+/// The literal list `loc` points at, inside a modeled action's guts.
 fn lits_at_mut(act: &mut EdAction, loc: LitLoc) -> Option<&mut Vec<Lit>> {
     if let EdAction::Modeled {
         pre, eff, whens, ..
@@ -670,7 +672,7 @@ fn ed_is_subtype(types: &[(String, String)], ty: &str, of: &str) -> bool {
     false
 }
 
-/// Action params whose type fits an argument slot of type `arg_ty`.
+/// The action's params that fit an argument slot typed `arg_ty` — the compatible cargo.
 fn compatible_params(
     params: &[(String, String)],
     types: &[(String, String)],
@@ -694,7 +696,7 @@ fn first_compatible_param(
         .unwrap_or_else(|| "?".into())
 }
 
-/// First balanced `(...)` block beginning with `prefix` (case-insensitive).
+/// The first balanced `(...)` block that opens with `prefix` — case blind.
 fn extract_block(src: &str, prefix: &str) -> Option<String> {
     let low = src.to_lowercase();
     let start = low.find(&prefix.to_lowercase())?;
@@ -719,7 +721,7 @@ fn extract_all_blocks(src: &str, prefix: &str) -> Vec<String> {
     out
 }
 
-/// The balanced parenthesized block starting at/after `start` (skips `;` comments).
+/// The balanced paren block beginning at or after `start` — steps clean over `;` comments.
 fn balanced_from(src: &str, start: usize) -> Option<String> {
     let b = src.as_bytes();
     let mut i = start;
@@ -1052,8 +1054,8 @@ fn apply_act(act: &Act, editor: &mut Editor, scene: &mut Scene) {
     }
 }
 
-/// Regenerate PDDL from the editor and reload it. When the domain has been
-/// edited, the domain is reloaded first, then the problem against it.
+/// Recompile PDDL from the editor's state and push it back into the scene. A
+/// touched domain reloads first, so the problem lands against solid ground.
 fn apply_changes(editor: &mut Editor, scene: &mut Scene) {
     if editor.dseeded {
         let actions: Vec<String> = editor.actions.iter().map(action_to_pddl).collect();
@@ -1259,7 +1261,7 @@ fn build_problem(p: &mut ChildSpawnerCommands, editor: &Editor) {
     });
 }
 
-/// A drop-zone container (tagged + cursor-tracked) holding a column of blocks.
+/// A landing zone — tagged, cursor-watched, holding a column of blocks.
 fn zone(p: &mut ChildSpawnerCommands, z: Zone, f: impl FnOnce(&mut ChildSpawnerCommands)) {
     p.spawn((
         Node {
@@ -1277,7 +1279,7 @@ fn zone(p: &mut ChildSpawnerCommands, z: Zone, f: impl FnOnce(&mut ChildSpawnerC
     .with_children(f);
 }
 
-/// The drag handle at the start of a fact row.
+/// The grab-point riding the front edge of a fact row.
 fn grip(r: &mut ChildSpawnerCommands, kind: DragKind) {
     r.spawn((
         Node {
@@ -1436,7 +1438,7 @@ fn lit_section(p: &mut ChildSpawnerCommands, i: usize, loc: LitLoc, title: &str,
     btn(p, "  + literal", Act::AddLit(i, loc));
 }
 
-/// A name field's label; shows `?` when empty and a trailing `_` cursor when focused.
+/// A name field's face — a blank `?` when empty, a live `_` cursor when it's lit.
 fn name_label(name: &str, focused: bool) -> String {
     let base = if name.is_empty() { "?" } else { name };
     if focused {
@@ -1483,8 +1485,8 @@ fn label(p: &mut ChildSpawnerCommands, text: impl Into<String>) {
     ));
 }
 
-/// A label in a specific colour (precondition cyan, effect molten — the redesign's
-/// pre/eff cue).
+/// A colour-coded label — precondition burns cyan, effect burns molten, the
+/// house signal for which side of the trigger you're reading.
 fn label_colored(p: &mut ChildSpawnerCommands, text: impl Into<String>, color: Color) {
     p.spawn((
         Text::new(text.into()),
@@ -1496,8 +1498,8 @@ fn label_colored(p: &mut ChildSpawnerCommands, text: impl Into<String>, color: C
     ));
 }
 
-/// A prominent section heading (lavender accent + a thin divider) so the editor
-/// reads as grouped sections rather than one flat list.
+/// A section marker — lavender accent, a hairline divider — so the panel reads
+/// as districts instead of one flat sprawl.
 fn section_header(p: &mut ChildSpawnerCommands, text: &str) {
     p.spawn(Node {
         flex_direction: FlexDirection::Column,
@@ -1553,8 +1555,8 @@ fn btn(p: &mut ChildSpawnerCommands, text: impl Into<String>, act: Act) {
     });
 }
 
-/// A stable per-key color (fill, accent) so each predicate / type reads as its
-/// own kind of block — the Blockly-style visual cue.
+/// A fixed colour keyed to the block's name — fill plus accent — so each
+/// predicate and type burns its own signature, read at a glance.
 fn block_color(key: &str) -> (Color, Color) {
     // (dark fill, bright left-rail accent) in the forge palette — cyan / rig-green /
     // crate-amber / node-purple / molten / cyan-teal, so block kinds read as the
@@ -1577,8 +1579,8 @@ fn block_color(key: &str) -> (Color, Color) {
     )
 }
 
-/// A rounded, color-coded block card with a thick left accent edge (Blockly look)
-/// wrapping a row of fields. `key` picks the color (predicate or type name).
+/// A block card — rounded corners, a thick accent rail down the left flank —
+/// wrapping a row of fields. `key` (predicate or type name) sets its colour.
 fn block_card(p: &mut ChildSpawnerCommands, key: &str, f: impl FnOnce(&mut ChildSpawnerCommands)) {
     let (fill, accent) = block_color(key);
     p.spawn((

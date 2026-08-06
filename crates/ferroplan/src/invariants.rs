@@ -1,27 +1,33 @@
-//! Mutex-group synthesis: Helmert-style monotonicity invariants (multi-predicate).
+//! Mutex-group synthesis. Helmert-style monotonicity invariants, run
+//! multi-predicate.
 //!
-//! Produces **mutex groups** (sets of ground facts of which at most one is ever
-//! true) WITHOUT moving the planner off its propositional bitset state. The groups
-//! are exactly what a SAS+ representation would give as multi-valued variables and
-//! are the load-bearing dependency for SGPlan/ESPC subgoal partitioning.
+//! Output is **mutex groups** — sets of ground facts where at most one is
+//! ever lit — without pulling the planner off its propositional bitset
+//! state. What a SAS+ representation would hand you as multi-valued
+//! variables, extracted the hard way; load-bearing for SGPlan/ESPC subgoal
+//! partitioning downstream.
 //!
-//! A candidate invariant has `nparams` universally-quantified parameters and one
-//! "counted" variable. Each **member** is a predicate whose argument positions are
-//! roles: `Some(j)` binds parameter `j`, `None` is the counted variable (≤1 per
-//! member). The group, for each binding of the parameters, is the union over
-//! members of the matching ground atoms — at most one ever true.
+//! A candidate invariant carries `nparams` universally-quantified
+//! parameters and one "counted" slot. Each **member** is a predicate whose
+//! argument positions are roles: `Some(j)` locks parameter `j`, `None`
+//! marks the counted variable (one per member, no more). For each binding
+//! of the parameters, the group is the union across members of the
+//! matching ground atoms — never more than one lit at once.
 //!
-//! Verification (per action, lifted):
-//!   - an add of a member is **balanced** only by a delete of a member with the
-//!     same parameter binding *that is also a positive precondition* of the action
-//!     (so the removed unit was provably the true one — this is what makes it sound);
-//!   - two adds with the same binding ⇒ the candidate is false ("too heavy");
-//!   - an unbalanced add is **refined**: branch, extending the candidate with each
-//!     deleted-and-required fact that could supply the missing balance, then
-//!     re-verify to a fixpoint.
+//! Verification runs lifted, per action:
+//!   - an add on a member only counts as **balanced** against a delete of a
+//!     member sharing the same parameter binding *that is also a positive
+//!     precondition* of the action — proof the removed unit was the true
+//!     one, the whole soundness argument rides on it;
+//!   - two adds landing on the same binding kill the candidate outright
+//!     ("too heavy");
+//!   - an unbalanced add gets **refined**: branch, tack on each
+//!     deleted-and-required fact that could plug the gap, re-verify to a
+//!     fixpoint.
 //!
-//! Finally every instantiated group must be at-most-one true in the initial state.
-//! Anything uncertain is rejected, so emitted groups are always sound.
+//! Last check: every instantiated group has to read at-most-one-true in
+//! the initial state. Anything uncertain gets dropped on the floor — what
+//! ships out is sound, full stop.
 
 use crate::packed::PackedTask;
 use crate::types::{Domain, Effect, Formula, Term};
@@ -33,8 +39,8 @@ type GAtom = (String, Vec<String>); // ground: (lowercased predicate, object arg
 const MAX_MEMBERS: usize = 5;
 const REFINE_BUDGET: usize = 600;
 
-/// Synthesize sound mutex groups (each a set of ground fact ids, ≥2 members, at
-/// most one true at a time) for a grounded task.
+/// Synthesize sound mutex groups — each a set of ground fact ids, two or
+/// more members, never more than one live at a time — for a grounded task.
 pub fn synthesize(domain: &Domain, task: &PackedTask) -> Vec<Vec<u32>> {
     // fact id -> (predicate, args); None for compiled `(NOT …)` facts.
     let keys: Vec<Option<GAtom>> = task.fact_names.iter().map(|s| parse_fact(s)).collect();
@@ -76,8 +82,9 @@ pub fn synthesize(domain: &Domain, task: &PackedTask) -> Vec<Vec<u32>> {
     groups
 }
 
-/// Parse a rendered fact name `"(pred a0 a1)"` into `(pred, [args])`.
-/// Returns None only for `"(NOT …)"` compiled facts. Nullary facts are kept.
+/// Parse a rendered fact name `"(pred a0 a1)"` down into `(pred, [args])`.
+/// Comes back None only for `"(NOT …)"` compiled facts. Nullary facts pass
+/// through untouched.
 fn parse_fact(s: &str) -> Option<GAtom> {
     let inner = s.strip_prefix('(')?.strip_suffix(')')?.trim();
     let mut toks = inner.split_whitespace();
@@ -105,7 +112,7 @@ impl Candidate {
     fn has_pred(&self, p: &str) -> bool {
         self.members.iter().any(|m| m.pred == p)
     }
-    /// Parameter binding if `(pred,args)` matches a member, else None.
+    /// Parameter binding, if `(pred,args)` lines up with a member — else nothing.
     fn binding(&self, pred: &str, args: &[Term]) -> Option<Vec<Term>> {
         for m in &self.members {
             if m.pred == pred && m.roles.len() == args.len() {
@@ -260,8 +267,9 @@ fn first_problem(cand: &Candidate, effs: &[ActionEffects]) -> Verdict {
     Verdict::Balanced
 }
 
-/// New members that would balance an unbalanced add `ab`: a deleted-and-required
-/// fact of a not-yet-member predicate, whose args bind the parameters of `ab`.
+/// Candidate members that would balance an unbalanced add `ab`: a
+/// deleted-and-required fact off a predicate not yet in the candidate,
+/// whose args lock onto the parameters of `ab`.
 fn propose(cand: &Candidate, ae: &ActionEffects, ab: &[Term]) -> Vec<Member> {
     let mut out = Vec::new();
     for (p, a) in &ae.dels {
@@ -297,7 +305,7 @@ fn build_member(pred: &str, args: &[Term], binding: &[Term], nparams: usize) -> 
     })
 }
 
-/// Branch-and-verify a seed to all balanced extensions.
+/// Run a seed through branch-and-verify out to every balanced extension.
 fn refine(seed: Candidate, effs: &[ActionEffects]) -> Vec<Candidate> {
     let mut out = Vec::new();
     let mut stack = vec![seed];
@@ -327,8 +335,8 @@ fn refine(seed: Candidate, effs: &[ActionEffects]) -> Vec<Candidate> {
     out
 }
 
-/// Instantiate the per-parameter-binding ground groups; None if a group is not
-/// at-most-one true in the initial state.
+/// Instantiate the ground groups, one per parameter binding; comes back
+/// None the moment a group fails at-most-one-true in the initial state.
 fn instantiate(
     cand: &Candidate,
     keys: &[Option<GAtom>],

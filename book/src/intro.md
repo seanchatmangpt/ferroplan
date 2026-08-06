@@ -1,17 +1,17 @@
 # Introduction
 
-**ferroplan** is a fast, data-parallel [PDDL](https://en.wikipedia.org/wiki/Planning_Domain_Definition_Language)
-planner in Rust — a from-scratch reimplementation of the FF planner family, and a
+**ferroplan** runs cold and fast: a data-parallel [PDDL](https://en.wikipedia.org/wiki/Planning_Domain_Definition_Language)
+planner in Rust, rebuilt from scratch out of the FF planner lineage — a
 **deterministic planning core for the age of AI**.
 
-The bet behind it: an LLM should be the *author and supervisor* of a planner, not its
-runtime. You don't ask a model to add a column of numbers — you have it emit code that
-does the arithmetic deterministically and for free; the same applies one level up.
-Rather than running a whole village of agents' decisions through an LLM every tick —
-expensive, non-reproducible, unbounded — the model **authors a PDDL domain** that
-plans deterministically, cheaply, inspectably, and at scale, and only *nudges* it at
-runtime. PDDL is the auditable interface between intent, the model's authoring, and a
-fast solver. You can read a domain and an axiom; you can't read a model's weights.
+The wager: the model authors, the planner executes. You don't hand a language model a
+column of numbers and ask it to add them — you make it emit code that does the
+arithmetic, deterministic and free. Same move, one level up. Run a village of agents'
+decisions through an LLM every tick and you pay for it — expensive, non-reproducible,
+unbounded. Instead the model **authors a PDDL domain**. The domain plans itself:
+deterministic, cheap, inspectable, at scale. The model only nudges it at runtime.
+PDDL sits as the auditable interface — intent in, authored domain, fast solver out.
+A domain and an axiom, you can read. A model's weights, you can't.
 
 It combines:
 
@@ -38,16 +38,15 @@ It combines:
 - an optional **SGPlan-style partition-and-resolve** mode, and a
   budget-aware sequential **portfolio** mode (`--mode portfolio`).
 
-It is offered as a Rust **library** (with a structured, JSON-serializable API)
-and the **`ff`** command-line binary, a drop-in for Metric-FF.
+Ships two ways: a Rust **library** with a structured, JSON-serializable API, and the
+**`ff`** command-line binary — a drop-in for Metric-FF.
 
 ## Acknowledgments
 
-ferroplan owes an enormous debt to the planners it learns from. Above all
-**SGPlan** (Chih-Wei Hsu and Benjamin W. Wah, University of Illinois), which has set
-the standard in satisficing planning with preferences and temporal/resource
-constraints for nearly two decades — coming even *close* to it on a slice of the
-benchmarks is genuinely an honor, and a tribute to the depth and durability of that
-team's research. And to Jörg Hoffmann's **FF / Metric-FF**, whose relaxed-plan
-heuristic and enforced hill-climbing are this engine's backbone, and to **VAL**
-(Derek Long & Maria Fox) for independent temporal-plan validation.
+Every planner here traces a lineage. Above all **SGPlan** (Chih-Wei Hsu and Benjamin
+W. Wah, University of Illinois) — nearly two decades setting the standard in
+satisficing planning with preferences and temporal/resource constraints. Landing
+even *close* on a slice of the benchmarks is an honor, earned against a team's
+long-running research. Jörg Hoffmann's **FF / Metric-FF** supplied the backbone:
+the relaxed-plan heuristic, enforced hill-climbing. **VAL** (Derek Long & Maria Fox)
+stands watch on temporal-plan validation, independent of this engine.

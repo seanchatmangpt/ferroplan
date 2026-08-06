@@ -13,25 +13,26 @@
 > formulation** — the qualitative track is five domains (openstacks, rovers,
 > storage, tpp, trucks), not the six the simple-preferences suite has.
 
-0.4.1 made PDDL3 trajectory constraints a clean *rejection*: every operator
-parses into the AST, and any non-empty `(:constraints ...)` block is refused
-with an explanation at every entrypoint — the "never silently ignore"
-contract. 0.5 and 0.6 then banked the simple-preferences quality story on
-top of that fence. **0.7 has one headline: enforce trajectory constraints**
-— the qualitative-preferences track promised in the 0.5 and 0.6 NOT-lists —
-via the standard monitor-automaton compilation (Gerevini & Long / Edelkamp):
-each constraint instance becomes a small automaton over state trajectories,
-synchronized by conditional effects on every action, with acceptance folded
-into the goal (hard constraints) or into preference facts priced by the
-existing metric stack (soft constraints). The fence is narrowed
-operator-by-operator, never deleted: anything 0.7 does not enforce keeps
-the 0.4.1 rejection, now naming the specific operator.
+0.4.1 built a fence: PDDL3 trajectory constraints got a clean *rejection*.
+Every operator parses into the AST, and any non-empty `(:constraints ...)`
+block is refused with an explanation at every entrypoint — the "never
+silently ignore" contract, standing guard. 0.5 and 0.6 banked their
+simple-preferences quality story on top of that fence, never touching it.
+**0.7 has one job: enforce trajectory constraints** — the
+qualitative-preferences track both prior roadmaps promised and deferred —
+through the standard monitor-automaton compilation (Gerevini & Long /
+Edelkamp). Each constraint instance becomes a small automaton riding state
+trajectories, synchronized by conditional effects on every action,
+acceptance folded into the goal for hard constraints or into preference
+facts priced by the existing metric stack for soft ones. The fence narrows
+operator by operator; it never comes down whole. Whatever 0.7 can't enforce
+keeps the 0.4.1 rejection — now naming the exact operator that tripped it.
 
-Two contracts are sacred throughout: **reported == verified** (verify.rs is
-the sole conformance oracle — there is no VAL fallback for PDDL3, and the
-repo's standing stance is VAL-as-advisory anyway), and **determinism** (same
+Two contracts stay sacred throughout: **reported == verified** — verify.rs
+is the sole conformance oracle, no VAL fallback for PDDL3, the repo's
+standing stance treats VAL as advisory only — and **determinism**: same
 problem, same plan, any thread count; every default change keeps a restore
-hatch; negative results get recorded in this document).
+hatch; every negative result gets written down here, not swept.
 
 ---
 
@@ -144,24 +145,25 @@ Phase 1: hard untimed constraints ──► Phase 2: soft constraints + the ─�
                       Phase 4: temporal selection ◄─────┘ (gated, from 0.6) ───────┘
 ```
 
-Ordering rationale: Phase 1 builds the compilation and — critically — the
-oracle, on the path where semantics are simplest and every test is
-hand-checkable. Phase 2 is the headline (the wild qualitative corpus is
-soft-only, four operators, all untimed). Phases 3 and 4 are gated stretch
-work in the 0.5/0.6 tradition: measured win or documented dead end, neither
-on the minimum shipping path.
+Why this order: Phase 1 builds the compilation and — the part that actually
+matters — the oracle, on the path where semantics stay simplest and every
+test is hand-checkable. Phase 2 is the headline: the wild qualitative corpus
+is soft-only, four operators, all untimed, ready to be taken. Phases 3 and 4
+are gated stretch work in the 0.5/0.6 tradition — measured win or documented
+dead end, neither one blocking the door.
 
 ---
 
 ## Phase 1 — Hard untimed constraints on the classical path
 
 **Why:** the six untimed operators (`always`, `sometime`, `at-most-once`,
-`sometime-after`, `sometime-before`, `at end`) compile to pure
+`sometime-after`, `sometime-before`, `at end`) compile down to pure
 state-transition monitors — no clock, no new search machinery — and the
-grounder/heuristic already handle everything the compilation emits.
-Building the verifier extension FIRST (in the same phase, same PR series)
-is non-negotiable: verify.rs is the only oracle, and enforcement without an
-independent trajectory check would be self-grading.
+grounder and heuristic already handle everything the compilation throws at
+them. Building the verifier extension FIRST, in the same phase, same PR
+series, is non-negotiable: verify.rs is the only oracle in the building, and
+enforcement without an independent trajectory check is just grading your own
+homework.
 
 **Scope:**
 - `constraints.rs`: forall expansion (reusing `combos`/`subst_formula` +
@@ -257,10 +259,10 @@ is explicitly deferred (see NOT-list).
 
 **Why:** this is the headline. Every `(:constraints ...)` block in the wild
 qualitative corpus is preference-wrapped and untimed — Phase 1's monitors
-plus a preference wrapper cover 100% of the operators the track actually
-uses. And the pricing machinery already exists: `pref_weights`' metric-side
-extraction already picks up `(is-violated p)` coefficients regardless of
-where `p` lives — only the name *enumeration* is goal-only today.
+plus a preference wrapper cover 100% of what the track actually throws at
+the planner. And the pricing machinery is already standing: `pref_weights`'
+metric-side extraction already picks up `(is-violated p)` coefficients
+wherever `p` lives — only the name *enumeration* is still goal-only.
 
 **Scope:**
 - A constraint-side analogue of `preferences()`: walk
@@ -506,13 +508,13 @@ is expected to open with honest gaps.
 
 ## The 0.7 story
 
-> 0.4 built the fence: trajectory constraints were refused loudly instead
-> of ignored silently. 0.5 and 0.6 won on what was inside the fence. **0.7
-> moves the fence**: the untimed PDDL3 modalities compile to monitor
-> automata that ride every action, hard constraints become goals the
-> existing search must honor, soft constraints become preferences the
-> existing metric stack already knows how to price — and the independent
-> verifier learns to check every claim over the whole trajectory before
-> any of it is called done. What 0.7 cannot enforce, it still refuses, by
-> name. Same plan on any machine at any thread count; every new default
-> has a way back; every gated bet ends in a number or a written dead end.
+> 0.4 built the fence: trajectory constraints refused loudly instead of
+> ignored silently. 0.5 and 0.6 won on what was already inside it. **0.7
+> moves the fence.** The untimed PDDL3 modalities compile to monitor
+> automata riding every action; hard constraints become goals the existing
+> search has to honor; soft constraints become preferences the existing
+> metric stack already knows how to price — and the independent verifier
+> learns to check every claim over the whole trajectory before any of it
+> gets called done. What 0.7 cannot enforce, it still refuses, by name.
+> Same plan on any machine at any thread count. Every new default keeps a
+> way back. Every gated bet ends in a number or a written dead end.

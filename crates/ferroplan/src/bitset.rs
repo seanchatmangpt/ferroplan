@@ -1,6 +1,7 @@
-//! Fixed-width bit set over `u64` words — the fact layer of a state.
-//! Word-oriented so applicability/apply are tight bitwise loops and states are
-//! compact for hashing/dedup in parallel search.
+//! Fixed-width flags over `u64` words — the fact-layer of a state, packed
+//! tight. Word-oriented so the applicability check and the apply step run as
+//! bare bitwise loops, and every state stays small enough to hash and
+//! dedup at speed when the search fans out across threads.
 
 #[inline]
 pub fn words_for(n_bits: usize) -> usize {
@@ -22,7 +23,7 @@ pub fn clear(w: &mut [u64], i: usize) {
     w[i >> 6] &= !(1u64 << (i & 63));
 }
 
-/// Count set bits (population count) across the word array.
+/// Count the flags standing across the whole word array.
 pub fn count(w: &[u64]) -> usize {
     w.iter().map(|x| x.count_ones() as usize).sum()
 }

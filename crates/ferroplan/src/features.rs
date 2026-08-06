@@ -1,15 +1,17 @@
-//! Process-global overrides for the env-gated planner features.
+//! Kill-switches for the whole engine, wired process-wide, no wire trace.
 //!
-//! Each feature has a *default* (whether it's on when nothing is configured) and two
-//! ways to override it: an env var (great for the CLI) and an in-process override
-//! (for **WASM**, where `std::env::set_var` *panics* on `wasm32-unknown-unknown`, and
-//! embedded library callers like the `sim_core` game). Env *reads* are panic-free on
-//! wasm, so a getter that consults both is safe there.
+//! Every feature runs on a *default* setting and answers to two masters: the env
+//! var, a shout from the CLI shell, and the in-process override, a whisper for
+//! **WASM** runtimes where `std::env::set_var` blows up on contact with
+//! `wasm32-unknown-unknown` — and for embedded riders like the `sim_core` game,
+//! stowed away inside someone else's process. Env *reads* stay quiet on wasm, so a
+//! getter that checks both channels never trips the alarm.
 //!
-//! The override is **tri-state** (`Unset` / `On` / `Off`): `Unset` falls back to the
-//! default + env, while `On`/`Off` are definitive. This matters now that `tdemand`
-//! defaults ON — a WASM caller must be able to force it *off*, which a plain bool
-//! "override OR env" could not express. Set the override once before `solve`.
+//! The override runs **tri-state** (`Unset` / `On` / `Off`) — `Unset` drops back to
+//! default-plus-env, `On`/`Off` are orders, no negotiation. Matters more since
+//! `tdemand` went live by default: a WASM caller needs a hard kill, not a suggestion,
+//! and a plain bool "override OR env" can't cut that clean. Set the override once,
+//! before the first shot fires — before `solve`.
 use std::sync::atomic::{AtomicU8, Ordering::Relaxed};
 
 // Tri-state override packed into an AtomicU8.
@@ -23,31 +25,32 @@ static TCONC: AtomicU8 = AtomicU8::new(UNSET);
 static ESCALATE: AtomicU8 = AtomicU8::new(UNSET);
 static ESPC: AtomicU8 = AtomicU8::new(UNSET);
 
-/// Set the overrides (e.g. from the WASM `flags` arg). Each bool is definitive for
-/// this and subsequent solves — `true` forces the feature on, `false` forces it off
-/// (overriding the default), so a later `solve` can't inherit a previous caller's
-/// choice. To return a feature to its default + env behavior, use [`clear_overrides`].
+/// Slam the overrides in place (e.g. from the WASM `flags` arg). Each bool is a
+/// standing order for this solve and every one after — `true` lights the feature,
+/// `false` cuts it, no default gets a vote. Nobody inherits the last caller's ghost.
+/// To hand control back to default-plus-env, call [`clear_overrides`].
 pub fn set_overrides(tdemand: bool, tdecomp: bool, tconc: bool) {
     TDEMAND.store(if tdemand { ON } else { OFF }, Relaxed);
     TDECOMP.store(if tdecomp { ON } else { OFF }, Relaxed);
     TCONC.store(if tconc { ON } else { OFF }, Relaxed);
 }
 
-/// In-process override for the escalation ladder (see [`escalate`]) — the WASM /
-/// embedded analog of `FF_NO_ESCALATE`, since env *writes* panic on wasm32.
-/// Definitive until [`clear_overrides`].
+/// In-process cutoff for the escalation ladder (see [`escalate`]) — the WASM /
+/// embedded stand-in for `FF_NO_ESCALATE`, since env *writes* die on wasm32.
+/// Holds until [`clear_overrides`] wipes it.
 pub fn set_escalate_override(on: bool) {
     ESCALATE.store(if on { ON } else { OFF }, Relaxed);
 }
 
-/// In-process override for the ESPC penalty loop (see [`espc`]) — the WASM /
-/// embedded analog of setting/unsetting `FF_ESPC`. Definitive until
-/// [`clear_overrides`].
+/// In-process cutoff for the ESPC penalty loop (see [`espc`]) — the WASM /
+/// embedded stand-in for flipping `FF_ESPC` on or off. Holds until
+/// [`clear_overrides`] wipes it.
 pub fn set_espc_override(on: bool) {
     ESPC.store(if on { ON } else { OFF }, Relaxed);
 }
 
-/// Clear all in-process overrides back to `Unset` (default + env decide).
+/// Wipe every in-process override back to `Unset` — hand the decision back to
+/// default-plus-env, no orders standing.
 pub fn clear_overrides() {
     TDEMAND.store(UNSET, Relaxed);
     TDECOMP.store(UNSET, Relaxed);
@@ -65,30 +68,34 @@ fn resolve(state: &AtomicU8, default: bool) -> bool {
     }
 }
 
-/// How much temporal demand guidance to apply. The feature graduated from a single
-/// opt-in `FF_TDEMAND` to a **default-on `Numeric`** tier in v0.2 — but only the
-/// numeric-goal half, because the predicate-goal-threshold half can regress makespan
-/// on renewable-resource concurrency domains (it reads a `(>= (avail) 1)` guard on a
-/// net-zero pool as accumulation demand and serializes). So the safe, measured win
-/// (multi-round *numeric* goals: `steel >= 2`, `grain >= 10`, `coin >= 15`) is on by
-/// default; the structural/predicate half stays explicit.
+/// How hard the temporal-demand instinct pushes. Started as a back-alley opt-in,
+/// `FF_TDEMAND`, then went legit in v0.2 — **default-on at the `Numeric` tier** —
+/// but only the numeric-goal half of the trade. The predicate-threshold half is
+/// still bad news: it misreads a `(>= (avail) 1)` guard on a net-zero pool as real
+/// demand and serializes work that should run parallel, bleeding makespan on
+/// renewable-resource jobs. So the clean win — multi-round *numeric* goals like
+/// `steel >= 2`, `grain >= 10`, `coin >= 15` — ships live. The structural half
+/// stays under lock, opt-in only.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DemandMode {
-    /// No demand guidance and no relevance pruning — bit-identical to the pre-v0.2
-    /// default.
+    /// Lights out. No demand guidance, no relevance pruning — the engine runs
+    /// exactly as it did before v0.2, bit for bit.
     Off,
-    /// Default (v0.2): seed demand from NUMERIC goals only (no predicate-threshold
-    /// seeding). Goal-relevance pruning is also on (v0.3.0), with an unmasked
-    /// complete backstop pass; `FF_NOREL` disables pruning alone.
+    /// Standing default since v0.2: demand seeded from NUMERIC goals alone, no
+    /// predicate-threshold intel. Goal-relevance pruning rides along (v0.3.0),
+    /// backed by an unmasked full pass so nothing slips through; `FF_NOREL` cuts
+    /// pruning on its own if you need it gone.
     Numeric,
-    /// Full (`FF_TDEMAND` for whole solves): additionally seed demand from
-    /// predicate-goal thresholds — for the conjunctive/structural builds. The
-    /// escalation ladder also retries failed default-tier searches at this tier
-    /// automatically (see [`escalate`]), so the flag now mainly forces it *first*.
+    /// Full contact (`FF_TDEMAND`, whole-solve): demand also seeded from
+    /// predicate-goal thresholds, for the conjunctive/structural jobs that need it.
+    /// The escalation ladder retries here automatically after a default-tier miss
+    /// (see [`escalate`]) — the flag's real job now is jumping the line, going
+    /// straight to this tier first.
     Full,
 }
 
-/// Resolve the active demand tier from the override / env / default.
+/// Read the room: resolve the active demand tier from override, then env, then
+/// default, in that pecking order.
 pub fn demand_mode() -> DemandMode {
     match TDEMAND.load(Relaxed) {
         ON => DemandMode::Full,
@@ -105,46 +112,48 @@ pub fn demand_mode() -> DemandMode {
     }
 }
 
-/// Whether *any* demand seed is built (`Numeric` or `Full`). Predicate-threshold
-/// seeding is gated separately on [`demand_mode`] `== Full`; goal-relevance pruning
-/// rides any non-`Off` tier (minus `FF_NOREL`).
+/// True if *any* demand seed got built at all — `Numeric` or `Full`, doesn't matter
+/// which. Predicate-threshold seeding is locked behind [`demand_mode`] `== Full`
+/// separately; goal-relevance pruning tags along on any tier that isn't `Off`
+/// (unless `FF_NOREL` says otherwise).
 pub fn tdemand() -> bool {
     demand_mode() != DemandMode::Off
 }
 
-/// The partition-and-resolve decomposer (temporal path). Opt-in via `FF_TDECOMP`.
+/// The partition-and-resolve decomposer, temporal path — cut the job into pieces
+/// small enough to actually solve. Stays dark until `FF_TDECOMP` says otherwise.
 pub fn tdecomp() -> bool {
     resolve(&TDECOMP, std::env::var("FF_TDECOMP").is_ok())
 }
 
-/// The on-failure escalation ladder in [`crate::temporal::solve`]: when the
-/// default-tier monolithic search fails, retry at the `Full` demand tier, then
-/// hand the goal to the decomposer. Each rung runs ONLY after the previous one
-/// failed, so no instance that solves today can change its plan — escalation
-/// spends extra time on (would-be) failures to convert them into solves.
-/// Default ON; `FF_NO_ESCALATE` (or [`set_escalate_override`]`(false)` in-process)
-/// disables the ladder alone, and `FF_NO_TDEMAND` (the master "pristine pre-v0.2
-/// path" switch) disables it too.
+/// The fallback ladder in [`crate::temporal::solve`]: default search dies, so try
+/// the `Full` demand tier next, then hand the wreckage to the decomposer as a last
+/// resort. Each rung fires only after the one above it goes dark — nothing that
+/// already solves clean gets touched, the ladder only spends extra cycles chasing
+/// down what would otherwise be a dead end. Runs by default; `FF_NO_ESCALATE`
+/// (or [`set_escalate_override`]`(false)` in-process) pulls the ladder alone,
+/// and `FF_NO_TDEMAND` — the master switch back to the pristine pre-v0.2 path —
+/// takes it down too.
 pub fn escalate() -> bool {
     resolve(&ESCALATE, std::env::var("FF_NO_ESCALATE").is_err())
 }
 
-/// The concurrent scheduling phase: repack a temporal plan onto the domain's actor
-/// objects to minimise makespan (so more workers finish faster). See [`crate::tsched`].
-/// Opt-in via `FF_TCONC`.
+/// The concurrent-scheduling pass: repack a temporal plan across the domain's
+/// actors so the crew clears the job faster, makespan shaved to the bone. See
+/// [`crate::tsched`]. Dark until `FF_TCONC` lights it up.
 pub fn tconc() -> bool {
     resolve(&TCONC, std::env::var("FF_TCONC").is_ok())
 }
 
-/// The ESPC penalty-resolution loop on the PDDL3 metric path (see [`crate::espc`]).
-/// **Default ON since 0.5** (graduated: the outer budget is now a deterministic
-/// eval pool, `FF_ESPC_EVAL_BUDGET`, so the default run is thread-count and
-/// machine independent) — it engages only when the compiled task carries
-/// once-only conditional-achievement deadline pairs (openstacks-shaped domains);
-/// on tasks without that structure the plain metric B&B runs and this flag is a
-/// verified no-op. `FF_NO_ESPC` opts out (restores the pre-0.5 default path);
-/// `FF_ESPC` is still accepted for compatibility (now redundant). In-process:
-/// [`set_espc_override`].
+/// The ESPC penalty-resolution loop, riding the PDDL3 metric path (see
+/// [`crate::espc`]). **Live by default since 0.5** — the outer budget runs off a
+/// deterministic eval pool now, `FF_ESPC_EVAL_BUDGET`, so the same run gives the
+/// same answer no matter how many threads or which machine. It only wakes when
+/// the compiled task carries once-only conditional-achievement deadline pairs —
+/// openstacks-shaped work; anything without that shape falls through to the plain
+/// metric B&B, and the flag is a confirmed no-op there. `FF_NO_ESPC` pulls the plug
+/// (back to pre-0.5 behavior); `FF_ESPC` still answers to its name but does
+/// nothing new. In-process trigger: [`set_espc_override`].
 pub fn espc() -> bool {
     resolve(&ESPC, std::env::var("FF_NO_ESPC").is_err())
 }

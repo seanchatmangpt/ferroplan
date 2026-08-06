@@ -1,22 +1,22 @@
 # ferroplan 0.16 roadmap — the standings cycle
 
-Scope set 2026-07-24, mid-0.15-cut, by direct request: refocus on the
-three competitions this project measures itself against — **IPC-5
-(2006), IPC-6 (2008), IPC-7 (2011)** — reevaluate where ferroplan
-REALLY stands on each, raise the standings where the audit says a
-raise is cheap and honest, and leave the whole picture properly
-documented in one place instead of scattered across cycle records.
-Committed priorities from the same conversation: **the IPC-7
-multi-core track gets entered**, **IPC-6 is the named competition for
-standings raises**, and the IPC-5 OVERALL standing gets reconstructed
-and made well-understood — the remembered "strong second against
-SGPlan" is REAL and on file (the simple-preferences board is
-reference-scored from the official archive and ferroplan beats
-SGPlan5 on openstacks p04–p08); what was never completed is the
-QUALITATIVE board's reference columns, blocked because the official
-archive host is outside this container's network allowlist (both
-graft paths are documented in the board itself and work from a
-normal dev machine — a user-side unblock, flagged).
+Scope set 2026-07-24, mid-0.15-cut, by direct request: turn the lens
+on the three competitions this project judges itself against —
+**IPC-5 (2006), IPC-6 (2008), IPC-7 (2011)** — find out where
+ferroplan REALLY stands on each, raise the standings wherever the
+audit says the raise is cheap and honest, and get the whole picture
+into one place instead of scattered across cycle records. Committed
+priorities from the same conversation: **the IPC-7 multi-core track
+gets entered**, **IPC-6 is the named competition for standings
+raises**, and the IPC-5 OVERALL standing gets reconstructed and
+properly understood — the remembered "strong second against SGPlan"
+is REAL and on file (the simple-preferences board is reference-scored
+from the official archive and ferroplan beats SGPlan5 on openstacks
+p04–p08); what was never finished is the QUALITATIVE board's
+reference columns, blocked because the official archive host sits
+outside this container's network allowlist (both graft paths are
+documented in the board itself and work from a normal dev machine — a
+user-side unblock, flagged).
 **[RESOLVED mid-phase, 2026-07-24: the user hand-retrieved
 `IPC5-results.tgz` (the Wayback held only a 301 for it — the live
 redirect still served the bytes) and it is now vendored at
@@ -45,39 +45,38 @@ What the records already admit, going in:
   net-benefit was validated on a 16-instance subset, never the full
   track; **the IPC-7 sequential multi-core track was never entered**
   — for a planner whose core claim is deterministic data-parallelism,
-  that is the strangest empty row on the sheet. Optimal tracks are
-  out of scope by design (satisficing planner) and should say so in
-  the standings table rather than by omission.
+  that's the strangest empty row on the sheet. Optimal tracks are out
+  of scope by design (satisficing planner) and should say so in the
+  standings table rather than by omission.
 - **"Where we really are" means scored, not just covered**: the IPC
   quality formula against best-known/reference costs where official
-  data exists (the simple-preferences scoreboard already does this;
-  nothing else does), coverage-only where it does not, and the
-  distinction marked.
+  data exists (the simple-preferences scoreboard already does this),
+  coverage-only where it does not, and the distinction marked.
 
 ## Phase 1 — the standings audit (the corpora are the fixtures)
 
 Enumerate every deterministic track of the three competitions and
 close the measurement gaps:
 
-- Sweep everything never swept: the IPC-5 propositional /
-  time / metric-time / constraints variants (standard budgets: 60 s
-  classical, 30 s temporal, jobs 3, VAL on everything), the full
-  IPC-6 net-benefit track, and the IPC-7 seq-mco track at t≥2 (its
+- Sweep everything never swept: the IPC-5 propositional / time /
+  metric-time / constraints variants (standard budgets: 60 s
+  classical, 30 s temporal, jobs 3, VAL on everything), the full IPC-6
+  net-benefit track, and the IPC-7 seq-mco track at t≥2 (its
   competition rule — wall-clock with all cores — is the one place
   wall-clock benchmarking is the honest currency; determinism per
   thread count still holds).
-- Classify every failure: FEATURE GAP (named constructs — e.g.
-  timed modal operators in trucks-time-constraints-TIL, complex
+- Classify every failure: FEATURE GAP (named constructs — e.g. timed
+  modal operators in trucks-time-constraints-TIL, complex
   preferences' modal ops), SEARCH WALL (named, with the probe eyes
   where cheap), or BUDGET EDGE (solo-checked). The 0.14/0.15
   discipline verbatim: mem-cap deaths tracked separately from engine
   verdicts.
 - IPC-5 standing reconstruction: the simple-preferences board is the
-  reference-scored anchor; the qualitative board's reference graft is
-  attempted (and honestly re-flagged if the archive stays
-  unreachable from this container); the never-entered 2006 tracks
-  get their first sweep so "overall IPC-5 standing" finally means
-  every track, not one.
+  reference-scored anchor; the qualitative board's reference graft
+  gets attempted (and honestly re-flagged if the archive stays
+  unreachable from this container); the never-entered 2006 tracks get
+  their first sweep so "overall IPC-5 standing" finally means every
+  track, not one.
 - Deliverable: **`benchmarks/ipc-standings.md`** — one table per
   competition: track / entered? / coverage / quality score (with
   reference source named) or "coverage-only" / gaps by class. The
@@ -138,8 +137,8 @@ the audit, not appetite — each ships as a measured win or a recorded
 negative, standard budgets, zero-regression rule intact:
 
 - **COMMITTED — IPC-7 seq-mco**: enter the track — t2/t4/t8 rows,
-  the data-parallel evaluation story measured under competition
-  rules (wall-clock with all cores is the honest currency there;
+  the data-parallel evaluation story measured under competition rules
+  (wall-clock with all cores is the honest currency there;
   per-thread-count determinism still holds).
 - **COMMITTED — IPC-6 standings raises**: the audit names the
   cheapest IPC-6 gaps (going in, the records suggest: transport08's
@@ -253,3 +252,4 @@ wheel build, finish in main; the user publishes.
   route-structure fence, cross-mind planning, belief-aware dormancy,
   continuous `#t` effects, dynamic derived predicates,
   fixpoint/stratified unification: all unchanged from the 0.15 list.
+</content>

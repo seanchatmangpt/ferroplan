@@ -1,6 +1,7 @@
-# IPC-2008/2011 time-2006 full-corpus results
+# IPC-2008/2011 time-2006 — full corpus, run cold
 
-timeout 30s/instance, jobs 3, mode auto. Plans externally validated with VAL.
+Thirty seconds a instance, three jobs, mode auto. Every plan that comes back
+gets run through VAL before it counts.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -10,4 +11,4 @@ timeout 30s/instance, jobs 3, mode auto. Plans externally validated with VAL.
 | ipc-2006/trucks-time | 11/30 | 431 | 14.8s | 11/11 |
 | ipc-2006/trucks-time-strips | 11/30 | 416 | 10.6s | 11/11 |
 
-total coverage: **76/130**
+total coverage, the take: **76/130**

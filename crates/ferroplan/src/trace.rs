@@ -1,8 +1,10 @@
-//! Plan *trace*: replay a plan and capture the world state before the first
-//! action and after every action — the instrumentation a UI needs to animate a
-//! plan. Mirrors [`crate::verify`]'s replay loop but snapshots each intermediate
-//! state. Classic/numeric/PDDL3 plans (a sequential op list) only; temporal
-//! plans (overlapping durative actions) are not replayed this way.
+//! FIELD DISPATCH — TRACE UNIT. Replay the plan, frame by frame. Camera
+//! rolling before the first move, and after every one after that — this is
+//! the footage a UI paints across the wire. Same corridor as
+//! [`crate::verify`]'s walk-through, except this one keeps every frame
+//! instead of burning them. Sequential ops only — classic, numeric, PDDL3.
+//! Temporal plans run overlapping timelines; this camera can't hold two
+//! frames at once. Don't point it there.
 
 use serde::{Deserialize, Serialize};
 
@@ -10,19 +12,21 @@ use crate::ground::ground_task;
 use crate::packed::State;
 use crate::parser::{parse_domain, parse_problem};
 
-/// The set of true facts and defined fluents at one point in a plan, as
-/// display strings (`(AT TRUCK1 LOC2)`, `(FUEL TRUCK1) = 30`).
+/// One still. Everything true, everything measured, at a single tick —
+/// facts as bare strings (`(AT TRUCK1 LOC2)`), fluents with their number
+/// attached (`(FUEL TRUCK1) = 30`).
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct StateSnapshot {
     pub facts: Vec<String>,
     pub fluents: Vec<(String, f64)>,
 }
 
-/// Replay `plan` (a sequence of `(action, args)`, e.g. from a [`crate::Solution`])
-/// over a freshly grounded task, returning the initial state followed by the
-/// state after each action — so the result has `plan.len() + 1` snapshots.
-/// Errors if grounding fails, an action isn't a grounded op, or it isn't
-/// applicable in the reached state.
+/// Run the tape. `plan` — a chain of `(action, args)` pulled from a
+/// [`crate::Solution`] — gets replayed over a task ground fresh for this
+/// job. Hand back the opening frame plus one for every move made:
+/// `plan.len() + 1` snapshots, no fewer. The tape stops cold if grounding
+/// fails, if a move doesn't match any grounded op, or if the world won't
+/// allow it when its turn comes.
 pub fn trace(
     domain_src: &str,
     problem_src: &str,

@@ -1,68 +1,73 @@
 # The modern planning landscape, 2026 — the 0.17 frontier memo
 
-The 0.17 Phase 1 deliverable (`docs/roadmap-0.17.md`): where the
-field went after the competitions ferroplan grew up against
-(IPC-5/6/7, 2006–2011), what the winners actually run, and the
-RANKED list of engine gaps — each with a mechanism sketch, the
-evidence it wins, and an honest in-THIS-engine cost paragraph.
-Phase 3 swings at the top of this list; Phase 2's baseline sweeps
-are its referee.
+Field dispatch, filed against the 0.17 Phase 1 deliverable
+(`docs/roadmap-0.17.md`). I went back to where the competitions
+ferroplan cut its teeth on (IPC-5/6/7, 2006–2011) left off, tracked
+what the winners are actually running now, and came back with a
+RANKED list of engine gaps — each one tagged with a mechanism
+sketch, the evidence that it wins, and an honest in-THIS-engine
+cost paragraph. Phase 3 takes its shot at the top of this list;
+Phase 2's baseline sweeps stand as referee.
 
 ## The field, competition by competition
 
-**IPC 2014** (66 track-variant directories now local via
-potassco/pddl-instances — including a sequential-MULTI-CORE track,
-so ferroplan's mco entry extends backward too). Satisficing was won
-by portfolio planners (IBaCoP family) over the LAMA-2011 baseline —
-the era's lesson was PORTFOLIOS, which ferroplan already has
+**IPC 2014.** 66 track-variant directories, pulled in cold via
+potassco/pddl-instances — a sequential-MULTI-CORE track among them,
+so ferroplan's mco entry runs backward-compatible too. Satisficing
+went to the portfolio planners (IBaCoP family), clean past the
+LAMA-2011 baseline. The lesson written on the wall that year was
+PORTFOLIOS — ferroplan already carries that weapon
 (`FF_PORTFOLIO`, budget-aware since 0.9).
 
-**IPC 2018** (12 satisficing domains local: agricola, caldera,
-data-network, flashfill, nurikabe, organic-synthesis, settlers,
-snake, spider, termes, ...). Fast Downward Stone Soup won
-satisficing; **BFWS(pref) won agile and BFWS variants were
-satisficing runners-up** — the breakout idea:
+**IPC 2018.** 12 satisficing domains sitting local: agricola,
+caldera, data-network, flashfill, nurikabe, organic-synthesis,
+settlers, snake, spider, termes, ... Fast Downward Stone Soup took
+satisficing; **BFWS(pref) took agile, and BFWS variants ran up
+close behind in satisficing.** The idea underneath the breakout:
 **width/novelty-based search** (Lipovetzky & Geffner). Novelty of a
-state = the size of the smallest atom tuple appearing for the first
-time along the search (w=1: some single atom is new; w=2: some
-pair). BFWS orders the open list by ⟨novelty, unachieved-goals⟩
-with heuristics as tie-breaks; novelty is computed RELATIVE to a
-partition (goal count, relevance count), which keeps the tables
-small and the signal sharp. Polynomial variants (k-BFWS) prune
-w>k outright and still solve a startling fraction of the corpus —
-exploration structure, not heuristic accuracy, is doing the work.
+state — the size of the smallest atom tuple showing up for the
+first time along the search (w=1: one single atom is new; w=2: a
+pair is). BFWS orders its open list by ⟨novelty, unachieved-goals⟩,
+heuristics riding along only as tie-breaks; novelty gets computed
+RELATIVE to a partition (goal count, relevance count), which keeps
+the tables lean and the signal sharp. The polynomial variants
+(k-BFWS) prune w>k outright and still clear a startling fraction of
+the corpus — exploration structure doing the work here, not
+heuristic accuracy.
 
-**IPC 2023 classical** (7 new domains local, with official
-per-instance reference PLANS and a `bounds.json` of best-known
+**IPC 2023 classical.** 7 new domains local, official per-instance
+reference PLANS riding alongside and a `bounds.json` of best-known
 costs: folding, labyrinth, quantum-layout, recharging-robots,
-ricochet-robots, rubiks-cube, slitherlink). Satisficing AND agile
-won by **Scorpion Maidu** (Scorpion + width search "with
-forgetting" — novelty tables periodically reset) and **Levitron**
-(Scorpion Maidu + **PowerLifted**, a LIFTED planner, in portfolio);
-DALAI (disjunctive action landmarks) took a track as well. The
-organizers' retrospective names the field's biggest struggle as
-PDDL FEATURE SUPPORT — quantifiers, disjunctions, `imply`, negative
-goal conditions — which is a ferroplan STRENGTH (the 0.10
-DNF-static fix; full ADL on the 2008 openstacks board). Two of the
-three winning ingredients are ideas ferroplan lacks (novelty,
-lifted search); the third (strong classical heuristics/portfolios)
-it has in kind.
+ricochet-robots, rubiks-cube, slitherlink. Satisficing AND agile
+both fell to **Scorpion Maidu** (Scorpion plus width search "with
+forgetting" — novelty tables wiped clean on a cycle) and
+**Levitron** (Scorpion Maidu paired with **PowerLifted**, a LIFTED
+planner, run in portfolio); DALAI (disjunctive action landmarks)
+took a track of its own. The organizers' own retrospective names
+the field's deepest wound as PDDL FEATURE SUPPORT — quantifiers,
+disjunctions, `imply`, negative goal conditions — and that happens
+to be a ferroplan STRENGTH (the 0.10 DNF-static fix; full ADL
+standing on the 2008 openstacks board). Two of the three winning
+ingredients are moves ferroplan doesn't have in its hand yet
+(novelty, lifted search); the third — strong classical
+heuristics/portfolios — it's already carrying.
 
-**IPC 2023 numeric** (20 domains local with official sat/opt result
-CSVs: counters, farmland, sailing, drone, expedition, hydropower,
-markettrader, settlersnumeric, sugar, zenotravel, fo-* linear
-variants, ...). Swept by **NLM-CutPlan** (Kuroiwa, Shleyfman,
-Beck): numeric LM-cut — landmark-cut generalized to simple numeric
-conditions/effects (linear expressions; constant-delta effects) —
-over Numeric Fast Downward, with an **Orbit** variant (symmetry
-orbit-space search — the same idea family as ferroplan's 0.14
-orbits, validating that direction from the optimal side). The
-satisficing baseline of record is ENHSP (interval-based relaxation
-/ subgoaling heuristics, Scala et al.); Kuroiwa's lazy greedy BFS
-with subgoaling relaxation is the satisficing-side sibling. The
-"simple numeric" class covers most RPG resource math — quantities
-and money moved by constant or recipe amounts — so this track's
-heuristics are the village's heuristics.
+**IPC 2023 numeric.** 20 domains local, official sat/opt result
+CSVs attached: counters, farmland, sailing, drone, expedition,
+hydropower, markettrader, settlersnumeric, sugar, zenotravel, fo-*
+linear variants, ... Swept clean by **NLM-CutPlan** (Kuroiwa,
+Shleyfman, Beck) — numeric LM-cut, landmark-cut stretched to cover
+simple numeric conditions/effects (linear expressions;
+constant-delta effects) — running past Numeric Fast Downward, with
+an **Orbit** variant (symmetry orbit-space search, the same lineage
+as ferroplan's 0.14 orbits, validated now from the optimal side).
+The satisficing baseline of record is ENHSP (interval-based
+relaxation / subgoaling heuristics, Scala et al.); Kuroiwa's lazy
+greedy BFS with subgoaling relaxation is its satisficing-side
+sibling. The "simple numeric" class covers most of the RPG's
+resource math — quantities and money moved by constant or recipe
+amounts — which means this track's heuristics are the village's
+heuristics too.
 
 ## The ranked gap list
 
@@ -115,18 +120,18 @@ heuristics are the village's heuristics.
 - IPC 2023 numeric (20 domains) + official sat/opt result CSVs.
 - (Vendored earlier: the official IPC-5 results archive.)
 
-Quality references therefore exist for the 2018/2023 classical and
-2023 numeric sweeps from day one — no coverage-only asterisks on
-the new standings tables except where WE fail to record the
-currency (the makespan runner debt, still open).
+The receipts are already in the drawer for the 2018/2023 classical
+and 2023 numeric sweeps — no coverage-only asterisks on the new
+standings tables, except where WE fail to record the currency (the
+makespan runner debt, still open).
 
 ## The big-catalog stress test (the village priced before it is built)
 
-`benchmarks/bench/gen_catalog.py`: ONE gather rule + ONE make rule,
-the whole catalog as static init data (the game's exact contract),
-recipes a layered binary DAG, goal = the top item. `make` is
-syntactically N³; a grounder that resolves the static needs1/needs2
-joins grounds ~N ops.
+`benchmarks/bench/gen_catalog.py`: ONE gather rule, ONE make rule,
+the whole catalog laid down as static init data (the game's exact
+contract), recipes forming a layered binary DAG, goal sitting at
+the top item. `make` runs syntactically N³; a grounder that
+resolves the static needs1/needs2 joins grounds ~N ops.
 
 **Monotone variant (pure grounding pressure):**
 
@@ -137,12 +142,12 @@ joins grounds ~N ops.
 | 3,000 | 3.3 s | 15 MB |
 | 10,000 | 37 s | 42 MB |
 
-Static resolution holds — the shape is ~quadratic (not cubic), and
-a 10,000-kind catalog grounds and solves in 37 s at 42 MB. A
-REALISTIC village (hundreds of item kinds) grounds in well under a
-second. **Verdict on gap #3: lifted search is NOT the village's
-blocker** — demoted to a watch item (the quadratic term earns one
-profile look in some later cycle).
+Static resolution holds the line — the curve reads ~quadratic, not
+cubic, and a 10,000-kind catalog grounds and solves clean at 37 s,
+42 MB. A REALISTIC village (hundreds of item kinds) is through the
+door in well under a second. **Verdict on gap #3: lifted search is
+NOT the village's blocker** — demoted to a watch item, the
+quadratic term earning one profile look somewhere down the road.
 
 **Consume variant (inputs deleted — the game's real semantics):**
 
@@ -153,14 +158,15 @@ profile look in some later cycle).
 | 300 | TIMEOUT 60 s | the wall |
 | 1,000 | TIMEOUT 120 s | — |
 
-**Correction, recorded the same day**: the first read blamed h^FF's
-consumption-blindness — but the fixture itself was rigged. Its
-recipe DAG grew DEEPER with N, and under consumption every make
-re-makes its whole input subtree: the MINIMAL plan is exponential
-in depth (the 895 steps at N=100 were largely forced, not
-wandering), which measures plan length, not search quality. With
-depth CAPPED at the shape real crafting has (4 layers, width
-scaling — `--depth`, now the generator default):
+**Correction, filed the same day.** The first read pinned this on
+h^FF's consumption-blindness — the fixture was rigged. Its recipe
+DAG grew DEEPER with N, and under consumption every make re-makes
+its whole input subtree: the MINIMAL plan is exponential in depth
+(the 895 steps at N=100 were largely forced marching, not
+wandering) — that measures plan length, not search quality. Cap the
+depth at the shape real crafting actually has (4 layers, width
+scaling — `--depth`, now the generator default) and the picture
+flips:
 
 | N items (consume, depth 4) | wall | plan |
 |---|---|---|
@@ -168,12 +174,12 @@ scaling — `--depth`, now the generator default):
 | 1,000 | 0.33 s | 15 |
 | 3,000 | 2.65 s | 15 |
 
-**The village profile — wide consumable catalogs at honest depth —
-is comfortable for the current engine to N=3000 and beyond.**
-Neither grounding NOR consumption blocks the village at realistic
-scale; both scares dissolved under fixture discipline. The novelty
-rung's case therefore rests where the literature put it: the
-2018/2023 corpus baselines are its referee, not the village. (The
-rung itself was built and behaves correctly — the A/B on the
-depth-4 fixture is exactly neutral, as it should be on instances
-the earlier rungs already own.)
+**The village profile — wide consumable catalogs at honest
+depth — is comfortable for the current engine out to N=3000 and
+beyond.** Neither grounding nor consumption blocks the village at
+realistic scale; both scares dissolved the moment fixture
+discipline got applied. The novelty rung's case rests where the
+literature already put it: the 2018/2023 corpus baselines are its
+referee, not the village. (The rung itself was built and behaves —
+the A/B on the depth-4 fixture reads exactly neutral, which is what
+it should read on instances the earlier rungs already own.)

@@ -1,21 +1,24 @@
-//! LAMA-style satisficing rung (0.9 roadmap Phase 3): greedy best-first over
-//! TWO signals — the FF relaxed-plan heuristic and a path-dependent
-//! **landmark count** ([`crate::landmarks`]) — with **preferred-operator**
-//! boosting via a dual open list (successors reached by a parent's helpful
-//! action sit in a second, favored heap; LAMA's core recipe).
+//! LAMA rung, dropped into the 0.9 roadmap, Phase 3. Greedy best-first,
+//! running two signals at once — the FF relaxed-plan heuristic and a
+//! path-dependent **landmark count** ([`crate::landmarks`]) — and
+//! **preferred-operator** boosting off a dual open list: a successor
+//! reached through a parent's helpful action gets dropped into a second,
+//! favored heap. Standard LAMA doctrine, run cold.
 //!
-//! Why a separate rung: EHC + plain weighted best-first (the FF lineage) die
-//! exactly where the relaxed plan plateaus — long goal-interaction chains
-//! (parking, floortile, barman, tidybot). Landmarks not yet achieved on the
-//! path keep a progress gradient across those plateaus, and helpful-action
-//! boosting keeps the branching factor near the relaxed plan's. This rung
-//! runs BOUNDED, after EHC gives up and before the complete weighted
-//! fallback, so it can only add coverage — `FF_NO_LAMA=1` removes it, and
-//! explicit `--search bfs` never enters it.
+//! Field note on why this rung exists at all: EHC and plain weighted
+//! best-first — the FF lineage — flatline exactly where the relaxed plan
+//! plateaus. Long goal-interaction chains eat them alive (parking,
+//! floortile, barman, tidybot). Landmarks still unclaimed on the current
+//! path hold a progress gradient across those dead zones; helpful-action
+//! boosting keeps the branching factor tight to the relaxed plan's. This
+//! rung stays BOUNDED — wakes after EHC taps out, sleeps before the
+//! complete weighted fallback takes over. Net effect: coverage only, never
+//! a regression. Kill it with `FF_NO_LAMA=1`; explicit `--search bfs`
+//! never sees it in the first place.
 //!
-//! Determinism: fixed batch sizes popped from each heap, order-preserving
-//! parallel h evaluation, serial insertion — the plan is identical at any
-//! thread count (same contract as `search_from`).
+//! Determinism is non-negotiable: fixed batch sizes off each heap,
+//! order-preserving parallel h evaluation, serial insertion. Same plan
+//! every time, any thread count — same contract `search_from` runs on.
 
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -25,10 +28,10 @@ use crate::heuristic::{relaxed_helpful, Scratch};
 use crate::packed::{PackedTask, State, StateKey};
 use crate::par;
 
-/// Popped per round from the preferred heap (boosted) and the normal heap.
+/// Batch pulled each round: boosted count off the preferred heap, plain count off the normal one.
 const PREF_BATCH: usize = 192;
 const NORM_BATCH: usize = 64;
-/// FF-h weight vs landmark-count weight in the (greedy) priority key.
+/// Weighting split between FF-h and landmark count in the greedy priority key.
 const W_FF: i64 = 2;
 const W_LM: i64 = 4;
 
@@ -40,8 +43,8 @@ struct Node {
     state: State,
     father: usize,
     op: usize,
-    /// Landmarks accepted on the path to this node (bitset over the
-    /// landmark LIST index, not fact ids).
+    /// Landmarks banked on the path to this node — bitset over the
+    /// landmark LIST index, not fact ids.
     accepted: Vec<u64>,
 }
 
@@ -57,8 +60,9 @@ fn unaccepted(accepted: &[u64], n: usize) -> i64 {
     n as i64 - accepted.iter().map(|w| w.count_ones() as i64).sum::<i64>()
 }
 
-/// Bounded landmark/preferred greedy search toward the task goal. Returns the
-/// plan ops and states evaluated, or None (dead end, cap, or node cap).
+/// Bounded landmark/preferred greedy run at the task goal. Comes back with
+/// the plan ops and the eval count, or nothing — dead end, budget cap, or
+/// node cap, take your pick.
 pub fn search(
     task: &PackedTask,
     threads: usize,
@@ -82,10 +86,10 @@ pub fn search(
     )
 }
 
-/// [`search`] generalized over a start state and subgoal — the form the
-/// partition cascade (`resolve::solve`) needs: landmarks are recomputed for
-/// exactly this (start, subgoal) pair, so the count stays a sound
-/// remaining-necessary-work signal for the piece being solved.
+/// [`search`], generalized over a start state and a subgoal — the shape the
+/// partition cascade (`resolve::solve`) needs on the ground. Landmarks get
+/// recomputed fresh for this exact (start, subgoal) pair, so the count
+/// stays an honest remaining-necessary-work signal for the piece in hand.
 #[allow(clippy::too_many_arguments)]
 pub fn search_subgoal(
     task: &PackedTask,

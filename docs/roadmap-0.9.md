@@ -1,8 +1,8 @@
 # 0.9 roadmap record — the IPC6/IPC7 arc opens
 
-Working record for the 0.9 cycle, per `ferroplan-roadmap.md` (the
-top-level IPC6/IPC7 + RPG roadmap). Phase numbering follows that
-document; `STATUS.md` is the living summary.
+Field log for the 0.9 cycle, per `ferroplan-roadmap.md` (the top-level
+IPC6/IPC7 + RPG roadmap). Phase numbering follows that document;
+`STATUS.md` carries the living summary.
 
 ## Shipped this cycle
 
@@ -77,8 +77,8 @@ parking11 p03/p04.
 
 ### Post-cycle: the grounder frontier (tidybot11 0/4 → 4/4)
 
-The "grounding/search scale" attribution was measured and turned out to
-be two separate grounder walls, neither search:
+The "grounding/search scale" call didn't hold up under measurement — two
+separate grounder walls, neither one search:
 
 1. **A type-cycle hang.** tidybot's domain legally redeclares the
    built-in root type (`(:types ... object ...)`); the parser recorded
@@ -105,33 +105,32 @@ target (iterated-weight anytime / portfolio, per the scope cuts above).
 
 ### Post-cycle: the frontier closes (costs 54/54 at 240 s, library path)
 
-The "search-bound" re-attribution above was itself a measurement
-artifact: those 240 s runs used the TEXT path, where the LAMA rung never
-runs (the recorded scope cut). On the LIBRARY path — the `--json`
-surface `run.py` measures — the whole remaining frontier solves inside
-the budget: **floortile11 p03 42 s, p04 40 s; parking11 p03 22 s, p04
-24 s**, every plan oracle-replayed to goal. With tidybot11's 4/4 that
-makes the vendored costs subset **54/54 at a 240 s library-path budget**
-(the quick 30 s / 1-thread tier stays 49/54).
+Turned out the "search-bound" re-attribution above was itself a
+measurement artifact: those 240 s runs used the TEXT path, where the LAMA
+rung never fires (the recorded scope cut). On the LIBRARY path — the
+`--json` surface `run.py` measures — the whole remaining frontier solves
+inside budget: **floortile11 p03 42 s, p04 40 s; parking11 p03 22 s, p04
+24 s**, every plan oracle-replayed to goal. Add tidybot11's 4/4 and the
+vendored costs subset clears **54/54 at a 240 s library-path budget** (the
+quick 30 s / 1-thread tier still sits at 49/54).
 
-The text-path gap is now HALF closed: `resolve::solve`'s monolithic
-case runs the full library ladder (EHC → bounded LAMA rung → complete
-weighted best-first), restoring the module's "solvable exactly when the
-subplanner is" doctrine for collapsed partitions — but the partition
-cascade still solves SUBGOALS without landmark guidance
-(`goal_landmarks` is whole-goal), so barman11 p01 still times out at
-60 s on the text path against ~4.5 s on the library path. Per-subgoal
-landmarks are the recorded next step of the unification.
+The text-path gap is now half shut: `resolve::solve`'s monolithic case
+runs the full library ladder — EHC → bounded LAMA rung → complete weighted
+best-first — restoring the module's "solvable exactly when the subplanner
+is" doctrine for collapsed partitions. But the partition cascade still
+solves SUBGOALS blind, no landmark guidance (`goal_landmarks` is
+whole-goal only), so barman11 p01 still times out at 60 s on the text path
+against ~4.5 s on the library path. Per-subgoal landmarks are next.
 
-Second half shipped, same day: `landmarks_for` / `lama::search_subgoal`
+Second half shipped the same day: `landmarks_for` / `lama::search_subgoal`
 generalize the whole-goal forms over a (start, subgoal) pair, the
-cascade's subgoal solves became a bounded ladder (100k-eval probe →
-subgoal LAMA rung → merge), and the monolithic endpoint keeps the
-complete full-budget library ladder — so bounded probes only make
-merges happen SOONER while overall solvability is unchanged. Measured:
-barman11 p01 text path never-finishes → **57 s** (9 groups, 7 merges);
-the residual 57-vs-4.5 s gap is the cascade's per-merge re-solve loop
-itself, which is the partition path's identity, not a missing rung.
+cascade's subgoal solves became a bounded ladder — 100k-eval probe →
+subgoal LAMA rung → merge — and the monolithic endpoint keeps its
+complete full-budget library ladder, so bounded probes only make merges
+land SOONER, overall solvability untouched. Measured: barman11 p01 text
+path, never-finishes → **57 s** (9 groups, 7 merges). The residual
+57-vs-4.5 s gap is the cascade's own per-merge re-solve loop — that's the
+partition path's identity, not a missing rung.
 
 ### Post-cycle: Phase 6 shipped (portfolio), acceptance half-met
 
@@ -143,39 +142,38 @@ First plan wins (the winner is named in `Solution.notes`); a complete
 member's un-capped exhaustion settles unsolvability early; temporal and
 preference problems fall back to their own machinery like `auto`.
 
-Measured (costs subset, 30 s, single thread): **49/54 — exactly the
-default configuration's coverage AND its unsolved set** (floortile11
-p03/p04, parking11 p03/p04, tidybot11 p01). The acceptance criterion's
-first half ("at least as good as the best single configuration") is met
-with parity; the second half ("better on at least some domains") is not
-demonstrable on the vendored subset — this cycle's frontier fixes
-removed every curated instance where the default faceplants and a
-different member could win. The full-corpus `ipc67.py` run is the
-recorded venue for that half; an earlier in-session claim that the
-portfolio shifted the tidybot frontier was a baseline error (the text
-path was measured against the library path) and is corrected here.
+Measured, costs subset, 30 s, single thread: **49/54 — exactly the default
+configuration's coverage AND its unsolved set** (floortile11 p03/p04,
+parking11 p03/p04, tidybot11 p01). The acceptance criterion's first half —
+at least as good as the best single configuration — holds, with parity;
+the second half — better on at least some domains — can't be shown on this
+subset, because this cycle's frontier fixes already stripped out every
+curated instance where the default faceplants and a different member
+could've won. The full-corpus `ipc67.py` run is where that half gets
+decided. One correction on the record: an earlier in-session claim that
+the portfolio shifted the tidybot frontier was a baseline error — text
+path measured against library path — fixed here.
 
 ### Post-cycle: the full corpus speaks (seq-sat 427/580; Phase 6 settled)
 
 The recorded venue ran: the whole potassco IPC-2008/2011 seq-sat corpus,
-580 instances at 60 s / 1 thread each (3 parallel jobs, every solved
-plan VAL-validated). Default configuration: **427/580** — with clean
-sweeps on cyber-security (30/30), elevator08 (30/30), parc-printer
-(50/50), peg-solitaire (50/50), and barman11 (20/20, the LAMA rung at
-full scale). `benchmarks/ipc67-results.md` holds the table.
+580 instances, 60 s / 1 thread each, 3 parallel jobs, every solved plan
+VAL-validated. Default configuration: **427/580** — clean sweeps on
+cyber-security (30/30), elevator08 (30/30), parc-printer (50/50),
+peg-solitaire (50/50), and barman11 (20/20, the LAMA rung running at full
+scale). `benchmarks/ipc67-results.md` holds the table.
 
-**The Phase 6 acceptance settles as NOT met as stated, with the
-interesting half now true.** Portfolio mode: 416/580. "Better on some
-domains" is finally demonstrated — no-mystery11 p10 and woodworking08
-p29 solve ONLY under the portfolio, and it finds cheaper plans on 5
-sokoban + 3 floor-tile common solves — but overall parity fails: the
-13 instances the portfolio loses all have default solve times of
-27–56 s (sokoban ×7, visit-all ×4, barman11 p19, elevator11 p12). The
-mechanism is structural: doubling restart slices tax precisely the
-instances that barely fit the budget. The portfolio stays opt-in;
-the recorded next idea is budget-aware scheduling — let the default
-member run to its natural EHC/ladder end before diversification
-spends anything.
+**Phase 6's acceptance settles as NOT met as stated — but the interesting
+half turns out true.** Portfolio mode: 416/580. "Better on some domains"
+finally shows itself — no-mystery11 p10 and woodworking08 p29 solve ONLY
+under the portfolio, and it finds cheaper plans on 5 sokoban plus 3
+floor-tile common solves — but overall parity fails: the 13 instances the
+portfolio loses all had default solve times of 27–56 s (sokoban ×7,
+visit-all ×4, barman11 p19, elevator11 p12). The mechanism is structural:
+doubling restart slices taxes exactly the instances that barely fit the
+budget in the first place. The portfolio stays opt-in. Next idea on the
+board: budget-aware scheduling — let the default member run to its
+natural EHC/ladder end before diversification spends a cent.
 
 **New frontier, measured (in leverage order):**
 
@@ -192,16 +190,16 @@ spends anything.
 
 ### Post-cycle: net-benefit and temporal join the scoreboard
 
-**Net-benefit, whole track (270 inst, 60 s): 223/270, all VAL-valid.**
-The vendored 16/16 generalizes — openstacks 87/90 across three
+**Net-benefit, whole track, 270 instances, 60 s: 223/270, all VAL-valid.**
+The vendored 16/16 held up at scale — openstacks 87/90 across three
 compilations, elevator 58/60, peg-solitaire 30/30. Tails: crew-planning
 10/30, transport/woodworking numeric 19/30 each.
 
-**Temporal, first-ever corpus recon (630 inst, 30 s tier): 326/630.**
-Sweeps where the machinery fits: crew-planning 50/50, openstacks
+**Temporal, first-ever corpus recon, 630 instances, 30 s tier: 326/630.**
+Clean sweeps where the machinery fits: crew-planning 50/50, openstacks
 temporal-strips/numeric 80/80, parking11 19/20, woodworking 28/30,
-peg-solitaire 46/50. The misses fall into three MEASURED classes, each
-with a different next move:
+peg-solitaire 46/50. The misses split into three measured classes, each
+with its own next move:
 
 1. **Feature gap:** model-train 0/30 fails at parse —
    `expected expression, found Var("DURATION")`: duration-dependent
@@ -219,10 +217,10 @@ with a different next move:
    decision-epoch scheme there is the open question to answer before
    attributing to scale.
 
-Caveat kept honest: temporal plans are internally validated only (the
-runner emits untimestamped plans, so VAL is skipped on the temporal
-track), and the 30 s / 3-job recon tier is noisier than the seq-sat
-runs — the OOM interference above is exactly why the runner grows a
+Caveat kept honest: temporal plans are internally validated only — the
+runner emits untimestamped plans, so VAL gets skipped on the temporal
+track — and the 30 s / 3-job recon tier runs noisier than the seq-sat
+passes. The OOM interference above is exactly why the runner grows a
 per-job memory cap next.
 
 ## Deliberate scope cuts (why, not just what)

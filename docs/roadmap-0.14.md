@@ -1,20 +1,20 @@
 # ferroplan 0.14 roadmap — the living-bazaar cycle
 
-Scope settled 2026-07-22, the day after 0.13.0 shipped. 0.13 built a
-population of minds — fork, retarget, follow — but every piece is a
-primitive waiting for the actual loop: N minds following plans in ONE
-authoritative world that changes under them. Nothing yet makes the
+Scope locked 2026-07-22, the day after 0.13.0 shipped. 0.13 built a
+population of minds — fork, retarget, follow — but every piece is
+still a primitive waiting on the real loop: N minds following plans in
+ONE authoritative world that changes under them. Nothing yet makes the
 population LIVE together, and the interesting failures (two NPCs
 racing for the same item, plans invalidating each other, starvation)
-have never been measured. 0.14 closes the distance between "a
+have never once been measured. 0.14 closes the gap between "a
 population" and "a simulation": engine work with clean, measurable
-deliverables, the research fence intact (see Deferred).
+deliverables, the research fence still intact (see Deferred).
 
-The recorded design answers this cycle serves:
+The design answers this cycle serves:
 
 - **The bazaar runs**: minds don't think in a vacuum — they act, the
   world moves, rivals interfere. The tick loop is the game's real
-  shape and it has never been driven end-to-end.
+  shape and it's never been driven end-to-end.
 - **Contention is the norm**: in a market worth simulating, desires
   overlap. Conflict handling must be measured, not assumed.
 - **The world has a schedule**: markets open, kilns cool, caravans
@@ -28,13 +28,14 @@ A scripted bazaar simulation over the vendored chain fixtures: N
 forked minds with overlapping trade-chain goals, one authoritative
 world session, fixed tick order. Each tick a mind follows its plan's
 next step (the world mutates), checks validity for free, rethinks
-only when broken — the 0.12/0.13 machinery, finally composed.
+only when broken — the 0.12/0.13 machinery, finally composed together.
 
 - Deliverable: a `bazaar_live` example + a generated section in
   `benchmarks/bazaar-thinks.md`: ticks-to-quiescence (all goals met
   or honestly stuck), thinks spent vs free follows, total evals,
-  churn, and — the number nobody knows — the CONFLICT RATE: how often
-  a mind's plan is broken by a RIVAL's trade rather than its own act.
+  churn, and — the number nobody knows yet — the CONFLICT RATE: how
+  often a mind's plan is broken by a RIVAL's trade rather than its own
+  act.
 - Goal assignment deliberately overlapping (shared vendors, shared
   intermediate items) so contention EXISTS; a disjoint-goals control
   row so the contention cost is attributable.
@@ -47,15 +48,15 @@ only when broken — the 0.12/0.13 machinery, finally composed.
 Two API pieces fell out as correctness needs, not conveniences:
 
 - **`Session::restrict_ops(keep)`** — the actor-scoping primitive,
-  promoted from Phase 2: without it a mind freely plans RIVAL moves
-  (0.13's solver loved vendor-vendor pre-trades), which a tick loop
-  cannot execute. Plumbs to the `forbidden` masks both engines already
-  carried (`plan_avoiding` / `solve_from`); replays and
+  pulled forward from Phase 2: without it a mind freely plans RIVAL
+  moves (0.13's solver loved vendor-vendor pre-trades), which a tick
+  loop can't execute. Plumbs to the `forbidden` masks both engines
+  already carried (`plan_avoiding` / `solve_from`); replays and
   `replan_following` prefixes reject forbidden steps; forks inherit
   the mask; restricted t1 ≡ t8 suite-pinned.
 - **`Session::goal_met()`** — the pure state test. The first loop
   draft probed "done" with a zero-budget think and got silently wrong
-  results: a think answers "could I still find a plan," and a
+  answers: a think answers "could I still find a plan," and a
   near-done mind must not confuse the two (a mind was marked MET
   without ever acting). Suite-pinned against exactly that confusion.
 
@@ -67,7 +68,7 @@ only be rival-caused) and emits the live-loop section of
 - **Disjoint control**: 4/4 met, zero conflicts, one think each,
   quiescent in 3 ticks / 0.5 ms — the loop itself costs nothing.
 - **Overlapping goals**: 1/4 met. First-tick trades DESTROY three of
-  four goals — in a one-way want-edge economy, a stolen rung cannot
+  four goals — in a one-way want-edge economy, a stolen rung can't
   come back, so the losers' thinks fail honestly (~5 evals to exhaust
   the own-actor reachable space) and they give up. The one survivor
   (v5) adapted THROUGH the hole a rival left (churn 2, shortcut past
@@ -78,9 +79,9 @@ only be rival-caused) and emits the live-loop section of
 
 The Phase 2 question is now sharp: naive simultaneous pursuit in a
 contended one-way economy is CATASTROPHIC (75% goal destruction), and
-no rethink discipline can recover a goal the world made unreachable —
-Phase 2's levers must PREVENT the destruction (staggering, masking
-claimed exchanges), not just replan after it.
+no rethink discipline can recover a goal the world already made
+unreachable — Phase 2's levers must PREVENT the destruction
+(staggering, masking claimed exchanges), not just replan after it.
 
 ## Phase 2 — contention, handled
 
@@ -105,9 +106,9 @@ All loop-side, exactly as scoped — the engine's only contribution is
 the `restrict_ops` mask it already had. A CLAIM is an item a rival's
 active plan still intends to receive (its remaining steps' takes); a
 mind about to think masks away trades that would take claimed items,
-and a mind that cannot plan under claims WAITS (claims release as the
+and a mind that can't plan under claims WAITS (claims release as the
 rival's plan drains) instead of burning toward dormancy — give-up
-verdicts come only from claim-FREE failures, so they are honest.
+verdicts come only from claim-FREE failures, so they stay honest.
 
 The fixture that made it measurable: `bazaar-chain-x2m` (generator
 mode `x2m`) — the crossed chains split across TWO actor minds, a0
@@ -121,15 +122,15 @@ lane as currency. Measured (`bazaar_live` rows, shipping as-is):
   over and over.
 - **Claims**: 2/2 met, ZERO conflicts, one think each, a1 at 21 evals
   (~18× cheaper), churn 0 — the second mind simply plans AROUND the
-  first's declared route. The first thinker's numbers are identical
-  to naive (no claims exist yet when it plans), which is the correct
+  first's declared route. The first thinker's numbers match naive
+  exactly (no claims exist yet when it plans), which is the correct
   first-mover semantics, not an artifact.
 - **Claims + follow-biased rethinks**: identical to claims here —
   under claims nothing broke, so `replan_following` never engaged.
   The discipline matters exactly when breaks still happen; recorded,
   not oversold.
 - **The zero-sum row stays zero-sum, now with honest verdicts**:
-  claims cannot make Phase 1's mutually-destructive goal set
+  claims can't make Phase 1's mutually-destructive goal set
   satisfiable (1/4 met either way — the same deterministic winner),
   but the losers now WAIT while claims exist and give up only after
   claim-free thinks fail. Quiet-tick handling lets waiting minds
@@ -144,7 +145,7 @@ Suite 164/0 unchanged; the whole simulation stays byte-deterministic.
 
 `Session` scheduled events: "in `dt` units, fact F flips" — the
 market-opens-at-nine shape, clock-RELATIVE so 0.12's TIL rejection
-(absolute clocks pin thinks) does not apply. The temporal search's
+(absolute clocks pin thinks) doesn't apply. The temporal search's
 `til_events` are already think-relative internally; the surface is
 new plumbing, not new search.
 
@@ -162,12 +163,13 @@ new plumbing, not new search.
 ## Recorded — Phase 3 (2026-07-22): SHIPPED — and waiting works better than scoped
 
 `Session::set_timed_fact(dt, name, value)` (temporal sessions): in
-`dt` units, the fact flips — clock-RELATIVE, exactly dodging 0.12's
-TIL rejection. `Session::elapse(dt)` decays the schedule as the game's
-clock moves, firing due events (mirrors synced) in time order. Pending
-events ride into every think as think-relative TIL events and into
-`plan_still_valid` replays (a suffix replays WITH the events it would
-live through; events past the plan's span are the game's future).
+`dt` units, the fact flips — clock-RELATIVE, dodging 0.12's TIL
+rejection exactly. `Session::elapse(dt)` decays the schedule as the
+game's clock moves, firing due events (mirrors synced) in time order.
+Pending events ride into every think as think-relative TIL events and
+into `plan_still_valid` replays (a suffix replays WITH the events it
+would live through; events past the plan's span are the game's
+future).
 
 The machinery underneath, all fenced:
 
@@ -182,7 +184,7 @@ The machinery underneath, all fenced:
   fresh baseline lengths).
 - **The static fence earned its keep twice**: probing showed grounding
   STRIPS static facts from runtime preconditions — flipping one by
-  event could not soundly change behavior, so `set_timed_fact` refuses
+  event couldn't soundly change behavior, so `set_timed_fact` refuses
   statics with the same honesty as `set_fact`. The domain contract:
   an exogenous-changeable fact (power, market-open) must be touched by
   SOME domain action to be schedulable.
@@ -219,17 +221,17 @@ a ferroplan-bevy scene — settle by cost at implementation.
 
 The browser demo (ferroplan-wasm's pages site) gained the bazaar on
 both of its surfaces, choosing the roadmap's pre-authorized cheap
-route (a full in-page `Session` UI could not be visually verified
-from this environment — recorded as the follow-up, not half-shipped):
+route (a full in-page `Session` UI couldn't be visually verified from
+this environment — logged as the follow-up, not half-shipped):
 
 - **`bazaar-live.html`** — a self-contained replay page (matching the
   demo's design system) that animates a REAL deterministic run of the
   0.14 tick loop: `bazaar_live --trace` emits the event feed (thinks,
   free follows, trades, conflicts, waits, verdicts) for the x2m
   crossed-chain fixture under BOTH policies, embedded verbatim. The
-  naive/claims toggle is the Phase 2 story made visible: red
-  conflicts and repeated rethinks vs zero conflicts and one think
-  each. Nav-linked from the solver page; regeneration is one command.
+  naive/claims toggle makes the Phase 2 story visible: red conflicts
+  and repeated rethinks against zero conflicts and one think each.
+  Nav-linked from the solver page; regeneration is one command.
 - **The solver picker** gained the wants-gated bazaar domain (solo
   11-hop chain + the 22-trade crossed-chain joint goal), so the
   fixture is solvable in-page like every other demo domain. The
@@ -241,7 +243,7 @@ JSON and page script machine-verified (parse + syntax); suite 170/0.
 ## Phase 5 — in-flight intervals (the severable stretch)
 
 The deepest game gap: durative worlds still require AT-REST thinks —
-the game mirrors end effects manually because a session cannot hold a
+the game mirrors end effects manually because a session can't hold a
 running interval between thinks. The lever: `advance(dt)` /
 carried-agenda thinks, so a mind can rethink WHILE its kiln fires.
 
@@ -307,12 +309,12 @@ Main publish.sh-ready.
 
 ## The extension (2026-07-22): 0.15's scope folds in — one release, not two
 
-0.14.0 was one phase from cutting when the decision landed: the
-release is unpublished, so the research-cycle scope specced for 0.15
-EXTENDS this cycle instead (the 0.15 roadmap is withdrawn; its full
-open-thread harvest — 141 items audited across every cycle record —
-stands behind these phases). Order: sure things first, research bets
-last and severable, mechanics once at the end.
+0.14.0 was one phase from cutting when the call landed: the release is
+unpublished, so the research-cycle scope specced for 0.15 EXTENDS this
+cycle instead (the 0.15 roadmap is withdrawn; its full open-thread
+harvest — 141 items audited across every cycle record — stands behind
+these phases). Order: sure things first, research bets last and
+severable, mechanics once at the end.
 
 ## Phase 7 — correctness debts (small, first, non-negotiable)
 
@@ -322,7 +324,7 @@ Two diagnosed soundness bugs from the records, each with a named fix:
   covers unconditional add/del/pre only — openstacks-time i2 produced
   a VAL-INVALID plan on the record. Extend the footprint to
   conditional effects and numeric read/write sets (the 0.10 numeric
-  write-write fix pointed the way).
+  write-write fix points the way).
 - **The temporal printer under-separates ε at same-timestamp
   produce-at-end / consume-at-start boundaries** (rpg-world fixtures
   flagged by selfcheck.py; logged in perf-notes, never applied).

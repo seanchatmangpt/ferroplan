@@ -1,7 +1,9 @@
-//! Output formatting. The plan block, the unsolvable/trivial messages, and the
-//! exit codes match Metric-FF (and metricff) so this binary is a drop-in: the
-//! planner crate's regex and the differential harness consume it unchanged. The
-//! search-configuration / progress lines honestly reflect the parallel engine.
+//! Wire format for the readout. Plan block, unsolvable/trivial chatter, exit
+//! codes — all forged to match Metric-FF (and metricff) byte for byte, so this
+//! binary slots into the socket unnoticed: the planner crate's regex and the
+//! differential harness swallow it without flinching. The search-configuration
+//! and progress lines don't lie, though — they report what the parallel engine
+//! actually did.
 
 use crate::packed::PackedTask;
 use crate::search::PlanResult;

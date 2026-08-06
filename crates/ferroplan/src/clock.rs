@@ -1,12 +1,14 @@
-//! Wall-clock shim: `std::time::Instant::now()` PANICS on
-//! `wasm32-unknown-unknown` (std's unsupported time backend), and every
-//! engine timing read is measurement/reporting — never behavior. On wasm
-//! the clock freezes at zero instead of panicking, which is exactly what
-//! a browser think should report anyway (the in-page demo found this the
-//! hard way: any solve reaching the best-first fallback died at
-//! `search_from`'s phase-attribution timer).
+//! A clock that doesn't get you killed in the browser. `std::time::Instant::now()`
+//! panics outright on `wasm32-unknown-unknown` — no time backend there — and
+//! every read this engine takes off the clock is measurement, reporting,
+//! never a load-bearing behavior. So on wasm the clock just freezes at
+//! zero instead of blowing up, which is exactly the number a browser tab
+//! should report anyway. Found the hard way: the in-page demo died at
+//! `search_from`'s phase-attribution timer the moment any solve reached
+//! the best-first fallback.
 
-/// A monotonic timestamp that is a no-op on wasm.
+/// A monotonic timestamp. Reads real time everywhere except wasm, where it
+/// goes still and reports zero.
 #[derive(Clone, Copy)]
 pub struct Clock {
     #[cfg(not(target_arch = "wasm32"))]

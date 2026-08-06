@@ -15,4 +15,5 @@ Observe `$ARGUMENTS` without editing.
 - Separate observed facts, projection laws, uncertainty, and refusals.
 - Return machine-usable JSON plus the maximum lawful epistemic standing.
 
-Do not call CMCA, plan, edit, or authorize actuation.
+This is eyes-only work. No calling CMCA, no planning, no editing, no
+authorizing actuation.

@@ -22,20 +22,20 @@
 > numbers below: [`benchmarks/ipc5-scoreboard.md`](../benchmarks/ipc5-scoreboard.md)
 > (2026-07, post-0.4.1) and the [ESPC spec](espc-preferences-spec.md).
 
-0.4.0 took ferroplan from a distant quality 2nd on the IPC-5 simple-preferences
-suite to a **strong 2nd**: full 48/48 coverage, two domain-level leads, and
-small-instance parity nearly everywhere. **0.5 has one headline: take first
-place — on the defaults.** Everything in this plan either closes a measured
-per-domain gap or makes the claim legitimate (single configuration,
-deterministic budgets).
+0.4.0 pulled ferroplan out of a distant second on the IPC-5 simple-preferences
+suite and left it a **strong second**: full 48/48 coverage, two domains
+already taken, small instances holding parity almost everywhere. **0.5 has
+one job: take first place, on the defaults, no asterisk.** Every line below
+either closes a measured gap or makes the claim stand up — one configuration,
+deterministic budgets, nothing hidden behind an env var.
 
 ---
 
 ## Where we stand (the ledger)
 
-IPC-5 ranked per domain: **coverage first, then plan quality**. Both ferroplan
-and SGPlan5 cover 48/48, so quality decides each domain. "Quality" can be
-read two ways, and the two conventions disagree about who leads what today:
+IPC-5 ranks domain by domain: **coverage first, plan quality breaks ties**.
+Both ferroplan and SGPlan5 clear 48/48, so quality is the whole fight now.
+"Quality" reads two ways, and the two readings disagree about who's winning:
 
 | domain | per-instance (W/T/L for ferroplan) | totals (ferroplan vs SGPlan5) | leader by instances | leader by totals |
 |---|---|---|---|---|
@@ -48,10 +48,11 @@ read two ways, and the two conventions disagree about who leads what today:
 
 ¹ with the opt-in `FF_ESPC` partitioned penalty loop — see "Eligibility" below.
 
-Read it honestly: **only openstacks is an unambiguous lead.** Storage flips on
-totals (SGPlan5 keeps the three largest instances), trucks flips on instance
-wins (we lose p03/p06/p08 by 1/6/4 points). First place that survives scrutiny
-means **≥ 4 of 6 domains led under BOTH conventions**, on default settings.
+Look at it straight: **only openstacks is a clean win.** Storage flips on
+totals — SGPlan5 keeps the three biggest instances. Trucks flips on instance
+count — we drop p03/p06/p08 by 1/6/4 points. A first-place claim that
+survives scrutiny needs **≥ 4 of 6 domains led under BOTH conventions**, on
+default settings, no exceptions.
 
 ### The arithmetic per domain
 
@@ -73,23 +74,26 @@ means **≥ 4 of 6 domains led under BOTH conventions**, on default settings.
   **measured dead end** (`w_c`, 0.4.0); the lever must price the *completion*.
 
 **Minimum winning set:** hold openstacks, secure storage, flip trucks, flip
-one of pathways/tpp ⇒ 4/2. rovers is the stretch (research-grade); tpp and
-pathways ride the same mechanisms, so the plan targets both and needs one.
+one of pathways/tpp ⇒ 4/2. rovers is the stretch, research-grade; tpp and
+pathways ride the same mechanisms, so the plan aims at both and only needs
+one to land.
 
-### Eligibility (the claim has to be legitimate)
+### Eligibility (make the claim clean)
 
-The openstacks lead currently rides `FF_ESPC=1 FF_ESPC_TIME_MS=90000` — an
-opt-in env var with a **wall-clock** outer budget. A competition entry is one
-configuration, and this codebase's contract is determinism (same problem, same
-plan, any thread count, any machine). Two consequences for 0.5:
+The openstacks lead is currently riding a crutch: `FF_ESPC=1
+FF_ESPC_TIME_MS=90000`, an opt-in flag on a **wall-clock** budget. A
+competition entry is one configuration, and this codebase's contract is
+determinism — same problem, same plan, any thread count, any machine. Two
+things have to change before 0.5 can claim anything:
 
-1. ESPC must engage **by default** where its trigger structure exists (it is a
-   verified no-op on the other five domains — no deadline pairs).
-2. Its outer budget must become a **deterministic eval count**, exactly the
-   conversion `FF_PREF_EVAL_BUDGET` already made for the B&B in 0.4.0.
+1. ESPC engages **by default** wherever its trigger structure exists — it's
+   already a verified no-op on the other five domains, no deadline pairs to
+   fire on.
+2. Its outer budget becomes a **deterministic eval count**, the same
+   conversion `FF_PREF_EVAL_BUDGET` already forced on the B&B in 0.4.0.
 
-Without these, "first place" is an asterisk. With them, the scoreboard's
-default row IS the entry.
+Skip these and "first place" carries an asterisk. Land them and the
+scoreboard's default row is the entry — nothing else needed.
 
 ---
 
@@ -105,21 +109,22 @@ Phase 1: ESPC graduation ──► Phase 2: Tightening upgrade ──► Phase 3
                                                             Phase 5: Measure everything + ship
 ```
 
-Ordering rationale: Phase 1 is cheap and makes every later measurement a
-*default-settings* measurement. Phase 2 is the highest expected value per line
-of code (one loop, three domains touched). Phase 3 is the named next lever in
-both the scoreboard and the ESPC spec, and the largest build. Phase 4 is
-explicitly gated — 4/2 is reachable without rovers.
+Why this order: Phase 1 is cheap and turns every measurement after it into a
+*default-settings* measurement — the ground has to be clean before anything
+built on it counts. Phase 2 pays the most per line, one loop, three domains
+move. Phase 3 is the lever both the scoreboard and the ESPC spec have been
+pointing at, and the biggest build in the plan. Phase 4 stays gated — 4/2 is
+reachable without touching rovers at all.
 
 ---
 
 ## Phase 1 — Graduate ESPC: deterministic budget, default-on where it bites
 
-**Why:** eligibility (above), plus the 0.2.1 roadmap's unfinished Phase-1 item
-("ESPC's latency trade… decide always-on-where-it-bites vs. a smaller default
-budget"). The loop already terminates by stall/saddle well inside its budget
-(worst case ~58 s on p04), and `features::espc()` / the deadline-pair trigger
-already scope it to where it does anything.
+**Why:** eligibility, above — plus an old debt, the 0.2.1 roadmap's
+unfinished item on ESPC's latency trade, left as "decide later." The loop
+already stalls out inside its budget on its own (worst case ~58 s on p04),
+and `features::espc()` / the deadline-pair trigger already know exactly
+where it does anything at all. Time to close the debt.
 
 **Scope:**
 - Convert the outer-loop budget in `espc.rs` from `Instant`/`FF_ESPC_TIME_MS`
@@ -144,13 +149,14 @@ scoreboard.
 
 ## Phase 2 — Tightening-loop upgrade: better-than-first-improvement
 
-**Why:** scoreboard item 4 names the plateau mechanism precisely: the
-remaining tails (tpp/pathways p05–p08, storage p06–p08) "plateau at the 2M
-default budget with **greedy first-improvement tightening**." Each B&B
-iteration (`metric_optimize_closure`, and the legacy loop's shared budget
-logic in `pddl3.rs`) accepts the FIRST plan under the incumbent bound and
-immediately re-bounds. The same loop is the **polish B&B** that binds
-openstacks p01–p03. One mechanism, four domains.
+**Why:** the scoreboard already named the trap: the remaining tails (tpp/
+pathways p05–p08, storage p06–p08) "plateau at the 2M default budget with
+**greedy first-improvement tightening**." Each B&B iteration
+(`metric_optimize_closure`, and the legacy loop's shared budget logic in
+`pddl3.rs`) grabs the FIRST plan under the incumbent bound and re-bounds
+immediately — no patience, no second look. The same loop is the **polish
+B&B** choking openstacks p01–p03. One mechanism, four domains bleeding from
+it.
 
 **Scope:**
 - *Exhaust-then-pick:* when a probe finds an improvement early in its
@@ -180,14 +186,14 @@ instance regresses**; t1≡t8 everywhere.
 
 ## Phase 3 — Partitioned closure search (ESPC increment 3)
 
-**Why:** the second lever named by scoreboard item 4, and the natural
-generalization the ESPC spec has been building toward: increment 2 proved
-that λ-scheduled **partitioned composition** beats the monolithic loop where
-preference interactions decompose (openstacks 42/…/227 → 19/…/87), but it only
-engages on deadline-pair structure. tpp, storage, trucks, and pathways have no
-deadline pairs — their tails are still optimized **monolithically** by the
-closure B&B, even though their preferences decompose by construction (markets/
-goods, crates/depots, packages, pathways).
+**Why:** the second lever the scoreboard points at, and where the ESPC spec
+was always headed. Increment 2 proved the case: λ-scheduled **partitioned
+composition** beats the monolithic loop wherever preference interactions
+decompose (openstacks 42/…/227 → 19/…/87) — but it only fires on deadline-pair
+structure. tpp, storage, trucks, and pathways carry no deadline pairs, so
+their tails still grind through the closure B&B **monolithically**, even
+though their preferences decompose by construction — markets and goods,
+crates and depots, packages, pathways.
 
 **Scope:**
 - One closure-search stage per preference-interaction component
@@ -221,12 +227,13 @@ tpp/pathways for 4/2.
 
 ## Phase 4 — rovers completion pricing (gated stretch)
 
-**Why:** scoreboard item 5. The residual p01–p06 gap is subset selection over
-a **numeric** metric (folded traverse costs). 0.4.0 measured the obvious lever
-dead: prefix-cost open-list ordering (`w_c`) collapses quality at every weight
-— cost only grows along a path, so cost-ordering buries goal-reaching
-prefixes. The working lever must price what a preference **still costs to
-complete**, not what the path has already paid.
+**Why:** the residual p01–p06 gap is subset selection dressed as a
+**numeric** metric — folded traverse costs. 0.4.0 already tried the obvious
+lever and buried it: prefix-cost open-list ordering (`w_c`) collapses quality
+at every weight, because cost only grows along a path and cost-ordering just
+buries every goal-reaching prefix under it. The lever that works has to price
+what a preference **still costs to finish**, not what the path has already
+spent.
 
 **Scope (in expected-value order, each measured independently):**
 - *Forgo-aware seeding:* seed the B&B with incumbents that deliberately forgo
@@ -289,10 +296,10 @@ restore hatch.
 
 ## The 0.5 story
 
-> 0.4 proved ferroplan could take domains off the IPC-5 winner. **0.5 takes
-> the suite**: the penalty loop and the closure optimizer become one
-> partitioned, deterministically-budgeted default path — no magic env vars,
-> same plan on any machine at any thread count — and the scoreboard's default
-> row leads SGPlan5 on four of six domains, coverage-first, under either
-> reading of quality. Second place was the honest verdict of 0.4; 0.5 exists
-> to retire it.
+> 0.4 proved ferroplan could pry domains loose from the IPC-5 winner. **0.5
+> comes for the suite.** The penalty loop and the closure optimizer fuse
+> into one partitioned, deterministically-budgeted default path — no magic
+> env vars, the same plan on any machine at any thread count — and the
+> scoreboard's default row leads SGPlan5 on four of six domains,
+> coverage-first, under either reading of quality. Second place was the
+> honest verdict on 0.4. 0.5 exists to bury it.

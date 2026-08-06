@@ -1,27 +1,31 @@
-//! Concurrent scheduling phase for temporal plans.
+//! Concurrent scheduling phase for temporal plans — the grid where the crew gets
+//! dispatched.
 //!
 //! ferroplan's temporal search finds *what* to do but lays the actions out
-//! sequentially (it's guided by action count, not makespan) — so more workers never
-//! shortened the schedule. This pass takes a found [`TimedPlan`] and **repacks it
-//! onto the domain's actor-objects**: one job per actor at a time, each action
-//! starting as early as its inputs (consumed resources) and prerequisites (the
-//! build-order predicates) allow. Independent work then overlaps across actors, so
-//! more actors ⇒ shorter makespan — the parallelism the planner couldn't show.
+//! sequentially — it's guided by action count, not makespan — so throwing more
+//! workers at the wire never shortened the schedule. This pass takes a found
+//! [`TimedPlan`] and **repacks it onto the domain's actor-objects**: one job per
+//! actor at a time, each action keyed to start the moment its inputs (consumed
+//! resources) and prerequisites (build-order predicates) clear. Independent work
+//! then overlaps across actors — more actors, shorter makespan, the parallelism the
+//! planner's search never surfaced on its own.
 //!
-//! It's the planner's *scheduling* phase (search = causal structure, this = who does
-//! what, when), gated by [`crate::features::tconc`]. The result is always run through
-//! [`crate::temporal::validate`]; if the concurrent schedule doesn't validate (or
-//! isn't shorter), the original sequential plan is returned unchanged. So it can only
-//! help, never produce a wrong plan.
+//! Call it the planner's *scheduling* phase: search lays the causal structure, this
+//! decides who does what, when. Gated by [`crate::features::tconc`]. Every result
+//! gets run back through [`crate::temporal::validate`] before it ships; if the
+//! concurrent schedule doesn't validate — or isn't actually shorter — the original
+//! sequential plan returns untouched. No blackout risk: this pass can only help,
+//! never hand back a broken plan.
 //!
 //! **Convention.** The *actor* is the first parameter of each durative action (e.g.
 //! `(?w - worker …)`); actors are the problem objects of that type. A task's
 //! actor-referencing PRECONDITIONS are its required **skills** (e.g. `(smith ?w)`) —
-//! a worker is eligible only if they hold for it in the init state, so skill-gated
-//! tasks go only to workers who can do them (location works the same way). Effects
-//! that depend on *which* actor (a `(when (lumberjack ?w) …)`) would change when an
-//! action is reassigned, so a domain meant for this pass keeps actor *effects*
-//! interchangeable — only preconditions/skills may differ between workers.
+//! a worker clears the gate only if those hold for them in the init state, so
+//! skill-gated tasks route only to workers who can run them (location reads the same
+//! way). Effects keyed to *which* actor fires (a `(when (lumberjack ?w) …)`) would
+//! drift the moment an action gets reassigned to a different worker — so a domain
+//! built for this pass keeps actor *effects* interchangeable. Only the
+//! preconditions/skills may differ, worker to worker.
 
 use crate::temporal::{validate, TimedPlan, TimedStep};
 use crate::types::{AssignOp, Domain, Effect, Formula, Problem, Sym, Term, TimeSpec};
@@ -29,8 +33,9 @@ use std::collections::HashMap;
 
 const EPS: f64 = 0.001;
 
-/// Repack `plan` onto the domain's actor objects to minimise makespan. Returns a
-/// shorter, validated concurrent plan, or `None` to keep the original.
+/// Repack `plan` onto the domain's actor objects to squeeze the makespan down.
+/// Returns a shorter, validated concurrent plan, or `None` — keep the original
+/// signal, nothing better on the wire.
 pub fn reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Option<TimedPlan> {
     if plan.steps.is_empty() {
         return None;
@@ -193,8 +198,9 @@ pub fn reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Optio
     }
 }
 
-/// Actor-referencing precondition atoms at `when` (the actor variable appears in the
-/// args). These are the task's required capabilities — skills, and the work location.
+/// Actor-referencing precondition atoms at `when` — the actor variable shows up in
+/// the args. These are the task's required capabilities: skills, and the work
+/// location. The clearance list.
 fn collect_actor_reqs(
     da: &crate::types::DurativeAction,
     when: TimeSpec,
@@ -223,8 +229,9 @@ fn walk_reqs(f: &Formula, actor_var: &str, acc: &mut Vec<(Sym, Vec<Term>)>) {
     }
 }
 
-/// Is `worker` eligible for a task — do all its actor-referencing preconditions hold
-/// (substituting this worker for the actor variable) as static init facts?
+/// Is `worker` cleared for a task — do all its actor-referencing preconditions hold,
+/// worker substituted for the actor variable, checked against the static init
+/// ledger?
 fn eligible(
     worker: &str,
     reqs: &[(Sym, Vec<Term>)],
@@ -247,8 +254,8 @@ fn eligible(
     })
 }
 
-/// Number of actor-typed objects in `problem` (0 if the domain has no durative
-/// actions / actor type).
+/// Headcount: actor-typed objects in `problem` (0 if the domain runs no durative
+/// actions / has no actor type — empty roster, empty wire).
 pub fn n_actors(domain: &Domain, problem: &Problem) -> usize {
     match actor_type(domain) {
         Some(at) => problem
@@ -260,13 +267,13 @@ pub fn n_actors(domain: &Domain, problem: &Problem) -> usize {
     }
 }
 
-/// A copy of `problem` reduced to a single **super-worker**: keep the first actor
-/// object, drop the rest, and grant the kept one the UNION of every actor's init
-/// properties (skills, location, …). The causal search is flaky with many symmetric
-/// actors, so it runs on this lone worker — who can do the whole job, including
-/// skill-gated tasks. [`reschedule`] then reassigns each task to a REAL worker that
-/// actually has the required skill. Returns the problem unchanged if there are fewer
-/// than two actors.
+/// A copy of `problem` collapsed to a single **super-worker**: keep the first actor
+/// object, drop the rest, and grant the survivor the UNION of every actor's init
+/// properties — skills, location, the whole ledger. The causal search goes flaky
+/// against a crowd of symmetric actors, so it runs the whole job against this lone
+/// signal instead, skill-gated tasks included. [`reschedule`] comes in after and
+/// reassigns each task to a REAL worker actually holding the required skill. Returns
+/// the problem untouched if there are fewer than two actors — nothing to collapse.
 pub fn single_actor_problem(domain: &Domain, problem: &Problem) -> Problem {
     let Some(at) = actor_type(domain) else {
         return problem.clone();
@@ -318,7 +325,8 @@ pub fn single_actor_problem(domain: &Domain, problem: &Problem) -> Problem {
     p
 }
 
-/// The actor type = the first-parameter type shared by the durative actions.
+/// The actor type — the first-parameter type shared across the durative actions, the
+/// domain's roster signature.
 fn actor_type(domain: &Domain) -> Option<Sym> {
     domain
         .durative_actions
@@ -346,7 +354,8 @@ fn atom_key(pred: &str, args: &[Sym]) -> String {
     res_key(pred, args)
 }
 
-/// Bind a fluent/atom arg list against the param binding (objects pass through).
+/// Bind a fluent/atom arg list against the param binding — objects pass through
+/// clean, no re-routing.
 fn bind_args(args: &[Term], bind: &HashMap<String, String>) -> Option<Vec<Sym>> {
     args.iter()
         .map(|t| match t {
@@ -356,7 +365,8 @@ fn bind_args(args: &[Term], bind: &HashMap<String, String>) -> Option<Vec<Sym>> 
         .collect()
 }
 
-/// Evaluate a constant numeric expression (the only kind used for craft amounts).
+/// Evaluate a constant numeric expression — the only kind that ever shows up for
+/// craft amounts on this wire.
 fn const_expr(e: &crate::types::Expr) -> Option<f64> {
     use crate::types::Expr::*;
     match e {
@@ -370,7 +380,8 @@ fn const_expr(e: &crate::types::Expr) -> Option<f64> {
     }
 }
 
-/// Collect numeric effects of one assign-op at a given time-spec, as resource→amount.
+/// Collect numeric effects of one assign-op at a given time-spec, as a
+/// resource→amount ledger.
 fn collect_num(
     da: &crate::types::DurativeAction,
     when: TimeSpec,
@@ -405,8 +416,9 @@ fn walk_num(
     }
 }
 
-/// Collect positive atoms in the precondition at a time-spec, excluding any that
-/// mention the actor variable (those are satisfied by whichever actor we assign).
+/// Collect positive atoms in the precondition at a time-spec, dropping any that
+/// mention the actor variable — those clear automatically once an actor gets
+/// assigned.
 fn collect_atoms(
     da: &crate::types::DurativeAction,
     when: TimeSpec,
@@ -439,7 +451,7 @@ fn walk_atoms(f: &Formula, bind: &HashMap<String, String>, actor_var: &str, acc:
     }
 }
 
-/// Collect atoms ADDED at a time-spec (excluding actor-mentioning ones).
+/// Collect atoms ADDED at a time-spec, actor-mentioning ones filtered off the wire.
 fn collect_added(
     da: &crate::types::DurativeAction,
     when: TimeSpec,

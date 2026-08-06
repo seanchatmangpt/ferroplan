@@ -1,8 +1,9 @@
-//! A timescale (Gantt) view for temporal plans: each durative action is a bar on
-//! a shared plan-time axis, packed into lanes so non-overlapping actions share a
-//! row, with a cyan "now" line swept by the transport playhead. This is how a
-//! temporal plan — overlapping durative actions the graph can't tween — is made
-//! legible. Shown automatically when a temporal plan is loaded; toggle with **T**.
+//! The timescale: a Gantt-lane readout for temporal runs. Each durative action
+//! is a bar staked to a shared plan-time axis, packed into lanes so the ones
+//! that don't collide can share a row, and a cyan "now" line sweeps across it,
+//! slaved to the transport playhead. This is the only legible view of overlap
+//! the graph itself can't tween through. Surfaces automatically on a temporal
+//! load; toggle it dark with **T**.
 
 use bevy::prelude::*;
 
@@ -35,7 +36,7 @@ pub struct GanttBar;
 #[derive(Component)]
 pub struct GanttNow;
 
-/// Beyond this many actions the per-bar labels are dropped (the bars still draw).
+/// Past this action count the bar labels go dark — the bars themselves keep burning.
 const LABEL_LIMIT: usize = 40;
 
 pub fn setup_gantt(mut commands: Commands) {
@@ -94,7 +95,7 @@ pub fn setup_gantt(mut commands: Commands) {
         });
 }
 
-/// **T** toggles the timescale (only meaningful for temporal plans).
+/// **T** flips the timescale — dead weight on anything that isn't a temporal run.
 pub fn toggle_gantt(
     keys: Res<ButtonInput<KeyCode>>,
     editor: Res<crate::blocks::Editor>,
@@ -127,9 +128,9 @@ pub fn gantt_visibility(
     }
 }
 
-/// Greedy lane packing: actions sorted by start time, each placed in the first
-/// lane whose last action has already ended. Returns `(lane, step_index)` and the
-/// total lane count.
+/// Greedy lane-stacking: sort actions by ignition, drop each into the first lane
+/// whose last occupant already burned out. Returns `(lane, step_index)` pairs and
+/// the total lane count — the shape of the traffic.
 fn pack_lanes(plan: &Plan) -> (Vec<(usize, usize)>, usize) {
     let mut order: Vec<usize> = (0..plan.steps.len()).collect();
     order.sort_by(|&a, &b| {
@@ -157,7 +158,7 @@ fn pack_lanes(plan: &Plan) -> (Vec<(usize, usize)>, usize) {
     (placed, lanes)
 }
 
-/// Rebuild the bars when the plan (length or makespan) changes.
+/// Tear down and relight the bars whenever the run's length or makespan shifts.
 #[allow(clippy::type_complexity)]
 pub fn rebuild_gantt(
     mut commands: Commands,
@@ -234,7 +235,7 @@ pub fn rebuild_gantt(
     });
 }
 
-/// Sweep the now-line to the current plan time.
+/// Drag the now-line to wherever the run's clock currently stands.
 pub fn gantt_now(plan: Res<Plan>, mut now: Query<&mut Node, With<GanttNow>>) {
     let Ok(mut node) = now.single_mut() else {
         return;

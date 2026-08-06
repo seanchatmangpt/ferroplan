@@ -1,54 +1,60 @@
-//! PDDL2.1 temporal planning — durative actions (EPIC-Temporal).
+//! DISPATCH LOG — clockwork district, temporal wing (EPIC-Temporal).
 //!
-//! T2 (this module's [`compile`]): each `:durative-action` is split into two
-//! instantaneous CLASSICAL actions so the existing grounder/heuristic can be
-//! reused. `A-START` takes the action's `at start` conditions as its
-//! precondition and applies its `at start` effects plus a `(RUNNING-A ?params)`
-//! token; `A-END` requires the `at end` conditions and that token, applies the
-//! `at end` effects, and deletes the token.
+//! T2 (see [`compile`]): every long action gets cracked in half. Two ghosts
+//! walk where one durative action stood — `A-START` and `A-END`, instant,
+//! classical, legible to the old grounder that never learned to count time.
+//! `A-START` inherits the birth conditions, fires the opening effects,
+//! brands the world with a `(RUNNING-A ?params)` token — proof of work in
+//! progress. `A-END` won't move without that token in hand; it checks the
+//! closing conditions, burns the effects, strips the brand.
 //!
-//! The `over all` invariant and the duration are not expressible in classical
-//! STRIPS, so they are kept in a side table ([`SnapInfo`]) that the decision-epoch
-//! temporal search (T3) consumes: it only lets `A-END` fire `duration` after the
-//! matching `A-START`, and checks the invariant holds across the interval.
+//! The `over all` invariant and the duration itself don't survive
+//! translation to classical STRIPS — no vocabulary for them there. Stashed
+//! instead in a side ledger ([`SnapInfo`]), read by the decision-epoch
+//! temporal search (T3): the only witness that lets `A-END` collect its
+//! `duration` after `A-START` clocked in, the only check that the invariant
+//! held the whole stretch between.
 
 use crate::types::{
     eval_numpre, Action, AssignOp, CompOp, Domain, Duration, Effect, Expr, Formula, NExpr, NumEff,
     NumPre, Problem, Sym, Term, TimeSpec,
 };
 
-/// Temporal metadata for one durative action, paired with its snap-actions.
+/// A dossier on one durative action — birth name, death name, and the
+/// evidence too slow for classical STRIPS to hold.
 #[derive(Clone, Debug)]
 pub struct SnapInfo {
-    /// Name of the generated start snap-action (e.g. `MOVE-START`).
+    /// Callsign of the opening ghost (e.g. `MOVE-START`).
     pub start_action: Sym,
-    /// Name of the generated end snap-action (e.g. `MOVE-END`).
+    /// Callsign of the closing ghost (e.g. `MOVE-END`).
     pub end_action: Sym,
-    /// `RUNNING-…` token predicate that pairs a start with its end.
+    /// The token predicate that proves start and end are the same job.
     pub running_pred: Sym,
-    /// Duration constraint (fixed `=` or an inequality range) over the action's
-    /// parameters / fluents.
+    /// How long the job runs — a fixed mark or a window — over its
+    /// parameters and fluents.
     pub duration: Duration,
-    /// `over all` invariant that must hold across the action's execution.
+    /// What must stay true the whole time the job is running.
     pub invariant: Formula,
-    /// The action's typed parameters (for grounding the duration/invariant).
+    /// Typed parameters, kept for grounding duration and invariant later.
     pub params: Vec<(Sym, Sym)>,
 }
 
-/// The result of compiling durative actions to classical snap-actions.
+/// The wreckage and the record: everything left after durative actions get
+/// split into classical snap-actions.
 pub struct TemporalCompiled {
-    /// Domain with `durative_actions` replaced by classical start/end actions.
+    /// Domain with `durative_actions` gone — replaced by start/end ghosts.
     pub domain: Domain,
     pub problem: Problem,
-    /// One entry per original durative action.
+    /// One dossier per original durative action.
     pub snaps: Vec<SnapInfo>,
-    /// Timed initial literals as `(absolute time, synthetic applier action name)`.
-    /// Each name is a 0-arg classical action added to `domain` whose effect asserts /
-    /// retracts the literal; the search fires it from the agenda at `time`.
+    /// Timed initial literals as `(absolute time, synthetic applier action name)`
+    /// — a fuse and a name. Each name is a 0-arg classical action whose effect
+    /// asserts or retracts the literal; the search lights it from the agenda
+    /// at `time`.
     pub til_ops: Vec<(f64, Sym)>,
 }
 
-/// Does this domain use durative actions (i.e. is it a temporal problem)?
+/// Does this domain run on the clock at all — any durative actions in it?
 pub fn is_temporal(domain: &Domain) -> bool {
     !domain.durative_actions.is_empty()
 }
@@ -87,9 +93,9 @@ fn pick_effects(da: &crate::types::DurativeAction, when: TimeSpec) -> Vec<Effect
         .collect()
 }
 
-/// Compile a temporal domain (durative actions) into a classical domain of
-/// snap-actions plus the [`SnapInfo`] side table.
-/// Does this expression reference the `?duration` pseudo-fluent?
+/// Crack a temporal domain into classical shrapnel: snap-actions plus the
+/// [`SnapInfo`] ledger that remembers what STRIPS forgot.
+/// Does this expression reach for the `?duration` ghost-fluent?
 fn expr_has_duration(e: &Expr) -> bool {
     match e {
         Expr::Num(_) => false,
@@ -101,8 +107,8 @@ fn expr_has_duration(e: &Expr) -> bool {
     }
 }
 
-/// Substitute the `?duration` pseudo-fluent with the action's duration
-/// expression (PDDL2.1 duration-dependent effects/conditions).
+/// Swap the ghost-fluent for flesh: the action's real duration expression,
+/// dropped into duration-dependent conditions and effects.
 fn expr_subst_duration(e: &Expr, dur: &Expr) -> Expr {
     match e {
         Expr::Num(n) => Expr::Num(*n),
@@ -182,9 +188,8 @@ fn effect_has_duration(e: &Effect) -> bool {
     }
 }
 
-/// Fluent NAMES any action (classical or durative, any time spec) assigns —
-/// the name-level over-approximation behind the end-side `?duration` scope
-/// check in [`compile`].
+/// Every fluent name any action touches, classical or durative, any hour —
+/// the watch-list behind the end-side `?duration` scope check in [`compile`].
 fn assigned_fluent_names(domain: &Domain) -> HashSet<&Sym> {
     fn rec<'a>(e: &'a Effect, out: &mut HashSet<&'a Sym>) {
         match e {
@@ -208,7 +213,7 @@ fn assigned_fluent_names(domain: &Domain) -> HashSet<&Sym> {
     out
 }
 
-/// Does the duration expression read any assigned (dynamic) fluent name?
+/// Does the duration expression peek at anything the world can still change?
 fn duration_reads_assigned(e: &Expr, assigned: &HashSet<&Sym>) -> bool {
     match e {
         Expr::Num(_) => false,
@@ -371,8 +376,8 @@ use crate::packed::{PackedTask, State, StateKey};
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
-/// One action in a timed plan (a durative action is one step with its duration;
-/// the end snap is implied).
+/// One move in a timed plan — a durative action, its start marked, its end
+/// implied and never spoken.
 #[derive(Clone, Debug)]
 pub struct TimedStep {
     pub time: f64,
@@ -380,7 +385,7 @@ pub struct TimedStep {
     pub duration: Option<f64>,
 }
 
-/// A timed (temporal) plan.
+/// The full run — every move, timestamped, and the moment it all ends.
 #[derive(Clone, Debug)]
 pub struct TimedPlan {
     pub steps: Vec<TimedStep>,
@@ -388,7 +393,7 @@ pub struct TimedPlan {
 }
 
 impl TimedPlan {
-    /// Render in the IPC temporal plan format: `t: (action args) [duration]`.
+    /// Print the confession in IPC format: `t: (action args) [duration]`.
     pub fn to_ipc(&self) -> String {
         let mut s = String::new();
         for step in &self.steps {
@@ -405,50 +410,56 @@ impl TimedPlan {
 
 #[derive(Clone, Copy)]
 pub(crate) enum Kind {
-    /// durative start: resolved duration (constant or parameter-dependent) + the
-    /// matching end op index
+    /// Job opens here — duration locked in (fixed or parameter-shaped),
+    /// carrying the address of its own ending.
     Start {
         dur: f64,
         end_op: usize,
-        /// `u32::MAX` = fixed `dur` (the historical init-resolved path);
-        /// otherwise an index into the state-dependent duration table
-        /// (`build_kind`'s second return), evaluated per expansion.
+        /// `u32::MAX` — the duration was nailed down at init and stays
+        /// nailed. Anything else — an index into the state-dependent
+        /// duration table, re-read on every expansion, nothing trusted twice.
         dexp: u32,
     },
+    /// Job closes here.
     End,
     Classical,
-    /// a synthetic timed-initial-literal applier: never started by the search (block
-    /// (a) skips it), only fired from the pre-seeded agenda at its absolute time.
+    /// A ghost applier for a timed initial literal. Never enters play by its
+    /// own hand (block (a) locks it out); wakes only when the pre-seeded
+    /// agenda calls its name at its absolute hour.
     Til,
-    /// a start whose duration/end can't be resolved (undefined duration fluent,
-    /// non-positive value, or missing end op); never applied
+    /// A start that can't be trusted — duration fluent undefined, value
+    /// non-positive, or its end went missing. Dead on arrival, never fired.
     Skip,
 }
 
 struct TNode {
     state: State,
     time: f64,
-    /// pending ends as (absolute_end_time, end_op), kept sorted ascending.
+    /// Debts still owed — pending ends as (absolute_end_time, end_op),
+    /// sorted, soonest first.
     agenda: Vec<(f64, usize)>,
     father: usize,
-    /// (op applied, time) that produced this node; None for the root.
+    /// The move that got us here — (op applied, time). `None` at the root,
+    /// where nothing happened yet.
     ev: Option<(usize, f64)>,
-    /// number of happenings to reach this node (depth `g`, for the heap key).
+    /// Steps taken to reach this node, depth `g` for the heap's ordering.
     g: u32,
-    /// FF helpful start/classical ops for this state under pruning (empty = no
-    /// restriction / fall back to a full scan). Only populated in the pruned pass.
+    /// FF's short list of ops worth trying from this state, under pruning —
+    /// empty means no restriction, fall back to scanning everything. Only
+    /// populated on the pruned pass.
     helpful: Vec<u32>,
-    /// Cumulative-availability per demand resource (init stock + everything produced
-    /// along this path, clamped to the demand). Empty unless FF_TDEMAND is on. Tracks
-    /// production rather than current stock so the gradient survives consumption.
+    /// Running tally per demand resource — init stock plus everything ever
+    /// produced on this path, capped at the demand. Silent unless FF_TDEMAND
+    /// is lit. Tracks what was made, not what remains, so consumption can't
+    /// erase the signal.
     met: Vec<i32>,
-    /// Fact landmarks accepted on the path to this node (bitset over the
-    /// landmark list index) — the temporal LAMA term (0.11 Phase 1). Empty
-    /// outside the pruned pass / under FF_NO_TLAMA.
+    /// Landmarks claimed on the road here — a bitset over the landmark
+    /// index, the temporal LAMA term (0.11 Phase 1). Dark outside the
+    /// pruned pass or under FF_NO_TLAMA.
     lm_accepted: Vec<u64>,
 }
 
-/// Mark landmarks true in `state` as accepted (the `lama.rs` shape).
+/// Stamp `state`'s true landmarks accepted — the `lama.rs` cipher.
 fn lm_accept_into(accepted: &mut [u64], lms: &[u32], state: &State) {
     for (i, &f) in lms.iter().enumerate() {
         if accepted[i >> 6] & (1 << (i & 63)) == 0 && crate::bitset::test(&state.bits, f as usize) {
@@ -461,16 +472,17 @@ fn lm_unaccepted(accepted: &[u64], n: usize) -> i64 {
     n as i64 - accepted.iter().map(|w| w.count_ones() as i64).sum::<i64>()
 }
 
-/// Visited key. `relative` keys the agenda by (end − node.time) deltas
-/// instead of absolute end times: on a TIL-free task the transition system
-/// is SHIFT-INVARIANT (durations read fluents, never the clock; the goal is
-/// state-only), so two nodes with equal state and equal pending-end deltas
-/// have identical futures — absolute times only retime the plan. Absolute
-/// keys made every retimed permutation a "new" state (turn-and-open stored
-/// 175k+ nodes on a ~1k-fact instance). With TILs the clock is semantic
-/// (a future TIL fires at an absolute time), so the caller passes
-/// `relative = til_events.is_empty()`; `FF_TEMPORAL_ABS_KEY=1` restores
-/// absolute keys everywhere.
+/// The fingerprint that says "seen this before." `relative` keys the agenda
+/// by (end − node.time) deltas instead of raw clock-time: strip TILs from a
+/// task and the whole system goes SHIFT-INVARIANT — durations answer to
+/// fluents, never the clock, and the goal never asks what time it is. Two
+/// nodes with the same state and the same pending-end deltas share one
+/// future; only the clock differs, and the clock doesn't matter. Absolute
+/// keys used to count every retimed echo as a stranger — turn-and-open
+/// alone hoarded 175k+ nodes on a ~1k-fact instance. Once TILs enter, the
+/// clock becomes real again (a future TIL detonates at an absolute hour),
+/// so the caller passes `relative = til_events.is_empty()`;
+/// `FF_TEMPORAL_ABS_KEY=1` forces absolute keys everywhere, no exceptions.
 fn tkey(
     task: &PackedTask,
     n: &TNode,
@@ -491,12 +503,13 @@ fn tkey(
     }
 }
 
-/// Evaluate a (possibly parameter-dependent) duration for one grounded
-/// snap-action. The action's parameters are bound positionally to the grounded
-/// args; fluents are read from the INITIAL state — IPC temporal durations depend
-/// on static fluents like `(= ?duration (/ (distance ?a ?b) (speed ?v)))`, which
-/// keep their init value. Returns None for a non-positive duration, an undefined
-/// fluent, or division by zero (the caller then skips the action).
+/// Clock one grounded snap-action's runtime — fixed or shaped by its
+/// parameters. Parameters bind positionally to grounded args; fluents get
+/// read from the INITIAL state, frozen — IPC temporal durations lean on
+/// static fluents like `(= ?duration (/ (distance ?a ?b) (speed ?v)))`, and
+/// those never drift from their opening value. Comes back empty-handed on a
+/// non-positive duration, an undefined fluent, or a division by zero; the
+/// caller reads that as a skip.
 fn eval_duration(snap: &SnapInfo, args: &[&str], task: &PackedTask, init: &State) -> Option<f64> {
     let bind = duration_bind(snap, args);
     // Commit to the shortest feasible duration (the lower bound; the upper bound only
@@ -511,9 +524,10 @@ fn eval_duration(snap: &SnapInfo, args: &[&str], task: &PackedTask, init: &State
     }
 }
 
-/// Evaluate the `[min, max]` duration bounds against the initial state (for the
-/// validator). An open side stays `None` (unbounded). A bound that fails to evaluate
-/// (undefined fluent, div-by-zero) also yields `None` for that side.
+/// Read the `[min, max]` window against the opening state, for the
+/// validator. An open side comes back `None` — unbounded, no wall there. A
+/// bound that can't be evaluated (undefined fluent, div-by-zero) reports the
+/// same silence.
 fn eval_duration_bounds(
     snap: &SnapInfo,
     args: &[&str],
@@ -525,7 +539,7 @@ fn eval_duration_bounds(
     (ev(&snap.duration.min), ev(&snap.duration.max))
 }
 
-/// Bind a snap-action's parameters positionally to the grounded args.
+/// Wire a snap-action's parameters to the grounded args, position for position.
 fn duration_bind<'a>(snap: &'a SnapInfo, args: &[&'a str]) -> HashMap<&'a str, &'a str> {
     snap.params
         .iter()
@@ -565,13 +579,13 @@ fn eval_expr(e: &Expr, bind: &HashMap<&str, &str>, task: &PackedTask, init: &Sta
     }
 }
 
-/// Solve a temporal (durative-action) problem by decision-epoch forward search.
-/// Returns a timed plan, or None if unsolved within the node budget. Durations
-/// may be constants or parameter-dependent (evaluated against the initial state);
-/// the `over all` invariant is enforced at the endpoints via the snap
-/// preconditions AND on every happening in between via the grounded
-/// invariant transition guard (a delete + re-add between the endpoints
-/// used to slip through — the kiln-gap fixture pins the fix).
+/// Hunt a temporal problem down by decision-epoch forward search. Returns a
+/// timed plan, or nothing, if the node budget runs dry first. Durations —
+/// fixed marks or parameter-shaped, read against the opening state. The
+/// `over all` invariant stands guard twice: at the endpoints, through the
+/// snap preconditions, and on every happening between them, through the
+/// grounded transition guard — a delete-then-re-add used to slip through
+/// the gap unseen; the kiln-gap fixture nails that door shut.
 pub fn solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> {
     let ambient = crate::features::demand_mode();
     if let Some(plan) = solve_monolithic(domain, problem, threads, ambient) {
@@ -599,10 +613,10 @@ pub fn solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<Timed
     crate::tresolve::solve_after_ladder(domain, problem, threads, ambient)
 }
 
-/// The monolithic temporal search at an explicit demand `tier` — the scheduling
-/// phase + the plain decision-epoch search, WITHOUT the escalation ladder. This is
-/// the primitive `solve` builds its ladder from and the decomposer's single-group
-/// fallback (`tresolve`) terminates on.
+/// The bare search at a named demand `tier` — scheduling phase plus plain
+/// decision-epoch search, no escalation ladder attached. The rung `solve`
+/// climbs from, and the floor the decomposer's single-group fallback
+/// (`tresolve`) lands on.
 pub(crate) fn solve_monolithic(
     domain: &Domain,
     problem: &Problem,
@@ -634,7 +648,8 @@ pub(crate) fn solve_monolithic(
     solve_inner(domain, problem, threads, tier)
 }
 
-/// Search a temporal plan for `problem` as-is (no scheduling phase).
+/// Search for a temporal plan on `problem` as it stands — no scheduling
+/// phase, no shortcuts.
 fn solve_inner(
     domain: &Domain,
     problem: &Problem,
@@ -822,13 +837,14 @@ pub(crate) fn build_kind(
     (kinds, dur_exprs, inv)
 }
 
-/// Collect a conjunctive invariant's grounded (positive, negative) fact
-/// atoms and numeric comparisons. `true` = the shape is supported (static
-/// `Eq` conjuncts are passed over; a numeric conjunct whose expressions
-/// don't ground makes the whole op fall back to endpoint-only); `false`
-/// = disjunctive/quantified structure, caller keeps endpoint-only checking
-/// for the whole op. An atom that grounded to no task fact is skipped:
-/// statically-true facts have no deleter, never-reachable ones no adder.
+/// Shake a conjunctive invariant down for its grounded (positive, negative)
+/// fact atoms and numeric comparisons. `true` — the shape checks out
+/// (static `Eq` conjuncts pass through untouched; a numeric conjunct that
+/// won't ground drags the whole op back to endpoint-only). `false` —
+/// disjunctive or quantified structure, caller keeps endpoint-only checking
+/// for the whole op, no exceptions. An atom that grounds to no task fact
+/// gets skipped: a statically-true fact has no one to delete it, an
+/// unreachable one has no one to add it.
 fn ground_inv(
     f: &Formula,
     bind: &HashMap<&str, &str>,
@@ -903,9 +919,10 @@ fn ground_atom_id(
     task.fact_id(&disp).map(|x| x as u32)
 }
 
-/// Fluents any op assigns (numeric effects, incl. conditional) — a duration
-/// reading one is STATE-DEPENDENT (resolved per expansion / at start time),
-/// not fixable against init. Shared by `build_kind` and `validate`.
+/// Every fluent some op can touch — numeric effects, conditional included.
+/// A duration reading one is STATE-DEPENDENT, resolved per expansion or at
+/// start time, never nailed down against init. Shared intelligence between
+/// `build_kind` and `validate`.
 fn modified_fluents(task: &PackedTask) -> Vec<bool> {
     let mut modified = vec![false; task.fv0.len()];
     for oi in 0..task.n_ops {
@@ -921,8 +938,9 @@ fn modified_fluents(task: &PackedTask) -> Vec<bool> {
     modified
 }
 
-/// Ground a duration expression to a fluent-id `NExpr` (params bound
-/// positionally). `None` if a referenced fluent didn't ground.
+/// Nail a duration expression down to a fluent-id `NExpr`, params bound
+/// position for position. Comes back empty if a referenced fluent never
+/// grounded.
 fn ground_duration_nexpr(e: &Expr, bind: &HashMap<&str, &str>, task: &PackedTask) -> Option<NExpr> {
     Some(match e {
         Expr::Num(n) => NExpr::Num(*n),
@@ -959,20 +977,23 @@ fn ground_duration_nexpr(e: &Expr, bind: &HashMap<&str, &str>, task: &PackedTask
     })
 }
 
-/// Goal-relevance op mask (`true` = keep). Backward closure from the goal: an op is
-/// relevant if it ADDS or DELETES a relevant fact, or INCREASES a relevant resource
-/// (incl. via a conditional effect); marking it pulls its preconditions (positive
-/// facts, numeric `>=` thresholds) and consumed resources into the relevant set,
-/// transitively. Ops that cannot contribute — e.g. `forage-food`/`gather-herbs` when
-/// food/herbs are in no recipe the goal needs: unbounded accumulators that otherwise
-/// explode the complete search with food=1,2,3,… states — are dropped. Applied to
-/// BOTH phases: phase 1 (helpful) is usually stuck under delete-relaxation anyway;
-/// the win is letting the COMPLETE phase 2 solve within the relevant subspace instead
-/// of drowning in irrelevant accumulation. Sound (completeness-preserving) because a
-/// pruned op neither produces nor consumes nor toggles anything any solution needs —
-/// the `del`-of-relevant clause conservatively keeps re-enablers of negative
-/// preconditions. Necessary travel is kept: a relevant op's `(at a l)` precond makes
-/// the travel achieving it relevant, transitively along the route.
+/// The relevance sweep (`true` = keep it, everything else gets cut loose).
+/// Backward closure from the goal: an op earns its place if it ADDS or
+/// DELETES a relevant fact, or INCREASES a relevant resource — conditional
+/// effects count. Marking it pulls its own preconditions — positive facts,
+/// numeric `>=` thresholds — and consumed resources into the relevant set,
+/// and the pull keeps going, transitively. Dead weight gets dropped:
+/// `forage-food`/`gather-herbs` when nothing the goal needs recipes off
+/// food or herbs, unbounded accumulators that would otherwise flood a
+/// complete search with food=1,2,3,… ghosts. Runs on both phases — phase 1
+/// (helpful) usually stalls under delete-relaxation regardless, but phase 2
+/// (complete) gets to solve inside the relevant subspace instead of
+/// drowning in noise. Sound, provably — a cut op neither makes nor
+/// consumes nor flips anything any solution touches, and the `del`-of-
+/// relevant clause keeps re-enablers of negative preconditions on a short
+/// leash rather than cutting them. Necessary travel survives: a relevant
+/// op's `(at a l)` precondition drags the travel that achieves it into
+/// relevance too, all the way down the route.
 fn relevant_op_mask(
     task: &PackedTask,
     goal_pos: &[u32],
@@ -1056,19 +1077,21 @@ fn relevant_op_mask(
     relevant
 }
 
-/// Solve toward an ARBITRARY `(goal_pos, goal_num)` from an arbitrary `start` state
-/// over a shared grounded temporal task — the reusable subplanner the decomposer
-/// (`tresolve`) calls per contract. `forbidden` masks ops (sibling protection; empty
-/// = none). `tier` is the demand tier this pass runs at — threaded explicitly so
-/// the escalation ladder can retry at `Full` without touching process-global state.
-/// `solve_monolithic` is the whole-task wrapper (start = init, goal = task goal, no
-/// forbidden); `temporal::solve` is that plus the on-failure escalation ladder.
+/// Chase down ANY `(goal_pos, goal_num)` from ANY `start` state over a
+/// shared grounded temporal task — the reusable subplanner the decomposer
+/// (`tresolve`) calls once per contract. `forbidden` blacklists ops
+/// (sibling protection; empty means no restriction). `tier` is the demand
+/// tier this pass runs at, threaded explicitly so the escalation ladder can
+/// retry at `Full` without touching anything process-global. `solve_monolithic`
+/// is the whole-task wrapper — start at init, goal is the task goal, nothing
+/// forbidden; `temporal::solve` is that plus the on-failure escalation ladder.
 ///
-/// Multi-pass decision-epoch search: a fast pass restricting start/classical
-/// expansion to FF helpful actions, then unrestricted complete passes on failure
-/// (tight-masked → sound-masked → unmasked; see the pruning block below).
-/// Phase-1 key = W_G*g + W_H*h + W_L*(unmet numeric landmarks) + the converging-
-/// resource demand deficit; the complete passes use the original pure-h key.
+/// Multi-pass decision-epoch search: a fast pass first, start/classical
+/// expansion restricted to FF's helpful picks, then unrestricted complete
+/// passes if that fails — tight-masked, then sound-masked, then unmasked
+/// (see the pruning block below). Phase-1 key = W_G*g + W_H*h +
+/// W_L*(unmet numeric landmarks) + the converging-resource demand deficit;
+/// the complete passes fall back to the original pure-h key.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_from(
     task: &PackedTask,
@@ -1091,11 +1114,11 @@ pub(crate) fn solve_from(
     )
 }
 
-/// [`solve_from`] with `seed_til_h`: seed every node's heuristic state with
-/// the ADD effects of its still-pending TIL events, so an outage the agenda
-/// will REPAIR does not read as a relaxed dead end (a think can wait
-/// through it — 0.14 Phase 3). Session-only: the CLI/corpus paths pass
-/// `false` and stay byte-identical.
+/// [`solve_from`], but every node's heuristic gets seeded early with the ADD
+/// effects of its still-pending TIL events — an outage the agenda's going to
+/// repair on its own reads as fixable, not as a dead end (a think can wait
+/// it out — 0.14 Phase 3). Session-only rite: CLI and corpus paths pass
+/// `false` and stay byte-identical to the world before this existed.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_from_seeded(
     task: &PackedTask,
@@ -1119,9 +1142,9 @@ pub(crate) fn solve_from_seeded(
     )
 }
 
-/// [`solve_from_seeded`] with orbit canonicalization of the visited key
-/// (0.14 ext Phase 10) — passed from callers that hold the LIFTED
-/// domain/problem needed for detection.
+/// [`solve_from_seeded`], visited-key orbit canonicalization bolted on
+/// (0.14 ext Phase 10) — fed by callers still holding the LIFTED
+/// domain/problem detection needs.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_from_seeded_orbit(
     task: &PackedTask,
@@ -1261,20 +1284,21 @@ pub(crate) fn solve_from_seeded_orbit(
         .or_else(|| if on { go(&[], false, false) } else { None })
 }
 
-/// Static unproducibility: is some goal conjunct impossible to ever achieve because
-/// NOTHING in the grounded task can move it? Two sound, instant checks:
-/// - a positive goal fact not true in `start` that **no op adds** (plain or
-///   conditional effect — TIL appliers are ops too, so exogenous adds count);
-/// - a `>=`/`>` numeric threshold not met in `start` whose fluent **no op can
-///   possibly raise** (an effect "can raise" unless it provably never does:
-///   `increase` by a constant ≤ 0 or `decrease` by a constant ≥ 0; `assign`/
-///   `scale-up`/`scale-down`/non-constant deltas all count as potential raisers).
+/// Dead on arrival: is some goal conjunct impossible, full stop, because
+/// NOTHING in the grounded task can ever touch it? Two sound, instant reads:
+/// - a positive goal fact absent from `start` that **no op adds** — plain
+///   or conditional, TIL appliers count too, exogenous is still an add;
+/// - a `>=`/`>` threshold unmet in `start` whose fluent **nothing can
+///   raise** — an effect counts as a raiser unless it's provably inert:
+///   `increase` by a constant ≤ 0, `decrease` by a constant ≥ 0; `assign`,
+///   `scale-up`, `scale-down`, and non-constant deltas all count as threats.
 ///
-/// A `true` here means every search pass would exhaust its budget and fail anyway —
-/// e.g. rpg-world `bread-line` goals on `(bread) >= 2` but no action produces
-/// `bread`, and the search burned ~45 s across passes proving it. This check makes
-/// such instances (and decomposer contracts) fail in microseconds. It never changes
-/// a *found* plan, only converts an exhaustive failure into an instant one.
+/// `true` means every search pass was always going to burn its whole budget
+/// and fail — rpg-world's `bread-line` demands `(bread) >= 2` but nothing
+/// bakes bread, and the search once spent ~45s across passes to learn that
+/// the hard way. This check kills such instances (and decomposer contracts)
+/// in microseconds. Never touches a plan that was actually found — only
+/// turns an exhaustive failure into an instant one.
 pub(crate) fn statically_unsolvable(
     task: &PackedTask,
     start: &State,
@@ -1321,8 +1345,8 @@ pub(crate) fn statically_unsolvable(
     false
 }
 
-/// A numeric `>=`/`>` threshold `(fluent, value)`, or `None` if `np` isn't of that
-/// canonical recipe-gate shape.
+/// Read off a `>=`/`>` threshold as `(fluent, value)`, or nothing if `np`
+/// doesn't wear the canonical recipe-gate shape.
 fn as_threshold(np: &NumPre) -> Option<(u32, f64)> {
     match (&np.op, &np.lhs, &np.rhs) {
         (CompOp::Ge | CompOp::Gt, NExpr::Fluent(t), NExpr::Num(w)) => Some((*t, *w)),
@@ -1330,11 +1354,12 @@ fn as_threshold(np: &NumPre) -> Option<(u32, f64)> {
     }
 }
 
-/// Numeric `>=` thresholds implied by the achievers of the PREDICATE goal facts: for
-/// each goal fact, the op that adds it (the END snap) gates on numeric preconditions
-/// that live on the matching START snap — bridge END->START via the RUNNING token
-/// exactly as `extract_landmarks` does, and collect those `>=` preconds. Lets a
-/// predicate goal like `(built-wall)` seed the `blocks>=4` demand chain (Stage 0).
+/// The `>=` thresholds hiding behind PREDICATE goal facts: each goal fact's
+/// achiever — the END snap — is gated by numeric preconditions that actually
+/// live on the matching START snap. Bridge END back to START through the
+/// RUNNING token, same crossing `extract_landmarks` uses, and pull those
+/// `>=` preconditions across. Lets a predicate goal like `(built-wall)` seed
+/// the `blocks>=4` demand chain (Stage 0).
 fn predicate_goal_thresholds(task: &PackedTask, kind: &[Kind], goal_pos: &[u32]) -> Vec<NumPre> {
     let mut out: Vec<NumPre> = Vec::new();
     let collect_thr = |oi: usize, out: &mut Vec<NumPre>| {
@@ -1360,12 +1385,13 @@ fn predicate_goal_thresholds(task: &PackedTask, kind: &[Kind], goal_pos: &[u32])
     out
 }
 
-/// Numeric-threshold landmarks: the transitive closure of the `>=` preconditions of
-/// the ops that *increase* each goal fluent. The delete-relaxed extraction drops
-/// these (it never recurses on `pre_num`), so on a converging DAG — where two inputs
-/// are separate numeric thresholds feeding one join — `h` goes flat. Counting how
-/// many a state has NOT met gives each converging input its own descending term in
-/// the phase-1 key, restoring the gradient the FF count lacks.
+/// Threshold landmarks: the whole transitive closure of `>=` preconditions
+/// belonging to ops that *raise* each goal fluent. Delete-relaxed extraction
+/// never recurses on `pre_num` — drops these on the floor — so a converging
+/// DAG, two separate thresholds feeding one join, flatlines `h` with nowhere
+/// to go. Counting how many a state hasn't met yet gives each converging
+/// input its own descending term in the phase-1 key — the gradient the FF
+/// count never had.
 fn extract_landmarks(task: &PackedTask, seed: &[NumPre]) -> Vec<NumPre> {
     let mut out: Vec<NumPre> = Vec::new();
     let mut seen: HashSet<(u32, u64)> = HashSet::new();
@@ -1416,10 +1442,11 @@ fn extract_landmarks(task: &PackedTask, seed: &[NumPre]) -> Vec<NumPre> {
     out
 }
 
-/// Summed DEFICIT of the landmark thresholds in `(fv, fdef)` — for each `(fluent >=
-/// want)` landmark, how far below `want` the fluent is. Unlike a binary met/unmet
-/// count this gives a gradient across MULTIPLE rounds (e.g. steel>=2 descends 2→1→0),
-/// so deep/wide converging accumulation gets guidance, not just single assembly.
+/// Total shortfall against the landmark thresholds in `(fv, fdef)` — for
+/// each `(fluent >= want)` landmark, how far under `want` it's sitting.
+/// Not a binary met/unmet flag — a gradient across MULTIPLE rounds
+/// (steel>=2 counts down 2→1→0), so deep, wide, converging accumulation
+/// gets a trail to follow instead of one flat number.
 fn landmark_deficit(landmarks: &[NumPre], fv: &[f64], fdef: &[bool]) -> i64 {
     landmarks
         .iter()
@@ -1437,14 +1464,15 @@ fn landmark_deficit(landmarks: &[NumPre], fv: &[f64], fdef: &[bool]) -> i64 {
         .sum()
 }
 
-/// Total resource DEMAND implied by the numeric goal, regressed down the recipe
-/// DAG. A `(fluent >= want)` goal needs `want` of that fluent; its best (highest-
-/// yield) producer needs `ceil(want / yield)` applications, each consuming its
-/// inputs — recurse. Unlike the per-recipe landmark thresholds (`ingots >= 1`), this
-/// captures the FULL multi-round quantity (`steel >= 2` ⇒ ingots/coal/ore ≥ 2,
-/// logs ≥ 4) that the delete-relaxed heuristic — which reuses each consumed unit —
-/// never demands. `weight` 0 / empty `res` ⇒ the whole term is inert (heap key
-/// bit-identical), so the default temporal path is unchanged.
+/// The full resource bill the numeric goal runs up, regressed all the way
+/// down the recipe DAG. A `(fluent >= want)` goal needs `want` units; its
+/// best producer needs `ceil(want / yield)` runs, each of which eats its
+/// own inputs — recurse. Unlike the per-recipe landmark thresholds
+/// (`ingots >= 1`), this catches the FULL multi-round tab (`steel >= 2`
+/// drags ingots/coal/ore to ≥ 2, logs to ≥ 4) that the delete-relaxed
+/// heuristic — which pretends every consumed unit is still on hand — never
+/// bills for. `weight` 0 or empty `res` means the whole term goes inert,
+/// heap key bit-identical, default temporal path untouched.
 struct Demand {
     res: Vec<(u32, i32)>,
     idx: FxHashMap<u32, usize>,
@@ -1463,9 +1491,10 @@ impl Demand {
     }
 }
 
-/// The highest base-yield op that increases fluent `t` (raw resources have a gather
-/// producer with no numeric inputs, so regression bottoms out there). Conditional
-/// (role-bonus) increases are ignored — the base yield is the safe estimate.
+/// The best-paying op that raises fluent `t` — raw resources have a bare
+/// gather producer with no numeric inputs of its own, so the chase bottoms
+/// out there. Conditional (role-bonus) increases are ignored; the base
+/// yield is the safe number to trust.
 fn best_producer(task: &PackedTask, t: u32) -> Option<(usize, i32)> {
     let mut best: Option<(usize, i32)> = None;
     for &oi in task.neff_by_fluent.slice(t as usize) {
@@ -1554,9 +1583,10 @@ fn compute_demand(task: &PackedTask, kind: &[Kind], seed: &[NumPre], weight: i64
     }
 }
 
-/// The set of resources in the demand-closure of `goal_num` (the recipe inputs that
-/// producing the goal consumes, transitively) — used by the decomposer to order
-/// contracts so a goal that is itself an input to another goal is produced LAST.
+/// Every resource in the demand-closure of `goal_num` — the whole chain of
+/// recipe inputs the goal eats, transitively. The decomposer reads this to
+/// order contracts so a goal that's itself an input to another goal gets
+/// produced LAST.
 pub(crate) fn demand_resources(task: &PackedTask, kind: &[Kind], goal_num: &[NumPre]) -> Vec<u32> {
     compute_demand(task, kind, goal_num, 1)
         .res
@@ -1565,7 +1595,7 @@ pub(crate) fn demand_resources(task: &PackedTask, kind: &[Kind], goal_num: &[Num
         .collect()
 }
 
-/// Root availability: initial stock of each demand resource, clamped to its demand.
+/// Opening balance — initial stock of every demand resource, capped at its demand.
 fn met_root(demand: &Demand, task: &PackedTask) -> Vec<i32> {
     demand
         .res
@@ -1581,9 +1611,10 @@ fn met_root(demand: &Demand, task: &PackedTask) -> Vec<i32> {
         .collect()
 }
 
-/// Child availability: parent's, plus op `oi`'s (unconditional) increases on demand
-/// resources, clamped. Production-only (consumption never lowers it) — so a consumed
-/// intermediate still counts as delivered, the key to the multi-round gradient.
+/// The child's balance — parent's, plus whatever op `oi` unconditionally
+/// produces of demand resources, capped. Production-only; consumption
+/// never drags it back down, so a spent intermediate still counts as
+/// delivered — the whole trick behind the multi-round gradient.
 fn met_child(parent: &[i32], demand: &Demand, task: &PackedTask, oi: usize) -> Vec<i32> {
     if demand.res.is_empty() {
         return Vec::new();
@@ -1607,8 +1638,9 @@ fn demand_deficit(met: &[i32], demand: &Demand) -> i64 {
     (demand.total - met.iter().sum::<i32>()) as i64
 }
 
-/// `h`, plus — under `prune` — the Skip-filtered helpful start/classical ops for
-/// `s`. `None` iff `s` is a relaxed dead end (so this also gates dead ends).
+/// `h`, plus — under `prune` — the Skip-filtered helpful start/classical
+/// ops for `s`. Comes back empty iff `s` is a relaxed dead end; this is
+/// also the dead-end gate.
 #[allow(clippy::too_many_arguments)]
 fn eval_node(
     task: &PackedTask,
@@ -1648,10 +1680,11 @@ fn eval_node(
     }
 }
 
-/// Dedup and enqueue a candidate node whose heuristic `(h, helpful)` is already
-/// computed. Both the serial path ([`push_node`]) and the batched parallel path
-/// funnel through this on ONE thread, in input order — that serial funnel is what
-/// keeps parallel evaluation byte-identical to the sequential search.
+/// Dedup and file a candidate node whose heuristic `(h, helpful)` is
+/// already in hand. The serial path ([`push_node`]) and the batched
+/// parallel path both funnel through here on ONE thread, in input order —
+/// that single funnel is what keeps parallel evaluation byte-identical to
+/// the sequential search.
 #[allow(clippy::too_many_arguments)]
 fn enqueue_evaluated(
     orbit: Option<&crate::orbits::OrbitMap>,
@@ -1676,9 +1709,9 @@ fn enqueue_evaluated(
     }
 }
 
-/// [`enqueue_evaluated`] after the visited check — callers on the orbit
-/// path dedup BEFORE paying for the heuristic (a canonical key is ~4x
-/// cheaper than an eval on machine-shop-sized tasks) and land here.
+/// [`enqueue_evaluated`], past the visited check — orbit-path callers
+/// already paid the dedup toll BEFORE the heuristic (a canonical key runs
+/// ~4x cheaper than an eval on machine-shop-sized tasks) and land here clean.
 #[allow(clippy::too_many_arguments)]
 fn enqueue_committed(
     task: &PackedTask,
@@ -1773,25 +1806,24 @@ fn enqueue_committed(
     heap.push(Reverse((key, tie)));
 }
 
-/// May a happening move the state `old`→`new` while `pending` intervals
-/// run? False iff the transition deletes a positive (or adds a negative)
-/// `over all` invariant fact of some pending interval other than `skip`
-/// (the agenda index being fired — its own interval closes AT this
-/// happening, and end effects may touch their own invariant). Diff-based,
-/// so conditional effects are exact. Invariant facts of pending intervals
-/// are true by induction (their starts required them, every later
-/// happening was vetted here), so `old`-true + `new`-false is precisely
-/// "this happening broke it".
-/// Per-op static write-set pre-filter for the transition guard (0.15
-/// Phase 6): an op whose effects — unconditional, conditional, and the
-/// shared monitor block alike — cannot touch any fact some invariant
-/// watches (`prop`) or any fluent some numeric conjunct reads (`num`)
-/// can never break a running interval, so [`inv_ok`] skips its pending
-/// scan entirely. Built once per pass; both vectors are empty when the
-/// task has no invariants (callers gate on `inv.is_empty()` first).
-/// Keeps the guard pay-per-threat instead of pay-per-happening when
-/// most ops are bystanders to every invariant — by design rather than
-/// by luck of the domain's shape.
+/// Is this happening cleared to fire — state `old`→`new` — with `pending`
+/// intervals still running? Denied the moment the transition deletes a
+/// positive (or adds a negative) `over all` invariant fact belonging to
+/// some pending interval OTHER than `skip` — the agenda index being fired,
+/// whose own interval closes AT this happening, its end effects free to
+/// touch its own invariant. Diff-based, so conditional effects read exact.
+/// Pending intervals' invariant facts hold true by induction — their
+/// starts demanded them, every happening since was vetted right here — so
+/// `old`-true and `new`-false together are proof: this happening broke it.
+/// The write-set pre-filter guarding the guard (0.15 Phase 6): an op whose
+/// effects — unconditional, conditional, the shared monitor block, all of
+/// it — can't touch a fact any invariant watches (`prop`) or a fluent any
+/// numeric conjunct reads (`num`) can't hurt a running interval, period,
+/// so [`inv_ok`] never bothers scanning its pending list. Built once per
+/// pass; both vectors sit empty when the task carries no invariants at all
+/// (callers already gate on `inv.is_empty()`). Pay-per-threat instead of
+/// pay-per-happening, when most ops are just bystanders to every
+/// invariant — that's the design, not luck of the domain's shape.
 struct InvTouch {
     prop: Vec<bool>,
     num: Vec<bool>,
@@ -1891,11 +1923,11 @@ fn inv_ok(
     true
 }
 
-/// Per-pass probe counters (FF_RES_DEBUG only output; the increments are
-/// unconditional u64 adds, cheap enough to keep unguarded). The 0.15
-/// Phase 1 measurement eyes: where do the generated candidates actually
-/// go — doomed at birth, orbit-deduped before eval, evaluated, relaxed
-/// dead ends — and does the pruned pass's best h make progress at all?
+/// Per-pass tally sheet (FF_RES_DEBUG output only; the increments are
+/// unconditional u64 adds, cheap enough to leave unguarded). The 0.15
+/// Phase 1 question this answers: where do generated candidates actually
+/// end up — dead at birth, orbit-deduped before eval, evaluated, relaxed
+/// dead end — and is the pruned pass's best h even moving?
 #[derive(Default)]
 struct TStats {
     doomed: u64,
@@ -1907,17 +1939,18 @@ struct TStats {
     best_h: i32,
 }
 
-/// A node whose agenda head can NEVER legally fire is dead: the head must
-/// fire for time to advance, but its unconditional deletes (adds) break
-/// the over-all invariant of a pending interval that outlives the head's
-/// epoch — and no rescue exists: any earlier event that would clear the
-/// invariant fact is vetted by the same guard, and the blocker's own end
-/// fires only after the head. Pruning the subtree at birth (before paying
-/// for its heuristic) is what makes the invariant semantics affordable on
-/// machine-shop: every bake overrunning its kiln window dies here instead
-/// of spawning a doomed (a)-subtree. Goal states are never pruned — a
-/// doomed node has a blocked non-TIL end pending, which the goal test
-/// already rejects.
+/// A node whose agenda head can NEVER legally fire is already dead. Time
+/// can't advance without the head firing, but its unconditional deletes
+/// (or adds) break the over-all invariant of a pending interval that
+/// outlives the head's own epoch — and there's no rescue: any earlier
+/// event that could clear the invariant fact answers to this same guard,
+/// and the blocker's own end only fires after the head does. Cutting the
+/// subtree here, at birth, before its heuristic costs a cent, is what
+/// makes the invariant semantics affordable on machine-shop: every bake
+/// that overruns its kiln window dies right here instead of spawning a
+/// doomed subtree downstream. Goal states are never touched by this cut —
+/// a doomed node always has a blocked non-TIL end pending, and the goal
+/// test rejects that on its own.
 fn doomed(task: &PackedTask, inv: &InvMap, touch: &InvTouch, n: &TNode) -> bool {
     if inv.is_empty() {
         return false;
@@ -1948,11 +1981,11 @@ fn doomed(task: &PackedTask, inv: &InvMap, touch: &InvTouch, n: &TNode) -> bool 
     })
 }
 
-/// A node's heuristic state under TIL seeding (0.14 Phase 3): the node's
-/// state plus the ADD effects of its still-pending TIL events — an outage
-/// the agenda will repair must not read as a relaxed dead end. `None` when
-/// seeding is off or nothing on the agenda is a TIL (the common case:
-/// byte-identical evaluation).
+/// A node's world-view under TIL seeding (0.14 Phase 3) — its state plus
+/// the ADD effects of every still-pending TIL event, so an outage the
+/// agenda's already promised to fix never reads as a relaxed dead end.
+/// Silent (`None`) when seeding's off or nothing on the agenda is a TIL —
+/// the common case, byte-identical evaluation.
 fn til_seeded_state(
     task: &PackedTask,
     kind: &[Kind],
@@ -1975,7 +2008,8 @@ fn til_seeded_state(
     out
 }
 
-/// Evaluate, dedup, and enqueue a candidate node with the weighted heap key.
+/// Run the full booking: evaluate, dedup, file the candidate under its
+/// weighted heap key.
 #[allow(clippy::too_many_arguments)]
 fn push_node(
     orbit: Option<&crate::orbits::OrbitMap>,
@@ -2045,18 +2079,19 @@ fn push_node(
     }
 }
 
-/// Historical per-pass stored-node ceiling — now the COUNT arm of the cap; the
-/// byte arm below binds first whenever states are big.
+/// The old ceiling on stored nodes per pass — the COUNT arm of the cap now.
+/// The byte arm below binds first whenever states run heavy.
 const MAX_NODES: usize = 400_000;
 
-/// Deterministic per-pass node cap: the classical `node_cap_for` byte model
-/// extended with the temporal extras — one stored `TNode` (State + agenda) in
-/// `nodes` plus one visited key (StateKey bits + relevant fluent vals + agenda
-/// copy), and fixed container overhead. Sized from STATIC task dims only, so
-/// it is identical across thread counts and runs (an eval-count-style budget,
-/// never wall clock). The agenda estimate is TIL count + a small open-interval
-/// allowance; `FF_TEMPORAL_NODE_CAP` overrides the count directly (`0`
-/// disables). Bounded above by the historical 400k count cap.
+/// The deterministic per-pass node cap: the classical `node_cap_for` byte
+/// model, extended with the temporal extras — one stored `TNode` (State +
+/// agenda) in `nodes`, one visited key (StateKey bits + relevant fluent
+/// values + agenda copy), fixed container overhead on top. Built from
+/// STATIC task dims alone, so it holds identical across thread counts and
+/// runs — an eval-count budget, never a clock. Agenda estimate is TIL
+/// count plus a small open-interval allowance; `FF_TEMPORAL_NODE_CAP`
+/// overrides the count outright (`0` disables it). Ceilinged by the old
+/// 400k count cap regardless.
 fn temporal_node_cap(task: &PackedTask, til_len: usize, bytes: usize) -> usize {
     if let Ok(v) = std::env::var("FF_TEMPORAL_NODE_CAP") {
         if let Ok(n) = v.trim().parse::<usize>() {
@@ -2073,9 +2108,10 @@ fn temporal_node_cap(task: &PackedTask, til_len: usize, bytes: usize) -> usize {
     (bytes / per_node.max(1)).min(MAX_NODES)
 }
 
-/// One decision-epoch search pass. `prune` restricts block-(a) expansion to the
-/// node's helpful ops (with a per-node full-scan fallback so no node with a legal
-/// successor is stranded); `false` is the full, complete search.
+/// One decision-epoch pass through the dark. `prune` restricts block-(a)
+/// expansion to the node's helpful ops — with a per-node full-scan fallback,
+/// so no node with a legal successor is left stranded; `false` runs the
+/// full, complete search, no shortcuts.
 #[allow(clippy::too_many_arguments)]
 fn temporal_search(
     task: &PackedTask,
@@ -2663,9 +2699,10 @@ fn temporal_search(
     None
 }
 
-/// Walk the father chain into a timed plan: each START becomes a durative step
-/// with its duration (the END is implied); END events are dropped; classical
-/// actions appear instantaneously.
+/// Walk the father chain back to a timed plan. Each START becomes a
+/// durative step carrying its own duration — the END stays implied, never
+/// spoken. END events get cut from the record; classical actions land
+/// instantaneous.
 fn reconstruct(
     task: &PackedTask,
     nodes: &[TNode],
@@ -2736,15 +2773,16 @@ fn reconstruct(
 // Temporal plan validation (independent of the search).
 // ---------------------------------------------------------------------------
 
-/// Validate a [`TimedPlan`] against the temporal semantics, independently of how
-/// it was produced: expand each durative step into a START happening at `t` and
-/// an END happening at `t + duration`, order all happenings by time (ends before
-/// starts at equal time), and simulate over the same snap-action compilation —
-/// checking each happening's precondition + `over all` invariant holds, applying
-/// its effects, cross-checking each duration against the domain expression, and
-/// finally that the goal holds. Returns `Ok(())` if executable and goal-reaching,
-/// else a human-readable reason. A cross-check on the search (and on any
-/// externally-supplied plan).
+/// Put a [`TimedPlan`] on trial against the temporal semantics, no matter
+/// who wrote it: crack each durative step into a START happening at `t` and
+/// an END at `t + duration`, order every happening by time (ends before
+/// starts when tied), replay over the same snap-action compilation —
+/// checking each happening's precondition and `over all` invariant, firing
+/// its effects, cross-examining each duration against the domain
+/// expression, and finally checking the goal holds. `Ok(())` if it's
+/// executable and reaches the goal; otherwise a human-readable verdict of
+/// where it broke. The cross-check on the search — and on anything handed
+/// in from outside.
 pub fn validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<(), String> {
     let c = compile(domain, problem);
     let task = match ground_stratified(&c.domain, &c.problem, 1) {
@@ -2776,10 +2814,11 @@ pub fn validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<
         time: f64,
         op: usize,
         is_start: bool,
-        /// Deferred duration cross-check for STATE-DEPENDENT durations
-        /// (bounds reading fluents some op assigns): evaluated against the
-        /// simulation state when this start fires, exactly as the search
-        /// resolved it. `(stated duration, snap, args, step display)`.
+        /// A duration cross-check held back for later — STATE-DEPENDENT
+        /// durations whose bounds read a fluent some op still assigns,
+        /// checked against the simulation state at the moment this start
+        /// fires, exactly as the search itself resolved it.
+        /// `(stated duration, snap, args, step display)`.
         dur_check: Option<(f64, &'a SnapInfo, Vec<&'a str>, &'a str)>,
     }
     let mut happenings: Vec<Happening> = Vec::new();
@@ -2916,21 +2955,23 @@ pub fn validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<
     Ok(())
 }
 
-/// Replay a composed `TimedPlan` over `state` in global-time happening order (ends
-/// before starts at equal time) and return the post-state, or `None` if any
-/// happening is inapplicable on the running state (a shared-resource shortfall or
-/// stale precondition — the decomposer's conflict signal). Mirrors `validate`'s
-/// simulation loop, minus the duration cross-check and goal check, over the SAME
-/// grounded `task` whose `op_display` the plan's steps name.
+/// Rerun a composed `TimedPlan` over `state` in global happening order —
+/// ends before starts at a tie — and hand back the post-state, or silence
+/// if any happening won't apply to the running state: a shared-resource
+/// shortfall, a stale precondition, the decomposer's own conflict alarm.
+/// Mirrors `validate`'s replay loop, minus the duration cross-check and
+/// goal check, over the SAME grounded `task` whose `op_display` names the
+/// plan's steps.
 pub(crate) fn treplay(task: &PackedTask, state: &State, plan: &TimedPlan) -> Option<State> {
     treplay_with_exempt(task, state, plan, &[])
 }
 
-/// [`treplay`] where ops in `exempt` (sorted) skip the applicability check —
-/// the session's scheduled-event setters (0.14 Phase 3) sit behind a
-/// never-true fence exactly so nothing BUT an agenda/replay fires them, and
-/// exogenous events don't ask permission (the same exemption the search's
-/// time-advance block applies to `Kind::Til`).
+/// [`treplay`], but ops in `exempt` (sorted) walk past the applicability
+/// check unquestioned — the session's scheduled-event setters (0.14 Phase 3)
+/// live behind a never-true fence for exactly this reason, so nothing but
+/// an agenda or a replay ever fires them, and exogenous events answer to
+/// no one. The same exemption the search's time-advance block grants
+/// `Kind::Til`.
 pub(crate) fn treplay_with_exempt(
     task: &PackedTask,
     state: &State,
@@ -2996,7 +3037,7 @@ pub(crate) fn treplay_with_exempt(
 // ε-separation: make plans valid under PDDL2.1 continuous-time semantics.
 // ---------------------------------------------------------------------------
 
-/// PDDL2.1 separation between mutex happenings (the IPC convention).
+/// The regulation gap between mutex happenings — PDDL2.1's own convention.
 pub(crate) const EPS: f64 = 0.001;
 
 /// Re-time a plan so mutex happenings are ε-separated (PDDL2.1 / VAL validity):

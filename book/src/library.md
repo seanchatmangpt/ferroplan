@@ -1,7 +1,8 @@
 # Library API
 
-The library returns **typed, `serde`-serializable** structures. Every knob lives
-on one `Options` struct; every field is optional via `Default`.
+No strings to parse, no ad-hoc output. The library hands back **typed,
+`serde`-serializable** structures. Every knob lives on one `Options` struct; every
+field is optional via `Default`.
 
 ```rust,no_run
 use ferroplan::{solve, Mode, Options};
@@ -22,24 +23,25 @@ if let Some(plan) = sol.plan {
 
 ## The public surface
 
-- **`solve(domain, problem, &Options)`** → `Result<Solution, SolveError>` — plan a
-  domain+problem. `Mode::Auto` routes by features (temporal → decision-epoch,
-  preferences → PDDL3 metric optimizer, else classical FF).
-- **`parse(src)`** → `ParseReport` — syntax-check and summarize a domain *or*
-  problem without grounding or solving (fast authoring feedback).
+- **`solve(domain, problem, &Options)`** → `Result<Solution, SolveError>` — feed it
+  a domain and a problem, get a plan back. `Mode::Auto` routes by features:
+  temporal goes to decision-epoch, preferences to the PDDL3 metric optimizer,
+  otherwise classical FF.
+- **`parse(src)`** → `ParseReport` — a syntax check and summary of a domain *or*
+  problem, no grounding, no solving. Fast feedback while you're authoring.
 - **`decompose(domain, problem, &Options)`** → `Result<Decomposition, SolveError>`
-  — split a too-big temporal goal into ordered, individually-solved contracts and
-  stitch them into one validated plan (falls back to a monolithic solve when a goal
-  can't be split). See [`examples/decompose.rs`](https://github.com/seanchatmangpt/ferroplan/blob/main/crates/ferroplan/examples/decompose.rs).
-- **`Session::new(domain, problem, &Options)`** — ground once, then think many
-  times as the world changes each tick: classical *and* temporal domains,
-  bounded thinks, free plan-validity replays, retargetable goals, cheap
-  population forks, scheduled events, and in-flight intervals. The whole
-  game-embedding surface has [its own chapter](./session.md); see also
+  — a temporal goal too big to swallow whole gets split into ordered,
+  individually-solved contracts, stitched back into one validated plan. Falls back
+  to a monolithic solve if the goal won't split. See [`examples/decompose.rs`](https://github.com/seanchatmangpt/ferroplan/blob/main/crates/ferroplan/examples/decompose.rs).
+- **`Session::new(domain, problem, &Options)`** — ground the world once, then think
+  as many times as the world changes: classical *and* temporal domains, bounded
+  deterministic thinks, free plan-validity replays, retargetable goals, cheap
+  population forks, scheduled events, in-flight intervals. The whole
+  game-embedding surface gets [its own chapter](./session.md); see also
   [`examples/game_think.rs`](https://github.com/seanchatmangpt/ferroplan/blob/main/crates/ferroplan/examples/game_think.rs)
   and [`examples/bazaar_live.rs`](https://github.com/seanchatmangpt/ferroplan/blob/main/crates/ferroplan/examples/bazaar_live.rs).
-- **`plan::validate_plan(&domain, &problem, &plan)`** — independently replay a plan
-  under ferroplan's own apply semantics. See
+- **`plan::validate_plan(&domain, &problem, &plan)`** — an independent replay,
+  ferroplan checking its own work under its own apply semantics. See
   [`examples/validate_plan.rs`](https://github.com/seanchatmangpt/ferroplan/blob/main/crates/ferroplan/examples/validate_plan.rs).
 
 ## Key types
@@ -51,5 +53,5 @@ if let Some(plan) = sol.plan {
 - `SolveError` — `DomainParse` / `ProblemParse` / `EmptyType` / `Derived` /
   `Unsupported`, via `thiserror`.
 
-Everything serializes to JSON, so `solve` doubles as the core of a planning
-service. See [`examples/json_api.rs`](https://github.com/seanchatmangpt/ferroplan/blob/main/crates/ferroplan/examples/json_api.rs).
+Everything serializes to JSON. `solve` doubles as the core of a planning service
+with no extra wiring. See [`examples/json_api.rs`](https://github.com/seanchatmangpt/ferroplan/blob/main/crates/ferroplan/examples/json_api.rs).

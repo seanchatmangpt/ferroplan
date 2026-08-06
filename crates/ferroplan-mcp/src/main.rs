@@ -1,48 +1,50 @@
-//! `ferroplan-mcp` — a single Model Context Protocol server exposing the
-//! ferroplan planner, persistent self-hosting sessions, and Chatman
-//! admission receipts to an LLM agent, as 17 MCP tools:
+//! `ferroplan-mcp` — one relay station on the wire. A Model Context
+//! Protocol server dispatching the ferroplan planner, the persistent
+//! repository minds, and the Chatman admission ledger to an LLM agent, 42
+//! tools broadcasting on one frequency:
 //!
-//! - Stateless planning: `solve`, `parse`, `validate`, `decompose` — the
-//!   README's bet made operational: the agent *authors and supervises* PDDL
-//!   and the planner runs deterministically.
+//! - Stateless planning: `solve`, `parse`, `validate`, `decompose` — no
+//!   memory, no history. The agent authors and supervises the PDDL signal;
+//!   the planner runs it deterministic, cold, every time.
 //! - Persistent repository minds: `session_open`, `session_observe`,
 //!   `session_set_goal`, `session_think`, `session_advance`,
 //!   `session_status`, `session_close`, `cmca_allocate`,
-//!   `cmca_allocate_recursive` — ground once, observe admitted drift,
-//!   replay the remaining plan, and search only when the suffix no longer
-//!   stands. `cmca_allocate_recursive` chains a sequence of admitted CMCA
-//!   allocations, each depth binding the previous depth's real receipt
-//!   digest.
+//!   `cmca_allocate_recursive` — ground once, watch the drift come in over
+//!   the wire, replay what the plan already staked out, and only spend
+//!   cycles on a fresh search when the suffix has gone dark.
+//!   `cmca_allocate_recursive` chains admitted CMCA allocations depth over
+//!   depth, each link binding the previous depth's real receipt digest —
+//!   no forged links in the chain.
 //! - Canonical evidence admission: `canonical_digest`, `bind_allocation_receipt`,
-//!   `bind_plan_receipt`, `verify_receipt` — bind the exact outputs of the
-//!   above authorities into replayable BLAKE3 envelopes with explicit
-//!   predecessor commitments. This part does not plan, allocate, validate,
-//!   or actuate.
+//!   `bind_plan_receipt`, `verify_receipt` — the ledger. Binds the exact
+//!   outputs of the authorities above into replayable BLAKE3 envelopes with
+//!   explicit predecessor commitments. This station does not plan,
+//!   allocate, validate, or actuate. It only witnesses.
 //!
-//! Transport: MCP stdio via the `rmcp` SDK (async, tokio multi-thread
-//! runtime — required by the session tools' `session_think`, which runs its
-//! CPU-bound search via `tokio::task::block_in_place` while holding a
-//! per-session lock; see `session.rs`). Tool schemas are derived from
-//! `schemars::JsonSchema` on each request struct rather than hand-written
-//! JSON Schema literals. `resources/*` exposes one resource per tool (17
-//! total), under a single unified `ferroplan://tools/<name>` URI scheme,
-//! with the tool's semantic description pulled from
-//! `plugins/chatman-ecosystem/ontology/ferroplan-domain.ttl` (statically
+//! Transport: MCP stdio through the `rmcp` SDK — async, tokio multi-thread
+//! runtime, load-bearing for `session_think`, which runs its CPU-bound
+//! search via `tokio::task::block_in_place` while holding a per-session
+//! lock (see `session.rs`). Tool schemas come off `schemars::JsonSchema` on
+//! each request struct, no hand-cut JSON Schema literals. `resources/*`
+//! exposes one resource per tool — 42 signals total — under a single
+//! unified `ferroplan://tools/<name>` frequency, each carrying its semantic
+//! description pulled from
+//! `plugins/chatman-ecosystem/ontology/ferroplan-domain.ttl`. Statically
 //! extracted at build time into per-module `*_ONTOLOGY` constants, embedded
-//! via `include_str!` — see `build.rs` for why static extraction was chosen
-//! over a live SPARQL engine; it still generates three separate per-module
+//! via `include_str!` — see `build.rs` for why the static extraction beat a
+//! live SPARQL engine on this wire; it still cuts four separate per-module
 //! files, one per tool group, which this binary's `session`/`admission`
-//! modules `include!` directly).
+//! modules `include!` directly.
 //!
-//! This binary previously shipped as three separate binaries
-//! (`ferroplan-mcp`, `ferroplan-session-mcp`, `chatman-admission-mcp`),
-//! merged into one per the `rmcp`-supported multi-router pattern: each tool
-//! group lives in its own module with its own `#[tool_router(router =
-//! <name>, vis = "pub")]` `impl Ferroplan` block (`main_router` here,
-//! `session::session_router`, `admission::admission_router`), and the
-//! merged constructor sums the three `ToolRouter`s (`ToolRouter` implements
-//! `Add`/`AddAssign` as a plain map-union merge by tool name — safe here
-//! since no tool name collides across the three original servers).
+//! This binary once ran as three separate stations — `ferroplan-mcp`,
+//! `ferroplan-session-mcp`, `chatman-admission-mcp` — merged into one grid
+//! per the `rmcp`-supported multi-router pattern. Each tool group keeps its
+//! own module with its own `#[tool_router(router = <name>, vis = "pub")]`
+//! `impl Ferroplan` block (`main_router` here, `session::session_router`,
+//! `admission::admission_router`), and the merged constructor sums the
+//! `ToolRouter`s together — `ToolRouter` implements `Add`/`AddAssign` as a
+//! plain map-union by tool name, safe here since no signal collides across
+//! the three original stations.
 
 mod admission;
 mod result;
@@ -203,11 +205,12 @@ impl Ferroplan {
         as_value(&sol)
     }
 
-    /// A plan that does not stand is a normal answer (`valid: false` with a
-    /// reason), NOT an error: only a domain/problem/plan that cannot be parsed
-    /// or grounded — the `?` on `validate_plan` below — is an error result.
-    /// `reason` carries `Validity::Invalid`'s inner string verbatim; the
-    /// former "Plan invalid: " prefix was presentation, not data.
+    /// A plan that doesn't hold is a clean read, not a blackout: `valid:
+    /// false` with a reason, never an error. Only a domain/problem/plan
+    /// that fails to parse or ground — the `?` on `validate_plan` below —
+    /// kills the transmission outright. `reason` carries
+    /// `Validity::Invalid`'s inner string verbatim; the old "Plan invalid: "
+    /// prefix was static, not signal.
     fn do_validate(&self, req: ValidateRequest) -> Result<serde_json::Value, String> {
         let (valid, reason) =
             match ferroplan::plan::validate_plan(&req.domain, &req.problem, &req.plan)? {
@@ -317,16 +320,16 @@ fn all_tool_names() -> Vec<&'static str> {
         .collect()
 }
 
-/// Retained generic pretty-printer, distinct from `crate::result::pretty`
-/// (which is infallible and `Value`-specific). Kept as the stateless-planning
-/// group's text-rendering helper.
+/// Old-guard pretty-printer, held over from before the split — distinct
+/// from `crate::result::pretty` (infallible, `Value`-only). Still on duty
+/// as the stateless-planning group's text-rendering relay.
 #[allow(dead_code)]
 fn pretty<T: serde::Serialize>(v: &T) -> Result<String, String> {
     serde_json::to_string_pretty(v).map_err(|e| e.to_string())
 }
 
-/// Reflect a serializable planner output into the `Result<Value, String>`
-/// tool-body convention `crate::result::to_result` consumes.
+/// Cast a serializable planner output onto the `Result<Value, String>`
+/// wire format `crate::result::to_result` reads off.
 fn as_value<T: serde::Serialize>(v: &T) -> Result<serde_json::Value, String> {
     serde_json::to_value(v).map_err(|e| e.to_string())
 }

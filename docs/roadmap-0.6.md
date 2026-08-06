@@ -23,17 +23,17 @@
 > 0.5.1 barrier flip) and the forensics that set this direction:
 > [`forensics-tpp.md`](forensics-tpp.md).
 
-0.5 closed on first place: three domain leads under both quality conventions
-(openstacks, storage — now an 8/8 sweep — and rovers), trucks ahead on totals,
-19W/15T/14L across the suite. The forensics then identified what the remaining
-tpp/pathways tail *is*: on zero-action-cost domains, plan quality is decided
-entirely by **which jointly-satisfiable preference subset the end state lands
-in** — a small combinatorial selection problem that h-guided search
-structurally cannot coordinate (SGPlan5's tpp p05 79 is the closed-form
-selection optimum; our residual 89 forgoes coordinated choices like
-goods5@L2-so-goods6-can-match that no open-list ordering can express).
+0.5 took first place: three domain leads under both quality conventions
+(openstacks, storage — an 8/8 sweep — and rovers), trucks ahead on totals,
+19W/15T/14L across the suite. Then the forensics named what the tpp/pathways
+tail actually *is*: on zero-action-cost domains, plan quality comes down
+entirely to **which jointly-satisfiable preference subset the end state lands
+in** — a small combinatorial selection problem that h-guided search cannot
+coordinate by construction. SGPlan5's tpp p05 79 is the closed-form selection
+optimum; our residual 89 walks away from coordinated choices like
+goods5@L2-so-goods6-can-match that no open-list ordering can even see.
 
-**0.6 has one headline: solve the selection exactly, then plan to it.**
+**0.6 has one job: solve the selection exactly, then plan to it.**
 
 ## The ledger 0.6 starts from (defaults, post-barrier)
 
@@ -96,26 +96,27 @@ full 48-instance sweep before any default flip; t1≡t8.
 
 ## Phase 3 — weight-aware barrier (recover pathways p05)
 
-The 0.5.1 blunt barrier's one casualty: pathways p05, 6 → 6.5 (win → tie).
-Try including init-satisfied preferences at reduced guidance weight (half, or
-thresholded by weight rank) so cheap dip-freedom returns without re-blinding
-the search to 16-weight traps. Measure p05 AND the storage sweep AND the tpp
-tail for give-back; keep only a strict improvement, else document.
+The 0.5.1 blunt barrier left one casualty on the floor: pathways p05, 6 →
+6.5, win downgraded to tie. Try folding init-satisfied preferences in at
+reduced guidance weight — half, or thresholded by weight rank — so cheap
+dip-freedom comes back without re-blinding the search to 16-weight traps.
+Measure p05 and the storage sweep and the tpp tail for give-back; keep only
+a strict improvement, document the rest.
 
 ## Phase 4 — trucks instance draw (probe, gated)
 
-trucks p06 (1 vs 0) / p08 (10 vs 6) are time-window preferences over
-delivery ordering — selection-flavored but temporal: WHICH windows to hit is
-a selection; HITTING them is ordering. Probe whether the Phase-2 machinery
-(windows as selected hard goals) moves either instance; gate like every
-stretch item — measured win or documented dead end.
+trucks p06 (1 vs 0) and p08 (10 vs 6) are time-window preferences over
+delivery ordering — selection-flavored, but temporal underneath: WHICH
+windows to hit is a selection, HITTING them is ordering. Probe whether the
+Phase-2 machinery, windows as selected hard goals, moves either instance.
+Gate it like every stretch item: measured win or documented dead end.
 
 ## Phase 5 — measure everything, ship 0.6.0
 
 Defaults-only 48-instance sweep, both-conventions ledger, scoreboard/README/
-CHANGELOG, release prep. The first-place claim ships ONLY if ≥4 of 6 domains
-are led under both conventions; otherwise 0.6 ships its honest ledger like
-0.5 did.
+CHANGELOG, release prep. The first-place claim ships only if ≥4 of 6 domains
+are led under both conventions — otherwise 0.6 ships its honest ledger, the
+same way 0.5 did.
 
 ## Explicitly NOT in 0.6
 

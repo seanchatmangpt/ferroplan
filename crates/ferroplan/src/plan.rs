@@ -1,31 +1,34 @@
-//! Built-in plan validator — check a plan against ferroplan's OWN semantics.
+//! In-house verification. No outside witness, no outside law — this module
+//! checks a plan against ferroplan's own rulebook, not somebody else's.
 //!
-//! The external VAL validator enforces strict textbook PDDL2.1 (e.g. it forbids
-//! two durative actions touching the same numeric fluent at once, and demands
-//! ε-separation at shared timestamps). ferroplan's temporal engine deliberately
-//! uses a sequential decision-epoch model, so VAL rejects perfectly good
-//! ferroplan plans. This module replays a plan the SAME way the planner applies
-//! actions — reusing [`verify::verify`] (classical) and [`temporal::validate`]
-//! (temporal) — so "valid here" means "valid under the semantics that produced it".
+//! VAL runs the district's textbook code: no two durative actions may lean on
+//! the same numeric fluent at once, every shared timestamp needs its ε of
+//! daylight between them. ferroplan's temporal engine never signed that treaty —
+//! it works a sequential decision-epoch beat instead, and VAL flags clean plans
+//! as contraband for it. So this module walks the plan back through the same
+//! machinery that built it — [`verify::verify`] for classical runs,
+//! [`temporal::validate`] for temporal ones — and calls it valid only when it
+//! holds under the law that actually governed its creation.
 //!
-//! It also supplies the one missing piece: a parser for the two plan text formats
-//! `ff` emits — classical `step N: NAME ARGS` and temporal IPC `t: (name args) [d]`.
+//! One more gap to plug: nothing else in this crate reads plan text back in.
+//! Here's the reader for both dialects `ff` speaks — classical `step N: NAME
+//! ARGS` and temporal IPC `t: (name args) [d]`.
 
 use crate::parser;
 use crate::temporal::{self, TimedPlan, TimedStep};
 use crate::verify;
 
-/// Outcome of validating a plan.
+/// The verdict, once the replay finishes.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Validity {
     Valid,
     Invalid(String),
 }
 
-/// Parse a classical `ff` text plan into `(NAME, [ARGS])` pairs (uppercased to
-/// match grounded-operator display names). Accepts the `step N:` first line and
-/// the bare `N:` continuation lines, with or without parens around the action,
-/// and ignores banner / timing / `REACH-GOAL` lines.
+/// Strip a classical `ff` transmission down to `(NAME, [ARGS])` pairs, cased up
+/// to match the grounded-operator names on file. Reads the `step N:` header and
+/// the bare `N:` lines that follow it, parens or no parens around the action,
+/// and skips past the banner static, the timing noise, the `REACH-GOAL` echo.
 pub fn parse_classical(src: &str) -> Vec<(String, Vec<String>)> {
     let mut out = Vec::new();
     for line in src.lines() {
@@ -51,7 +54,8 @@ pub fn parse_classical(src: &str) -> Vec<(String, Vec<String>)> {
     out
 }
 
-/// If `line` is `[step ]<digits>: <rest>`, return `<rest>`. Else None.
+/// Strip the `[step ]<digits>:` header off a line, hand back what's left. A line
+/// that doesn't fit the pattern is noise — return nothing.
 fn step_body(line: &str) -> Option<&str> {
     let line = line
         .strip_prefix("step")
@@ -65,9 +69,9 @@ fn step_body(line: &str) -> Option<&str> {
     }
 }
 
-/// Parse a temporal IPC plan (`t: (name args) [dur]`) into a [`TimedPlan`].
-/// Action strings are uppercased to match grounded-operator names; banner and
-/// `plan makespan:` lines are ignored.
+/// Read a temporal IPC transmission (`t: (name args) [dur]`) into a [`TimedPlan`].
+/// Action strings get cased up to match the grounded-operator names; banner
+/// chatter and `plan makespan:` lines pass through unread.
 pub fn parse_timed(src: &str) -> Result<TimedPlan, String> {
     let mut steps = Vec::new();
     let mut makespan = 0.0_f64;
@@ -120,8 +124,9 @@ pub fn parse_timed(src: &str) -> Result<TimedPlan, String> {
     Ok(TimedPlan { steps, makespan })
 }
 
-/// Validate `plan_src` against the domain/problem under ferroplan's own semantics.
-/// Auto-detects classical vs temporal from the domain (durative actions => temporal).
+/// Run `plan_src` back through the domain/problem under ferroplan's own law.
+/// Reads the domain first to pick the beat — durative actions on file means
+/// temporal, otherwise classical.
 pub fn validate_plan(
     domain_src: &str,
     problem_src: &str,

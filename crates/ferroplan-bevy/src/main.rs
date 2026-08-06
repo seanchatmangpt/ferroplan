@@ -1,6 +1,7 @@
-//! ferroplan-bevy — a Bevy GUI for visualizing, inspecting, and animating PDDL
-//! domains/problems. The graph is the Bevy world (nodes/mobiles as entities,
-//! edges as gizmos); logic lives in `ferroplan::viz` + `ferroplan::trace`.
+//! ferroplan-bevy — a field terminal for PDDL domains and problems, running
+//! entirely inside a Bevy world. Nodes and mobiles live as entities, edges burn
+//! as gizmos across the void between them; the real logic — the thinking part —
+//! runs dark inside `ferroplan::viz` and `ferroplan::trace`.
 
 use bevy::prelude::*;
 
@@ -92,8 +93,8 @@ fn main() {
         .run();
 }
 
-/// Optionally load a domain + problem passed on the command line
-/// (`ferroplan-bevy domain.pddl problem.pddl`), and pre-select the first mobile.
+/// Take a domain and problem off the command line if they're offered
+/// (`ferroplan-bevy domain.pddl problem.pddl`), and lock onto the first mobile.
 fn startup_load(
     mut scene: ResMut<scene::Scene>,
     mut selected: ResMut<interact::Selected>,

@@ -1,6 +1,7 @@
-# IPC-2008/2011 net-benefit full-corpus results
+# IPC-2008/2011 net-benefit — full corpus, run cold
 
-timeout 60s/instance, jobs 3, mode auto. Plans externally validated with VAL.
+Sixty seconds a instance, three jobs, mode auto. Every plan that lands gets
+run through VAL before it counts for anything.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -14,4 +15,4 @@ timeout 60s/instance, jobs 3, mode auto. Plans externally validated with VAL.
 | ipc-2008/transport-net-benefit-optimal-numeric-fluents | 16/30 | 2891 | 233.7s | 16/16 |
 | ipc-2008/woodworking-net-benefit-optimal-numeric-fluents | 18/30 | 2130 | 370.6s | 18/18 |
 
-total coverage: **217/270**
+total coverage, the take: **217/270**

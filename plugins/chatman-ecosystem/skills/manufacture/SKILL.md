@@ -15,6 +15,11 @@ Require:
 - a current candidate plan;
 - `actuation=manufacturing` in the phase vector.
 
-Implement only the selected plan step or tightly coupled reversible batch. Preserve ontology/template ownership, deterministic projection, typed refusals, and source boundaries. Do not publish.
+Implement only the selected plan step or tightly coupled reversible
+batch. Preserve ontology/template ownership, deterministic projection,
+typed refusals, and source boundaries. Publication has no place here.
 
-Return exact changed paths, commands attempted, outputs, failures, and remaining obligations. Hooks will mark the resulting repository state as drifted and unadmitted; that is expected.
+Return exact changed paths, commands attempted, outputs, failures, and
+remaining obligations. Hooks will mark the resulting repository state as
+drifted and unadmitted the moment you finish — that collapse is expected,
+not a failure.

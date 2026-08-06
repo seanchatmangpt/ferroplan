@@ -1,18 +1,20 @@
-//! Visualization model: derive an abstract graph from a parsed domain + problem,
-//! plus helpers a GUI needs (per-snapshot positions, PDDL generation). This is
-//! pure, view-agnostic logic — no GUI/layout types — so any front-end (Bevy, egui,
-//! web) can consume it.
+//! Visualization model: pull an abstract graph off a parsed domain + problem,
+//! plus the helpers a GUI needs — per-snapshot positions, PDDL generation.
+//! Pure, view-agnostic signal, no GUI/layout types riding along, so any
+//! front-end (Bevy, egui, web) can tap the wire.
 //!
-//! Predicates are classified by structure (arity + argument types), with name
-//! heuristics as a fallback:
-//!   - **edge**: binary over two objects of the same "location" type
-//!     (`(road ?a ?b)`); the shared type is a *location*.
-//!   - **position**: binary placing a mobile onto a location (`(at ?truck ?loc)`);
-//!     arg0's type is *mobile* and wins ties over being a location.
-//!   - **property**: everything else (shown in an inspector).
+//! Predicates get classified by structure (arity + argument types), with name
+//! heuristics as the fallback read when structure alone won't decide it:
+//!   - **edge**: binary over two objects sharing a "location" type
+//!     (`(road ?a ?b)`); the shared type is the *location*.
+//!   - **position**: binary, dropping a mobile onto a location
+//!     (`(at ?truck ?loc)`); arg0's type reads as *mobile* and outranks
+//!     being a location on a tie.
+//!   - **property**: everything left over, static for the inspector.
 //!
-//! Location-typed objects become **nodes**; the rest become **mobiles** resolved
-//! (transitively) onto the node they sit on.
+//! Location-typed objects surface as **nodes** on the grid; everything else
+//! becomes a **mobile**, resolved transitively onto whatever node it's
+//! actually sitting on.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -62,13 +64,16 @@ pub struct VizEdge {
 pub struct VizMobile {
     pub object: String,
     pub ty: String,
-    /// The node this object sits on (resolved transitively); None = off-graph.
+    /// The node this object sits on, chased down transitively; `None` means
+    /// it's gone dark — off the grid entirely.
     pub at: Option<String>,
-    /// Raw position target (may be another mobile, e.g. a package in a truck).
+    /// Raw position target straight off the wire (may point at another
+    /// mobile, e.g. a package riding inside a truck).
     pub at_raw: Option<String>,
 }
 
-/// The abstract graph for a domain+problem. Layout (positions) is the view's job.
+/// The abstract graph for a domain+problem — the grid itself. Layout
+/// (positions) is left to the view, not carried here.
 #[derive(Default, Clone, Debug)]
 pub struct VizGraph {
     pub nodes: Vec<VizNode>,
@@ -237,8 +242,9 @@ impl VizGraph {
         }
     }
 
-    /// Map each mobile to the node it sits on given a snapshot's true facts
-    /// (display strings like `(AT T1 A)`); resolves containment transitively.
+    /// Map each mobile to the node it's parked on, given a snapshot's true
+    /// facts (display strings like `(AT T1 A)`) — chases containment
+    /// through the chain until it hits solid ground.
     pub fn positions_at(&self, facts: &[String]) -> HashMap<String, Option<String>> {
         let node_set: BTreeSet<&str> = self.nodes.iter().map(|n| n.object.as_str()).collect();
         let mut pos_target: HashMap<String, String> = HashMap::new();
@@ -319,8 +325,9 @@ fn collect_atoms(f: &Formula, neg: bool, out: &mut Vec<(String, Vec<String>, boo
     }
 }
 
-/// Predicate names any action can add or delete (dynamic); the complement of the
-/// declared predicates is the static/structural set.
+/// Predicate names any action can add or strike (dynamic signal); everything
+/// left over in the declared set is static/structural — the fixed grid
+/// underneath.
 pub fn dynamic_predicates(domain: &Domain) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     for a in &domain.actions {
@@ -350,7 +357,7 @@ fn collect_eff_heads(e: &Effect, out: &mut BTreeSet<String>) {
 }
 
 /// Flatten a problem's goal into positive ground atoms `(pred, [args])`
-/// (lowercased) — for seeding a visual editor.
+/// (lowercased) — the seed dispatch for a visual editor.
 pub fn goal_facts(problem: &Problem) -> Vec<(String, Vec<String>)> {
     let mut atoms = Vec::new();
     collect_atoms(&problem.goal, false, &mut atoms);
@@ -366,7 +373,8 @@ pub fn goal_facts(problem: &Problem) -> Vec<(String, Vec<String>)> {
         .collect()
 }
 
-/// Generate a PDDL problem (objects grouped by type) — used by the editor.
+/// Generate a PDDL problem (objects grouped by type) — the editor's export
+/// wire.
 pub fn to_pddl(
     name: &str,
     domain_name: &str,
@@ -407,9 +415,11 @@ pub fn to_pddl(
 }
 
 /// Generate a PDDL domain from editable parts (name, requirements, types,
-/// predicates) plus action blocks preserved verbatim — used by the editor.
+/// predicates) plus action blocks carried through verbatim, static,
+/// untouched — the editor's export wire.
 /// `types` is `(child, parent)` (empty parent = top-level); `predicates` is
-/// `(name, [arg_types])`; `requirements`/`actions_raw` are raw s-expressions.
+/// `(name, [arg_types])`; `requirements`/`actions_raw` are raw s-expressions
+/// straight off the source.
 pub fn domain_to_pddl(
     name: &str,
     requirements: &str,

@@ -8,11 +8,13 @@ effort: high
 
 Allocate scarce capacity for `$ARGUMENTS`.
 
-Require an admitted observation frontier and exactly eight candidates in the factor order declared by `profiles/work-surfaces.json`.
+Require an admitted observation frontier and exactly eight candidates in
+the factor order declared by `profiles/work-surfaces.json`.
 
 1. Call `cmca_allocate` with the exact candidates.
 2. Call `bind_allocation_receipt` with candidates, allocation result, observation frontier, and predecessor receipt.
 3. Call `verify_receipt` on the envelope.
 4. Return exact shares, digests, BCINR revision, receipt, and refusals.
 
-Do not plan or execute work. Allocation standing is not actuation authority.
+This skill measures capacity — it does not plan or execute work.
+Allocation standing buys no actuation authority.

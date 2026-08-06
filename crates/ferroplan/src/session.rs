@@ -1,13 +1,12 @@
-//! Ground once, replan many — the embedding API for callers that re-solve the same
-//! world every tick (a game's villagers, a simulation loop, an agent runtime).
+//! FIELD LOG // ground once, replan forever. Deploy asset for callers that re-solve
+//! the same theater every tick — villager swarms, sim loops, live agent runtimes.
 //!
-//! [`crate::solve`] re-parses and re-grounds from scratch on every call; for small
-//! problems grounding dominates the wall clock, so per-tick replanning pays a large
-//! fixed tax for identical work. A [`Session`] parses, compiles `:derived` axioms,
-//! and grounds ONCE, then holds the *current world state*: mutate it with
-//! [`Session::set_fact`] / [`Session::set_fluent`] as the world evolves and call
-//! [`Session::replan`] to solve from wherever the world now stands — paying only
-//! the search.
+//! [`crate::solve`] burns a fresh parse and a fresh grounding on every call — dead
+//! weight when the map hasn't moved. A [`Session`] parses once, compiles `:derived`
+//! axioms once, grounds once, then keeps the *live world state* pinned in memory:
+//! shove facts and fluents through [`Session::set_fact`] / [`Session::set_fluent`]
+//! as the ground truth shifts, then call [`Session::replan`] to solve from wherever
+//! things now stand. No re-grounding tax. Just the search.
 //!
 //! ```no_run
 //! use ferroplan::{Options, Session};
@@ -20,32 +19,32 @@
 //! # Ok::<(), String>(())
 //! ```
 //!
-//! **Scope.** Classical / numeric / ADL domains, and — since 0.12 — TEMPORAL
-//! (durative-action) domains: the snap compilation grounds once and every
-//! think runs the bounded decision-epoch ladder from the current state.
-//! Since 0.14 the world may be IN FLIGHT: [`Session::apply_start`] begins a
-//! durative action now, thinks and validity replays carry its pending end
-//! as a real happening (a plan is valid THROUGH every running interval),
-//! and [`Session::elapse`] fires due ends — no more manual end-effect
-//! mirroring. The world can also carry a SCHEDULE (0.14 Phase 3):
-//! [`Session::set_timed_fact`] plants clock-relative events (market closes
-//! in five) that thinks plan around and `elapse` fires. Absolute-clock
-//! TILs stay rejected at construction — session time is always relative to
-//! NOW. PDDL3 preference problems stay rejected (the metric optimizer
-//! compiles the problem per solve). The goal is retargetable (0.13):
-//! [`Session::set_goal`] swaps in any ground conjunction over the interned
-//! fact space without regrounding. A session is forkable (0.13):
-//! [`Session::fork`] clones a mind over the SAME grounded world — one
-//! grounding, N small state views. And a mind is scopeable (0.14):
-//! [`Session::restrict_ops`] confines its plans to its own actions, the
-//! many-minds correctness primitive.
+//! **Territory covered.** Classical, numeric, ADL — and since 0.12, TEMPORAL
+//! (durative-action) theaters: the snap compilation grounds once, every think runs
+//! the bounded decision-epoch ladder off the current state. Since 0.14 the world can
+//! be caught IN FLIGHT — [`Session::apply_start`] triggers a durative action now,
+//! every think and validity replay carries its pending end as a live happening (a
+//! plan holds valid THROUGH any running interval), and [`Session::elapse`] fires due
+//! ends on schedule — the old mirror-the-end-effects trick is retired. The world can
+//! also run a SCHEDULE (0.14 Phase 3): [`Session::set_timed_fact`] plants
+//! clock-relative events (market closes in five) that thinks route around and
+//! `elapse` detonates on cue. Absolute-clock TILs get rejected on sight at
+//! construction — session time only knows relative-to-NOW. PDDL3 preference problems
+//! bounce too (the metric optimizer needs the whole problem per solve). The goal
+//! itself can be retargeted mid-run (0.13): [`Session::set_goal`] drops in any ground
+//! conjunction over the interned fact space, no regrounding required. A session can
+//! fork (0.13): [`Session::fork`] splits a second mind off the SAME grounded world —
+//! one grounding, N cheap state views. And a mind can be leashed (0.14):
+//! [`Session::restrict_ops`] boxes it into its own actions — the primitive that keeps
+//! a many-minds theater from crossing wires.
 //!
-//! **Why static facts are rejected.** Grounding enumerates operator parameters
-//! restricted by *static* predicates read from `:init` — a static fact flipped
-//! after grounding could require operators that were never enumerated. Rather than
-//! hand back silently-wrong plans, [`Session::set_fact`] only accepts facts some
-//! operator can add or delete (the world's *dynamic* facts) and errors on the rest.
-//! Fluent values are all runtime-read, so any grounded fluent may be set.
+//! **Why a frozen fact stays frozen.** Grounding enumerates operator parameters
+//! against *static* predicates read straight from `:init` — flip a static fact after
+//! the ground is poured and you need operators that were never cast. Rather than
+//! hand back a plan that lies, [`Session::set_fact`] only lets through facts some
+//! operator can actually add or strike (the world's *dynamic* layer) and slams the
+//! door on the rest. Fluent values are read live every time, so any grounded fluent
+//! is fair game.
 
 use crate::api::{stats, steps_of, timed_steps, Mode, Options, Plan, Search, Solution};
 use crate::ground::ground_task;
@@ -55,9 +54,9 @@ use crate::search;
 use crate::types::{Expr, Formula, NExpr, NumPre, Term};
 use std::sync::Arc;
 
-/// The predicate head of a fact display (`(AT V1 HUT)` -> `AT`), looking
-/// through a complementary-mirror wrapper (`(NOT (RUNNING-BUILD W1))` ->
-/// `RUNNING-BUILD`) so the `RUNNING-*` fence cannot be dodged via a mirror.
+/// Strip a fact display down to its predicate head (`(AT V1 HUT)` -> `AT`),
+/// cutting through a complementary-mirror wrapper (`(NOT (RUNNING-BUILD W1))`
+/// -> `RUNNING-BUILD`) so the `RUNNING-*` fence can't be slipped by disguise.
 fn atom_head(display: &str) -> &str {
     let mut s = display.trim();
     loop {
@@ -74,7 +73,7 @@ fn atom_head(display: &str) -> &str {
     }
 }
 
-/// A grounded, replannable world. See the module docs.
+/// A grounded mind, live and replannable. See the module dispatch above.
 pub struct Session {
     task: PackedTask,
     threads: usize,
@@ -82,69 +81,70 @@ pub struct Session {
     weight_h: f64,
     max_evaluated: Option<usize>,
     ehc_first: bool,
-    /// Display name (uppercase, e.g. `(AT V1 FIELD)`) -> fact id. Shared by
-    /// every fork (0.13 Phase 2) — immutable after construction, like every
-    /// `Arc`'d field below: N minds, one copy.
+    /// Display name (uppercase, e.g. `(AT V1 FIELD)`) -> fact id. Shared
+    /// across every fork (0.13 Phase 2) — frozen the instant it's poured,
+    /// same as every `Arc`'d field below: N minds, one copy, no drift.
     fact_ids: Arc<FxHashMap<String, u32>>,
-    /// Per fact id: does any operator add or delete it? (Static facts are baked
-    /// into the grounding and must not change — see the module docs.)
+    /// Per fact id: does any operator touch it — add it, strike it? Statics
+    /// are cast into the grounding and stay cast. No exceptions.
     dynamic: Arc<[bool]>,
     /// Display name (uppercase, e.g. `(GRAIN)`) -> fluent id.
     fluent_ids: Arc<FxHashMap<String, u32>>,
-    /// Temporal session state (0.12 Phase 1): the snap compilation, kept so
-    /// each think can REBUILD `build_kind`'s duration table against the
-    /// CURRENT fluent values (a `set_fluent` on a fluent no op modifies must
-    /// flow into parameter-dependent durations, not stay frozen at
-    /// construction). `None` = classical session.
+    /// Temporal session state (0.12 Phase 1): the snap compilation, held so
+    /// every think can REBUILD `build_kind`'s duration table off the
+    /// CURRENT fluent readings — a `set_fluent` touching a duration-linked
+    /// fluent has to bleed into parameter-dependent durations, not sit
+    /// frozen at construction time. `None` means classical, no clock.
     temporal: Option<Arc<crate::temporal::TemporalCompiled>>,
-    /// The demand tier, read ONCE at construction so a session's behavior is
-    /// stable even if the process environment changes between thinks.
+    /// The demand tier, locked in ONCE at construction — a session's
+    /// behavior stays fixed even if the process environment shifts under it
+    /// mid-run.
     tier: crate::features::DemandMode,
-    /// Compiler-minted `RUNNING-*` token predicates (temporal only): a
-    /// session's world is AT REST between thinks — no running intervals — so
-    /// `set_fact` fences these exactly as it fences statics.
+    /// Compiler-minted `RUNNING-*` token predicates (temporal only). Between
+    /// thinks the world is AT REST — no interval left running — so
+    /// `set_fact` fences these tokens exactly like it fences statics.
     running_preds: Vec<String>,
     /// Op display (`WALK V1 HUT FIELD`) -> op id, for suffix replay
     /// ([`Session::plan_still_valid`]).
     op_ids: Arc<FxHashMap<String, usize>>,
-    /// Complementary-mirror pairing (0.13 Phase 1), BOTH directions: when
-    /// grounding created a `(NOT (p ...))` mirror fact (negative
-    /// preconditions/goals), [`Session::set_fact`] on either side keeps the
-    /// other in sync — a stale mirror would silently corrupt every
-    /// applicability and goal test that reads it.
+    /// Complementary-mirror pairing (0.13 Phase 1), running BOTH ways: when
+    /// grounding minted a `(NOT (p ...))` shadow fact (negative
+    /// preconditions/goals), [`Session::set_fact`] on either side drags the
+    /// other along — a stale mirror rots every applicability and goal test
+    /// downstream, silently.
     mirror: Arc<FxHashMap<u32, u32>>,
-    /// Per-mind op mask (0.14 Phase 1): `forbidden[oi]` ops are never used by
-    /// this mind's thinks or accepted by its replays. Empty = unrestricted.
-    /// The actor-scoping primitive for many-minds worlds — a mind may only
-    /// plan ITS OWN actions ([`Session::restrict_ops`]); a rival's moves
-    /// reach it as world drift, never as plan steps.
+    /// Per-mind op mask (0.14 Phase 1): `forbidden[oi]` ops never fire for
+    /// this mind's thinks and never pass its replays. Empty means no leash.
+    /// The scoping primitive for many-minds theaters — a mind plans ITS OWN
+    /// moves only ([`Session::restrict_ops`]); a rival's actions land on it
+    /// as world drift, never as plan steps to claim.
     forbidden: Vec<bool>,
     /// Pending scheduled events (0.14 Phase 3, temporal only): `(dt, fact,
-    /// value)` — in `dt` time units from NOW, the fact flips. Sorted by
-    /// (dt, fact, value) for deterministic firing; fed to every think as
-    /// think-relative TIL events; decayed/fired by [`Session::elapse`].
+    /// value)` — the fact flips in `dt` time units from NOW. Sorted by
+    /// (dt, fact, value) for deterministic detonation order; fed into every
+    /// think as think-relative TIL events; burned down by [`Session::elapse`].
     timed: Vec<(f64, u32, bool)>,
-    /// (fact, value) -> the agenda-fired setter op that applies it (mirror
-    /// kept in sync inside the op's own effects). Built once at construction
-    /// (empty for classical sessions), shared by forks.
+    /// (fact, value) -> the agenda-fired setter op that lands it (its mirror
+    /// stays in sync inside the op's own effects). Poured once at
+    /// construction (empty for classical sessions), shared by every fork.
     til_setters: Arc<FxHashMap<(u32, bool), usize>>,
     /// IN-FLIGHT intervals (0.14 Phase 5): `(remaining, end_op)` for every
-    /// durative action the world is currently executing
+    /// durative action the world is running right now
     /// ([`Session::apply_start`]). They ride into thinks and replays as
-    /// root-agenda happenings — a mind rethinks WHILE its kiln fires — and
-    /// [`Session::elapse`] fires the due ends, retiring the
-    /// mirror-the-end-effects idiom.
+    /// root-agenda happenings — a mind rethinks WHILE the kiln still fires —
+    /// and [`Session::elapse`] detonates the due ends, retiring the old
+    /// mirror-the-end-effects trick for good.
     running: Vec<(f64, usize)>,
 }
 
-/// Extend a freshly grounded TEMPORAL task with scheduled-event setter ops
-/// (0.14 Phase 3): per dynamic fact `f`, `TILSET-f` (adds `f`, deletes its
-/// mirror) and `TILCLR-f` (deletes `f`, adds its mirror). Every setter sits
-/// behind a freshly minted, never-true `TIL-NEVER` fact: the relaxation and
-/// the search's start block cannot see them (no heuristic pollution, no
-/// spurious achievers — they are deliberately NOT in `add_by_fact`), and
-/// only a pre-seeded agenda fires them (`Kind::Til` fires unconditionally —
-/// exogenous events don't ask permission). Returns (fact, value) -> op id.
+/// Wire a freshly grounded TEMPORAL task for scheduled-event detonation
+/// (0.14 Phase 3): per dynamic fact `f`, mint `TILSET-f` (lands `f`, strikes
+/// its mirror) and `TILCLR-f` (strikes `f`, lands its mirror). Every setter
+/// sits behind a fresh, never-true `TIL-NEVER` fence — the relaxation and the
+/// search's start block never see them (no heuristic pollution, no spurious
+/// achievers — deliberately absent from `add_by_fact`), and only a
+/// pre-seeded agenda triggers them (`Kind::Til` fires unconditionally —
+/// exogenous events don't wait for permission). Returns (fact, value) -> op id.
 fn append_til_setters(
     task: &mut PackedTask,
     dynamic: &[bool],
@@ -234,10 +234,10 @@ fn append_til_setters(
 }
 
 impl Session {
-    /// Parse, compile `:derived` axioms, and ground once (temporal domains
-    /// snap-compile first). Errors on parse/grounding failure, and on
-    /// constraint, preference, or timed-initial-literal inputs (unsupported —
-    /// see the module docs).
+    /// Stand up a mind: parse, compile `:derived` axioms, ground once
+    /// (temporal domains snap-compile first). Fails loud on a bad parse, a
+    /// bad ground, or cargo it won't carry — constraints, preferences,
+    /// timed-initial-literals (see the dispatch above for why).
     pub fn new(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Session, String> {
         let domain = crate::parser::parse_domain(domain_src).map_err(|e| format!("domain: {e}"))?;
         let problem =
@@ -367,22 +367,23 @@ impl Session {
         })
     }
 
-    /// The world begins executing a durative action NOW (0.14 Phase 5): the
-    /// start's effects apply immediately (including the compiler's
-    /// `RUNNING-*` token) and the interval's end joins the session's
-    /// in-flight set, due after the action's duration (resolved against the
-    /// CURRENT fluent values, like every think). From here the mind can
-    /// rethink mid-interval: pending ends ride into thinks and
-    /// [`Session::plan_still_valid`] replays as scheduled happenings — and a
-    /// returned plan is valid THROUGH every running end (the search fires
-    /// them and the goal must hold once no end is pending; conservative, and
-    /// sound). [`Session::elapse`] fires ends as their moments pass, so the
-    /// old mirror-the-end-effects idiom is retired: start with
-    /// `apply_start`, advance with `elapse`, and the world stays honest.
+    /// Pull the trigger on a durative action, NOW (0.14 Phase 5): the
+    /// start's effects land immediately — including the compiler's
+    /// `RUNNING-*` brand — and the interval's end drops into the session's
+    /// in-flight set, due once the action's duration burns out (resolved
+    /// against CURRENT fluent readings, same as every think). From here the
+    /// mind can rethink mid-burn: pending ends ride into every think and
+    /// [`Session::plan_still_valid`] replays them as scheduled happenings —
+    /// a returned plan holds valid THROUGH every running end (the search
+    /// fires them, the goal must hold once nothing's still pending;
+    /// conservative, sound). [`Session::elapse`] detonates ends as their
+    /// moment arrives, so the old mirror-the-end-effects trick is dead:
+    /// trigger with `apply_start`, advance with `elapse`, and the world
+    /// never lies.
     ///
-    /// `name` is the plan-step form, e.g. `"(fire urn)"`. Errors: classical
-    /// sessions (no durations), unknown actions, and starts whose
-    /// preconditions do not hold in the current state.
+    /// `name` is the plan-step form, e.g. `"(fire urn)"`. Bounces on:
+    /// classical sessions (no clock to run), unknown actions, and starts
+    /// whose preconditions don't hold in the room right now.
     pub fn apply_start(&mut self, name: &str) -> Result<(), String> {
         let c = match &self.temporal {
             Some(c) => Arc::clone(c),
@@ -450,20 +451,22 @@ impl Session {
         Ok(())
     }
 
-    /// Restrict this mind to the ops `keep` accepts (0.14 Phase 1): every op
-    /// whose display (e.g. `TRADE V3 V4 ITEM3 ITEM4`) is rejected becomes
-    /// FORBIDDEN — never chosen by a think, and a plan step using one fails
-    /// [`Session::plan_still_valid`] / the [`Session::replan_following`]
-    /// prefix replay. This is how a mind in a many-minds world plans only
-    /// its OWN actions: restrict to the ops it can actually take, and a
-    /// rival's trades reach it as `set_fact` drift instead of plan steps.
+    /// Put this mind on a leash: only the ops `keep` accepts stay live
+    /// (0.14 Phase 1). Every op whose display (e.g. `TRADE V3 V4 ITEM3
+    /// ITEM4`) gets rejected turns FORBIDDEN — never picked by a think, and
+    /// any plan step riding one fails [`Session::plan_still_valid`] / the
+    /// [`Session::replan_following`] prefix replay. This is the discipline
+    /// that keeps a mind in a many-minds theater confined to its OWN moves:
+    /// leash it to what it can actually take, and a rival's trades reach it
+    /// as `set_fact` drift — never as plan steps up for grabs.
     ///
-    /// Restriction is part of the mind's identity: [`Session::fork`] copies
-    /// it (re-restrict the fork to change it), determinism is unaffected
-    /// (the mask is an input, t1 ≡ t8 holds), and completeness is honest —
-    /// a goal unreachable within the allowed ops is `solved: false`, not an
-    /// error. Calling again REPLACES the mask; `restrict_ops(|_| true)`
-    /// clears it. World state (`set_fact` / `set_fluent`) is never masked.
+    /// The leash is part of the mind's identity: [`Session::fork`] carries
+    /// it over (re-leash the fork to change it), determinism holds firm
+    /// (the mask is just another input, t1 ≡ t8), and completeness stays
+    /// honest — a goal out of reach within the allowed ops comes back
+    /// `solved: false`, never an error. Call again and the mask gets fully
+    /// REPLACED; `restrict_ops(|_| true)` cuts the leash. World state
+    /// (`set_fact` / `set_fluent`) is never touched by the mask.
     pub fn restrict_ops(&mut self, mut keep: impl FnMut(&str) -> bool) {
         let mask: Vec<bool> = self.task.op_display.iter().map(|d| !keep(d)).collect();
         self.forbidden = if mask.iter().any(|&f| f) {
@@ -473,17 +476,19 @@ impl Session {
         };
     }
 
-    /// Fork this mind (0.13 Phase 2): an independent `Session` over the SAME
-    /// grounded world. N minds cost ONE grounding — the fork shares the
-    /// grounded payload (operator columns, names, achiever indexes, the
-    /// temporal compilation) behind `Arc` and copies only the small per-mind
-    /// state: current facts and fluents, goal, fluent relevance.
+    /// Split a second mind off this one (0.13 Phase 2): an independent
+    /// `Session` riding the SAME grounded world. N minds, ONE grounding —
+    /// the fork shares the grounded payload (operator columns, names,
+    /// achiever indexes, the temporal compilation) behind `Arc` and copies
+    /// only the cheap per-mind cargo: current facts and fluents, goal,
+    /// fluent relevance.
     ///
-    /// The fork starts from this session's CURRENT state and goal (not the
-    /// problem's `:init`), then diverges freely: its [`Session::set_fact`] /
-    /// [`Session::set_goal`] / [`Session::replan`] never touch a sibling —
-    /// no shared tie-breaks, no cross-mind interference. Each fork keeps the
-    /// parent's options (threads, weights, budget) and demand tier.
+    /// The fork inherits this session's CURRENT state and goal (not the
+    /// problem's `:init`), then drifts on its own: its [`Session::set_fact`]
+    /// / [`Session::set_goal`] / [`Session::replan`] never bleed into a
+    /// sibling — no shared tie-breaks, no cross-mind bleed-through. Each
+    /// fork keeps the parent's options (threads, weights, budget) and
+    /// demand tier.
     pub fn fork(&self) -> Session {
         Session {
             task: self.task.clone(),
@@ -603,15 +608,15 @@ impl Session {
         }
     }
 
-    /// Follow before you rethink (0.12 Phase 2): does `plan`'s remaining
-    /// suffix (steps `from_step..`) still execute from the CURRENT world
-    /// state and end in the goal? A `true` costs a replay — no search, no
-    /// think budget — so an agent whose world drifted IRRELEVANTLY keeps
-    /// following its plan for free; only a broken suffix warrants a real
-    /// rethink. Exact, not heuristic: classical suffixes replay op-by-op
-    /// (applicability + effects), temporal suffixes replay their timed
-    /// happenings in epoch order (the internal validator's machinery), and
-    /// both end with the goal test.
+    /// Follow before you rethink (0.12 Phase 2): does the plan's remaining
+    /// suffix (steps `from_step..`) still play out from the CURRENT world
+    /// state and land the goal? A `true` costs one replay — no search burned,
+    /// no think budget spent — so a mind whose world drifted IRRELEVANTLY
+    /// keeps following its plan for free; only a broken suffix earns a real
+    /// rethink. Exact, no heuristics: classical suffixes replay step by step
+    /// (applicability, effects), temporal suffixes replay their timed
+    /// happenings in epoch order (the internal validator's own machinery),
+    /// and both close on the goal test.
     pub fn plan_still_valid(&self, plan: &Plan, from_step: usize) -> bool {
         let steps = match plan.steps.get(from_step..) {
             Some(s) => s,
@@ -694,12 +699,12 @@ impl Session {
         self.task.goal_met(&state)
     }
 
-    /// Set a world fact true/false in the current state, e.g.
-    /// `set_fact("(at v1 field)", true)`. Case-insensitive. Errors if the fact was
-    /// never grounded, or is static (grounding-baked — see the module docs).
-    /// When grounding created the complementary `(NOT (p ...))` mirror fact
-    /// (negative preconditions/goals), the mirror is kept in sync
-    /// automatically — set either side, both move.
+    /// Flip a world fact true or false right now, e.g.
+    /// `set_fact("(at v1 field)", true)`. Case-insensitive. Bounces if the
+    /// fact was never grounded, or is static (baked in at grounding — see
+    /// the dispatch above). If grounding minted the complementary
+    /// `(NOT (p ...))` shadow fact, it moves too — set either side, both
+    /// flip together, no drift.
     pub fn set_fact(&mut self, name: &str, value: bool) -> Result<(), String> {
         let id = self.dynamic_fact_id(name)?;
         self.write_fact_bit(id, value);
@@ -709,16 +714,16 @@ impl Session {
         Ok(())
     }
 
-    /// The mind's OBSERVATION surface (0.15 Phase 4): report the world's
-    /// truth for the facts this mind can currently SEE. Belief (this
-    /// session's state) updates to match; facts outside `sight` keep their
-    /// believed values — that is the fog. Returns the sighted displays
-    /// whose observed value DIFFERED from belief, uppercased — the
-    /// surprises' raw material: feed the news to [`Session::plan_still_valid`]
-    /// / [`Session::goal_met`] to decide whether it breaks anything worth a
-    /// rethink (surprise-driven rethinks, not wall-clock paranoia). Same
-    /// writability fences as [`Session::set_fact`]; the whole batch
-    /// validates before any belief moves, so an error leaves belief intact.
+    /// The mind's eyes, nothing more (0.15 Phase 4): report ground truth for
+    /// the facts this mind can currently SEE. Belief (this session's state)
+    /// snaps to match; anything outside `sight` keeps its old believed value
+    /// — that's the fog line. Returns the sighted displays whose observed
+    /// value DIFFERED from belief, uppercased — raw intel for a rethink
+    /// decision: feed it to [`Session::plan_still_valid`] /
+    /// [`Session::goal_met`] and see if the world moved under the plan
+    /// (surprise-driven rethinks, not clock-watching paranoia). Same
+    /// writability fences as [`Session::set_fact`]; the whole batch checks
+    /// out clean before any belief moves — one bad sighting, nothing changes.
     pub fn observe(&mut self, sight: &[(&str, bool)]) -> Result<Vec<String>, String> {
         let mut ids = Vec::with_capacity(sight.len());
         for (name, v) in sight {
@@ -739,11 +744,11 @@ impl Session {
         Ok(surprises)
     }
 
-    /// Resolve a fact display through the writability fences shared by
+    /// Run a fact display through the checkpoint shared by
     /// [`Session::set_fact`] and [`Session::set_timed_fact`]: the fact must
-    /// be grounded, DYNAMIC (statics are grounding-baked), and not a
-    /// compiler-internal `RUNNING-*` token (the at-rest fence; `atom_head`
-    /// looks through `(NOT ...)` so a mirror cannot dodge it).
+    /// be grounded, DYNAMIC (statics are locked at grounding), and not a
+    /// compiler-internal `RUNNING-*` token (the at-rest fence — `atom_head`
+    /// sees through `(NOT ...)` so a mirror can't slip past disguised).
     fn dynamic_fact_id(&self, name: &str) -> Result<u32, String> {
         let key = name.to_ascii_uppercase();
         let &id = self
@@ -769,31 +774,31 @@ impl Session {
         Ok(id)
     }
 
-    /// Schedule a WORLD event (0.14 Phase 3, temporal sessions): in `dt`
+    /// Plant a timer on the world (0.14 Phase 3, temporal sessions): in `dt`
     /// time units from now, the fact flips to `value` — the
-    /// market-opens-at-nine shape, clock-RELATIVE (a session's thinks are
-    /// clock-relative, which is exactly why absolute-clock TILs stay
-    /// rejected at construction). Pending events ride into every think as
-    /// think-relative timed events the plan must live with: a plan can beat
-    /// a closing window or fail honestly, and [`Session::plan_still_valid`]
-    /// replays a suffix WITH the events it would experience. As the game's
-    /// clock advances, call [`Session::elapse`] to decay delays and fire due
-    /// events into the state.
+    /// market-opens-at-nine shape, clock-RELATIVE (every think in a session
+    /// runs clock-relative, which is exactly why absolute-clock TILs get
+    /// bounced at construction). Pending timers ride into every think as
+    /// think-relative events the plan has to reckon with: beat the closing
+    /// window or fail honest, and [`Session::plan_still_valid`] replays a
+    /// suffix WITH the events it would actually live through. As the
+    /// game-clock ticks forward, call [`Session::elapse`] to burn down the
+    /// delays and detonate due events into the state.
     ///
-    /// Fences: same writability rules as [`Session::set_fact`]; `dt` must be
-    /// positive and finite (for "now", use `set_fact`); classical sessions
-    /// reject scheduling with a clear error (time has no meaning there).
-    /// The DYNAMIC-fact fence matters doubly here: a truly static fact is
-    /// compiled INTO the grounded ops (stripped from runtime preconditions),
-    /// so flipping it by event could not soundly change behavior — model an
-    /// exogenous-changeable fact (market-open, power) with SOME domain
-    /// action touching it, and it becomes schedulable.
+    /// Checkpoints: same writability rules as [`Session::set_fact`]; `dt`
+    /// must be positive and finite (for "now," use `set_fact` instead);
+    /// classical sessions reject scheduling outright — no clock, no timers.
+    /// The DYNAMIC-fact checkpoint bites twice as hard here — a truly static
+    /// fact is compiled INTO the grounded ops (stripped from runtime
+    /// preconditions), so flipping it by timer changes nothing soundly.
+    /// Model an exogenous-changeable fact (market-open, power) with SOME
+    /// domain action touching it, and only then does it become schedulable.
     ///
-    /// Waiting works: the agenda carries pending events, so a think can
-    /// idle THROUGH an outage and act after an enabler returns. The
-    /// recorded limit is narrower — a goal whose enabler exists ONLY via
-    /// events never grounds (the fact space cannot express it) and fails at
-    /// construction, honestly.
+    /// Waiting works. The agenda carries pending events, so a think can idle
+    /// straight THROUGH an outage and strike the moment an enabler returns.
+    /// The honest limit: a goal whose only enabler arrives via a timer never
+    /// grounds at all — the fact space can't express it — and fails loud at
+    /// construction, not silently downstream.
     pub fn set_timed_fact(&mut self, dt: f64, name: &str, value: bool) -> Result<(), String> {
         if self.temporal.is_none() {
             return Err("scheduled events need a TEMPORAL session (a classical \
@@ -818,15 +823,15 @@ impl Session {
         Ok(())
     }
 
-    /// The game's clock moved forward by `dt`: decay every pending schedule
-    /// entry, FIRING those whose moment passed in time order — scheduled
-    /// events ([`Session::set_timed_fact`], mirrors kept in sync) and
-    /// running-interval ENDS ([`Session::apply_start`], the action's at-end
+    /// The clock moved forward by `dt`. Burn down every pending schedule
+    /// entry, DETONATE those whose moment has passed, in time order —
+    /// scheduled events ([`Session::set_timed_fact`], mirrors stay synced)
+    /// and running-interval ENDS ([`Session::apply_start`]'s at-end
     /// effects). Returns the intervals whose ends could NOT fire — an end
-    /// whose preconditions no longer hold means drift broke the interval
-    /// mid-flight; its effects are dropped and the game decides what that
-    /// means. World facts changed by the game itself still go through
-    /// [`Session::set_fact`] — `elapse` only advances the schedule.
+    /// whose preconditions no longer hold means drift snapped the interval
+    /// mid-flight; its effects get dropped and the game decides what that
+    /// means. World facts the game itself changes still route through
+    /// [`Session::set_fact`] — `elapse` only marches the schedule forward.
     pub fn elapse(&mut self, dt: f64) -> Result<Vec<String>, String> {
         if !(dt.is_finite() && dt >= 0.0) {
             return Err(format!("elapse needs a non-negative, finite dt (got {dt})"));
@@ -889,8 +894,8 @@ impl Session {
         }
     }
 
-    /// Set a fluent's current value, e.g. `set_fluent("(grain)", 3.0)`.
-    /// Case-insensitive. Errors if the fluent was never grounded.
+    /// Set a fluent's live value, e.g. `set_fluent("(grain)", 3.0)`.
+    /// Case-insensitive. Bounces if the fluent was never grounded.
     pub fn set_fluent(&mut self, name: &str, value: f64) -> Result<(), String> {
         let key = name.to_ascii_uppercase();
         let &id = self
@@ -902,30 +907,31 @@ impl Session {
         Ok(())
     }
 
-    /// Retarget the session (0.13 Phase 1): replace the goal with a GROUND
+    /// Rewrite the mission (0.13 Phase 1): swap the goal for a GROUND
     /// conjunction over the already-interned fact space — no regrounding,
-    /// no re-parse of the world. One world, changing desires: an NPC that
-    /// wanted iron and now wants bread swaps its goal and keeps thinking.
+    /// no re-parse of the world. Same world, new want: a runner who wanted
+    /// iron and now wants bread swaps orders and keeps moving.
     ///
-    /// Accepted grammar (the same `(:goal ...)` body syntax): nested `(and
-    /// ...)` of ground atoms `(pred obj ...)`, negated atoms `(not (pred obj
-    /// ...))` where grounding created the complementary `(NOT ...)` mirror
+    /// Accepted grammar (same `(:goal ...)` body syntax): nested `(and ...)`
+    /// of ground atoms `(pred obj ...)`, negated atoms `(not (pred obj
+    /// ...))` where grounding minted the complementary `(NOT ...)` shadow
     /// fact, and numeric comparisons `(>= (fluent ...) expr)`. An empty
-    /// `(and)` is the always-met goal.
+    /// `(and)` is the goal that's always already won.
     ///
-    /// Errors — before touching the current goal — on: atoms/fluents the
-    /// grounded world never contained (statics and unreachable atoms are
-    /// compiled away — a session cannot want what its world cannot express),
-    /// negations without a grounded mirror, compiler-reserved `RUNNING-*`
-    /// tokens (temporal worlds are at rest between thinks), non-ground terms,
-    /// and ADL connectives (`or`/`exists`/`forall`/object `=`) — those
-    /// compile at grounding time, so re-create the `Session` for an ADL goal.
+    /// Bounces — before touching the live goal — on: atoms/fluents the
+    /// grounded world never carried (statics and unreachable atoms get
+    /// compiled away — a mind can't want what its world can't express),
+    /// negations with no grounded mirror, compiler-reserved `RUNNING-*`
+    /// tokens (a temporal world stands at rest between thinks), non-ground
+    /// terms, and ADL connectives (`or`/`exists`/`forall`/object `=`) — those
+    /// compile at grounding time, so stand up a fresh `Session` for an ADL
+    /// goal.
     ///
-    /// A numeric goal may read a fluent the original goal never did: the
-    /// visited-key relevance closure is re-run with the new fluents added.
-    /// Relevance only ever GROWS within a session — state keys get finer,
-    /// never coarser — so replay soundness and t1 ≡ t8 determinism hold
-    /// across retargets.
+    /// A numeric goal may reach for a fluent the original goal never
+    /// touched: the visited-key relevance closure re-runs with the new
+    /// fluents folded in. Relevance only ever GROWS inside a session — state
+    /// keys sharpen, never blur — so replay soundness and t1 ≡ t8
+    /// determinism hold firm across every retarget.
     pub fn set_goal(&mut self, goal: &str) -> Result<(), String> {
         let f = crate::parser::parse_goal(goal)?;
         let mut pos: Vec<u32> = Vec::new();
@@ -990,7 +996,7 @@ impl Session {
         Ok(())
     }
 
-    /// Flatten a goal formula into the packed conjunction, validating every
+    /// Collapse a goal formula into the packed conjunction, checking every
     /// literal against the interned fact space. See [`Session::set_goal`].
     fn goal_conj(
         &self,
@@ -1041,8 +1047,8 @@ impl Session {
         }
     }
 
-    /// Resolve one ground goal literal to its fact id (the mirror fact for a
-    /// negated literal).
+    /// Trace one ground goal literal down to its fact id (the mirror fact
+    /// when the literal is negated).
     fn goal_atom(&self, p: &str, args: &[Term], negated: bool) -> Result<u32, String> {
         let mut disp = String::from("(");
         disp.push_str(&p.to_ascii_uppercase());
@@ -1090,7 +1096,7 @@ impl Session {
         })
     }
 
-    /// Ground a goal numeric expression over the interned fluent space.
+    /// Cast a goal's numeric expression down onto the interned fluent space.
     fn goal_nexpr(&self, e: &Expr) -> Result<NExpr, String> {
         Ok(match e {
             Expr::Num(n) => NExpr::Num(*n),
@@ -1133,11 +1139,12 @@ impl Session {
         })
     }
 
-    /// Estimated retained bytes of the SHARED grounded payload — operator
-    /// columns, names, achiever indexes, the monitor block. This exists once
-    /// per world however many forks live in it ([`Session::fork`]); flat
-    /// array/string bytes only (nested conditional-effect allocations are
-    /// not walked), so treat it as a floor, not an audit.
+    /// The weight of the SHARED grounded payload, estimated in bytes —
+    /// operator columns, names, achiever indexes, the monitor block. Exists
+    /// once per world no matter how many forks live off it
+    /// ([`Session::fork`]); flat array/string bytes only counted (nested
+    /// conditional-effect allocations go unwalked) — read this as a floor,
+    /// not a full audit.
     pub fn world_bytes(&self) -> usize {
         use std::mem::size_of_val;
         let t = &self.task;
@@ -1161,9 +1168,9 @@ impl Session {
             + size_of_val(&t.neff_by_fluent.flat[..])
     }
 
-    /// Estimated retained bytes of this mind's PRIVATE state — current
-    /// facts and fluents, goal, fluent relevance. This is what one more
-    /// [`Session::fork`] costs; same flat-bytes caveat as
+    /// The weight of this mind's PRIVATE state, estimated — current facts
+    /// and fluents, goal, fluent relevance. This is the toll one more
+    /// [`Session::fork`] pays; same flat-bytes caveat as
     /// [`Session::world_bytes`].
     pub fn mind_bytes(&self) -> usize {
         use std::mem::size_of_val;
@@ -1177,66 +1184,69 @@ impl Session {
             + size_of_val(&t.rel_fluents[..])
     }
 
-    /// Does the CURRENT world state satisfy the session's goal? A pure state
-    /// test — no search, no plan, no think budget (0.14 Phase 1: the tick
-    /// loop's "am I done" probe; a zero-budget think answers a different
-    /// question — "could I still find a plan" — and near-done minds must not
-    /// confuse the two).
+    /// Does the CURRENT world satisfy the mission, right now? A pure state
+    /// check — no search, no plan, no think budget spent (0.14 Phase 1: the
+    /// tick loop's "am I done" probe; a zero-budget think answers a
+    /// different question — "could I still find a plan" — and a near-done
+    /// mind must never confuse the two).
     pub fn goal_met(&self) -> bool {
         self.task.goal_met(&self.task.initial())
     }
 
-    /// Read a fact in the current state (`None` if it was never grounded).
+    /// Read a fact off the current state (`None` if it was never grounded).
     pub fn fact(&self, name: &str) -> Option<bool> {
         let &id = self.fact_ids.get(&name.to_ascii_uppercase())?;
         Some((self.task.init_bits[id as usize / 64] >> (id as usize % 64)) & 1 == 1)
     }
 
-    /// Read a fluent's current value (`None` if never grounded or undefined).
+    /// Read a fluent's live value (`None` if never grounded, or undefined).
     pub fn fluent(&self, name: &str) -> Option<f64> {
         let &id = self.fluent_ids.get(&name.to_ascii_uppercase())?;
         self.task.fdef0[id as usize].then(|| self.task.fv0[id as usize])
     }
 
-    /// [`Self::replan`] under an explicit THINK BUDGET (0.11 Phase 4, the
-    /// game-embedding surface): `max_evaluated` bounds the states evaluated
-    /// (the deterministic unit — never wall clock) and `memory_mb` bounds the
-    /// search's retained memory via the deterministic per-node byte model
-    /// (see `search::node_cap_for_bytes`). A budget-exhausted think returns
-    /// `solved: false` honestly; identical inputs give identical results at
-    /// any thread count.
+    /// [`Self::replan`] on a leash — an explicit THINK BUDGET (0.11 Phase 4,
+    /// the game-embedding surface): `max_evaluated` caps states evaluated
+    /// (the deterministic unit, never the wall clock) and `memory_mb` caps
+    /// the search's retained memory through the deterministic per-node byte
+    /// model (see `search::node_cap_for_bytes`). A budget burned dry
+    /// returns `solved: false`, honest, no fudging; identical inputs land
+    /// identical results at any thread count.
     pub fn replan_budgeted(&self, max_evaluated: usize, memory_mb: Option<usize>) -> Solution {
         self.replan_inner(Some(max_evaluated), memory_mb)
     }
 
-    /// Solve from the CURRENT world state toward the session's goal, paying only
-    /// the search (no re-parse, no re-ground). Same structured [`Solution`] as
-    /// [`crate::solve`]; `solved: false` when the goal is unreachable from here.
+    /// Solve from the CURRENT world state toward the mission, paying only for
+    /// the search — no re-parse, no re-ground. Same structured [`Solution`]
+    /// as [`crate::solve`]; `solved: false` when the goal can't be reached
+    /// from here.
     pub fn replan(&self) -> Solution {
         self.replan_inner(None, None)
     }
 
     /// Follow, don't dither (0.13 Phase 4): a bounded rethink BIASED toward
-    /// the broken plan's structure. When drift breaks a plan mid-flight, an
-    /// unconstrained rethink can thrash to a structurally different plan —
-    /// visible NPC dithering even when both plans are fine. This variant
-    /// replays the still-applicable PREFIX of the old plan's remaining
-    /// suffix (steps `from_step..`, up to the first inapplicable step —
-    /// pure replay, zero search), then searches only for a new TAIL from
-    /// where the prefix ends: the new plan shares the prefix by
-    /// construction, so churn is confined to the part drift actually broke.
+    /// the broken plan's own shape. When drift snaps a plan mid-flight, an
+    /// unconstrained rethink can thrash sideways into a structurally
+    /// different plan — visible dithering even when both plans work fine.
+    /// This variant replays the still-applicable PREFIX of the old plan's
+    /// remaining suffix (steps `from_step..`, up to the first step that no
+    /// longer applies — pure replay, zero search), then searches only for a
+    /// new TAIL from where the prefix runs out: the new plan shares the
+    /// prefix by construction, so churn stays confined to the piece drift
+    /// actually broke.
     ///
-    /// The bias can cost budget, never completeness or honesty: if the goal
-    /// is met anywhere along the prefix the plan is cut there (no search);
-    /// if NO tail exists from the prefix end (the prefix may have walked
-    /// somewhere the new goal cannot be reached from), the rethink falls
-    /// back to an unbiased [`Session::replan_budgeted`] with the same
-    /// budget, and the returned statistics count BOTH searches. Both legs
-    /// are the ordinary deterministic bounded think (t1 ≡ t8).
+    /// The bias can cost budget, never completeness, never honesty: if the
+    /// goal is met anywhere along the prefix, the plan gets cut right there
+    /// — no search spent. If NO tail exists past the prefix's end (the
+    /// prefix may have wandered somewhere the new goal can't be reached
+    /// from), the rethink falls back to an unbiased
+    /// [`Session::replan_budgeted`] on the same budget, and the returned
+    /// statistics count BOTH searches. Both legs are the same ordinary
+    /// deterministic bounded think (t1 ≡ t8).
     ///
-    /// The bias applies to classical sessions; a temporal plan's prefix
-    /// ends mid-interval — not the at-rest state a session may stand in —
-    /// so temporal sessions delegate to the plain bounded think.
+    /// The bias only rides classical sessions — a temporal plan's prefix
+    /// ends mid-interval, not the at-rest state a session may be standing
+    /// in, so temporal sessions fall straight to the plain bounded think.
     pub fn replan_following(
         &self,
         prior: &Plan,
@@ -1345,15 +1355,16 @@ impl Session {
     /// The temporal arm of [`Session::replan_following`] (0.14 ext Phase 9),
     /// UNLOCKED by in-flight intervals: replay the prior timed plan's
     /// happenings — starts, ends, this session's scheduled events, and its
-    /// REAL running ends, on the ε grid, events/ends before same-instant
-    /// starts — until the first inapplicable one. The replay's stopping
-    /// point is a simulated IN-FLIGHT state: intervals whose starts
-    /// replayed but whose ends lie past the break carry into the tail
-    /// think as its root agenda, exactly like real running intervals. The
-    /// returned plan is the surviving prefix (original times) plus the
-    /// tail (times shifted by the break moment) — churn confined to what
-    /// drift actually broke. No tail ⇒ unbiased fallback from the REAL
-    /// state, combined eval counts; the bias never costs completeness.
+    /// REAL running ends, walked on the ε grid, events and ends firing
+    /// before same-instant starts — until the first one that no longer
+    /// applies. The replay's stopping point simulates an IN-FLIGHT state:
+    /// intervals whose starts replayed but whose ends lie past the break
+    /// carry straight into the tail think as its root agenda, same as real
+    /// running intervals. The returned plan is the surviving prefix
+    /// (original times) plus the tail (times shifted to the break moment)
+    /// — churn confined to what drift actually broke. No tail found means
+    /// an unbiased fallback from the REAL state, combined eval counts; the
+    /// bias never costs completeness.
     fn replan_following_temporal(
         &self,
         prior: &Plan,
@@ -1367,9 +1378,9 @@ impl Session {
         enum Hap {
             /// suffix-step index, start (or instantaneous) op
             Start(usize, usize),
-            /// end op — from a suffix step's interval or a REAL running one
+            /// end op — trailing a suffix step's interval, or a REAL running one
             End(usize),
-            /// scheduled-event setter (fires unconditionally)
+            /// scheduled-event setter — detonates no questions asked
             Til(usize),
         }
         let display = |s: &crate::api::Step| {

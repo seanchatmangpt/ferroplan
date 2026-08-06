@@ -10,11 +10,11 @@ description: >-
 
 # Authoring PDDL for ferroplan
 
-ferroplan is a fast PDDL planner (a from-scratch FF-family reimplementation in Rust).
-The discipline this skill enforces: **author a domain, run it, and confirm a real
-plan comes out — never present PDDL you have not run.** Models are fluent in Python
-but shaky in PDDL; the cure is the loop below plus the verified examples in
-`examples/`.
+ferroplan is a fast PDDL planner — a from-scratch FF-family reimplementation, built
+in Rust, no borrowed engine underneath. The discipline this skill enforces is a hard
+one: **author a domain, run it, and confirm a real plan comes out — never hand over
+PDDL you have not run.** A model can talk fluent Python and stumble in PDDL; the cure
+isn't caution, it's the loop below plus the verified examples sitting in `examples/`.
 
 ## Run it
 
@@ -59,7 +59,8 @@ Other flags: `--search`, `--weight-g/--weight-h`, `--max-evaluated`, `--satisfic
 | temporal / durative | `:durative-actions` (run `--mode temporal`) | actions take time and must overlap; over-all invariants | `examples/temporal/` |
 
 Each `examples/<feature>/` is a minimal domain+problem **verified to solve** against
-this `ff`. Read the matching one before authoring that feature. For rich, integrated
+this `ff`. Read the matching one before authoring that feature — don't improvise
+against a spec when a working fixture is sitting right there. For rich, integrated
 domains see the repo `examples/` (rpg-world, logistics, jobshop).
 
 ## Engine gotchas (verified against this `ff`)
@@ -86,9 +87,9 @@ domains see the repo `examples/` (rpg-world, logistics, jobshop).
 
 ## Using it properly at scale — decomposition
 
-ferroplan solves one problem in one shot up to a coverage border; past it, a goal must
-be **decomposed into contracts** that share a stockpile. The measured rule (see
-`../../../examples/BORDERS.md`):
+ferroplan solves one problem in one shot up to a coverage border — a hard edge in
+the search space, not a soft slowdown. Past it, a goal has to be **decomposed into
+contracts** that share a stockpile. The measured rule (see `../../../examples/BORDERS.md`):
 
 > The delete-relaxed heuristic keeps a gradient on linear/accumulative work and goes
 > **flat the instant ≥2 contributions must converge onto one goal quantity.**
@@ -104,6 +105,6 @@ conjoined with a sibling (one deliverable per contract), or you exceed the op bu
 temporal` (or `ferroplan::decompose(...)`) partitions a too-big temporal goal into
 ordered, individually-solved contracts and stitches them into one validated plan —
 printing each contract's sub-goal and sub-plan (`--json` for the structured
-`Decomposition`). If a goal can't be split it says so and solves it monolithically.
-Reach for this before hand-authoring contracts; fall back to the manual ruleset above
-when you need control over the staging.
+`Decomposition`). If a goal can't be split it says so, plainly, and solves it
+monolithically instead. Reach for this before hand-authoring contracts; fall back to
+the manual ruleset above when you need control over the staging.

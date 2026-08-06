@@ -1,7 +1,8 @@
 # ferroplan reference
 
-Lookup detail for the `ff` CLI, the library, and PDDL feature support. The
-`SKILL.md` file holds the *how-to-think*; this is the *how-to-look-up*.
+Lookup detail for the `ff` CLI, the library, and PDDL feature support — no argument,
+no narrative, just the coordinates. `SKILL.md` holds the *how-to-think*; this file is
+the *how-to-look-up*, kept lean on purpose.
 
 ## CLI flags (`ff --help`)
 
@@ -23,11 +24,12 @@ Lookup detail for the `ff` CLI, the library, and PDDL feature support. The
 | `--validate <FILE>` | replay a plan FILE under ferroplan's own semantics; prints `Plan valid` / `Plan invalid: <reason>`, exit 0/1 |
 
 `--validate` auto-detects classical (`step N: NAME ARGS`) vs temporal (`t: (name args)
-[dur]`) from the domain and reuses the engine's `apply`/`op_applicable`/`goal_met`
-(via `verify::verify` / `temporal::validate`), so "valid" means "valid under the
-semantics that produced it". It applies happenings sequentially and does **not**
-impose VAL's strict PDDL2.1 concurrent-numeric mutex — so it accepts ferroplan's
-resource-parallel temporal plans that VAL rejects. There is **no `--debug`** flag.
+[dur]`) from the domain and reuses the engine's own `apply`/`op_applicable`/`goal_met`
+(via `verify::verify` / `temporal::validate`) — so "valid" means valid under the exact
+semantics that produced it, no borrowed standard, no second opinion smuggled in. It
+applies happenings sequentially and does **not** impose VAL's strict PDDL2.1
+concurrent-numeric mutex — so it accepts ferroplan's resource-parallel temporal plans
+that VAL rejects. There is **no `--debug`** flag.
 Library entry point: `ferroplan::plan::validate_plan(&dom_src, &prob_src, &plan_src)`.
 
 ## Output formats
@@ -55,7 +57,7 @@ let solution = ferroplan::solve(&domain_str, &problem_str, &ferroplan::Options {
 if let Some(plan) = solution.plan { /* plan.steps, plan.metric, plan.makespan */ }
 ```
 
-`solve` returns a typed `SolveError` on bad input (it never panics on malformed PDDL).
+`solve` returns a typed `SolveError` on bad input — it never panics on malformed PDDL, it just tells you what's wrong.
 
 ## Requirements / feature support
 
@@ -89,4 +91,4 @@ if let Some(plan) = solution.plan { /* plan.steps, plan.metric, plan.makespan */
 - Temporal: continuous (`#t`) effects. (Duration inequalities and timed initial
   literals are now supported.)
 - Coverage on the largest instances is search-limited — see `../../../examples/BORDERS.md`
-  for where to decompose instead.
+  for where the border sits and where to decompose instead.

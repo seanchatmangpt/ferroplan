@@ -1,10 +1,11 @@
-//! Goal partitioning.
+//! Cut the district into blocks. Goal partitioning.
 //!
-//! v1 uses the FINEST granularity — one subgoal per goal item — and lets the
-//! resolver coarsen dynamically by merging conflicting groups (which is exactly
-//! the dynamic grain-size control SGPlan uses; see docs/sgplan6-spec.md §2,§5).
-//! A future phase can seed a better initial partition from the goal-interaction
-//! graph (guidance variables + METIS min-cut).
+//! v1 draws borders at the finest grain — one subgoal, one block, no
+//! exceptions — and leaves the coarsening to the resolver downstream: it
+//! merges blocks only when they turn hostile to each other, the same
+//! dynamic grain-size control SGPlan runs (docs/sgplan6-spec.md §2,§5). A
+//! later phase can draw smarter borders up front, off the goal-interaction
+//! graph — guidance variables, METIS min-cut.
 
 use std::collections::BTreeSet;
 
@@ -12,7 +13,7 @@ use crate::hash::{FxHashMap, FxHashSet};
 use crate::packed::PackedTask;
 use crate::types::NumPre;
 
-/// One subproblem's goal: positive fact ids + numeric comparisons.
+/// One block's contract: positive fact ids owed, numeric comparisons owed.
 #[derive(Clone)]
 pub struct Subgoal {
     pub pos: Vec<u32>,
@@ -25,7 +26,8 @@ impl Subgoal {
     }
 }
 
-/// Finest partition: each positive goal fact and each numeric goal is its own group.
+/// Finest cut on the map — one block per fact, one block per numeric goal.
+/// Nothing shares a border yet.
 pub fn partition(task: &PackedTask) -> Vec<Subgoal> {
     let mut groups = Vec::new();
     for &f in &task.goal_pos {
@@ -50,10 +52,11 @@ pub fn partition(task: &PackedTask) -> Vec<Subgoal> {
     groups
 }
 
-/// Merge group `i` with an adjacent group (coarsening). Returns the kept index.
-/// No-op when there is nothing to merge (keeps the always-terminate invariant
-/// even on misuse; a release-stripped debug_assert previously left a usize
-/// underflow path here).
+/// Fold block `i` into whichever block sits next to it — the coarsening move.
+/// Returns the surviving index. A single block on the map has nowhere to
+/// fold into and does nothing — the always-terminate promise holds even
+/// against misuse; a stripped debug_assert here used to leave a usize
+/// underflow trap for release builds to walk into.
 pub fn merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) -> usize {
     if groups.len() <= 1 {
         return 0;
@@ -62,8 +65,9 @@ pub fn merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) -> usize {
     merge_at(groups, i, nb)
 }
 
-/// Merge two specific groups (semantic coarsening — used to coalesce the actual
-/// conflicting pair rather than a positional neighbor). Returns the kept index.
+/// Fold two named blocks together — not neighbors by position, but by grudge:
+/// the actual conflicting pair, wherever it sits on the map. Returns the
+/// surviving index.
 pub fn merge_at(groups: &mut Vec<Subgoal>, i: usize, j: usize) -> usize {
     if i == j || i >= groups.len() || j >= groups.len() || groups.len() <= 1 {
         return i.min(groups.len().saturating_sub(1));
@@ -97,12 +101,13 @@ fn uf_union(uf: &mut [usize], a: usize, b: usize) {
     }
 }
 
-/// Seed the initial partition from a **goal-interaction graph** over mutex
-/// variables: two goal facts are linked when some operator achieves (adds) one's
-/// variable while disturbing (deleting) the other's. Connected components become
-/// the initial subgoal groups; numeric goals stay singletons. Falls back to the
-/// finest partition when `groups` is empty. Sound regardless of grain — the
-/// resolver still coarsens on conflict.
+/// Draw the opening borders off the goal-interaction graph — the wire between
+/// mutex variables. Two goal facts get linked the instant some operator lights
+/// up one's variable while cutting the other's power. Whatever stays connected
+/// after that becomes one block; numeric goals stand alone, singletons by
+/// nature. An empty `groups` map falls back to the finest cut. Either way the
+/// grain doesn't matter for correctness — the resolver still coarsens on
+/// conflict, same as always.
 pub fn interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) -> Vec<Subgoal> {
     if groups.is_empty() || task.goal_pos.is_empty() {
         return partition(task);
@@ -123,16 +128,17 @@ pub fn interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) -> Vec<Subg
     out
 }
 
-/// [`interaction_partition`]'s core, generalized for the partitioned-ESPC path
-/// (`crate::espc`): components over an EXPLICIT positive-goal subset, with
-/// designated **shared guidance variables excluded from edge formation** — a goal
-/// fact sitting on an excluded variable still becomes a component, but the shared
-/// variable is never a merge reason (it is priced as a global constraint by the
-/// λ schedule instead, per docs/espc-preferences-spec.md "increment 2"). Numeric
-/// goals and the empty-goal fallback are the caller's business. With
-/// `goals = &task.goal_pos` and no exclusions this is exactly the old
-/// `interaction_partition` body (unit-tested identical), preserving the component
-/// order the classical resolver iterates in.
+/// [`interaction_partition`]'s engine room, stripped down for the
+/// partitioned-ESPC circuit (`crate::espc`): components drawn over an explicit
+/// subset of positive goals, with certain wires marked off-limits — shared
+/// guidance variables that must never carry an edge. A goal fact sitting on
+/// one of those still gets its own block; the shared variable just never
+/// pulls two blocks together (it's billed separately, priced as a global
+/// constraint by the λ schedule, per docs/espc-preferences-spec.md
+/// "increment 2"). Numeric goals and the empty-goal fallback stay the
+/// caller's problem. Feed it `goals = &task.goal_pos` and no exclusions and
+/// it runs byte-for-byte as the old `interaction_partition` did — same
+/// component order the classical resolver expects to walk.
 pub fn interaction_partition_of(
     task: &PackedTask,
     groups: &[Vec<u32>],

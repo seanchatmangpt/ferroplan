@@ -25,11 +25,11 @@ emitted unsound; the same family as the ε mutex gaps that led the
   end when the internal order had them at-or-before it — clamp or
   co-shift, preserving total ε-order and every existing green
   board's plans byte-for-byte where no same-epoch pair exists.
-- The fix invalidates every temporal scoreboard by definition:
-  full temporal re-sweeps (tempo-sat 630 + 240, tempo-2014 200)
-  against the fixed binary with A/B attribution; expect the 23
-  VAL-reds green and zero regressions elsewhere; casualties named
-  and solo-checked as always.
+- The fix invalidates every temporal scoreboard by definition: full
+  temporal re-sweeps (tempo-sat 630 + 240, tempo-2014 200) against
+  the fixed binary with A/B attribution; expect the 23 VAL-reds
+  green and zero regressions elsewhere; casualties named and
+  solo-checked as always.
 
 ## Phase 2 — the village, alive (the tick loop)
 
@@ -86,3 +86,4 @@ complete, full pre-flight, finish in main; the user publishes.
 - The four timed modal operators, cross-mind planning, continuous
   `#t`, dynamic derived predicates, fixpoint/stratified
   unification — unchanged from the 0.15/0.16/0.17 lists.
+</content>

@@ -1,5 +1,5 @@
-//! Pointer interaction: left-click to select a node/mobile, left-drag a node to
-//! move it, and a gizmo ring around the current selection.
+//! Contact with the field: left-click marks a target — node or mobile — left-drag
+//! hauls a node across the map, and a gizmo ring burns around whatever's tagged.
 
 use bevy::prelude::*;
 
@@ -77,7 +77,7 @@ pub fn interact(
     }
 }
 
-/// Draw a ring around the selected node/mobile.
+/// Burn a ring around whatever's marked — node or mobile.
 pub fn draw_selection(
     mut gizmos: Gizmos,
     selected: Res<Selected>,

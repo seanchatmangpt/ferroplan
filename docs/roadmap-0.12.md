@@ -1,14 +1,14 @@
 # ferroplan 0.12 roadmap — the game cycle
 
-Scope settled 2026-07-20. 0.11 closed the guidance question honestly
+Scope locked 2026-07-20. 0.11 closed the guidance question honestly
 (three transfers, three recorded negatives: the remaining IPC walls
 need research-grade heuristic work, not reweightings), and the
-budgeted-think API exposed exactly what the ENGINE'S ACTUAL CUSTOMER —
-the game from STATUS.md's recorded design answers — still cannot do.
-0.12 is the release where the engine starts serving its purpose: the
+budgeted-think API laid bare exactly what the ENGINE'S ACTUAL
+CUSTOMER — the game, per the design answers on file — still can't do.
+0.12 is the release where the engine starts earning its keep: the
 corpus was the measuring stick; this cycle the stick has done its job.
 
-The recorded design answers this cycle serves:
+The design answers this cycle serves:
 
 - **Real-time with episodic stop-and-think**: an agent thinks at REST
   POINTS (a bounded `replan_budgeted` call), then FOLLOWS the plan;
@@ -18,31 +18,32 @@ The recorded design answers this cycle serves:
   `Session` REJECTS temporal domains today. The think API only works
   on classical worlds.
 - **Barter economy, any item to any item**: item×item exchange actions
-  make GROUNDING SCALE the binding constraint — the same lever as the
-  recorded elevator-11 tail (the ~4 GB stratum-1 enumeration
+  make GROUNDING SCALE the binding constraint — the same lever behind
+  the recorded elevator-11 tail (the ~4 GB stratum-1 enumeration
   transient).
 
 ## Phase 1 — the temporal Session
 
 `Session::new` on a durative domain: snap-compile + ground ONCE (the
 stratified path), then every `replan`/`replan_budgeted` is a bounded
-temporal solve from the CURRENT world state returning a timed plan.
+temporal solve from the CURRENT world state, handing back a timed
+plan.
 
-- **Design decision, recorded**: a session's world state between
+- **Design call, on the record**: a session's world state between
   thinks is AT REST — no running intervals. Episodic stop-and-think
   means the agent plans at decision points; mid-interval state is the
   game's business, not the planner's. Concretely: the temporal solve
   seeds an EMPTY agenda, and `set_fact` rejects the compiler-reserved
-  `RUNNING-*` tokens exactly as it rejects static facts (a game that
-  wants to model an in-flight action mirrors its END effects when it
-  completes).
+  `RUNNING-*` tokens exactly as it rejects static facts (a game
+  wanting to model an in-flight action mirrors its END effects when
+  it completes).
 - TILs: rejected in-session for now (a TIL pins the absolute clock;
-  session thinks are clock-relative). Recorded as a follow-up if the
-  game needs scheduled exogenous events.
+  session thinks are clock-relative). Logged as a follow-up if the
+  game ever needs scheduled exogenous events.
 - The budget surface carries over whole: eval budget bounds every
   pass of the temporal ladder, the memory target plumbs to
   `temporal_node_cap`, a budget-exhausted think returns `solved:
-  false` honestly, and t1 ≡ t8 (suite-enforced, like the classical
+  false` straight, and t1 ≡ t8 (suite-enforced, like the classical
   think test).
 - Acceptance: a concurrency-using fixture (two agents, overlapping
   durative work) grounds once, thinks bounded, returns a VALIDATED
@@ -52,19 +53,19 @@ temporal solve from the CURRENT world state returning a timed plan.
 ## Phase 2 — drift-stable replanning (follow before you rethink)
 
 A game agent whose world shifts slightly mid-plan must not thrash to a
-structurally different plan. The cheap, high-value mechanism:
+structurally different plan. The cheap, high-value fix:
 
 - **`Session::still_valid(plan, from_step)`** (name settled at
   implementation): replay the plan's remaining suffix against the
   CURRENT session state — the internal validator's replay machinery,
-  pointed at a suffix. If the suffix still executes and ends in the
-  goal, the agent keeps following it for FREE (no search, no think
-  budget spent); only a broken suffix triggers a real rethink.
+  pointed at a suffix. If the suffix still runs and lands on the goal,
+  the agent keeps following it for FREE (no search, no think budget
+  spent); only a broken suffix triggers a real rethink.
 - Measured deliverable: a scripted drift fixture (N ticks, occasional
   irrelevant drift, occasional plan-breaking drift) reporting
   thinks-spent and plan-churn with and without the suffix check.
 - Acceptance: irrelevant drift costs zero search; breaking drift is
-  detected exactly (no false "still valid"); determinism unchanged.
+  caught exactly (no false "still valid"); determinism unchanged.
 
 ## Phase 3 — grounding at barter scale (reachability-interleaved)
 
@@ -72,8 +73,8 @@ The one big engine project of the cycle, serving both masters: the
 game's item×item exchange actions and the recorded elevator-11 tail
 (stratum-1 START enumeration: ~4 GB transient, most of the grounding
 wall). Today Phase B enumerates typed cross-products per action and
-prunes after; the lever is enumerating FROM REACHED FACTS instead —
-candidates exist only when their preconditions' dynamic atoms have
+prunes after; the fix is enumerating FROM REACHED FACTS instead —
+candidates exist only once their preconditions' dynamic atoms have
 producers, interleaving reachability with enumeration.
 
 - Fixtures first: a barter stress domain (K item types × M holders,
@@ -83,20 +84,20 @@ producers, interleaving reachability with enumeration.
   materially; the barter fixture grounds within a think-sized budget;
   classical/temporal corpus paths UNCHANGED (the equivalence gate:
   identical plans and eval counts across a representative sweep, the
-  compaction cycle's discipline).
+  compaction cycle's own discipline).
 - Honest exit: if the interleaved rewrite can't hold the equivalence
   gate inside this cycle, ship the fixtures + measurements + a
   recorded design, not a half-landed grounder.
 
 ## Recorded — Phase 3 (2026-07-20): SHIPPED, the measurements chose the design
 
-Fixtures first, as prescribed, and they discriminated the term:
+Fixtures first, as prescribed — and they split the question clean:
 
 - **bazaar** (vendored: 12 holders × 40 items, any-for-any trade):
   DENSE-reachable — 197k of the 211k typed candidates are real ops.
-  Interleaving cannot help by construction; the game answer is
+  Interleaving can't help here by construction; the game answer is
   GROUND-ONCE (5.5 s / 644 MB at world load, then thinks are pure
-  search). Classified, recorded, viable.
+  search). Classified, logged, viable.
 - **elevator-11 p04**: enumerated ~100× its reachable set — 11.1 GB
   unstratified / 5.7 GB stratified transient for a 16,728-op task.
   Sparse-reachable: exactly where reached-restriction wins.
@@ -111,55 +112,56 @@ transient), identical task dims**; equivalence spots exact (crew /
 elev08 / openstacks / pegsol makespans identical on/off); suite 148/0.
 
 **Scoped in release week — the order lottery bit back.** The 0.12.0
-scoreboard refresh with fixpoint as the temporal default came back
-377/630 vs 0.11's 387, and same-box same-binary A/B isolated it:
-sokoban-t stratified 4/10 vs fixpoint 1/10 on i1–i10. The surviving op
-set is identical, but doomed candidates are never enumerated, so they
-no longer intern atoms early — fact-id first-reference order shifts,
-and sokoban-t's tie-break-sensitive search moves with it. A final
-canonical-order emission pass did NOT recover the instances: the
-residual is the interning order itself, unrecoverable without
-re-paying the enumeration the fixpoint exists to avoid. Resolution:
-the corpus solve paths stay on stratified grounding (0.11 tie-breaks
-reproduced; sokoban i1/i5/i6 verified restored), and the `Session`'s
-temporal entry grounds via fixpoint — the game track, where the
-memory win is the point and no scoreboard baseline is disturbed.
+scoreboard refresh with fixpoint as the temporal default read
+377/630 against 0.11's 387, and a same-box same-binary A/B pinned the
+cause: sokoban-t stratified 4/10 against fixpoint 1/10 on i1–i10. The
+surviving op set is identical, but doomed candidates never get
+enumerated, so they no longer intern atoms early — fact-id
+first-reference order shifts, and sokoban-t's tie-break-sensitive
+search moves right along with it. A final canonical-order emission
+pass did NOT claw the instances back: the residual is the interning
+order itself, unrecoverable without re-paying the enumeration the
+fixpoint exists to dodge. Resolution: the corpus solve paths stay on
+stratified grounding (0.11 tie-breaks reproduced; sokoban i1/i5/i6
+verified restored), and the `Session`'s temporal entry grounds via
+fixpoint — the game track, where the memory win is the point and no
+scoreboard baseline gets disturbed.
 
-Residual, honest: elevator-11 coverage stays 3/20 at 30 s — under
-fixpoint the wall MOVED from grounding to search (p05 solves solo at
-49 s, formerly a grounding OOM; p04 is search-bound past 90 s), but
-that observation now lives on the Session path, not the corpus
-default. The tail joins the recorded guidance family; the grounding
-lever is spent, and it was worth exactly what the fixtures said it
-would be — for the customer it was built for.
+Residual, on the record: elevator-11 coverage stays 3/20 at 30 s —
+under fixpoint the wall MOVED from grounding to search (p05 solves
+solo at 49 s, formerly a grounding OOM; p04 is search-bound past
+90 s), but that observation now lives on the Session path, not the
+corpus default. The tail joins the recorded guidance family; the
+grounding lever is spent, and it paid exactly what the fixtures said
+it would — for the customer it was built for.
 
 ## Phase 4 — corpus debts (small, bounded)
 
 - **parc-printer-t diagnosis**: 18/30 + 7/20 is the one temporal
   plateau never actually diagnosed. One instrumented afternoon:
-  classify (guidance / scale / semantics / plumbing), record, fix
+  classify (guidance / scale / semantics / plumbing), log it, fix
   only if the classification hands us something cheap.
 - **Reference-cost quality scoring**: vendor best-known costs for the
   vendored subset so the runner can report a real IPC quality score
-  (the docstring's recorded caveat about summed cost).
+  (the docstring's own caveat about summed cost).
 - **turn-and-open at realistic budgets**: measure the full variant at
   60 s / 120 s solo-equivalent budgets so the record reflects what
   the 0.10 keys actually bought (i1 solves in ~25 s; the 30 s / 3-job
-  methodology clips the family).
+  methodology clips the family short).
 
 ## Recorded — Phase 4 (2026-07-20): debts paid, diagnoses filed
 
 - **parc-printer-t DIAGNOSED** (the never-classified plateau): the
   complete pass drowns in start-spam — avg ~2,076 pending intervals
-  per node (the TMS interleaving family; mechanism now precise). The
-  cheap completeness-preserving experiment (an agenda-size ordering
-  term on the complete pass's key, `FF_TAGENDA_W`) measured NEGATIVE
-  at 30 s; knob stays opt-in, diagnosis recorded.
+  per node (the TMS interleaving family; the mechanism is precise
+  now). The cheap completeness-preserving experiment (an agenda-size
+  ordering term on the complete pass's key, `FF_TAGENDA_W`) measured
+  NEGATIVE at 30 s; knob stays opt-in, diagnosis on the record.
 - **Self-relative quality scoring shipped**: `ipc67.py
   --score-against PRIOR.jsonl` computes the IPC formula against a
   prior run's per-instance costs — regression tracking, explicitly
   labeled NOT an official IPC score (the corpus carries no reference
-  costs). Smoke: crew 5/5, quality 5.00 vs the 0.10 run.
+  costs). Smoke: crew 5/5, quality 5.00 against the 0.10 run.
 - **turn-and-open at realistic budgets**: 0/20 at 60 s (jobs-2 +
   today's slow box), 1/20 at 120 s (i1 at 77 s, val-green) —
   search-bound, the guidance family, exactly as classified in 0.10.
@@ -170,31 +172,31 @@ CHANGELOG `[0.12.0]`, workspace bump 0.11.0 → 0.12.0, README refresh,
 `rustup update stable` first, and the FULL gate — fmt, clippy
 `-D warnings`, suite, AND `RUSTDOCFLAGS="-D warnings" cargo doc
 --no-deps` (the 0.11.0 publish caught the doc pass missing from the
-working gate; RELEASING.md already prescribed it). Scoreboards
+working gate; RELEASING.md already called for it). Scoreboards
 refreshed where phases moved them; main publish.sh-ready.
 
 ## Recorded — Phase 5 (2026-07-20): shipped; the scoreboard defended itself
 
 Full pre-flight green on latest stable (fmt, clippy `--all-targets
 --all-features -D warnings`, suite 148/0, doc `-D warnings`, bench
-`--no-run`); the `ferroplan-py` re-lock (a RELEASING.md step silently
+`--no-run`); the `ferroplan-py` re-lock (a RELEASING.md step quietly
 missed since 0.9) caught and fixed.
 
 **The scoreboard stands at 387/630 — and it caught two things.** The
-release refresh with fixpoint as the temporal default read 377 and
-same-box A/B isolated real sokoban-t coverage loss (the order lottery;
-Phase 3 record) — fixed by scoping fixpoint to the Session entry. The
-post-fix refresh then read 372 on a day the box ran 1.5–2× slower than
-the 387 run (per-solve wall clock up across every family; the recorded
-box-variance caveat, at its worst). Attribution, the honest way: the
-0.11.0 binary was rebuilt from its cut commit and run back-to-back
-against the 0.12 binary on the same box — crew, sokoban, and all three
-elevator variants, **180 instances, ZERO differences** in solved sets,
-per-instance costs, or VAL verdicts. The corpus solve paths are
-measured bit-equivalent to 0.11, exactly as the scoping fix intends,
-so the committed 387/630 table (all VAL-validated) remains the
-truthful scoreboard; a slow-box table would record the weather, not
-the planner.
+release refresh with fixpoint as the temporal default read 377, and a
+same-box A/B pinned real sokoban-t coverage loss (the order lottery;
+Phase 3's own record) — fixed by scoping fixpoint to the Session entry
+alone. The post-fix refresh then read 372 on a day the box ran
+1.5–2× slower than the 387 run (per-solve wall clock up across every
+family; the recorded box-variance caveat, at its worst). Attribution,
+done the honest way: the 0.11.0 binary was rebuilt from its cut
+commit and run back-to-back against the 0.12 binary on the same box —
+crew, sokoban, and all three elevator variants, **180 instances, ZERO
+differences** in solved sets, per-instance costs, or VAL verdicts. The
+corpus solve paths measure bit-equivalent to 0.11, exactly as the
+scoping fix intends, so the committed 387/630 table (all
+VAL-validated) stands as the truthful scoreboard; a slow-box table
+would only be recording the weather, not the planner.
 
 ## Deferred, on the record
 

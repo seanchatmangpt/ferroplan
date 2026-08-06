@@ -6,29 +6,30 @@ Rust RPG's decision-making, while picking up strong, honest coverage of
 the IPC6 (2008) and IPC7 (2011) problem spaces along the way.
 
 > **Revision note.** The original draft of this document was written
-> without access to the codebase and hedged on two "unknowns." This
-> revision is audited against the code at v0.8.0: the unknowns are
-> answered inline, phases that assumed greenfield work are re-scoped to
-> what actually remains, and one phase (temporal) turned out to be
-> largely shipped already.
+> blind — no eyes on the codebase — and hedged on two "unknowns." This
+> revision is audited against the code at v0.8.0: the unknowns come back
+> answered, phases that assumed a blank slate get re-scoped to what
+> actually remains, and one phase (temporal) turns out to be largely
+> shipped already, waiting to be counted.
 
 ---
 
 ## How to use this document
 
 Work the phases roughly in order. **Phase 0 is still first and gates
-the rest**, but it is smaller than originally drafted — much of its
-scaffolding already exists. What remains of it is real, though:
+the rest**, but it's smaller than originally drafted — most of its
+scaffolding is already standing. What remains of it is real, though:
 external validation, the IPC6/IPC7 benchmark sets, and `STATUS.md`.
 
-Each phase has: a goal, why it matters (with the RPG angle called out),
-what already exists, concrete tasks, and acceptance criteria. Treat the
-acceptance criteria as the definition of done. After each phase, update
-`STATUS.md` (see Phase 0) so the next run of the agent — or a human —
-can pick up cleanly. (Repo convention: per-release phase records live
-in `docs/roadmap-<version>.md`; keep doing that too.)
+Each phase carries: a goal, why it matters (with the RPG angle called
+out), what already exists, concrete tasks, and acceptance criteria.
+Treat the acceptance criteria as the definition of done — nothing else
+counts. After each phase, update `STATUS.md` (see Phase 0) so the next
+run of the agent, or a human, can pick up cleanly with no ground lost.
+(Repo convention: per-release phase records live in
+`docs/roadmap-<version>.md`; keep doing that too.)
 
-Two rules that hold across all phases:
+Two rules that hold across every phase, no exceptions:
 
 1. **Never regress the IPC5 baseline.** Ferroplan is competitive with
    SGPlan5 on IPC5 (see `benchmarks/ipc5-scoreboard.md` and
@@ -36,33 +37,34 @@ Two rules that hold across all phases:
    IPC regression guards (`espc` / `ipc5_pref_metric`, `#[ignore]`d
    locally, exercised in a release CI step) — keep them green, and
    extend them as coverage grows.
-2. **Validate every plan.** Ferroplan has an internal validator
+2. **Validate every plan.** Ferroplan carries an internal validator
    (`plan::validate_plan`, CLI `--validate`) under its own semantics.
-   For anything we *claim* in a scoreboard, add external machine-checking
-   with VAL. No self-graded plans in published numbers.
+   For anything *claimed* in a scoreboard, add external machine-checking
+   with VAL. No self-graded plans in published numbers — a witness that
+   grades its own testimony isn't a witness.
 
 ---
 
 ## Strategic context (read before starting)
 
-Ferroplan today is strong at **satisficing planning with preferences and
-trajectory constraints** — the PDDL3.0 world that IPC5 rewards. Moving
-toward IPC6/IPC7 is not "add more domains." It is crossing into
-**cost-aware heuristic search**. The competitive frontier there is the
-Fast Downward / LAMA family plus portfolios — not SGPlan. The language
-delta is small (IPC6's PDDL3.1 mainly adds action costs and optional
-object fluents), and — good news from the audit — the *engine* delta is
-smaller than the original draft feared: Ferroplan is already an
-FF-family heuristic-search planner, so cost-sensitivity is an evolution
-of the existing heuristic and search, not a paradigm change. What it is
-**not** is a finite-domain (SAS+) planner — and that is a deliberate
-architectural choice, not a gap (see Phase 1).
+Ferroplan today runs strong at **satisficing planning with preferences
+and trajectory constraints** — the PDDL3.0 territory that IPC5 rewards.
+Moving toward IPC6/IPC7 isn't "add more domains." It's crossing into
+**cost-aware heuristic search**. The competitive frontier out there is
+the Fast Downward / LAMA family plus portfolios — not SGPlan. The
+language delta is small (IPC6's PDDL3.1 mainly adds action costs and
+optional object fluents), and — the good news the audit turned up — the
+*engine* delta is smaller than the original draft feared: Ferroplan is
+already an FF-family heuristic-search planner, so cost-sensitivity is an
+evolution of the existing heuristic and search, not a paradigm change.
+What it is **not** is a finite-domain (SAS+) planner — and that's a
+deliberate architectural choice, not a gap (see Phase 1).
 
 The two things that matter most for an RPG — **action costs** (so NPCs
 weigh risk/time/resources) and **net-benefit / oversubscription
 planning** (so a resource-bounded NPC chooses *which* goals are worth
-pursuing) — are exactly the IPC6 additions. So the RPG direction and the
-IPC6/7 direction reinforce each other.
+pursuing) — are exactly the IPC6 additions. The RPG direction and the
+IPC6/7 direction aren't two roads; they're the same road.
 
 ### The two unknowns, answered (audit of v0.8.0)
 
@@ -88,7 +90,7 @@ IPC6/7 direction reinforce each other.
   decision-epoch pipeline and scheduler, goal **decomposition into
   contracts**, and a **`Session`** ground-once/replan-many API.
 
-Other standing capabilities the original draft didn't know about:
+Other standing capabilities the original draft never saw coming:
 numeric fluents (Metric-FF lineage), static derived axioms, PDDL3
 trajectory-constraint monitors hardened across 0.6–0.8 (END
 construction, shared monitor block), a benchmark harness
@@ -100,7 +102,7 @@ construction, shared monitor block), a benchmark harness
 
 ## Phase 0 — Gap audit & measurement scaffolding *(first; smaller than drafted)*
 
-**Goal:** stand up the pieces of measurement/validation that do *not*
+**Goal:** stand up the pieces of measurement/validation that don't
 yet exist, and write down current state so later phases stay honest.
 
 **Already exists:** benchmark harness + baselines for IPC5; CI heavy
@@ -133,13 +135,13 @@ records in `docs/`.
 synthesis — **not** convert the planner to a SAS+ substrate.
 
 **Why / RPG angle:** compact reasoning about "at most one of these is
-true" makes heuristics sharper and per-decision planning cheaper inside
-a game loop. Ferroplan already made the architectural call that mutex
+true" sharpens heuristics and cheapens per-decision planning inside a
+game loop. Ferroplan already made the architectural call that mutex
 groups live as an analysis layer over the propositional bitset core —
 the bitset/SoA representation is load-bearing for its speed and
 determinism. Respect that call; a Fast Downward-style representation
-swap would be a rewrite of the engine's identity for benefits most of
-the target heuristics (relaxed-plan, landmarks, LM-cut) don't need.
+swap would rewrite the engine's identity for benefits most of the
+target heuristics (relaxed-plan, landmarks, LM-cut) don't need.
 
 **Already exists:** `invariants.rs` — Helmert-style multi-predicate
 monotonicity invariants, verified lifted per action, refined to a
@@ -171,16 +173,16 @@ sound. Consumed today by ESPC subgoal partitioning.
 **Goal:** support `:action-costs` and make search reason about total
 plan cost, with anytime improvement.
 
-**Why / RPG angle:** action cost is the single most useful knob for a
-game. Encode danger, time, stamina, gold, or noise as cost, and NPCs
-start producing *weighted* plans — the believable "took the safer longer
-road because the shortcut was risky" behavior — instead of any-valid
-plan.
+**Why / RPG angle:** action cost is the single most useful knob a game
+has. Encode danger, time, stamina, gold, or noise as cost, and NPCs
+start producing *weighted* plans — the believable "took the safer
+longer road because the shortcut was risky" behavior — instead of any
+old valid plan.
 
 **Already exists:** numeric fluents and metric machinery; the PDDL3
 pipeline already compiles and anytime-B&B-optimizes metrics over
 `is-violated` and `total-cost` terms. What's missing is the front door
-and the heuristic: the parser does not accept the `:action-costs`
+and the heuristic: the parser doesn't accept the `:action-costs`
 requirement, and the FF heuristic estimates *distance*-to-go, not
 *cost*-to-go.
 
@@ -209,11 +211,12 @@ requirement, and the FF heuristic estimates *distance*-to-go, not
 ## Phase 3 — LAMA-style satisficing configuration
 
 **Goal:** the workhorse configuration — landmark + FF heuristics under
-anytime weighted search. Best coverage-per-effort target; the historical
-winner of IPC6 sequential satisficing and still strong on IPC7.
+anytime weighted search. Best coverage-per-effort target on the board;
+the historical winner of IPC6 sequential satisficing and still strong on
+IPC7.
 
 **Why / RPG angle:** fast, good-quality plans under a time budget mean
-responsive NPCs. This is the config the game will lean on most.
+responsive NPCs. This is the config the game leans on hardest.
 
 **Already exists:** the FF heuristic with **helpful actions** (used in
 EHC lookahead), weighted best-first with tunable `weight_g`/`weight_h`,
@@ -249,10 +252,11 @@ maximizes achieved-goal utility minus total cost — i.e., choose *which*
 goals to pursue when you can't have them all.
 
 **Why / RPG angle:** this is the most RPG-aligned capability in all of
-IPC6. An NPC with limited time or resources deciding which quests/goals
-are worth it, dropping low-value objectives under scarcity and picking
-them up when resources are plentiful, *is* oversubscription planning.
-Comparatively few planners do it well — a genuine differentiator.
+IPC6. An NPC with limited time or resources deciding which quests are
+worth it, dropping low-value objectives under scarcity and picking them
+back up when resources loosen, *is* oversubscription planning.
+Comparatively few planners do it well — a genuine differentiator, a card
+few other systems hold.
 
 **Already exists:** most of the compilation target. PDDL3 soft-goal
 preferences with weighted `is-violated` metrics are compiled (forgo
@@ -288,15 +292,16 @@ utilities ≈ weighted preferences; forgo-cost = foregone utility.
 **Goal:** make the PDDL3.0 machinery — Ferroplan's strongest suit —
 compose cleanly with action costs and net-benefit.
 
-**Why / RPG angle:** trajectory constraints are how you express behavior
+**Why / RPG angle:** trajectory constraints are how you write behavior
 rules — "always avoid the lava," "eventually reach the shrine," "never
-let HP hit zero," soft stylistic preferences on how an NPC acts.
+let HP hit zero," soft stylistic preferences on how an NPC carries
+itself.
 
 **Already exists:** this is the 0.6–0.8 arc. Trajectory-constraint
 monitors, the END construction for hard monitors, the shared monitor
 transition block, ESPC penalty coordination, `is-violated` metric
 weighting — exercised against the IPC5 qualitative/complex-preference
-sets with recorded scoreboards. The substrate is *done*; do not
+sets with recorded scoreboards. The substrate is *done*; don't
 re-litigate it.
 
 **Tasks**
@@ -321,12 +326,13 @@ re-litigate it.
 ## Phase 6 — Portfolio engine
 
 **Goal:** run a small set of complementary configurations rather than
-betting on one. Cheap once two or three configs exist; historically what
-wins IPC6/IPC7 coverage.
+betting the whole hand on one. Cheap once two or three configs exist;
+historically what wins IPC6/IPC7 coverage.
 
 **Why / RPG angle:** robustness. The game can't afford a single
 configuration that faceplants on one category of quest/decision. A
-portfolio degrades gracefully across problem types.
+portfolio degrades gracefully across problem types instead of failing
+loud on one.
 
 **Already exists:** the seed of it. `auto` mode already routes by
 problem features (`features.rs`) across ff / pddl3 / temporal /
@@ -358,10 +364,10 @@ shared budget.
 subtracks.
 
 **Why / RPG angle:** honestly the *least* necessary for a game — games
-want fast and near-optimal, not provably optimal. Included because it's
-the intellectually richest part of IPC7 and gives Ferroplan a serious
-planner credential. Build it if the scope appetite is there; skip or
-defer without guilt if the game is the priority.
+want fast and near-optimal, not a mathematically defensible optimum.
+Included because it's the intellectually richest part of IPC7 and gives
+Ferroplan a serious planner credential. Build it if the scope appetite
+is there; skip or defer without guilt if the game is the priority.
 
 **Tasks**
 - An admissible heuristic — start with **LM-cut** (works over the
@@ -386,8 +392,8 @@ actions shipped (constant / parameter-dependent durations, duration
 inequalities, timed initial literals), with a decision-epoch pipeline,
 scheduler, makespan tracking, temporal plan validation, and goal
 decomposition into contracts. The original draft's "do not start until
-a game-design decision" gate is inverted: the capability exists; the
-decision is how much more to *invest*.
+a game-design decision" gate is inverted: the capability already
+exists; the only open question is how much more to *invest*.
 
 **Remaining tasks**
 - Run the IPC6/IPC7 **temporal-satisficing** sets through the harness;
@@ -424,8 +430,8 @@ existing `benchmarks/` harness and scoreboard format rather than
 inventing a parallel one.
 
 **Plan validation.** Internal `--validate` for the inner loop; VAL for
-anything claimed in a scoreboard. A plan we can't validate doesn't
-count.
+anything claimed in a scoreboard. A plan nobody can validate doesn't
+count, full stop.
 
 **Regression safety.** The IPC5 guards in CI run on every change; treat
 an IPC5 regression as a build failure. Add IPC6/7 baselines to the same
@@ -440,7 +446,7 @@ close as phases land: a **wall-clock/tick budget as a first-class
 node-count caps, which are deterministic but not time-denominated;
 consider exposing both), `Session` support for PDDL3 and temporal
 domains, and mutable goals in a session. This is where Ferroplan earns
-its keep as a game brain beyond IPC scores.
+its keep as a game brain, past the IPC scoreboards.
 
 **Testing & docs.** Unit tests per component; golden-plan tests for
 representative instances; property tests where feasible. Update
@@ -465,18 +471,18 @@ representative instances; property tests where feasible. Update
 
 **RPG-critical path, if forced to prioritize:**
 `0 → 2 → 3 → 4 → 5`, then add `6`, weaving Phase 1 in where it pays.
-Phases 7 and the rest of 8 are bonus.
+Phases 7 and the rest of 8 are bonus rounds.
 
 ---
 
 ## Note to the agent
 
-This revision was audited against v0.8.0, but code keeps moving — where
-this roadmap and the actual code disagree, **the code wins and the
-roadmap gets a note** (that's how this revision came to be). Keep the
-IPC5 baseline green at all times. The known open game-design questions
-that shape (not gate) the work: turn-based vs real-time, whether genuine
-concurrency exists (affects further temporal investment), and the
-per-tick planning budget (affects the `Options` budget work and
-`Session` extensions). If those get answered, record them in
-`STATUS.md`.
+This revision was audited against v0.8.0, but the code keeps moving —
+where this roadmap and the actual code disagree, **the code wins and the
+roadmap gets a note** (that's how this revision came to exist in the
+first place). Keep the IPC5 baseline green at all times, no lapses. The
+known open game-design questions that shape (not gate) the work:
+turn-based vs real-time, whether genuine concurrency exists (affects
+further temporal investment), and the per-tick planning budget (affects
+the `Options` budget work and `Session` extensions). If those get
+answered, record them in `STATUS.md`.

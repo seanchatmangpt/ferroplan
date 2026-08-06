@@ -1,9 +1,10 @@
 # Coverage borders & the decomposition ruleset
 
-The map a **subproblem-maker** needs: exactly how big/complex a single contract may
-be before ferroplan's one-shot temporal search stops solving it — so the decomposer
-knows what to hand over whole and what to break up. All numbers below are measured
-(see `rpg-world/suite/`, `rpg-world/hard/`, `logistics/`, `jobshop/`).
+Field map for the **subproblem-maker**: the exact size a contract can carry before
+ferroplan's one-shot temporal search stalls out — the line the decomposer works,
+whole handoff on one side, forced break-up on the other. Every number below is
+measured, not estimated (see `rpg-world/suite/`, `rpg-world/hard/`, `logistics/`,
+`jobshop/`).
 
 ## The unifying law
 
@@ -11,69 +12,68 @@ knows what to hand over whole and what to break up. All numbers below are measur
 > accumulative** work, and goes **flat the instant ≥2 contributions must converge
 > onto one goal quantity.**
 
-Every failure is an instance of *converging-contributions ≥ 2*: the relaxation
-counts the first contribution as already satisfying a `>=` goal and stops guiding
-toward the rest. A contract is whole-able iff **(i)** it is one accumulating/
-processing chain within the op budget, **or (ii)** every goal quantity in it
-receives **at most one** converging contribution.
+Trace any failure and it reads the same: *converging-contributions ≥ 2*. The
+relaxation logs the first contribution, marks the `>=` goal satisfied, goes dark on
+the rest. A contract holds together whole iff **(i)** it's one accumulating/
+processing chain inside the op budget, or **(ii)** every goal quantity in it takes
+**at most one** converging contribution.
 
-> **Update (temporal landmark term).** The temporal search now adds a
-> numeric-threshold *landmark deficit* to its phase-1 key, which restores the
-> gradient for **single-round** converging DAGs — a join whose inputs are each
-> produced *once* from cold now solves (e.g. a from-scratch ingot, the metallurgy
-> benchmark), and big linear accumulations got much faster too. The border that
-> remains is **multi-round** convergence (a goal needing N of a product, so each
-> intermediate is needed N times — e.g. `steel ≥ 2` from cold) and the other shapes
-> below; those still want decomposition. So the rule for a subproblem-maker is
-> unchanged as a *safe* default (stage inputs), but the engine is now more forgiving
-> of a single converging step left in a contract.
+> **Update (temporal landmark term).** The temporal search carries a
+> numeric-threshold *landmark deficit* in its phase-1 key now, and the gradient
+> comes back for **single-round** converging DAGs — a join whose inputs are each
+> produced *once* from cold solves clean (the from-scratch ingot, the metallurgy
+> benchmark), and big linear accumulations run faster too. What's left standing is
+> **multi-round** convergence (a goal wanting N of a product, so each intermediate
+> gets pulled N times — `steel ≥ 2` from cold) plus the other shapes below; those
+> still route to decomposition. The subproblem-maker's rule holds unchanged as *safe*
+> default — stage inputs — but the engine gives more room now for one converging step
+> left inside a contract.
 >
-> **Update 2 (`FF_TDEMAND` converging-resource demand term).** Opt-in, the temporal
-> search now regresses the numeric goal down the recipe DAG to a total per-resource
-> demand and guides on cumulative availability — the gradient the relaxation lacks
-> for **multi-round** convergence. Measured: it lifts RPG coverage 26→34/39 (all
-> validated), now solving multi-round converging DAGs (`steel≥2` from cold), cyclic
-> regen (`grain≥10`), and multi-path numeric goals (`coin≥15`). So with `FF_TDEMAND`
-> the **converging-contributions ceiling is no longer 1** for numeric goals — a
-> contract may carry a full multi-round numeric chain. What still wants the
-> decomposer: **predicate/structural conjunctions** (the monolithic "village shape"
-> `built-wall`, multi-structure `found-village`, big mixed `order-8/12`), which the
-> demand term — numeric-only — does not address.
+> **Update 2 (`FF_TDEMAND` converging-resource demand term).** Opt-in: the temporal
+> search regresses the numeric goal down the recipe DAG to a total per-resource
+> demand and steers on cumulative availability — the gradient the relaxation never
+> had for **multi-round** convergence. Measured lift: RPG coverage 26→34/39, all
+> validated, multi-round converging DAGs solving now (`steel≥2` from cold), cyclic
+> regen (`grain≥10`), multi-path numeric goals (`coin≥15`). Under `FF_TDEMAND` the
+> **converging-contributions ceiling is no longer 1** for numeric goals — a contract
+> can carry a full multi-round numeric chain. Still routes to the decomposer:
+> **predicate/structural conjunctions** (the monolithic "village shape" `built-wall`,
+> multi-structure `found-village`, big mixed `order-8/12`) — the demand term is
+> numeric-only, doesn't touch those.
 >
-> **Update 3 (numeric demand is now default-on).** The numeric half of Update 2 is
-> the **default** as of v0.2 (the `Numeric` tier) — so the multi-round numeric
-> ceiling lift above applies with no flag set. Only the *predicate/structural* half
-> (predicate-goal-threshold seeding + goal-relevance pruning) stays behind explicit
-> `FF_TDEMAND` (the `Full` tier), because seeding demand from a renewable-pool guard
-> (`(>= (avail) 1)`) serializes concurrency domains. Opt out of all demand guidance
-> with `FF_NO_TDEMAND`.
+> **Update 3 (numeric demand is now default-on).** As of v0.2, the numeric half of
+> Update 2 ships **default** (the `Numeric` tier) — the multi-round ceiling lift
+> above applies with no flag set. Only the *predicate/structural* half
+> (predicate-goal-threshold seeding + goal-relevance pruning) stays gated behind
+> explicit `FF_TDEMAND` (the `Full` tier): seeding demand from a renewable-pool guard
+> (`(>= (avail) 1)`) serializes concurrency domains, so that piece waits for an
+> opt-in. `FF_NO_TDEMAND` kills all demand guidance if you need the old path back.
 >
-> **Update 4 (goal-relevance pruning is now default-on, v0.3.0).** Pruning was
-> decoupled from the `Full` tier: it now rides the default (`FF_NOREL` disables
-> pruning alone; `FF_NO_TDEMAND` still restores the pristine pre-v0.2 path). The
-> trigger: on a fully-featured hub, even a 5-step chain (`flour ≥ 2`:
-> till→plant→irrigate→harvest→mill) exhausted the node budget in goal-irrelevant
-> unbounded accumulators; pruned, it solves in ~30 ms. The pass structure gained an
+> **Update 4 (goal-relevance pruning is now default-on, v0.3.0).** Pruning cut loose
+> from the `Full` tier and rides default now (`FF_NOREL` disables pruning alone;
+> `FF_NO_TDEMAND` still restores the pristine pre-v0.2 path). The trigger case: on a
+> fully-featured hub, even a 5-step chain (`flour ≥ 2`: till→plant→irrigate→
+> harvest→mill) burned through the node budget chasing goal-irrelevant unbounded
+> accumulators. Pruned, it solves in ~30 ms. The pass structure picked up an
 > **unmasked complete backstop** (helpful/sound → full/tight → full/sound →
-> full/unmasked), so completeness no longer depends on the mask at all. Measured on
-> the full corpus (suite + hard + contracts + cabin + villagers): **65/75 → 67/75,
-> zero losses, zero makespan changes** — the `gather-build` village shape now
-> solves under plain defaults, and only the *predicate demand seeding* half of the
-> `Full` tier remains opt-in. Statically unproducible goals (a goal fact with no
-> adder / a threshold no effect can raise) now fail in microseconds instead of
-> exhausting every pass.
+> full/unmasked) — completeness stops depending on the mask entirely. Full-corpus
+> measurement (suite + hard + contracts + cabin + villagers): **65/75 → 67/75, zero
+> losses, zero makespan changes.** The `gather-build` village shape solves under
+> plain defaults now; only the *predicate demand seeding* half of the `Full` tier
+> stays opt-in. Statically unproducible goals (a goal fact with no adder, a
+> threshold no effect can raise) fail in microseconds instead of burning every pass.
 >
-> **Update 5 (on-failure escalation ladder, v0.3.0).** A failed default-tier
-> monolithic search now retries at the `Full` tier, then hands the goal to the
-> decomposer — automatically, no flag. Each rung runs only on failure, so nothing
-> that solves changes; the would-be failure just gets more machinery. Corpus:
-> 67 → 73/75 (crew-solo/pair + skilled-specialists at the Full rung; order-8/12 +
-> found-village at the decomposer rung; all validated). Practical upshot for a
-> subproblem-maker: the "MUST SPLIT" rules below are now advisory for
-> *performance* rather than *coverage* — a too-big conjunction costs the ladder's
-> extra minutes instead of failing outright. `crew-trio` and
-> `skilled-crosstrained` remain the measured border (no rung reaches them).
-> `FF_NO_ESCALATE` restores single-rung behavior.
+> **Update 5 (on-failure escalation ladder, v0.3.0).** A default-tier monolithic
+> search that fails now retries at the `Full` tier, then hands off to the decomposer
+> — automatic, no flag. Each rung fires only on failure, so nothing that already
+> solves changes; a would-be failure just gets more machinery thrown at it. Corpus:
+> 67 → 73/75 (crew-solo/pair + skilled-specialists caught at the Full rung;
+> order-8/12 + found-village caught at the decomposer rung; all validated). Practical
+> read for a subproblem-maker: the "MUST SPLIT" rules below are advisory for
+> *performance* now, not *coverage* — an oversized conjunction costs the ladder's
+> extra minutes instead of failing outright. `crew-trio` and `skilled-crosstrained`
+> stay the measured border — no rung reaches them. `FF_NO_ESCALATE` restores
+> single-rung behavior.
 
 ## Border table (measured)
 
@@ -90,8 +90,8 @@ receives **at most one** converging contribution.
 | **logistics** leg (per-location goods) | **1** unit · 1 vehicle · any #hops | 2 units OR a 2nd vehicle/transshipment | per-unit, per-leg, per-package |
 | **jobshop** (independent jobs) | ≤ ~**40k** operate groundings (100 jobs×20×20, 45s) | ~90k (100×30×30) | partition by jobs (never by machine/stage) |
 
-Two universal anchors: **(1)** op-count ceiling ≈ 2000 for a clean linear chain;
-**(2)** converging-contributions ceiling = **1**.
+Two anchors hold across every row: **(1)** op-count ceiling ≈ 2000 for a clean
+linear chain; **(2)** converging-contributions ceiling = **1**.
 
 ## HAND WHOLE — a contract may contain
 
@@ -116,18 +116,18 @@ Two universal anchors: **(1)** op-count ceiling ≈ 2000 for a clean linear chai
 
 ## How the rules generalize across domains
 
-- **rpg-world** (crafting/economy): the source of the numbers above.
+- **rpg-world** (crafting/economy): where the numbers above were measured.
 - **logistics** (per-location goods, trucks/trains, capacity): *same failure family,
-  bites earlier* — the per-location stock model is relaxation-hostile, so almost
-  every non-trivial delivery is a converging-flow problem. Qualitative rules carry
-  over verbatim; the quantitative allowances collapse to **multiplicity 1** (1 unit,
-  1 vehicle, 1 leg). Deep travel stays free, exactly as in rpg-world.
-- **jobshop** (scheduling, machine-exclusion): the heuristic-shaped thresholds **do
-  not apply** — jobs are independent linear chains that never converge, the engine's
-  strong suit (it schedules **100 jobs** fine). The only limit is grounding-table
-  size; slice by jobs.
+  arrives sooner.* The per-location stock model is relaxation-hostile — almost any
+  non-trivial delivery is already a converging-flow problem. Qualitative rules
+  transfer verbatim; the quantitative allowances collapse to **multiplicity 1** (1
+  unit, 1 vehicle, 1 leg). Deep travel stays free, same as rpg-world.
+- **jobshop** (scheduling, machine-exclusion): the heuristic-shaped thresholds
+  **don't apply** here — jobs are independent linear chains that never converge,
+  which is the engine's strong suit (it clears **100 jobs** clean). The only ceiling
+  is grounding-table size; slice by jobs when it's hit.
 
-So for the subproblem-maker: the **converging-contributions = 1** invariant is the
-master rule across all three domains; the op-count and travel-depth ceilings are
-secondary; and "is this domain like logistics (collapse to 1) or like jobshop
-(slice by independent units)?" tells you which quantitative budget applies.
+Bottom line for the subproblem-maker: **converging-contributions = 1** is the master
+invariant across all three domains; op-count and travel-depth ceilings are
+secondary. Ask "does this domain behave like logistics (collapse to 1) or like
+jobshop (slice by independent units)?" — that call picks the quantitative budget.

@@ -1,7 +1,8 @@
 # Scenarios — problem spaces that stress different mechanics
 
-Beyond the per-subsystem `contracts/`, these instances each push a *different*
-dimension of the engine on the same `rpg-world` domain. All solve quickly.
+Beyond the per-subsystem `contracts/`, each of these instances leans on a
+*different* pressure point of the engine, same `rpg-world` domain underneath.
+All clear fast.
 
 | scenario | stresses | makespan |
 |---|---|---|
@@ -16,10 +17,10 @@ ff -o examples/rpg-world/domain.pddl -f examples/rpg-world/scenarios/mana-cycle.
 
 ## A modelling note surfaced by `guild-order`
 
-Roles (`smith`, `mason-skill`, `cook`, …) are **yield bonuses, not gates**, and the
-domain has **no agent-exclusion** (a durative action doesn't reserve its agent), so
-the planner happily fills a whole order with one craftsman rather than dividing the
-work. If you want NPCs to be one-task-at-a-time (and thus *force* division of
-labour), add a per-agent `(free ?a)` token: consume it `at start`, restore it
-`at end` on every action. That single change makes the model agent-exclusive — and
-turns `guild-order` into a real parallel-crew problem.
+Roles (`smith`, `mason-skill`, `cook`, …) are **yield bonuses, not gates**. The
+domain carries **no agent-exclusion** — a durative action never reserves its
+agent — so the planner is content to run a whole order through one craftsman
+instead of splitting the work. Want NPCs one-task-at-a-time, division of labor
+forced? Add a per-agent `(free ?a)` token: consume it `at start`, restore it
+`at end` on every action. One change, and the model turns agent-exclusive —
+`guild-order` becomes a real parallel-crew problem.

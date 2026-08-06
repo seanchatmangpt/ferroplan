@@ -30,6 +30,10 @@ Operate the phase engine for `$ARGUMENTS`.
    `bind_plan_receipt`/`bind_allocation_receipt` (its `receipt` field must
    equal `--receipt`); `phase.py transition` calls `verify_receipt` on it
    before advancing.
-7. Never use phase state as execution proof. The phase runtime is a projection over authoritative receipts.
+7. Never mistake the phase state itself for execution proof. The phase
+   runtime is a projection cast over authoritative receipts — a shadow,
+   not the object casting it.
 
-A repository mutation automatically collapses the vector to observed, unallocated, unplanned, sealed, drifted, and conformance-unknown. Re-establish only the dimensions supported by new evidence.
+A repository mutation automatically collapses the vector to observed,
+unallocated, unplanned, sealed, drifted, and conformance-unknown.
+Re-establish only the dimensions new evidence actually supports.

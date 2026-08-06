@@ -22,9 +22,9 @@
 > constraints-on-temporal, 0.6→0.7 Phase 4 temporal selection).
 
 0.7 moved the fence: the six untimed PDDL3 modalities are enforced, soft
-trajectory preferences are priced, and the qualitative track is scored. But
-the enforcement came with two measured prices and one measured blindness,
-all recorded rather than fixed:
+trajectory preferences priced, the qualitative track scored. But the
+enforcement came with a bill — two measured prices and one measured
+blindness, all written down rather than fixed:
 
 - **Exponential goals.** Each monitor's S_n acceptance check is a goal
   conjunct, several operators contribute disjunctions, and the grounder
@@ -47,22 +47,21 @@ all recorded rather than fixed:
   then blows its frontier memory inside a single pass on the widened
   states (storage p05/p06 ship with a documented `FF_NO_ESPC=1` row).
 
-**0.8 pays those costs.** The compilation becomes linear where it was
-exponential, the grounding becomes shared where it was multiplied, the
-ESPC pass becomes bounded where it was unbounded, and the search learns to
-read the automata it already carries. The twice-deferred temporal work
-(constraints on the temporal path; temporal selection) rides again as
-gated phases, in the 0.5/0.6/0.7 tradition: measured win or documented
-dead end, neither on the minimum shipping path.
+**0.8 pays the bill.** The compilation goes linear where it was
+exponential, the grounding goes shared where it was multiplied, the ESPC
+pass goes bounded where it was unbounded, and the search finally learns to
+read the automata it's been carrying the whole time. The twice-deferred
+temporal work — constraints on the temporal path, temporal selection —
+rides again as gated phases, same tradition as 0.5/0.6/0.7: measured win or
+documented dead end, neither one on the critical path.
 
-Two contracts are sacred throughout, unchanged: **reported == verified**
-(verify.rs folds the ORIGINAL constraint semantics over its replay and
-never sees the compiled monitors — every encoding change in this plan is
-invisible to the oracle by construction, which is exactly what makes the
-oracle the regression net for it), and **determinism** (same problem, same
-plan, any thread count; every default change keeps a restore hatch; every
-budget is an eval count, never a wall clock; negative results get recorded
-in this document).
+Two contracts stay sacred, unchanged: **reported == verified** — verify.rs
+folds the ORIGINAL constraint semantics over its replay and never sees the
+compiled monitors, so every encoding change in this plan is invisible to the
+oracle by construction, which is exactly what makes the oracle a real
+regression net — and **determinism**: same problem, same plan, any thread
+count; every default change keeps a restore hatch; every budget is an eval
+count, never a wall clock; every negative result lands in this document.
 
 ---
 
@@ -146,27 +145,27 @@ Phase 1: the END action ──► Phase 2: the grounding ──► Phase 3: ESPC
                       Phase 5b: temporal selection ◄────────── (gated, from 0.6/0.7) ────────┘
 ```
 
-Ordering rationale: Phases 1–2 are correctness-preserving encoding fixes
-with exact regression oracles (the grounding fixture counts, the
-byte-identical suite) — cheapest risk first, and Phase 5a *depends* on
+Why this order: Phases 1–2 are correctness-preserving encoding fixes with
+exact regression oracles — the grounding fixture counts, the
+byte-identical suite — cheapest risk first, and Phase 5a *depends* on
 Phase 1's literal goal. Phase 3 turns the scoreboard's two documented-env
-rows into defaults rows. Phase 4 is the headline bet on the remaining
-tails. Phases 5a/5b are the inherited gated stretch work; 0.8.0 ships
-without them if their gates fail.
+rows into plain defaults rows. Phase 4 is the headline bet on what's left.
+Phases 5a/5b are the inherited gated stretch work; 0.8.0 ships without them
+if their gates don't open.
 
 ---
 
 ## Phase 1 — The END-action construction: linear goals for hard monitors
 
-**Why:** the standard construction (recorded twice in 0.7 as "the known
-fix if it bites" — it bit) moves each hard monitor's S_n acceptance check
-off the goal and onto a forced-terminal synthetic action, leaving a
-literal-only goal. The grounder's DNF product then never fires: cost is
-linear in monitors (k conditional latches on one op) instead of
-exponential (2^k/3^k REACH-GOAL ops). The 0.7 deferral reason — "moving
+**Why:** the standard construction — flagged twice in 0.7 as "the known
+fix if it bites," and it bit — moves each hard monitor's S_n acceptance
+check off the goal and onto a forced-terminal synthetic action, leaving a
+literal-only goal behind. The grounder's DNF product never fires again:
+cost goes linear in monitors, k conditional latches on one op, instead of
+exponential, 2^k/3^k REACH-GOAL ops. The 0.7 deferral reason — "moving
 `problem.goal` into an action precondition interacts with the
-goal-preference metric machinery" — dissolves under one design decision:
-**nothing moves into a precondition, and soft acceptance does not move at
+goal-preference metric machinery" — dissolves under one design call:
+**nothing moves into a precondition, and soft acceptance doesn't move at
 all.**
 
 **The construction** (all inside `constraints::compile`, emitted only
@@ -340,9 +339,10 @@ qualitative oracle locks exact.
 ## Phase 3 — ESPC on wide-monitor states: bounded, or not engaged
 
 **Why:** storage qualpref p05/p06 complete only under a documented
-`FF_NO_ESPC=1` row — the scoreboard's own text calls memory-bounding the
-pass 0.8 work. The map found something better than a bound: the
-engagement itself is an artifact. Both get fixed, cheapest first.
+`FF_NO_ESPC=1` row — the scoreboard already calls memory-bounding the pass
+0.8's problem to solve. The measurement found something better than a
+bound: the engagement itself is the artifact. Both get fixed, cheapest
+first.
 
 **Scope:**
 
@@ -413,12 +413,12 @@ pure-defaults heavy lock at 47, reported == verified, in CI's tier.
 
 ## Phase 4 — Constraint-aware search guidance (the headline)
 
-**Why:** the 0.7 NOT-list nominated this as the 0.8 headline "if the
-Phase-2/5 ledger shows guidance-bound tails." It does: trucks p07/p08
-produce nothing inside 600 s, four more instances need the doubled
-budget, and the blindness is structural (delete relaxation cannot see
-VIOL traps or pending obligations). The automata are already in every
-state — the search just never reads them.
+**Why:** the 0.7 NOT-list marked this the 0.8 headline "if the Phase-2/5
+ledger shows guidance-bound tails." It does. trucks p07/p08 produce
+nothing inside 600 s, four more instances need the doubled budget, and the
+blindness runs structural — delete relaxation cannot see VIOL traps or
+pending obligations at all. The automata are already sitting in every
+state. The search just never learned to read them.
 
 **Scope:**
 
@@ -631,12 +631,12 @@ scoreboard still self-scores against an unreachable reference archive.
 > 0.7 moved the fence and wrote down the bill: goals exponential in
 > monitors, a monitor tax multiplied across every ground action, a
 > penalty pass that drowned in the states it widened, a heuristic blind
-> to the automata it carried. **0.8 pays the costs.** The acceptance
-> checks ride one terminal action instead of an exponential goal; the
-> monitor block is grounded once and shared; the pass that couldn't be
-> budgeted is bounded or not engaged; and the search finally reads the
-> monitor bits it has been dragging through every state — dead ends
-> pruned by proof, locked losses priced, obligations counted. The
-> temporal debts come up for payment too, gated as ever: measured win or
-> written dead end. Same plan on any machine at any thread count; every
-> default keeps a way back; reported == verified, still, on everything.
+> to the automata it carried. **0.8 pays it.** The acceptance checks ride
+> one terminal action instead of an exponential goal; the monitor block
+> is grounded once and shared; the pass that couldn't be budgeted is
+> bounded or not engaged at all; and the search finally reads the
+> monitor bits it's been dragging through every state — dead ends pruned
+> by proof, locked losses priced, obligations counted. The temporal debts
+> come up for payment too, gated as ever: measured win or written dead
+> end. Same plan on any machine at any thread count. Every default keeps
+> a way back. Reported == verified, still, on everything.

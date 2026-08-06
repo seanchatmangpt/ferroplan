@@ -19,9 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # A malformed examples.js kills the demo's whole module script — the page
-      # deploys with empty dropdowns. Parse it as a real ES module before
-      # spending anything on the wasm builds.
+      # One bad byte in examples.js and the whole module script goes dark —
+      # the page ships with empty dropdowns, nobody the wiser. Parse it cold
+      # as a real ES module before we burn a single cycle on the wasm builds.
       - name: Sanity-check the demo module graph
         run: |
           node --input-type=module -e "
@@ -33,19 +33,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install mdBook
         run: cargo install mdbook --version "^0.4" --locked
-      # Publish the committed benchmark numbers as-is — they're machine-dependent
-      # (generated locally per benchmarks/COMPARING.md), so re-running the suite on a
-      # CI runner is slow and not meaningful. Regenerate locally + commit when needed.
+      # The committed numbers ship as-is, no re-run. They're machine-dependent
+      # (forged locally per benchmarks/COMPARING.md) — chasing them on a CI
+      # runner buys nothing but slow. Regenerate on home iron, commit, done.
       - name: Wire benchmark results into the book
         run: cp benchmarks/results.md book/src/results.md
-      - name: Build the in-browser planner demo (WASM)
+      - name: Compile the in-browser planner demo (WASM)
         run: |
           rustup target add wasm32-unknown-unknown
           cargo install wasm-bindgen-cli --version 0.2.126 --locked
           crates/ferroplan-wasm/build.sh
-      - name: Build the in-browser GUI (Bevy WASM)
+      - name: Compile the in-browser GUI (Bevy WASM)
         run: crates/ferroplan-bevy/build-wasm.sh
-      - name: Build book
+      - name: Bind the book
         run: mdbook build book
       - name: Bundle the WASM demos into the site (/demo/ planner, /gui/ visualizer)
         run: |

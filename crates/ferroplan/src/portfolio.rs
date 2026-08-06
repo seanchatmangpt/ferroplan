@@ -1,42 +1,43 @@
-//! Sequential portfolio scheduler (ferroplan-roadmap.md Phase 6).
+//! Four agents, one budget, one target. The sequential portfolio scheduler
+//! (ferroplan-roadmap.md Phase 6) — the house's answer to betting everything
+//! on a single runner.
 //!
-//! Run a small set of COMPLEMENTARY classical configurations on the same
-//! problem under one shared, deterministic eval budget, instead of betting
-//! the whole budget on one. Members restart per round with doubling slices
-//! (the classic sequential-portfolio schedule): a config that would win
-//! quickly wins in an early round at small cost; a config that needs depth
-//! gets it in later rounds. The budget is an EVALUATED-STATE pool — never
-//! wall clock — charged by each member's actual count, so the whole
-//! schedule is thread-count and machine independent (the house determinism
-//! contract).
+//! Instead of one configuration burning the whole allotment alone, a crew of
+//! complementary classical agents work the same problem under one shared,
+//! deterministic eval budget. Members rotate through rounds on doubling
+//! slices — a fast solve gets found cheap, early; a stubborn one earns depth
+//! in the rounds that follow. The budget is counted in evaluated states, never
+//! the clock, charged against each member's real spend — so the whole run
+//! plays out the same on any machine, any thread count. The house doesn't
+//! negotiate on that.
 //!
-//! v1 members (all existing machinery, fixed order):
-//!   1. `ladder`  — EHC → bounded LAMA rung → weighted best-first (the
-//!      library default; wins most instances in round 0).
-//!   2. `lama`    — the landmark/preferred-operator rung alone, uncapped
-//!      within its slice (wins plateau domains: barman, parking,
-//!      floortile).
-//!   3. `bfs-w3`  — plain weighted best-first at w_h = 3 (middle greed, no
-//!      EHC detour — wins where helpful-action pruning misleads).
-//!   4. `bfs-w1`  — near-uniform best-first (depth-quality leaning).
+//! The crew, run order fixed:
+//!   1. `ladder`  — EHC into a bounded LAMA rung into weighted best-first.
+//!      The default runner; closes most jobs before round one ends.
+//!   2. `lama`    — landmark and preferred-operator tracking alone, running
+//!      loose inside its slice. Cracks the plateau domains — barman, parking,
+//!      floortile — where the ladder stalls.
+//!   3. `bfs-w3`  — weighted best-first at w_h = 3, no EHC detour. Moves in
+//!      where helpful-action pruning leads the others astray.
+//!   4. `bfs-w1`  — near-uniform best-first. Trades speed for depth-quality.
 //!
-//! Coverage-first: the first plan any member finds is returned, tagged
-//! with the winner's name (the portfolio-level anytime "global best" over
-//! METRICS stays with the downstream cost/length sweeps, which run on the
-//! returned plan exactly as for any single config). A member whose
-//! COMPLETE search proves exhaustion (un-capped Unsolvable) settles the
-//! whole task as unsolvable early.
+//! First plan through the wire wins — tagged with whichever member found it.
+//! The portfolio doesn't chase a global-best metric; that job stays
+//! downstream, in the cost/length sweeps that run on the winning plan same as
+//! they would on any single config. If a member's search is complete and
+//! comes back empty-handed — no cap, no ceiling, just proven dead — the whole
+//! job is called unsolvable on the spot.
 
 use crate::packed::PackedTask;
 use crate::search::{plan, search_from, PlanResult, SearchCfg};
 
-/// First slice per member; doubles each round.
+/// Opening slice, every member's first shot; doubles each round after.
 const SLICE0: usize = 50_000;
 
 pub struct Outcome {
     pub ops: Option<Vec<usize>>,
     pub evaluated: usize,
-    /// Name of the member that produced the plan (for the report note).
+    /// Which member cracked it — logged for the report.
     pub winner: Option<&'static str>,
 }
 
@@ -114,7 +115,9 @@ pub fn solve(task: &PackedTask, threads: usize, cfg: SearchCfg) -> Outcome {
     }
 }
 
-/// One member, one bounded run. Returns (plan, evals used, proven-unsolvable).
+/// One runner, one bounded shift on the clock. Comes back with a plan, a
+/// body count of evals spent, and a flag if the search proved the ground
+/// dead rather than just running out of budget.
 fn run_member(
     task: &PackedTask,
     member: usize,

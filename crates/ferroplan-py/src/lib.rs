@@ -1,4 +1,5 @@
-//! Python bindings for ferroplan (via pyo3).
+//! Python bindings — the engine's voice piped through pyo3, for anyone
+//! working the console in a snake-tongue dialect.
 //!
 //! ```python
 //! import ferroplan, json
@@ -6,18 +7,19 @@
 //! print(sol["solved"], sol["plan"]["length"])
 //! ```
 //!
-//! Build: `pip install maturin && maturin develop` (in this crate), or
-//! `maturin build --release` for a wheel.
+//! Build: `pip install maturin && maturin develop` in this crate, or
+//! `maturin build --release` to cut a wheel and walk away.
 
 use ferroplan_core::{solve, Mode, Options};
 use pyo3::prelude::*;
 
-/// Solve a PDDL domain + problem. Returns a JSON string of the `Solution`
-/// (parse it with `json.loads`), or `{"error": "..."}` on a parse/solve error.
+/// Feed it a domain and a problem; it comes back with a `Solution` — JSON,
+/// crack it open with `json.loads` — or `{"error": "..."}` if the parse or
+/// the search went bad.
 ///
-/// `mode` ∈ "auto" | "ff" | "pddl3" | "partition" | "temporal" (default "auto").
-/// `threads` defaults to the planner's auto count; pass 1 for deterministic
-/// single-thread.
+/// `mode` ∈ "auto" | "ff" | "pddl3" | "partition" | "temporal" (default
+/// "auto" — let the engine read the shape). `threads` defaults to the
+/// planner's own headcount; pass 1 to pin it down, one lane, deterministic.
 #[pyfunction]
 #[pyo3(signature = (domain, problem, mode=None, threads=None))]
 fn plan(domain: &str, problem: &str, mode: Option<&str>, threads: Option<usize>) -> String {
@@ -36,7 +38,7 @@ fn plan(domain: &str, problem: &str, mode: Option<&str>, threads: Option<usize>)
     }
 }
 
-/// ferroplan's version string.
+/// The build's serial number.
 #[pyfunction]
 fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()

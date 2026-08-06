@@ -20,9 +20,10 @@ Admit `$ARGUMENTS`.
 
 Both `loop.py admit` and `phase.py transition` now require `--envelope`
 alongside `--receipt`, and each calls `verify_receipt` on that envelope
-before accepting it — so refusal on a bad digest, predecessor, or standing
-is partially enforced by the script itself now, not solely a human/agent
-judgment call. Refuse admission when any digest, predecessor, validator
-standing, event count, or phase invariant fails, and treat a script-level
-`verify_receipt` failure as an authoritative refusal signal in addition to
-manual checks. Admission is data transformation, not publication.
+before accepting it — the script itself refuses a bad digest, predecessor,
+or standing now, not solely a human or agent judgment call. Refuse
+admission when any digest, predecessor, validator standing, event count,
+or phase invariant fails, and treat a script-level `verify_receipt`
+failure as authoritative on top of your own checks. Admission moves data
+from one shape to another — it is not publication, and it never becomes
+publication by accident.

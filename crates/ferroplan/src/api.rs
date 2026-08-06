@@ -1,8 +1,9 @@
-//! The smart, serde-serializable public API.
+//! Front door into the machine. No text, no smoke.
 //!
-//! [`solve`] grounds and plans, returning a typed [`Solution`] (plan as
-//! structured [`Step`]s, statistics, optional PDDL3 metric) instead of text.
-//! Everything here is `serde`-serializable, so it round-trips to/from JSON.
+//! [`solve`] takes the raw plans, runs the grid, hands back a typed
+//! [`Solution`] — steps in order, the numbers that matter, the PDDL3 metric
+//! if there was one. Every shape in here is `serde`-cut: it survives the
+//! wire in either direction.
 
 use std::collections::HashSet;
 
@@ -17,44 +18,50 @@ use crate::pddl3;
 use crate::resolve::{self, Solved};
 use crate::search;
 
-/// Which planning strategy to use.
+/// The doctrine the engine runs under.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
-    /// PDDL3 metric mode if the problem has preferences/metric, else classic FF.
+    /// Reads the wire. PDDL3 metric if the job carries preferences, plain
+    /// FF otherwise.
     #[default]
     Auto,
-    /// Classic delete-relaxation FF best-first over the whole task.
+    /// Straight delete-relaxation FF, best-first, no detours.
     Ff,
-    /// SGPlan-style partition-and-resolve.
+    /// SGPlan cut: carve the task into pieces, solve, stitch.
     Partition,
-    /// PDDL3 soft-goal preferences + anytime branch-and-bound metric optimization.
+    /// Soft goals on the table, anytime branch-and-bound tightening the
+    /// metric until the clock or the budget calls it.
     Pddl3,
-    /// PDDL2.1 durative actions via decision-epoch temporal search.
+    /// PDDL2.1 durative actions, decision-epoch temporal search — time
+    /// itself is part of the state.
     Temporal,
-    /// Sequential portfolio over complementary classical configurations
-    /// under one shared eval budget (ferroplan-roadmap.md Phase 6).
-    /// Classical-search only: temporal and preference/metric problems keep
-    /// their own machinery (this mode falls back to it, like `auto`).
+    /// A line of classical configurations run in sequence against one
+    /// shared eval budget (ferroplan-roadmap.md Phase 6). Classical-search
+    /// only — temporal and preference/metric jobs get routed to their own
+    /// machinery, same fallback as `auto`.
     Portfolio,
 }
 
-/// Which search strategy to use within a mode.
+/// The search doctrine inside a mode.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[serde(rename_all = "kebab-case")]
 pub enum Search {
-    /// Let the engine choose: enforced hill-climbing, then weighted best-first if
-    /// EHC gets stuck (the FF/Metric-FF default — fast on most problems).
+    /// Let the machine pick: hill-climb hard, drop to weighted best-first
+    /// the moment it stalls. The FF/Metric-FF default — fast on almost
+    /// everything.
     #[default]
     Auto,
-    /// Enforced hill-climbing (+ helpful actions), falling back to best-first if
-    /// it finds no improving state (kept complete).
+    /// Enforced hill-climbing riding helpful actions, falling back to
+    /// best-first the instant no improving state turns up. Never goes
+    /// incomplete.
     Ehc,
-    /// Weighted best-first over the whole task (complete; ignores helpful actions).
+    /// Weighted best-first, no shortcuts, the whole task laid bare.
+    /// Complete — ignores helpful actions entirely.
     BestFirst,
-    /// EHC first, fall back to best-first if it gets stuck (same as `auto`).
+    /// EHC first, best-first when it chokes. Same shape as `auto`.
     EhcThenBestFirst,
 }
 
@@ -68,36 +75,40 @@ fn default_true() -> bool {
     true
 }
 
-/// Solver options — the single, library-first configuration surface. Every knob
-/// is settable from code and round-trips through JSON (`serde`); the CLI derives
-/// the same flags. Unspecified JSON fields fall back to these defaults.
+/// Every dial the solver answers to, in one place. Set it from code, ship it
+/// over the wire (`serde` round-trips it clean), or leave it alone — the CLI
+/// pulls its own flags from the same panel. Anything you don't set falls
+/// back to these defaults.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub struct Options {
-    /// Planning mode (`auto` routes by problem features).
+    /// The doctrine (`auto` reads the problem's shape and routes itself).
     #[serde(default)]
     pub mode: Mode,
-    /// Search strategy within the mode.
+    /// The search doctrine riding inside that mode.
     #[serde(default)]
     pub search: Search,
-    /// Restrict expansion to helpful actions (used by EHC; no effect on plain
-    /// best-first yet).
+    /// Chain expansion to helpful actions only. EHC obeys it; plain
+    /// best-first doesn't feel it yet.
     #[serde(default = "default_true")]
     pub helpful_actions: bool,
-    /// Best-first `g` (path-length) weight.
+    /// Best-first weight on `g` — how much the path already walked counts.
     #[serde(default = "default_weight_g")]
     pub weight_g: f64,
-    /// Best-first `h` (heuristic) weight. Default `1·g + 5·h`.
+    /// Best-first weight on `h` — how much the heuristic's guess counts.
+    /// House default: `1·g + 5·h`.
     #[serde(default = "default_weight_h")]
     pub weight_h: f64,
-    /// Worker threads; `0` = auto (`min(cores, 6)` or `FFDP_THREADS`).
+    /// Worker threads. `0` hands the choice to the machine
+    /// (`min(cores, 6)`, or `FFDP_THREADS` if it's set).
     #[serde(default)]
     pub threads: usize,
-    /// Cap on evaluated states; `None` = engine default.
+    /// Hard ceiling on states evaluated. `None` leaves the engine's own
+    /// limit standing.
     #[serde(default)]
     pub max_evaluated: Option<usize>,
-    /// PDDL3: optimize the metric (`true`) vs. return a satisficing plan over the
-    /// hard goals only (`false`).
+    /// PDDL3 fork in the road: push for the optimal metric (`true`), or
+    /// take the first plan that clears the hard goals and walk (`false`).
     #[serde(default = "default_true")]
     pub optimize: bool,
 }
@@ -123,35 +134,36 @@ impl Options {
     }
 }
 
-/// One grounded action in the plan.
+/// One grounded move — a single step out on the wire.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Step {
     pub index: usize,
     pub action: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub args: Vec<String>,
-    /// Temporal mode: the action's dispatch time.
+    /// Temporal mode only: the clock-time this move fires.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub time: Option<f64>,
-    /// Temporal mode: the durative action's duration (absent for instantaneous).
+    /// Temporal mode only: how long it burns. Instantaneous moves carry
+    /// nothing here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration: Option<f64>,
 }
 
-/// A found plan.
+/// A plan that made it out alive.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Plan {
     pub steps: Vec<Step>,
     pub length: usize,
-    /// PDDL3 metric value (cost), when a metric was optimized.
+    /// The PDDL3 metric's final tally, if one was in play.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metric: Option<f64>,
-    /// Temporal mode: total plan makespan.
+    /// Temporal mode only: total wall-time the plan burns end to end.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub makespan: Option<f64>,
 }
 
-/// Grounding/search statistics.
+/// The receipts from grounding and search — what it cost to get here.
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Statistics {
     pub grounded_facts: usize,
@@ -160,7 +172,8 @@ pub struct Statistics {
     pub threads: usize,
 }
 
-/// The result of a solve.
+/// What came back from the run — solved or not, plan or silence, plus the
+/// numbers and any field notes.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Solution {
     pub solved: bool,
@@ -172,56 +185,60 @@ pub struct Solution {
     pub notes: Vec<String>,
 }
 
-/// One contract in a [`Decomposition`]: a sub-goal small enough for the temporal
-/// search to solve whole, the sub-plan that achieves it, and where that sub-plan sits
-/// in the stitched global timeline.
+/// One contract cut from a [`Decomposition`]: a sub-goal small enough for the
+/// temporal search to swallow whole, the sub-plan that closes it, and where
+/// that sub-plan lands once it's welded back into the global timeline.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Contract {
     pub index: usize,
-    /// The sub-goal this contract discharges, rendered for inspection
+    /// The sub-goal this contract pays off, rendered plain for the reader
     /// (e.g. `(order o1), (order o2)` or `coin >= 15`).
     pub goal: String,
-    /// The contract's sub-plan, timed relative to its own start.
+    /// The sub-plan, clock zeroed to its own start.
     pub steps: Vec<Step>,
-    /// Sub-plan makespan.
+    /// How long this piece runs.
     pub makespan: f64,
-    /// Offset of this contract's sub-plan in the stitched whole-goal timeline.
+    /// Where this piece sits once welded into the whole-goal timeline.
     pub offset: f64,
 }
 
-/// The inspectable result of decomposing a temporal goal into solvable contracts:
-/// the ordered contracts, the stitched whole-goal plan, and whether the goal had to
-/// fall back to a single monolithic solve (un-splittable, or the split didn't
-/// validate — then there is exactly one contract: the whole goal).
+/// The paper trail of cutting a temporal goal into solvable contracts: the
+/// pieces in order, the stitched whole-goal plan, and a flag for when the
+/// goal wouldn't split — un-cuttable, or the cut didn't hold up — and had to
+/// go through as one monolithic solve instead (then there's exactly one
+/// contract: the whole goal, standing alone).
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Decomposition {
     pub solved: bool,
     pub contracts: Vec<Contract>,
-    /// The stitched, validated whole-goal plan.
+    /// The stitched plan, checked and cleared.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plan: Option<Plan>,
-    /// True when the goal couldn't be split — `contracts` is then the single whole goal.
+    /// True when the cut failed to take — `contracts` then holds the one,
+    /// unsplit whole.
     pub monolithic: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notes: Vec<String>,
 }
 
-/// A "just parse" report: validate PDDL **syntax** and summarize the structure
-/// *without* grounding or solving. Auto-detects domain vs problem. `ok` is `false`
-/// with `error` set on a parse failure. Serde-serializable — for editor tooling, an
-/// LLM authoring loop that wants fast syntax feedback, or the MCP `parse` tool. For
-/// the full typed AST, use [`crate::parser::parse_domain`] / `parse_problem`.
+/// A quick pass, nothing more: check the PDDL **syntax**, sketch the shape,
+/// touch nothing else — no grounding, no solving. Guesses domain vs. problem
+/// on sight. `ok` drops to `false` with `error` set the moment the parse
+/// breaks. Wire-ready for editor tooling, an authoring loop wanting a fast
+/// verdict, or the MCP `parse` tool. Need the full typed tree instead? Go to
+/// [`crate::parser::parse_domain`] / `parse_problem`.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParseReport {
     pub ok: bool,
-    /// `"domain"` or `"problem"` (best-effort classification, set even on error).
+    /// `"domain"` or `"problem"` — a best guess, called even when the parse
+    /// wrecks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requirements: Vec<String>,
-    /// Parse error (with line number) when `ok` is false.
+    /// The wreck report — with a line number — when `ok` reads false.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -230,7 +247,7 @@ pub struct ParseReport {
     pub problem: Option<ProblemSummary>,
 }
 
-/// Structure summary of a parsed domain (signatures rendered as `name argtypes…`).
+/// A domain, X-rayed: signatures laid bare as `name argtypes…`.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DomainSummary {
     pub types: Vec<String>,
@@ -241,10 +258,10 @@ pub struct DomainSummary {
     pub derived: usize,
 }
 
-/// Structure summary of a parsed problem.
+/// A problem, X-rayed.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ProblemSummary {
-    /// The domain name this problem references.
+    /// The domain this problem calls home.
     pub domain: String,
     pub objects: usize,
     pub init_facts: usize,
@@ -254,8 +271,9 @@ pub struct ProblemSummary {
     pub has_metric: bool,
 }
 
-/// Parse a PDDL source string (auto-detecting domain vs problem) into a structured
-/// [`ParseReport`] — syntax validation + a structure summary, no grounding or solving.
+/// Take a raw PDDL string, guess domain or problem, hand back a structured
+/// [`ParseReport`] — syntax checked, shape sketched, nothing grounded or
+/// solved.
 pub fn parse(src: &str) -> ParseReport {
     // Same content-routing heuristic the visualizer uses: whichever of `(problem` /
     // `(domain` appears first wins.
@@ -317,7 +335,8 @@ pub fn parse(src: &str) -> ParseReport {
     }
 }
 
-/// `name argtype1 argtype2 …` (just `name` for a 0-arity predicate/function).
+/// `name argtype1 argtype2 …` — just `name` when the predicate/function
+/// carries no arguments at all.
 fn render_sig(name: &str, arg_types: &[String]) -> String {
     if arg_types.is_empty() {
         name.to_lowercase()
@@ -343,10 +362,10 @@ fn parse_err(kind: &str, e: crate::types::ParseError) -> ParseReport {
     }
 }
 
-/// Re-exported so callers can name the PDDL3 metric type if needed.
+/// Re-exported so callers can name the PDDL3 metric type when they need to.
 pub type Metric = f64;
 
-/// Errors that prevent producing a [`Solution`].
+/// Everything that can stop a [`Solution`] from ever forming.
 #[derive(thiserror::Error, Debug)]
 pub enum SolveError {
     #[error("domain parse error: {0}")]
@@ -367,7 +386,7 @@ pub enum SolveError {
 
 enum Grounded {
     Task(Box<PackedTask>),
-    /// goal already true — the empty plan solves it
+    /// The goal was already standing — an empty plan closes it, no shots fired.
     Trivial,
     /// goal provably false / references an undefined fluent
     Unsolvable,
@@ -417,9 +436,10 @@ pub(crate) fn steps_of(
     steps
 }
 
-/// Strip the synthetic `TRAJ-END` step from a converted step list (0.8 END
-/// construction), applied IFF the constraint gate compiled. Indices are
-/// re-derived so they stay contiguous over real actions.
+/// Cut the synthetic `TRAJ-END` step out of a converted step list (the 0.8
+/// END construction) — only when the constraint gate actually compiled.
+/// Indices get re-cut so they stay unbroken across the real actions left
+/// standing.
 fn strip_end_steps(steps: Vec<Step>, constrained: bool) -> Vec<Step> {
     if !constrained {
         return steps;
@@ -435,8 +455,9 @@ fn strip_end_steps(steps: Vec<Step>, constrained: bool) -> Vec<Step> {
         .collect()
 }
 
-/// Convert a temporal plan's timed steps to API [`Step`]s (action head + args + time
-/// + duration). Shared by the temporal solve and the decomposer.
+/// Recast a temporal plan's timed steps into API [`Step`]s — action head,
+/// args, time, duration. Shared machinery between the temporal solve and the
+/// decomposer.
 pub(crate) fn timed_steps(tp: &crate::temporal::TimedPlan) -> Vec<Step> {
     tp.steps
         .iter()
@@ -491,14 +512,15 @@ fn unsolved(mode: Mode, stats: Statistics, notes: Vec<String>) -> Solution {
     }
 }
 
-/// Ground and plan, returning a structured [`Solution`].
+/// Ground the world, run the search, hand back a structured [`Solution`].
 ///
-/// **Temporal domains, v0.3.0+:** on a failed default-tier search, this retries at
-/// the `Full` demand tier and then the goal decomposer before giving up (see
-/// [`crate::temporal::solve`]) — an instance that used to fail fast can now take
-/// substantially longer to return `solved: false`. Set `FF_NO_ESCALATE` (or
-/// [`crate::features::set_escalate_override`]`(false)` in-process) to restore the
-/// single-pass pre-0.3.0 behavior.
+/// **Temporal domains, v0.3.0+:** a failed default-tier search doesn't die
+/// here — it climbs to the `Full` demand tier, then the goal decomposer,
+/// before it finally calls it quits (see [`crate::temporal::solve`]). A job
+/// that used to fail fast can now burn a lot more clock before it hands back
+/// `solved: false`. Set `FF_NO_ESCALATE` (or
+/// [`crate::features::set_escalate_override`]`(false)` in-process) to pull
+/// the old single-pass pre-0.3.0 behavior back.
 pub fn solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solution, SolveError> {
     let domain = parser::parse_domain(domain_src).map_err(SolveError::DomainParse)?;
     let problem = parser::parse_problem(problem_src).map_err(SolveError::ProblemParse)?;

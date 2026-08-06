@@ -1,23 +1,24 @@
 # Performance notes
 
-How ferroplan's hot paths were profiled, what was fixed, and the ranked backlog of
-remaining optimizations. Measure with `cargo bench -p ferroplan --bench planning`
-(criterion — the only noise-robust harness on a loaded machine) and the
-deterministic `benchmarks/perf.py` (evaluated-states; a *constant-factor* win
-leaves these bit-identical, a *search-strategy* win changes them and must be
-re-baselined).
+The hot paths got cut open under load. This is the field log: what was found,
+what got patched, what's still bleeding cycles. Trust `cargo bench -p ferroplan
+--bench planning` (criterion — the only instrument that doesn't lie on a loaded
+machine) and the deterministic `benchmarks/perf.py` (evaluated-states; a
+*constant-factor* win leaves these bit-identical, a *search-strategy* win moves
+them and demands a re-baseline).
 
-## Methodology caveats (learned the hard way)
+## Methodology caveats (scars from the last run)
 
-- **Wall-clock here is noise-dominated** for sub-~15% deltas (the same binary
-  ranged 11.5–14s under background load). Use criterion, or `min` of many runs.
-- **`atos` symbolication on optimized builds mis-attributes** inlined hot code to
-  adjacent symbols. A profile showing "22% `core::fmt::Display`" / "12% clap" in
-  the *search* was an artifact — there is no `format!`/`Display` in `search.rs` or
-  `heuristic.rs`. Trust the de-noised picture (heuristic + successor-gen), not the
-  raw top symbols.
+- **Wall-clock lies** below ~15% deltas — the same binary clocked 11.5–14s under
+  background load, same code, different shadows. Trust criterion, or the `min`
+  across many runs, nothing else.
+- **`atos` symbolication misdirects on optimized builds** — inlined hot code
+  gets pinned on the wrong symbol. A profile flagging "22% `core::fmt::Display`"
+  / "12% clap" inside the *search* was a ghost: no `format!`/`Display` lives in
+  `search.rs` or `heuristic.rs`. Read the de-noised shape — heuristic,
+  successor-gen — not the raw top symbols staring back at you.
 
-## Shipped wins
+## Wins on the board
 
 | fix | instance | before | after | guarantee |
 |---|---|---|---|---|
@@ -26,32 +27,35 @@ re-baselined).
 | | gripper-250 (partition) | 11.9 s | 3.96 s (3×) | |
 | **EHC: op-count-scaled work cap** (`search.rs`) | gripper-250 `--mode ff` | 2.16M evals / 33 s | 32k evals / 0.86 s (38×) | plan-valid; h untouched |
 
-Root causes: (1) untyped domains enumerated the full cartesian product of every
-parameter (gripper `pick`: 154³ ≈ 3.6M bindings/action) and string-matched 99.98%
-away — fixed by restricting each param's domain by its static unary preconditions
-first. (2) EHC's fixed `TOTAL_CAP=30_000` made large-but-easy instances bail into
-the *unpruned* best-first (2.16M evals); the cap now scales as `(200·n_ops).max(30k)`
-so EHC's near-greedy arm finishes them. Both leave small/typed instances unchanged.
+Trace the wound to its source. (1) Untyped domains were enumerating the full
+cartesian product of every parameter (gripper `pick`: 154³ ≈ 3.6M bindings/action)
+and string-matching 99.98% of it into the trash — fixed by restricting each
+param's domain by its static unary preconditions first. (2) EHC's fixed
+`TOTAL_CAP=30_000` was letting large-but-easy instances fall through into the
+*unpruned* best-first (2.16M evals); the cap now scales as `(200·n_ops).max(30k)`,
+and EHC's near-greedy arm closes them out clean. Small/typed instances never
+felt either fix — they were never bleeding.
 
-## Ranked backlog (from the ultracode analysis workflow)
+## Ranked backlog (pulled from the ultracode analysis workflow)
 
-Each is correctness-preserving; the "preserves" column says how to verify.
+Each cut here is correctness-preserving; the "preserves" column is how you check the wound closed clean.
 
-1. **Generation-counter `Scratch::reset`** (h-identity) — replace the per-eval
-   `op_layer`/`selected`/`need_fact` `.fill()`s (`2·n_ops + n_facts` writes) with a
-   `gen` bump + per-access stamp check. ~4% on heuristic-bound instances; ~10
-   fragile gate sites (notably `select`'s `op_layer == 0`). Verify: gripper-250
-   stays exactly 32,123 evals + 40 tests.
+1. **Generation-counter `Scratch::reset`** (h-identity) — swap the per-eval
+   `op_layer`/`selected`/`need_fact` `.fill()`s (`2·n_ops + n_facts` writes) for a
+   `gen` bump and a per-access stamp check. ~4% back on heuristic-bound instances;
+   ~10 fragile gate sites waiting to bite (notably `select`'s `op_layer == 0`).
+   Verify: gripper-250 holds exactly 32,123 evals, 40 tests green.
 2. **Preferred-operator (helpful-action) best-first**, behind a flag (plan-valid) —
-   the FF-parity fix for instances that *genuinely* fall back (deep plateaus, which
-   the cap fix doesn't help). Variant A (heap-key bonus, stays complete) is safest.
-   Higher ceiling; needs a flag + evaluated-count re-baseline.
-3. **`apply_into` clone-on-survival** (h-identity) — `apply` clones a full `State`
-   per applicable op *before* the cost-bound + visited dedup discard most of them;
-   apply into a reusable buffer, materialize only survivors.
+   the FF-parity fix for instances that *genuinely* stall out (deep plateaus the
+   cap fix can't touch). Variant A (heap-key bonus, stays complete) is the safe
+   entry. Higher ceiling; needs a flag and an evaluated-count re-baseline.
+3. **`apply_into` clone-on-survival** (h-identity) — `apply` is cloning a full
+   `State` per applicable op *before* the cost-bound and visited dedup throw most
+   of them away; route into a reusable buffer instead, materialize only the
+   survivors.
 4. **Pre-size `visited` / static `op_has_relevant_neff`** (h-identity) — small,
-   low-risk allocator/scan trims.
+   low-risk allocator and scan trims.
 
-**Do NOT** add an applicable-action index or a scattered `build_rpg` precondition
-trigger index: tried, reverted — the scattered loads lose to the sequential CSR
-scan's cache locality on shallow graphs.
+**Don't touch** an applicable-action index or a scattered `build_rpg` precondition
+trigger index — already tried, already reverted. The scattered loads lose to the
+sequential CSR scan's cache locality on shallow graphs. Old ground, don't dig it twice.

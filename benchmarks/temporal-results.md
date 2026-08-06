@@ -1,8 +1,10 @@
 # Temporal benchmark results (real IPC domains, validated with VAL)
 
-ferroplan run on **19 real IPC temporal domains** (IPC-2002 → IPC-2014, durative
-actions), with **every produced plan validated by [VAL]**, the standard IPC plan
-validator, under PDDL2.1 continuous-time semantics (`-t 0.001` ε-tolerance).
+Time is the hard part — durative actions overlap, drift, and punish anything
+sloppy about ordering. ferroplan run on **19 real IPC temporal domains**
+(IPC-2002 → IPC-2014, durative actions), with **every produced plan validated
+by [VAL]**, the standard IPC plan validator, under PDDL2.1 continuous-time
+semantics (`-t 0.001` ε-tolerance).
 
 Harness: [`bench_temporal.py`](bench_temporal.py). Budget: 20 instances/domain,
 **10 s** each, single-threaded. VAL and the benchmark instances are not vendored
@@ -12,12 +14,12 @@ Harness: [`bench_temporal.py`](bench_temporal.py). Budget: 20 instances/domain,
 
 - **Soundness: 44 / 45 produced plans are VAL-valid (98%).** ferroplan's temporal
   semantics — snap-action compilation, `over all` invariants, required
-  concurrency, and **ε-separation** — are correct on real benchmarks. (Testing
-  against VAL is what surfaced the ε-separation gap, now fixed.)
-- **Coverage is search-limited.** At a 10 s budget, 45 of ~368 instances solve;
-  the rest time out *or the decision-epoch search exhausts without a plan*. This
-  is the clear next target — temporal search performance/quality, not parsing or
-  validity.
+  concurrency, and **ε-separation** — hold up under an outside witness. (Testing
+  against VAL is what surfaced the ε-separation gap in the first place, now fixed.)
+- **Coverage is search-limited, not a soundness problem.** At a 10 s budget, 45
+  of ~368 instances solve; the rest time out *or the decision-epoch search
+  exhausts without a plan*. That's the clear next target — temporal search
+  performance and guidance, not parsing or validity.
 
 ## Per-domain
 
@@ -45,10 +47,11 @@ Harness: [`bench_temporal.py`](bench_temporal.py). Budget: 20 instances/domain,
 
 ## Findings
 
-1. **ε-separation works (the main result).** Before the STN re-timing pass, *all*
-   non-trivial plans were VAL-rejected (a start coinciding with the at-end effect
-   it depends on). After it, 44/45 validate. Required-concurrency (match-cellar)
-   and back-to-back durative chains (driverlog) are VAL-valid.
+1. **ε-separation works — the main result.** Before the STN re-timing pass,
+   *every* non-trivial plan came back VAL-rejected: a start colliding with the
+   at-end effect it depended on, two events claiming the same instant. After
+   the pass, 44/45 validate clean. Required-concurrency (match-cellar) and
+   back-to-back durative chains (driverlog) are VAL-valid.
 
 2. **Coverage is bottlenecked by the temporal search, not budget.** A 60 s probe
    still fails: depots/inst-1 searches 54 s and gives up; match-cellar-2014/inst-1

@@ -1,8 +1,8 @@
 # Industrial city — a functioning metal/stone/wood industry on the base domain
 
-A whole working industrial town, built and supplied entirely with the **base
+A whole industrial town, built and supplied on nothing but the **base
 `rpg-world` domain** — raw extraction → smelting/processing → manufacturing →
-construction. `city.py` runs it through the real planner.
+construction. `city.py` runs the whole build through the real planner.
 
 ## The point, in one run
 
@@ -17,14 +17,15 @@ $ python3 city.py                 # the city as a pipeline of in-border contract
   -> 26/26 contracts solved, the town stands
 ```
 
-A monolithic industrial city is unplannable in one shot. Run it the way the game
-will — a sequence of small contracts sharing one **city stockpile** — and the base
-domain handles the entire industry. `city.py` builds one world (a full-kit
-**workforce stationed at each site + the central hub with every workshop**), then
-for each contract emits a problem from the current stockpile, runs ferroplan, and
-**replays the returned plan** (through effects auto-extracted from the domain) to
-carry the stockpile forward. The engine does the planning; the harness only carries
-state. Every contract stays inside the [`BORDERS.md`](../../BORDERS.md) limits.
+A monolithic industrial city does not plan in one shot — it dies cold. Run it
+the way the game will — a sequence of small contracts sharing one **city
+stockpile** — and the base domain carries the whole industry. `city.py` stands
+up one world (a full-kit **workforce stationed at each site + the central hub
+with every workshop**), then for each contract pulls a problem from the
+current stockpile, runs ferroplan, **replays the returned plan** (effects
+auto-extracted from the domain) to carry the stockpile forward. The engine does
+the planning; the harness only carries state. Every contract stays inside the
+[`BORDERS.md`](../../BORDERS.md) limits.
 
 ## The production run (26 contracts, 392 operations)
 
@@ -42,13 +43,14 @@ warehouse of metal, stone, timber, tools, and alloys.
 
 ## Why each contract fits
 
-Every contract is one border-safe shape: extraction is **linear accumulation**
-(≤2000 ops); each processing/manufacturing step is a **converging recipe with its
-inputs already staged** by the prior stage (so ≤1 fresh sub-chain — the rule from
-`BORDERS.md`); construction consumes pre-built materials. The shared stockpile is
-what lets a deep converging industry (ore+charcoal→ingots→steel→tools;
-planks+bricks→houses→square) run as a chain of shallow, solvable pieces — exactly
-the decomposition a subproblem-maker would produce.
+Every contract holds one border-safe shape: extraction is **linear
+accumulation** (≤2000 ops); each processing/manufacturing step is a
+**converging recipe with its inputs already staged** by the prior stage (≤1
+fresh sub-chain — the rule from `BORDERS.md`); construction just consumes
+pre-built materials. The shared stockpile is what lets a deep converging
+industry (ore+charcoal→ingots→steel→tools; planks+bricks→houses→square) run as
+a chain of shallow, solvable pieces — exactly the decomposition a
+subproblem-maker would produce.
 
 ```sh
 python3 examples/rpg-world/industrial-city/city.py            # build the city
