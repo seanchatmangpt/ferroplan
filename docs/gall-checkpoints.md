@@ -2,10 +2,9 @@
 
 Last updated: 2026-07-29 (session audit, see "Audit log" at the end).
 
-Every checkpoint has to earn its keep at its own scale — no exceptions, no
-credit for showing up. Source on disk buys nothing by itself. A checkpoint
-clears only when the behavior it claims actually runs, fails the way it's
-supposed to when pushed, and leaves evidence someone else can replay.
+Each checkpoint must be a **complete, useful system at its own scale**. A
+checkpoint is not passed because source exists. It is passed only when its
+stated behavior executes, fails lawfully, and produces replayable evidence.
 
 Standing vocabulary (see `~/.claude/rules/no-overclaiming-rust.md` for the
 full discipline this repo runs under): `ALIVE`, `PARTIAL_ALIVE`, `BLOCKED`,
@@ -15,20 +14,20 @@ never on source presence alone.
 
 ## How to use this file (for any agent picking up work here)
 
-1. Check the "Current standing" line before you touch anything. Don't
-   reopen a verdict without new evidence in hand.
-2. Pull the next open item off "Recommended Release Sequence" unless a
-   specific checkpoint was named.
-3. Do the work for real: run the command, read what comes back, write the
-   standing down with the exact evidence behind it. No-overclaiming holds
-   here — a standing is a claim, and every claim needs a receipt.
-4. Log it. Dated entry at the end of "Audit log": what you tried, what you
-   found, what moved. Prior entries stay untouched.
-5. Anything you build — a script, a vendored tool, a fixture — stays in the
-   repo, in its proper place, with a path back to it from here.
-6. Never wave a partially-exercised surface through to `ALIVE`.
-   `PARTIAL_ALIVE` with the exact blocking hop named beats a false `ALIVE`
-   every time.
+1. Read the "Current standing" line under each checkpoint before touching
+   it. Do not re-litigate a standing without new evidence.
+2. Pick the next open item from "Recommended Release Sequence" unless a
+   specific checkpoint was requested.
+3. Do real work: run commands, read actual output, update the standing with
+   the exact evidence that justifies it. Follow the no-overclaiming
+   discipline — a checkpoint's standing is a claim, and claims need receipts.
+4. Append to "Audit log" at the end with a dated entry: what you attempted,
+   what you found, what changed. Do not delete prior entries.
+5. If you build something (a script, a vendored tool, a fixture), leave it
+   in the repo in the appropriate location and reference its path here.
+6. Never silently promote a standing to `ALIVE` for a partially-exercised
+   surface. `PARTIAL_ALIVE` with a named exact blocking hop is more useful
+   and more honest than a false `ALIVE`.
 
 ---
 
@@ -36,7 +35,7 @@ never on source presence alone.
 
 **Working system**
 
-One vocabulary, held stable across the whole ecosystem, covers:
+The ecosystem has one stable vocabulary for:
 
 * observation;
 * admission;
@@ -65,14 +64,13 @@ Two repositories use the same term for incompatible objects or authority levels.
 
 **Current standing:** `ALIVE`
 
-> **2026-07-29 cycle update (CE-GALL-23).** The ceiling drops, the standing
-> holds. One declared invariant (`validated-plan-requires-candidate`) turned
-> out to be dead weight — it carried `requires_any_prior`, a key
-> `validate_vector` never reads. "Invariants reject illegal combinations" was
-> half theater. Cut it. The lawful count sits unchanged at 136, and that
-> unchanged number is the proof the invariant was never doing anything.
-> `tests/test_phase_space.py::test_every_invariant_key_is_understood` now
-> stands guard against the same rot coming back.
+> **2026-07-29 cycle update (CE-GALL-23).** Ceiling narrowed, standing survives.
+> One of the declared invariants (`validated-plan-requires-candidate`) was
+> **inert** — it carried `requires_any_prior`, a key `validate_vector` never
+> reads — so "invariants reject illegal combinations" was partly vacuous. It is
+> deleted; the lawful count is unchanged at 136, which is what proves it was
+> doing nothing. Recurrence is blocked by
+> `tests/test_phase_space.py::test_every_invariant_key_is_understood`.
 
 
 ---
@@ -81,7 +79,7 @@ Two repositories use the same term for incompatible objects or authority levels.
 
 **Working system**
 
-Six dimensions, multiplied together, one state:
+A six-dimensional product state exists:
 
 ```text
 epistemic
@@ -92,8 +90,7 @@ epistemic
 × conformance
 ```
 
-Every transition is named out loud. Anything off-map gets turned away at the
-door. Touch the repository and advanced standing drops back to earth.
+Transitions are explicit. Invalid combinations are refused. Repository mutation collapses advanced standing.
 
 **Required proof**
 
@@ -103,12 +100,11 @@ door. Touch the repository and advanced standing drops back to earth.
 * Invariants reject illegal combinations.
 * The manufacturer is active only during `actuation=manufacturing`.
 
-**Current standing:** `ALIVE` for source-law and fixture scope. Watched it
-happen live in the 2026-07-29 audit: the `PostToolUse` hook snapped the
-canonical phase vector back to baseline the instant a new observation event
-landed — no explicit `phase.py transition` call, nobody asked it to.
-"Repository mutation collapses advanced standing" fires on its own, not by
-polite agreement.
+**Current standing:** `ALIVE` for source-law and fixture scope. Confirmed live
+in the 2026-07-29 audit: the `PostToolUse` hook auto-collapsed the canonical
+phase vector back to baseline on a new observation event without any
+explicit `phase.py transition` call — "repository mutation collapses
+advanced standing" fires mechanically, not just by convention.
 
 ---
 
@@ -116,10 +112,9 @@ polite agreement.
 
 **Working system**
 
-Drop the marketplace and plugin into a clean Claude Code environment and
-watch what surfaces.
+The marketplace and plugin install into a clean Claude Code environment.
 
-Claude Code has to find:
+Claude Code discovers:
 
 * plugin manifest;
 * agents;
@@ -147,7 +142,7 @@ Any declared component is missing, rejected, duplicated, or silently ignored.
 
 **Current standing:** `PARTIAL_ALIVE` (was `UNKNOWN`)
 
-2026-07-29 audit, what the trace showed:
+2026-07-29 audit findings:
 - `claude plugin validate --strict` passes for both the plugin manifest and
   the marketplace manifest.
 - All 8 declared agent files, `.mcp.json`, `.lsp.json`,
@@ -171,10 +166,10 @@ Any declared component is missing, rejected, duplicated, or silently ignored.
   outside a single session's tool surface — named as the exact blocking hop,
   not silently skipped.
 
-**Next step**: run the marketplace-clone refresh path again (`claude plugin
-update chatman-ecosystem` or equivalent), confirm it actually pulls
-`d047fd9` or later, then re-run this checkpoint from a genuinely clean cache
-— may need an outside harness, a throwaway container, a fresh `$HOME`.
+**Next step**: reproduce the marketplace-clone refresh path (`claude plugin
+update chatman-ecosystem` or equivalent) and confirm it pulls `d047fd9` or
+later; then re-run this checkpoint from a genuinely clean cache (may require
+an external harness, e.g. a throwaway container or a fresh `$HOME`).
 
 ---
 
@@ -182,7 +177,7 @@ update chatman-ecosystem` or equivalent), confirm it actually pulls
 
 **Working system**
 
-Role ceilings are supposed to hold by machinery, not manners.
+Claude Code mechanically enforces role ceilings.
 
 * Controller routes but cannot edit.
 * Observer observes but cannot edit.
@@ -195,50 +190,50 @@ Role ceilings are supposed to hold by machinery, not manners.
 
 **Required proof**
 
-Push a direct edit from every non-manufacturing agent, watch it bounce.
+Attempt direct edits from every non-manufacturing agent and observe refusal.
 
-Push a manufacture call outside `actuation=manufacturing`, watch it bounce.
+Attempt manufacture outside `actuation=manufacturing` and observe refusal.
 
 **Current standing:** `PARTIAL_ALIVE`
 
-2026-07-29 audit, what the trace showed:
+2026-07-29 audit findings:
 
-> **2026-07-29 cycle update (CE-GALL-27).** The first bullet below no longer
-> holds. `agents/*.md` frontmatter is generated from
-> `ontology/authority-graph.ttl` now, so all 8 agents declare `tools:` and the
+> **2026-07-29 cycle update (CE-GALL-27).** The first bullet below is now
+> **false**. `agents/*.md` frontmatter is generated from
+> `ontology/authority-graph.ttl`, so all 8 agents declare `tools:` and the
 > source-manufacturer declares `isolation: worktree`. The ODRL
-> `SingleActuatorPolicy` checks out non-vacuous under
+> `SingleActuatorPolicy` is verified non-vacuous by
 > `tests/test_authority.py::test_single_actuator_policy_is_enforced`: it permits
 > exactly `source-manufacturer`, prohibits 7, and exactly `source-manufacturer`
 > can write. **Standing does not move.** The live test below — whether the
-> *harness* refuses or the *model* just decides not to — hasn't been re-run
-> against the generated frontmatter. "Mechanical, not prompt-level" is still
-> asserted, not measured. That single re-run is now the whole gap.
+> *harness* refuses or the *model* declines — has not been re-run against the
+> generated frontmatter, so "mechanical, not prompt-level" is still asserted
+> rather than measured. That single re-run is now the whole gap.
 
 - None of the 8 agent `.md` files under `plugins/chatman-ecosystem/agents/`
-  declare a `tools:` frontmatter field. Confirmed the hard way, by this
-  session's own Agent-tool listing, which tags every one of the 8
-  chatman-ecosystem agents `(Tools: All tools)`. No mechanical denial exists
-  at the Claude Code harness level — none.
-- Live test: spawned `rdf-observer` (its own prose reads "You do not edit
-  source, execute plans, or authorize actuation") and pointed it at a
-  throwaway file outside the repo. It refused — but on its own recognizance,
-  reading the instruction as suspicious and declining, not because the
-  harness ever blocked the `Edit` call. A different model, a different mood,
-  and that edit goes through with nothing standing in the way.
-- Read on it: role separation right now is **prompt-level compliance**, not
-  **mechanical enforcement**. The checkpoint's own name — "Mechanical Agent
-  Authority" — isn't earned by what sits in `main`.
+  declare a `tools:` frontmatter field. Confirmed independently by this
+  session's own Agent-tool listing, which annotates every one of the 8
+  chatman-ecosystem agents with `(Tools: All tools)`. No mechanical denial
+  exists at the Claude Code harness level.
+- Live test: spawned `rdf-observer` (agent whose prose says "You do not
+  edit source, execute plans, or authorize actuation") and asked it to
+  edit a throwaway file outside the repo. It refused — but by **choosing to
+  honor its own role prose** (it treated the instruction as suspicious
+  content and declined), not because the harness blocked the `Edit` tool
+  call. Had the model decided differently, the edit would have succeeded
+  with no mechanical backstop.
+- Conclusion: role separation is currently **prompt-level compliance**, not
+  **mechanical enforcement**. The checkpoint's own name ("Mechanical Agent
+  Authority") is not yet met by what's in `main`.
 - PR #2 (`agent/v26.7.29-claude-projection`, still open/draft, not merged)
-  proposes exactly this fix: every agent declaring `tools:`, denying
-  `Write`/`Edit`/`NotebookEdit` to everyone but `source-manufacturer`
-  (isolated in a worktree). See PR #2 status below for why it's still stuck.
+  proposes exactly this fix: every agent declaring `tools:` and denying
+  `Write`/`Edit`/`NotebookEdit` except `source-manufacturer` (isolated in a
+  worktree). See PR #2 status below for why it hasn't landed.
 
 **Next step**: add `tools:` allow/deny lists to each of the 8 agent
-frontmatter files — the smallest cut of PR #2's rewrite that would actually
-move this checkpoint — then re-run the same live refusal test. This time
-the expectation is a harness-level tool-permission error, not a model's
-change of heart.
+frontmatter files (the smallest slice of PR #2's rewrite that would move
+this checkpoint's needle), and re-run the same live refusal test — this
+time expecting a harness-level tool-permission error, not a model choice.
 
 ---
 
@@ -246,7 +241,7 @@ change of heart.
 
 **Working system**
 
-Claude's hooks throw off observation candidates at every seam:
+Claude hooks emit observation candidates for:
 
 * startup;
 * resume;
@@ -279,14 +274,15 @@ A hook advances canonical phase state without admission.
 
 **Current standing:** `PARTIAL_ALIVE`
 
-2026-07-29 audit note: watched `PostToolUse` fire on every Bash/Edit/Write
-call this session, no exceptions, *regardless of whether the mutation ever
-touched the tracked repo* — a `Bash` call scribbling into `/tmp` still threw
-a ledger event. Defensible: bounded observation, not scoped filtering. Still
-worth flagging — it means the pending-event count can carry events with zero
-actual repo diff, and the observation/replan cycle has to eat those cleanly.
-It does: `session_observe` came back `fact_surprises: []` and
-`remaining_plan_valid: true` on the no-diff events, every time.
+2026-07-29 audit note: repeatedly observed in this session that `PostToolUse`
+fires on every Bash/Edit/Write call *regardless of whether the mutation was
+inside the tracked repo* (e.g. a `Bash` call writing to `/tmp` still
+produced a ledger event). This is defensible (bounded observation, not
+scoped filtering) but worth flagging: it means the pending-event count can
+include events with zero actual repo diff, which the observation/replan
+cycle must (and does) still handle correctly — confirmed via
+`session_observe` returning `fact_surprises: []` and
+`remaining_plan_valid: true` for such no-diff events.
 
 ---
 
@@ -294,9 +290,9 @@ It does: `session_observe` came back `fact_surprises: []` and
 
 **Working system**
 
-Canonical phase state gets folded together with whatever's still pending.
+Canonical phase state is combined with pending observations.
 
-One pending mutation and the effective state drops straight to:
+A pending mutation makes the effective state:
 
 ```text
 observed
@@ -307,7 +303,7 @@ observed
 × unknown
 ```
 
-no matter what an older snapshot swears to.
+even when an older snapshot claims advanced standing.
 
 **Required proof**
 
@@ -317,16 +313,16 @@ no matter what an older snapshot swears to.
 4. Admit the event frontier.
 5. Verify that state can advance again only with new evidence.
 
-**Current standing:** `ALIVE` for unit-fixture scope — and run live,
-end-to-end, in the 2026-07-29 session, not just against fixtures. Pushed
-the canonical vector to `receipted/stable`, made a real commit, watched
-`PostToolUse` snap the canonical vector back to baseline on its own, then
-closed the loop twice in the same session
-(`session_observe` → `session_think` → CMCA →
+**Current standing:** `ALIVE` for unit-fixture scope; also exercised live
+end-to-end in the 2026-07-29 session (not just fixtures): advanced the
+canonical vector to `receipted/stable`, made a real commit, watched the
+`PostToolUse` hook auto-collapse the canonical vector to baseline, then
+closed the loop again (`session_observe` → `session_think` → CMCA →
 `bind_allocation_receipt` → `validate` → `bind_plan_receipt` →
-`loop.py admit` → `phase.py transition`) — once over a real source commit,
-once over a no-diff `/tmp` Bash observation. Both cycles landed clean: a
-0-pending ledger, a `stable` phase vector.
+`loop.py admit` → `phase.py transition`) twice in the same session — once
+for a real source commit, once for a no-diff `/tmp` Bash observation. Both
+reconciliation cycles produced a clean 0-pending ledger and a `stable`
+phase vector.
 
 ---
 
@@ -334,7 +330,7 @@ once over a no-diff `/tmp` Bash observation. Both cycles landed clean: a
 
 **Working system**
 
-Every generated Claude projection artifact carries its own paperwork:
+Every generated Claude projection artifact has:
 
 * canonical owner;
 * generator identity;
@@ -358,7 +354,7 @@ A tracked projection can be hand-edited without changing its admitted source.
 
 **Current standing:** `PARTIAL_ALIVE`
 
-Ownership and refusal law are on the books. Full ggen generation and receipt binding are still open ground. Not re-audited in the 2026-07-29 pass.
+Ownership and refusal law exist. Full ggen generation and receipt binding remain open. Not re-audited in the 2026-07-29 pass.
 
 ---
 
@@ -366,7 +362,7 @@ Ownership and refusal law are on the books. Full ggen generation and receipt bin
 
 **Working system**
 
-One stdio MCP server, and it carries the whole bounded tool surface:
+One stdio MCP server exposes the complete bounded tool surface:
 
 * parsing;
 * solving;
@@ -395,8 +391,8 @@ initialize
 **Current standing:** `ALIVE` for compile and test scope.
 
 `cargo check --workspace` and `cargo test --workspace` came back green
-every time it was thrown in the 2026-07-29 session, before the commit and
-after it. Every MCP tool actually used this session
+multiple times in the 2026-07-29 session (both before and after a real
+commit). Every MCP tool actually used this session
 (`session_open`/`session_observe`/`session_think`/`session_status`,
 `cmca_allocate`, `bind_allocation_receipt`, `bind_plan_receipt`, `validate`,
 `verify_receipt`) behaved as documented, including refusing malformed input
@@ -406,20 +402,19 @@ after it. Every MCP tool actually used this session
 
 ## 8. Top-Level CMCA Allocation
 
-> **2026-07-29 cycle update (CE-GALL-28) — partial retraction.** Bad ground.
-> The prior evidence for the 8×10 happy path being "exercised repeatedly with
-> real receipts" turns out to have been run over a **fabricated** frontier —
-> a surface that doesn't even exist in the repository. Withdrawn. In its
-> place: the canonical frontier from `profiles/work-surfaces.json`
-> (`candidates_digest a473833974c74522`), accepted live, allocating
-> *differently* from what was claimed. The four refusals below still haven't
-> been tested at the allocator — `surfaces.py`'s refusals fire pre-flight and
-> never reach them.
+> **2026-07-29 cycle update (CE-GALL-28) — partial retraction.** The prior
+> evidence that the 8×10 happy path was "exercised repeatedly with real
+> receipts" was exercised over a **fabricated** frontier, including a surface
+> that does not exist in the repository. That evidence is withdrawn. It is
+> replaced by the canonical frontier from `profiles/work-surfaces.json`
+> (`candidates_digest a473833974c74522`), accepted live and allocating
+> *differently*. The four refusals below remain untested at the allocator:
+> `surfaces.py`'s refusals are pre-flight and do not discharge them.
 
 
 **Working system**
 
-An admitted repository observation kicks out exactly:
+An admitted repository observation produces exactly:
 
 ```text
 8 candidates × 10 factors
@@ -445,15 +440,15 @@ CMCA returns bounded shares and binds:
 
 **Current standing:** `PARTIAL_ALIVE`
 
-The 8-candidate/10-factor happy path ran clean, repeatedly, this session —
-real allocation receipts, bound and admitted. The refusal cases (7/9
+The 8-candidate/10-factor happy path was exercised repeatedly this session
+with real allocation receipts bound and admitted. The refusal cases (7/9
 candidates, wrong factor count, wrong BCINR revision, tampered allocation
-result) weren't **all** individually re-checked in the 2026-07-29 pass —
-only the receipt-tamper case (Checkpoint 19) and CMCA's own
-parent-index/cycle refusals (Checkpoint 9) were.
+result) were **not** all individually re-verified in the 2026-07-29 pass —
+only the receipt-tamper case (see Checkpoint 19) and CMCA's own
+parent-index/cycle refusals (see Checkpoint 9) were.
 
-**Next step**: run the four untested refusal cases, on the record, before
-this moves past `PARTIAL_ALIVE`.
+**Next step**: run the four untested refusal cases explicitly and record
+output here before upgrading past `PARTIAL_ALIVE`.
 
 ---
 
@@ -461,8 +456,7 @@ this moves past `PARTIAL_ALIVE`.
 
 **Working system**
 
-Any admitted CMCA node can turn around and become the root of another
-eight-node frontier.
+Any admitted CMCA node can become the root of another eight-node frontier.
 
 ```text
 parent allocation
@@ -474,7 +468,7 @@ parent allocation
 → consequence returned upward
 ```
 
-Every descent binds the parent allocation receipt. Every return binds the local result.
+Each descent binds the parent allocation receipt. Each return binds the local result.
 
 **Required proof**
 
@@ -487,29 +481,29 @@ Every descent binds the parent allocation receipt. Every return binds the local 
 
 **Current standing:** `PARTIAL_ALIVE`
 
-2026-07-29 audit, what the trace showed:
-- `cmca_allocate` takes per-candidate `parent` indices inside a single call
-  and builds a real tree out of them — interior (parent) nodes come back
-  `share: 0`, all the allocation mass cascades down to leaf nodes. Genuine,
-  confirmed behavior, checked not assumed.
-- Out-of-bounds parent index gets turned away: `"candidate \`orphan-bad-parent\`
-  has invalid parent 99"`.
-- Cyclic parent chain gets turned away: `"parent relation contains a cycle
-  through 0"`.
+2026-07-29 audit findings:
+- `cmca_allocate` accepts per-candidate `parent` indices within a single
+  call and builds a real tree: interior (parent) nodes receive `share: 0`
+  — all allocation mass cascades to leaf nodes. This is genuine, confirmed
+  behavior, not assumed.
+- Out-of-bounds parent index refused: `"candidate \`orphan-bad-parent\` has
+  invalid parent 99"`.
+- Cyclic parent chain refused: `"parent relation contains a cycle through
+  0"`.
 - **Gap found**: `bind_allocation_receipt`'s only chaining field is a flat
-  `previous_receipt` — a sequential predecessor, nothing more. No
-  parent-allocation-receipt field, no "selected node" field, no
-  "consequence returned upward" field anywhere. True cross-call recursive
-  descent — what the checkpoint's "Working system" diagram actually asks
-  for — is **architecturally absent from the MCP tool schema**. Not
-  untested. Absent. The in-array tree support above is real, but it's a
-  narrower, different animal than what this checkpoint wants.
+  `previous_receipt` (sequential predecessor). There is no
+  parent-allocation-receipt field, no "selected node" field, and no
+  "consequence returned upward" field. True cross-call recursive descent —
+  what the checkpoint's "Working system" diagram actually describes — is
+  **architecturally absent from the MCP tool schema**, not merely
+  untested. The in-array tree support (above) is real but is a different,
+  narrower thing than what this checkpoint asks for.
 
-**Next step**: decide whether recursive CMCA gets modeled as (a) a new MCP
-tool/field for parent-receipt-bound descent, or (b) written down as
-out-of-scope with the checkpoint's "Working system" text narrowed to match
-what's actually there (single-call tree allocation). Either way, close the
-mismatch — don't leave it hanging.
+**Next step**: decide whether recursive CMCA should be modeled as (a) a new
+MCP tool/field for parent-receipt-bound descent, or (b) documented as
+out-of-scope and the checkpoint's "Working system" text narrowed to match
+what actually exists (single-call tree allocation). Don't leave the
+mismatch unresolved.
 
 ---
 
@@ -517,9 +511,9 @@ mismatch — don't leave it hanging.
 
 **Working system**
 
-MFW or POWL v2 calls which planner rail gets to answer a planning request.
+MFW or POWL v2 decides which planner rail may answer a planning request.
 
-Ferroplan is one deterministic implementation working under that law — not the law itself.
+Ferroplan is one deterministic implementation, not the planning constitution.
 
 ```text
 admitted planning request
@@ -538,7 +532,7 @@ admitted planning request
 
 **Current standing:** `UNSUPPORTED`
 
-Direct Ferroplan planning is real. Constitutional planner routing isn't wired yet. Not re-audited in the 2026-07-29 pass — standing unchanged.
+Direct Ferroplan planning exists. Constitutional planner routing is not yet wired. Not re-audited in the 2026-07-29 pass — standing unchanged.
 
 ---
 
@@ -546,9 +540,9 @@ Direct Ferroplan planning is real. Constitutional planner routing isn't wired ye
 
 **Working system**
 
-One admitted plan step, run inside an isolated Git worktree, sealed off from the rest.
+One admitted plan step executes inside an isolated Git worktree.
 
-The manufacturer touches only:
+The manufacturer may change only:
 
 * the selected plan step;
 * tightly coupled generated outputs;
@@ -566,15 +560,15 @@ The manufacturer touches only:
 
 **Current standing:** `UNSUPPORTED` (was `UNKNOWN`)
 
-2026-07-29 audit: swept `plugins/chatman-ecosystem/` and found no
-worktree-related script, profile, ontology file — nothing. This isn't
-"untested." There's no mechanism to test in the first place. Closest thing
-on the horizon is PR #2's still-unmerged "Isolate and bound the source
-manufacturer agent" commit (`7bb5239ce7922e5c790080ed3ec0c0d9ecaa4771`),
-absent from `main`. This session's actual manufacturing step (the
-`.claude/settings.json` model pin) went straight into the main working
-tree, no isolated worktree involved — consistent with "not built yet," not
-a defect in the work itself.
+2026-07-29 audit: no worktree-related script, profile, or ontology file
+exists anywhere under `plugins/chatman-ecosystem/`. This is not "untested" —
+there is no mechanism to test. The closest thing is PR #2's still-unmerged
+"Isolate and bound the source manufacturer agent" commit
+(`7bb5239ce7922e5c790080ed3ec0c0d9ecaa4771`), which does not exist on
+`main`. This session's actual manufacturing step (the `.claude/settings.json`
+model pin) was committed directly to the main working tree, not in an
+isolated worktree — consistent with "not yet implemented," not a defect in
+what was done.
 
 **Next step**: either adopt PR #2's worktree-isolation commit (would need
 its own review given it also changes agent tool grants — see Checkpoint 3),
@@ -590,7 +584,7 @@ the main tree.
 
 **Working system**
 
-Evidence climbs, rung by distinct rung:
+Evidence advances through distinct verification rungs:
 
 ```text
 unit
@@ -613,25 +607,25 @@ Each rung has its own executor and claim ceiling.
 
 **Current standing:** `PARTIAL_ALIVE`
 
-Projection fixtures and MCP tests read green across the board. The full ladder is still short a few rungs. Not re-audited in the 2026-07-29 pass beyond what Checkpoint 13 (VAL) newly unlocks.
+Projection fixtures and MCP tests are green. Full ladder remains incomplete. Not re-audited in the 2026-07-29 pass beyond what Checkpoint 13 (VAL) newly unlocks.
 
 ---
 
 ## 13. Independent PDDL Validation
 
-> **2026-07-29 cycle update (CE-GALL-30) — downgraded.** Standing drops to
-> `PARTIAL_ALIVE`, reason `MOCKED`. MCP `validate` hands back the prose string
-> `"Plan valid"`, but `bind_plan_receipt` wants a boolean `valid` — so someone
-> constructs the verdict by hand, exactly as `skills/admit/SKILL.md:15`
-> instructs. Every `validator_result` bound this cycle was hand-fabricated.
-> "Independent" is currently false in the receipt path.
+> **2026-07-29 cycle update (CE-GALL-30) — downgraded.** Standing is now
+> `PARTIAL_ALIVE` with reason `MOCKED`. MCP `validate` returns the prose string
+> `"Plan valid"`, while `bind_plan_receipt` requires a boolean `valid`, so the
+> verdict is constructed by hand — `skills/admit/SKILL.md:15` instructs exactly
+> that. The `validator_result` of every receipt bound during this cycle was
+> hand-fabricated, so "independent" is currently false in the receipt path.
 
 
 **Working system**
 
-A planner-independent validator — VAL, say — checks the exact emitted plan against the exact domain and problem. No trust extended.
+A planner-independent validator, such as VAL, checks the exact emitted plan against the exact domain and problem.
 
-Ferroplan replaying its own work is useful. It is not independent evidence.
+Ferroplan replay remains useful but is not independent evidence.
 
 **Required proof**
 
@@ -644,15 +638,15 @@ Ferroplan replaying its own work is useful. It is not independent evidence.
 
 **Current standing:** `PARTIAL_ALIVE` (was `UNSUPPORTED`)
 
-2026-07-29 audit: vendored and built the real thing — independently-sourced
-VAL (`KCL-Planning/VAL`) via `benchmarks/get-val.sh`, landing at
-`benchmarks/.val/VAL/build/bin/Validate` (gitignored, self-contained). Its
-pinned CMakeLists wouldn't configure against current cmake without
-`-DCMAKE_POLICY_VERSION_MINIMUM=3.5` — worth patching `get-val.sh` to pass
-that flag by default so the next run doesn't hit the same wall.
+2026-07-29 audit: vendored and built real, independently-sourced VAL
+(`KCL-Planning/VAL`) via `benchmarks/get-val.sh` into
+`benchmarks/.val/VAL/build/bin/Validate` (gitignored, self-contained). The
+script's pinned CMakeLists needed `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` to
+configure against current cmake — worth patching `get-val.sh` to pass that
+flag by default so the next run doesn't hit the same wall.
 
-Pointed the built `Validate` binary at this session's actual bound
-domain/problem/plan — no toy fixture:
+Ran the built `Validate` binary against this session's actual bound
+domain/problem/plan (not a toy fixture):
 - Valid plan → `Plan valid`, exit 0.
 - Reordered/tampered plan (same actions, wrong order) → `Plan failed to
   execute`, exit 1.
@@ -660,32 +654,32 @@ domain/problem/plan — no toy fixture:
   invalid`, exit 1.
 - Mismatched problem (wrong init state) → `Plan failed to execute`, exit 1.
 
-All four required behaviors hold, and hold with genuine engine independence
-— this is real, not Ferroplan grading its own homework.
+All four required behaviors hold with genuine engine independence — this is
+real, not Ferroplan validating itself.
 
 **Not yet done**: wiring VAL into the release loop, and binding VAL's
-output — not Ferroplan's own `validate` — into the `validator_result` field
+output (not Ferroplan's own `validate`) into the `validator_result` field
 of a bound receipt envelope. `validator_result_digest` in every receipt
-bound so far still points back to `ferroplan.validate`, not VAL.
+bound so far still reflects `ferroplan.validate`, not VAL.
 
 **Next step**: patch `get-val.sh` with the cmake policy flag; add a
 `FERROPLAN_VAL` env-var check to whatever produces `validator_result`
-payloads so VAL's output, when it's there, is what actually gets bound.
+payloads so VAL's output (when present) is what actually gets bound.
 
 ---
 
 ## 14. Canonical Admission Receipts
 
-> **2026-07-29 cycle update (CE-GALL-31) — sharpened into a refutation.** Not
-> "not re-verified." **Absent.** `verify_chain` doesn't exist. `previous_receipt`
-> gets format-checked and nothing more — 64 hex characters, never looked up
-> against anything real — so any well-formed hex string chains cleanly, and
-> `None` looks identical to a break.
+> **2026-07-29 cycle update (CE-GALL-31) — sharpened into a refutation.** The
+> claim that chain forks are detected is not "not re-verified", it is
+> **absent**. `verify_chain` does not exist and `previous_receipt` is
+> format-checked only (64 hex, never looked up), so any well-formed hex string
+> chains cleanly and `None` is indistinguishable from a break.
 
 
 **Working system**
 
-Allocation and plan evidence get folded into canonical BLAKE3 envelopes, sealed shut.
+Allocation and plan evidence are transformed into canonical BLAKE3 envelopes.
 
 A plan receipt binds:
 
@@ -710,9 +704,9 @@ A plan receipt binds:
 **Current standing:** `PARTIAL_ALIVE`
 
 Core MCP receipt tests pass. `verify_receipt` recomputation and tamper
-detection reconfirmed live in the 2026-07-29 audit (Checkpoint 19).
-Wrong-predecessor and fork-detection cases weren't individually re-checked
-this pass — carried over from the prior standing.
+detection reconfirmed live in the 2026-07-29 audit (see Checkpoint 19).
+Wrong-predecessor and fork-detection cases not individually re-verified
+this pass — carried over from prior standing.
 
 ---
 
@@ -720,7 +714,7 @@ this pass — carried over from the prior standing.
 
 **Working system**
 
-A protected command doesn't run — it gets translated into an exact `ActuationIntent` carrying:
+A protected command is transformed into an exact `ActuationIntent` containing:
 
 * actor;
 * operation;
@@ -732,7 +726,7 @@ A protected command doesn't run — it gets translated into an exact `ActuationI
 * reversibility;
 * requested consequence.
 
-The instant the intent exists, the original call is dead.
+The initial protected call is denied after intent creation.
 
 **Required proof**
 
@@ -744,12 +738,12 @@ The instant the intent exists, the original call is dead.
 
 **Current standing:** `ALIVE` for fixture scope.
 
-2026-07-29 audit: `scripts/actuation-intent.py` and
-`scripts/grant-actuation.py` sit in the source repo, adopted from PR #2 per
-`docs/notes/pr2-claude-projection-ideas-adopted.md` — but they're **absent
-from the installed plugin cache** this session actually runs against, and
-**not wired into `hooks.json`**. Standing holds at fixture scope. Source
-presence still isn't execution evidence, no matter how tempting.
+2026-07-29 audit: `scripts/actuation-intent.py` and `scripts/grant-actuation.py`
+exist in the source repo (adopted from PR #2 per
+`docs/notes/pr2-claude-projection-ideas-adopted.md`) but are **absent from
+the installed plugin cache** this session actually runs against, and are
+**not wired into `hooks.json`**. Standing kept at fixture scope, not
+upgraded — existence in source is not execution evidence.
 
 ---
 
@@ -757,7 +751,7 @@ presence still isn't execution evidence, no matter how tempting.
 
 **Working system**
 
-A separate admission step checks the intent against:
+A separate admission step verifies the intent against:
 
 * current effective phase;
 * admitted receipt frontier;
@@ -766,7 +760,7 @@ A separate admission step checks the intent against:
 * user authorization;
 * scope constraints.
 
-Clear that, and it cuts a short-lived `DerivedExecutionGrant`.
+It then creates a short-lived `DerivedExecutionGrant`.
 
 **Required proof**
 
@@ -781,7 +775,7 @@ Clear that, and it cuts a short-lived `DerivedExecutionGrant`.
 **Current standing:** `PARTIAL_ALIVE`
 
 Grant construction exists (`scripts/grant-actuation.py`, unwired — see
-Checkpoint 15). Live Claude execution hasn't been run against it yet.
+Checkpoint 15). Live Claude execution remains unexercised.
 
 ---
 
@@ -789,7 +783,7 @@ Checkpoint 15). Live Claude execution hasn't been run against it yet.
 
 **Working system**
 
-The exact protected operation gets one more shot — this time riding the exact verified grant.
+The exact protected operation is retried with the exact verified grant.
 
 Examples:
 
@@ -811,7 +805,7 @@ Examples:
 
 **Current standing:** `UNKNOWN`
 
-Not attempted in the 2026-07-29 pass — there's no execution pipeline to point at yet; Checkpoints 15/16 have to be wired first.
+Not attempted in the 2026-07-29 pass — no execution pipeline exists to test (depends on Checkpoints 15/16 being wired first).
 
 ---
 
@@ -819,7 +813,7 @@ Not attempted in the 2026-07-29 pass — there's no execution pipeline to point 
 
 **Working system**
 
-Actual execution leaves a mark — an `ExecutionAttestation` binding:
+Actual execution produces an `ExecutionAttestation` binding:
 
 * grant;
 * executor identity;
@@ -843,22 +837,22 @@ A failed execution produces a failure attestation, not success.
 
 **Current standing:** `UNSUPPORTED`
 
-No attestation object type, no executor — neither exists yet. Unchanged from prior audit.
+No attestation object type or executor exists yet. Unchanged from prior audit.
 
 ---
 
 ## 19. Receipt-Chain Replay
 
-> **2026-07-29 cycle update.** New evidence: a five-link chain
+> **2026-07-29 cycle update.** Added evidence: a five-link chain
 > (`755a2057 → c1520c61 → d56006af → eb8e4645 → d72f17f0`), the last four links
 > bound over canonical CMCA inputs and `project-world.py`'s live projection.
-> New refutation: "a forked predecessor refuses" is **false** — see
-> CE-GALL-31. Tamper detection on a single link still stands.
+> Added refutation: "a forked predecessor refuses" is **false** — see
+> CE-GALL-31. Tamper detection on a single link stands.
 
 
 **Working system**
 
-Run it back from genesis — the complete chain replays:
+The complete chain can be replayed from genesis:
 
 ```text
 observation
@@ -873,7 +867,7 @@ observation
 → attestation
 ```
 
-The mutable phase snapshot never gets trusted as anything more than a cache.
+The mutable phase snapshot is treated only as a cache.
 
 **Required proof**
 
@@ -887,34 +881,33 @@ The mutable phase snapshot never gets trusted as anything more than a cache.
 
 **Current standing:** `PARTIAL_ALIVE`
 
-2026-07-29 audit: ran `verify_receipt` on a real, session-bound plan
-envelope — `valid: true`, both `payload_digest` and `receipt` recomputing
-exactly. Zero out just the `receipt` field on that same envelope and it
-comes back `payload_digest_valid: true, receipt_valid: false, valid: false`
-— tamper detection confirmed on live data, not a fixture. Full cross-system
-replay — observation through attestation, the entire chain — still doesn't
-exist, since the intent/grant/execution/attestation legs (15–18) are only
+2026-07-29 audit: `verify_receipt` on a real, session-bound plan envelope
+returned `valid: true` with both `payload_digest` and `receipt` recomputing
+exactly. The same envelope with only the `receipt` field zeroed returned
+`payload_digest_valid: true, receipt_valid: false, valid: false` — tamper
+detection confirmed on live (not fixture) data. Full cross-system replay
+(observation → ... → attestation, the entire chain) still does not exist,
+since the intent/grant/execution/attestation legs (15–18) are only
 partially wired.
 
 ---
 
 ## 20. Closed Self-Hosting Loop
 
-> **2026-07-29 cycle update — net honest downgrade.** Two things pulling in
-> opposite directions. Strengthened: two further closes over canonical
-> inputs and the live world projection, with `session_observe` →
-> `session_think` returning `decision: follow`, `searched: false` — a suffix
-> held without a search, real evidence of a working persistent mind. **But**
-> this checkpoint's required proof is a traversal "without manual phase
-> fabrication," and both closes fabricated the validator verdict
-> (CE-GALL-30), nine manual steps apiece, because `loop.py close` still
-> isn't built. Read the earlier claim about prior closes meeting this bar
-> with that same qualification hanging over it.
+> **2026-07-29 cycle update — net honest downgrade.** Strengthened: two further
+> closes over canonical inputs and the live world projection, and
+> `session_observe` → `session_think` returned `decision: follow`,
+> `searched: false` — a suffix retained without a search is real evidence of a
+> working persistent mind. **But** this checkpoint's required proof is a
+> traversal "without manual phase fabrication", and both closes fabricated the
+> validator verdict (CE-GALL-30) and were nine manual steps each because
+> `loop.py close` is not built. The earlier claim that prior closes met this bar
+> must be read with the same qualification.
 
 
 **Working system**
 
-Ferroplan turns the Chatman ecosystem on itself:
+Ferroplan uses the Chatman ecosystem to modify Ferroplan itself:
 
 ```text
 observe Ferroplan
@@ -930,7 +923,7 @@ observe Ferroplan
 → replay
 ```
 
-No role bleeds into another.
+No role collapses into another.
 
 **Required proof**
 
@@ -940,14 +933,15 @@ One complete repository change traverses the loop without manual phase fabricati
 
 2026-07-29 audit: this session ran the full observe → allocate → plan →
 manufacture → observe-drift → validate → admit loop **twice**, end to end,
-against two different repository mutations — a real `.claude/settings.json`
-commit, and a no-diff Bash observation. Both produced bound, verifiable
-receipts and a `stable/receipted` phase vector with a 0-pending ledger. The
-strongest evidence yet for this checkpoint's core claim. Still missing,
-against the checkpoint's own diagram: worktree-isolated manufacture
-(Checkpoint 11), draft-PR publication under a structured intent/grant
-(Checkpoints 15–17), execution attestation (Checkpoint 18). The loop that
-exists is real. The loop as specified is not yet whole.
+for two different repository mutations (a real `.claude/settings.json`
+commit, and a no-diff Bash observation), each producing bound, verifiable
+receipts and a `stable/receipted` phase vector with a 0-pending ledger.
+This is the strongest evidence to date for this checkpoint's core claim.
+Still missing to call it complete per the checkpoint's own diagram:
+worktree-isolated manufacture (Checkpoint 11), draft-PR publication under a
+structured intent/grant (Checkpoints 15–17), and execution attestation
+(Checkpoint 18). The loop that exists is real; the loop as specified is not
+yet whole.
 
 ---
 
@@ -955,7 +949,7 @@ exists is real. The loop as specified is not yet whole.
 
 **Working system**
 
-One exact release commit, carrying proof of the complete lawful Claude projection.
+The exact release commit demonstrates the complete lawful Claude projection.
 
 Required crown evidence:
 
@@ -980,19 +974,19 @@ Required crown evidence:
 
 **Current standing:** `PARTIAL_ALIVE`
 
-PR #2 (`agent/v26.7.29-claude-projection`) is the only draft going after
-this whole surface at once. As of the 2026-07-29 audit it's still
-`OPEN`/draft, 0 reviews, head commit `d88488608f41` (55 commits), CI mixed:
-the `Chatman Ecosystem` workflow's `projection-law` and `ferroplan-mcp` jobs
-pass, but the plain `CI / test` job reads `FAILURE`. Not touched further
-this pass — resolve the CI failure and get the PR reviewable before it gets
-treated as the crown vehicle.
+PR #2 (`agent/v26.7.29-claude-projection`) is the only draft attempting this
+whole surface at once. As of the 2026-07-29 audit it is still `OPEN`/draft,
+0 reviews, head commit `d88488608f41` (55 commits), with mixed CI: the
+`Chatman Ecosystem` workflow's `projection-law` and `ferroplan-mcp` jobs
+pass, but the plain `CI / test` job is `FAILURE`. Not touched further this
+pass — recommend resolving the CI failure and getting the PR reviewable
+before treating it as the crown vehicle.
 
 ---
 
 # Recommended Release Sequence
 
-Next bounded checkpoints, in order:
+The next bounded checkpoints should be completed in this order:
 
 ```text
 1. Clean Claude installation
@@ -1007,7 +1001,7 @@ Next bounded checkpoints, in order:
 10. v26.7.29 crown
 ```
 
-The decisive rule, no exceptions:
+The decisive rule is:
 
 > **Do not build the crown directly. Make each checkpoint independently useful, independently falsifiable, and reusable by the next checkpoint.**
 
@@ -1015,18 +1009,18 @@ The decisive rule, no exceptions:
 
 # Checkpoints 22–33 — the DX architecture cycle
 
-Twelve checkpoints, all landed in the 2026-07-29 architecture cycle (branch
-`chatman-dx-cycle`). Every one sits at `PARTIAL_ALIVE` or lower, and every one
-is snagged on the same single hop: **no clean-worktree replay outside the
-originating session has been done, and nothing is pushed.** The promotion
-law bars `ALIVE` on that alone, however green the suite reads — which is why
-clearing it is one action, not twelve.
+These were added by the 2026-07-29 architecture cycle (branch
+`chatman-dx-cycle`). Every one is `PARTIAL_ALIVE` or lower and every one is
+blocked on the same single hop: **no clean-worktree replay outside the
+originating session has been done, and nothing is pushed.** Under the promotion
+law that bars `ALIVE` regardless of how green the suite is, which is why
+promotion here is one action rather than twelve.
 
-This isn't a policy on paper. It's mechanized:
+The law is mechanized, not merely written down:
 `plugins/chatman-ecosystem/tests/test_receipts.py` refuses any receipt claiming
 `ALIVE` without `replayed_outside_session`, a non-null `negative_falsifier`, and
 a sealed commit — and `test_promotion_law_actually_refuses` is that check's own
-falsifier, watching the watcher.
+falsifier.
 
 ---
 
@@ -1034,11 +1028,12 @@ falsifier, watching the watcher.
 
 **Working system**
 
-The Python control plane is a tested surface now — and a test that reaches for the live ledger gets refused, not just frowned at.
+The Python control plane is a tested surface, and a test that would touch the
+live ledger is refused rather than tolerated.
 
-Before this, the plugin ran zero tests and CI never so much as glanced at
-`plugins/`: nine scripts, ~2.5k lines total, "verified" by a prose checklist
-that `py_compile`d three of them and called it a day.
+Before this the plugin had no tests and CI never touched `plugins/`: nine
+scripts totalling ~2.5k lines were verified by a prose checklist that
+`py_compile`d three of them.
 
 **Current standing:** `PARTIAL_ALIVE` (`NO_FALSIFIER`)
 
@@ -1057,7 +1052,9 @@ that `py_compile`d three of them and called it a day.
 
 **Working system**
 
-An invariant that reads a key no evaluator ever touches isn't an invariant — it's dead code wearing a badge. The lawful-vector count has to be *derived* from the invariant set, never asserted alongside it as a separate act of faith.
+An invariant that reads a key no evaluator consumes is not an invariant, and
+the lawful-vector count must be *derived* from the invariant set rather than
+asserted beside it.
 
 `validated-plan-requires-candidate` carried `requires_any_prior`, a key
 `validate_vector` never reads. The naive repair — renaming it to `requires_any`
@@ -1083,7 +1080,10 @@ so the invariant was redundant as well as inert.
 
 **Working system**
 
-A payload's `schema` URN is stamped on at construction, rejected on mismatch — the model's identity, not a string some caller gets to hand it. JSON is the default serialization, blind to tty, so the contract reads identical whether a human, a hook, or CI is the one calling.
+A payload's `schema` URN is the model's identity — stamped on construction and
+rejected on mismatch — not a string a caller supplies. JSON is the default
+serialization and does not depend on tty, so a command's contract is the same
+whether a human, a hook, or CI invoked it.
 
 **Current standing:** `PARTIAL_ALIVE` (`NO_REPLAY`)
 
@@ -1101,13 +1101,15 @@ A payload's `schema` URN is stamped on at construction, rejected on mismatch —
 
 **Working system**
 
-Any exception thrown before a hook handler even starts turns into a refusal *shaped for the event it's standing in for* — never a bare traceback, never a silent exit 0 sneaking through on a deny path.
+Any exception raised before a hook handler runs becomes a refusal *shaped for
+the event actually being handled* — never a traceback, and never a silent exit
+0 on a deny path.
 
-The shapes aren't interchangeable, and getting one wrong turns a refusal into
-a no-op: `Stop` wants a top-level `decision`, `PreToolUse` wants a nested
-`permissionDecision`, `PostToolUse` can't refuse at all. The guard imports
-nothing but the standard library — it's the last line standing when
-everything else has already failed to load.
+The shapes differ and getting them wrong turns a refusal into a no-op: `Stop`
+takes a top-level `decision`, `PreToolUse` a nested `permissionDecision`, and
+`PostToolUse` cannot refuse at all. The guard imports only the standard
+library, because it is the last thing that must still work when the rest
+cannot load.
 
 **Current standing:** `PARTIAL_ALIVE` (`NO_REPLAY`)
 
@@ -1125,18 +1127,16 @@ everything else has already failed to load.
 
 **Working system**
 
-The MCP server finds its binary and its roots from any working directory
-you drop it in, every steering variable stripped away — and it reaches for
-a binary already built before it reaches for a `cargo run` that rebuilds
-from scratch.
+The MCP server resolves its binary and its roots from an arbitrary working
+directory with every steering variable cleared, preferring a binary already
+built over a `cargo run` that rebuilds.
 
-The old resolver walked four parents up from the launcher and called that
-"finding the project." Fine under the repository layout — lands right on
-the repo root. Broken under the *installed cache* layout, the only layout a
-real user ever runs: it lands on `cache/<marketplace>`, which has no
-`crates/` in it at all, so the launcher exited 69 while a perfectly good
-built binary sat waiting in `target/debug`. A depth-counted walk can't carry
-weight across two different layouts.
+The prior resolver derived the project by walking four parents up from the
+launcher. Under the repository layout that lands on the repo root and works;
+under the *installed cache* layout — the only one a user runs — it lands on
+`cache/<marketplace>`, which has no `crates/`, so the launcher exited 69 while a
+built binary sat in `target/debug`. A depth-counted walk cannot be load-bearing
+across two layouts.
 
 **Current standing:** `PARTIAL_ALIVE` (`NO_FALSIFIER`)
 
@@ -1154,15 +1154,15 @@ weight across two different layouts.
 
 **Working system**
 
-The 8×10 frontier the allocator sees now traces back to real repository
-surfaces — every declared path exists on disk, checked. Arity was never the
-whole story: a well-formed frontier built over fictional surfaces is still
-a well-formed lie.
+The 8×10 frontier the allocator receives is derived from real repository
+surfaces, and every declared surface path exists on disk. Arity is not
+sufficiency: a well-formed frontier over fictional surfaces is a well-formed
+lie.
 
-Deliberately kept separate from §8, not folded into it. §8's four allocator
-refusals (7 candidates, 9 candidates, 9 factors, wrong BCINR revision) are
-still untested; `surfaces.py`'s refusals fire *pre-flight* and don't count
-as allocator behavior.
+This is deliberately a separate checkpoint from §8 rather than merged into it.
+§8's four allocator refusals (7 candidates, 9 candidates, 9 factors, wrong
+BCINR revision) remain untested; `surfaces.py`'s refusals are *pre-flight* and
+must not be counted as allocator behaviour.
 
 **Current standing:** `PARTIAL_ALIVE` (`NO_REPLAY`)
 
@@ -1181,23 +1181,21 @@ as allocator behavior.
 
 **Working system**
 
-The standing vocabulary answers to one source now —
-`ontology/chatman-ecosystem.ttl` — and every consumer is just a projection
-of it, checked by `generate.py build --check`.
+The standing vocabulary has one source — `ontology/chatman-ecosystem.ttl` —
+and every consumer is a projection of it, checked by `generate.py build
+--check`.
 
-There used to be three vocabularies talking past each other: `loop.py` took
-four values, this document listed seven, and the canonical set in `~/mfw`
-`AGENTS.md:122-133` runs six. `BLOCKED`, `MOCKED`, `REFUSED` could get
-claimed here and never make it into the ledger; `BUILD_BROKEN` could land
-in the ledger but never get claimed. Before this landed, **this checkpoint
-couldn't even write down its own standing.**
+Three vocabularies existed: `loop.py` accepted four values, this document
+listed seven, and the canonical set defined in `~/mfw` `AGENTS.md:122-133` has
+six. `BLOCKED`, `MOCKED` and `REFUSED` could be claimed here but never recorded
+in the ledger; `BUILD_BROKEN` could be recorded but not claimed. Until this
+landed, **this checkpoint's own standing could not be written down.**
 
-`MOCKED` and `REFUSED` are demoted now — reasons, not standings in their own
-right. `MOCKED` explains why a standing gets capped: a surface handing back
-a fabricated value is still partly working, and `PARTIAL_ALIVE` records that
-where a bare `MOCKED` would lose it. `REFUSED` is a run outcome, not a
-verdict — a lawful refusal is the system doing its job, and calling it a
-standing would confuse evidence *for* promotion with actual brokenness.
+`MOCKED` and `REFUSED` are now reasons rather than standings. `MOCKED` is why a
+standing is capped — a surface returning a fabricated value partly works, which
+`PARTIAL_ALIVE` records and `MOCKED` would lose. `REFUSED` is a run outcome: a
+lawful refusal is the system working, so as a standing it would conflate
+evidence *for* promotion with brokenness.
 
 **Current standing:** `PARTIAL_ALIVE` (`NO_REPLAY`)
 
@@ -1215,14 +1213,14 @@ standing would confuse evidence *for* promotion with actual brokenness.
 
 **Refuted claim**
 
-MCP `validate` hands back the prose string `"Plan valid"`. `bind_plan_receipt`
-wants a `validator_result` carrying a boolean `valid`. The two don't
-compose — someone has to construct the verdict by hand, and
-`skills/admit/SKILL.md:15` says to do exactly that.
+MCP `validate` returns the prose string `"Plan valid"`. `bind_plan_receipt`
+requires a `validator_result` carrying a boolean `valid`. The two do not
+compose, so the verdict must be constructed by hand — and
+`skills/admit/SKILL.md:15` instructs exactly that.
 
 **The `validator_result` field of every receipt bound during the 2026-07-29
-cycle was hand-fabricated.** Both loop closes' independence claims are
-false because of it. Recorded here, not swept along quietly.
+cycle was hand-fabricated.** The independence claim of both loop closes is
+therefore false, and this is recorded rather than quietly carried.
 
 **Current standing:** `PARTIAL_ALIVE` (`MOCKED`)
 
@@ -1244,10 +1242,10 @@ false because of it. Recorded here, not swept along quietly.
 64 hexadecimal characters — and never looked up, so any well-formed hex string
 is an acceptable predecessor and `None` is indistinguishable from a break.
 
-The five-link chain from this cycle
-(`755a2057 → c1520c61 → d56006af → eb8e4645 → d72f17f0`) proves the individual
-links *recompute*. Nothing more. Zero evidence the chain is actually a chain.
-§14's claim that "chain forks are detected" isn't untested — it's absent.
+The five-link chain produced this cycle
+(`755a2057 → c1520c61 → d56006af → eb8e4645 → d72f17f0`) is evidence that
+individual links *recompute*. It is zero evidence that the chain is a chain.
+§14's claim that "chain forks are detected" is not untested — it is absent.
 
 **Current standing:** `UNSUPPORTED` (`DEPENDENCY_MISSING`)
 
@@ -1263,16 +1261,15 @@ links *recompute*. Nothing more. Zero evidence the chain is actually a chain.
 
 **Open defect**
 
-The ledger key is `sha256(realpath(cwd))[:24]` — run a command from a
-subdirectory and a second ledger for the same repository springs into
-existence, silently. Four exist today.
+The ledger key is `sha256(realpath(cwd))[:24]`, so a command run from a
+subdirectory silently creates a second ledger for the same repository. Four
+exist today.
 
-It demonstrated itself, unprompted, in the session that documented it: the
-`Stop` hook blocked on 47 pending events in the `plugins/chatman-ecosystem`
-ledger while the repository ledger read 0 pending — two ledgers, two
-stories, same repo. The fix — anchoring to the git toplevel via
-`roots.project_root()` — is built but not wired into `loop.py`/`phase.py`,
-so the fork comes right back on the next `cd`.
+This demonstrated itself during the session that documented it: the `Stop` hook
+blocked on 47 pending events in the `plugins/chatman-ecosystem` ledger while
+the repository ledger read 0 pending. The fix — anchoring to the git toplevel
+via `roots.project_root()` — is built but not wired into `loop.py`/`phase.py`,
+so the fork recurs on the next `cd`.
 
 **Blast radius corrected upward (2026-07-29).** The earlier text implied two
 copies of `project_key`. There are **six**, and
@@ -1307,17 +1304,16 @@ agree, so five corrected copies leave the fork intact.
 
 **Open defect**
 
-`loop.py:368` sets `admitted_event_count = event_count` — a blanket
-watermark, blind to the `observation_frontier` the envelope is actually
-supposed to attest to. Anything landing between binding an envelope and
-running `admit` gets marked admitted without ever showing up in a receipt.
+`loop.py:368` sets `admitted_event_count = event_count` — a blanket watermark
+that ignores the `observation_frontier` the envelope actually attests to. Any
+mutation landing between binding an envelope and running `admit` is marked
+admitted without ever appearing in a receipt.
 
-Caught it in this cycle's acceptance run: the envelope declared
-`event_count: 142`; `admit` wrote `admitted_event_count: 143`. One event,
-slipped through, unaccounted for.
+Observed in this cycle's acceptance run: the envelope declared
+`event_count: 142`; `admit` wrote `admitted_event_count: 143`.
 
-The system's whole claim rests on state entering only through admitted
-observations. Here's the crack in that claim, and no test covers it.
+The system's core claim is that state enters only through admitted
+observations. This is the gap in that claim, and no test covers it.
 
 **Citation corrected (2026-07-29).** This section previously cited
 `loop.py:388`. The file has shifted; `:388` is now the plan-digest format
@@ -1352,27 +1348,25 @@ a real observation, but it is not a Gall-checkpoint negative fixture.
 
 **Defect fixed this cycle** (commit `1a9ab50`)
 
-Two defects, one surface, both closed by folding the classifier into
+Two defects in one surface, both closed by consolidating the classifier into
 `scripts/bash_classify.py`.
 
-*Divergence.* Three copies of `MUTATING_BASH` were floating around —
-`loop.py`, `phase.py`, `event-summary.py` — and they didn't agree. `phase.py`
-dropped the publication class, so `git push` logged a ledger event but
-never collapsed the phase vector: the ledger and the phase engine holding
-two different beliefs about the same command.
+*Divergence.* Three copies of `MUTATING_BASH` existed — `loop.py`, `phase.py`,
+`event-summary.py` — and disagreed. `phase.py` omitted the publication class, so
+`git push` logged a ledger event but never collapsed the phase vector: the
+ledger and the phase engine held different beliefs about the same command.
 
-*Prefix matching.* No git subcommand alternation carried a trailing
-boundary, so prefixes matched loose. Bit this session in the middle of a
-real run: `git merge-base --is-ancestor` and `git branch --show-current`,
-both read-only, both matched `PROTECTED_BASH`, both blocked a legitimate
-push. `rm\b` was the only branch that had the boundary right — a sign the
-gap was an oversight, not a design call.
+*Prefix matching.* No git subcommand alternation carried a trailing boundary, so
+prefixes matched. This produced a real incident during this session:
+`git merge-base --is-ancestor` and `git branch --show-current` are read-only,
+matched `PROTECTED_BASH`, and blocked a legitimate push. `rm\b` was the only
+branch with a correct boundary — evidence the omission was an oversight rather
+than a design choice.
 
-**What separates the real fix from a near-miss.** `\b` alone doesn't cut it.
-`-` reads as a non-word character, so `commit\b` still matches
-`commit-graph` — a `\b`-only patch would have kept misclassifying
-`git commit-graph verify` while looking correct on the surface. The fix
-uses `(?![\w-])`.
+**The nuance that separates the fix from a near-miss.** `\b` alone is
+insufficient. `-` is a non-word character, so `commit\b` still matches
+`commit-graph`, and a `\b`-only patch would have kept misclassifying
+`git commit-graph verify` while looking correct. The fix uses `(?![\w-])`.
 
 **Current standing:** `PARTIAL_ALIVE` (`NO_REPLAY`)
 
@@ -1395,29 +1389,29 @@ weakening it to `\b` still fails the `commit-graph` case in the sibling table.
 
 ## Session Lifecycle Bookends (CE-GALL-35)
 
-**Working system.** `session_open`, `session_status`, `session_close` — no
-dedicated checkpoint had ever pinned them down before this entry. They only
-showed up as steps buried inside `session_protocol.rs`'s longer happy-path
-chain (`session_open` → `session_observe` → `session_set_goal` →
-`session_think` → `session_advance` → `session_status` → `session_close`)
-and inside a separate "never-opened session" refusal test. Nothing tested
-the three bookend tools as a surface of their own: does `session_open`
-ground state that `session_status` actually reflects? Does `session_close`
-leave a session where reuse fails lawfully, not silently?
+**Working system.** `session_open`, `session_status`, and `session_close` had
+no dedicated checkpoint coverage before this entry — they were only exercised
+as steps inside `session_protocol.rs`'s longer happy-path chain
+(`session_open` → `session_observe` → `session_set_goal` → `session_think` →
+`session_advance` → `session_status` → `session_close`) and inside a separate
+"never-opened session" refusal test. Nothing pinned the three bookend tools as
+a surface of their own: does `session_open` ground state that `session_status`
+actually reflects, and does `session_close` leave the session in a state where
+reuse fails lawfully rather than silently?
 
 A new test file, `crates/ferroplan-mcp/tests/session_lifecycle_bookends.rs`,
-drives the built `ferroplan-mcp` binary over stdio — same harness pattern as
-`session_protocol.rs` — to answer exactly that: open a session against a
-small valid STRIPS domain+problem, check `session_status` echoes the
-grounded `session_id`/`domain_digest`/`problem_digest`/`goal_met`/`cursor`,
-close it, then push on reuse of the closed `session_id`.
+drives the built `ferroplan-mcp` binary over stdio (same harness pattern as
+`session_protocol.rs`) for exactly that: open a session against a small valid
+STRIPS domain+problem, check `session_status` echoes the grounded
+`session_id`/`domain_digest`/`problem_digest`/`goal_met`/`cursor`, close it,
+then probe reuse of the closed `session_id`.
 
-**Open defect / correction to the original plan.** The test was drafted on
-two assumptions — that `session_status` exposes a `goal` field, and that a
-second `session_close` on an already-closed session refuses with
-`unknown session` the way `session_status`/`session_advance`/`session_observe`
-do. Both wrong, and only running the test against the live server surfaced
-it, not review:
+**Open defect / correction to the original plan.** The test was drafted
+assuming `session_status` exposes a `goal` field and that a second
+`session_close` on an already-closed session refuses with `unknown session`
+like `session_status`/`session_advance`/`session_observe` do. Both assumptions
+were wrong, found by running the test against the live server rather than by
+review:
 
 - `session_status`'s real schema
   (`urn:chatman:ferroplan-session-status:v1`) has no `goal` field. It reports
@@ -1430,7 +1424,8 @@ it, not review:
   converge on one failure mode for post-close reuse: `session_close`
   degrades gracefully where `session_status` refuses.
 
-The test's assertions got rewritten against what was actually observed, not what had been guessed.
+The test's assertions were corrected to match the observed behavior rather
+than the guessed one.
 
 **Current standing:** `PARTIAL_ALIVE` (`NO_REPLAY`)
 
@@ -1464,11 +1459,11 @@ idempotent `closed: false` response instead of a fabricated second refusal.
 
 **Working system**
 
-`session_set_goal` and `session_advance` — wired into
-`full_session_lifecycle` in `session_protocol.rs` as a happy-path step, and
-never once given a SKILL.md or a Gall-checkpoint of their own before this
-cycle. This checkpoint puts dedicated positive and negative witnesses on
-each tool's real behavior, not just its cameo in a broader lifecycle test.
+`session_set_goal` and `session_advance` had no existing SKILL.md or
+Gall-checkpoint coverage before this cycle, despite both being wired into
+`full_session_lifecycle` in `session_protocol.rs` as a happy-path step. This
+checkpoint adds dedicated positive and negative witnesses that exercise each
+tool's real behavior rather than its presence in a broader lifecycle test.
 
 `session_set_goal` retargets a live `Session` to a new ground conjunction
 over the already-interned fact space (`crates/ferroplan/src/session.rs:929`)
@@ -1517,11 +1512,11 @@ call left the cursor at 0, and a following in-range advance still succeeds.
 
 **Defect fixed this cycle (re-witnessed, not authored by this checkpoint)**
 
-CE-GALL-30 caught MCP `validate` returning the prose string `"Plan valid"` —
-incompatible with `bind_plan_receipt`'s boolean `valid` requirement, forcing
-the hand-fabrication `skills/admit/SKILL.md:15` instructs. This checkpoint
-put that exact claim back in front of the live tool at the current commit,
-instead of trusting the old doc's word for it.
+CE-GALL-30 recorded that MCP `validate` returned the prose string `"Plan
+valid"`, incompatible with `bind_plan_receipt`'s boolean `valid` requirement,
+forcing the hand-fabrication instructed at `skills/admit/SKILL.md:15`. This
+checkpoint re-ran that exact claim against the live tool at the current
+commit rather than trusting the old doc.
 
 Two direct calls to `mcp__plugin_chatman-ecosystem_ferroplan__validate`
 against a trivial 1-action STRIPS domain (`(at-a)` -> `(at-b)`):
@@ -1531,23 +1526,23 @@ against a trivial 1-action STRIPS domain (`(at-a)` -> `(at-b)`):
 * Invalid plan (`step 1: (nonexistent-action)`) ->
   `{"reason":"plan action \`NONEXISTENT-ACTION \` not a grounded op","schema":"urn:ferroplan:plan-validation:v1","valid":false}`
 
-Both structured JSON, both a native boolean `valid` field, both tagged
-`urn:ferroplan:plan-validation:v1` — no prose in sight. **CE-GALL-30's
-refuted claim doesn't reproduce at this commit**: the composition gap it
-named — prose in, bool required by `bind_plan_receipt` — is closed for the
+Both are structured JSON objects with a native boolean `valid` field and a
+`urn:ferroplan:plan-validation:v1` schema tag — not prose. **CE-GALL-30's
+refuted claim does not reproduce at this commit**: the composition gap it
+named (prose in, bool required by `bind_plan_receipt`) is closed for the
 tool's raw output shape. This upgrades the *mechanical* half of CE-GALL-30's
-finding. CE-GALL-30's own section stays untouched, standing as the
-historical record of when and why the gap first got written down.
+finding; CE-GALL-30's own section is left untouched as the historical record
+of when and why the gap was first recorded.
 
 **What this checkpoint does not claim.** `skills/admit/SKILL.md:15` still
 reads as a manual instruction ("independent validator result containing
 `valid: true`") rather than "pass `validate`'s own `valid` field through" —
-the callers weren't audited or touched here, only the raw tool response
-shape got re-verified. CE-GALL-13/CE-GALL-30's separate, still-open worry
-about genuine engine independence — Ferroplan's `validate` grading its own
-plan versus an outside validator like VAL — stands untouched. A structured
-verdict clears the prose/bool composition problem. It doesn't, on its own,
-restore independence.
+the callers were not audited or changed by this checkpoint, only the raw
+tool response shape was re-verified. CE-GALL-13/CE-GALL-30's separate,
+still-open concern about genuine engine independence (Ferroplan's `validate`
+validating a Ferroplan-produced plan vs. an external validator like VAL) is
+untouched — a structured verdict removes the prose/bool composition problem,
+it does not by itself restore independence.
 
 **Current standing:** `PARTIAL_ALIVE` (`NO_REPLAY`)
 
@@ -1575,22 +1570,22 @@ action against the same domain/problem, and asserts the tool reports
 
 **Supersedes/extends Checkpoint 9's cross-call-descent gap**
 
-Checkpoint 9's 2026-07-29 audit found `bind_allocation_receipt`'s only
-chaining field is a flat `previous_receipt`, and called "true cross-call
-recursive descent" "architecturally absent from the MCP tool schema." Right
-about `bind_allocation_receipt` — but blind to `cmca_allocate_recursive`, a
-separate MCP tool (`crates/ferroplan-mcp/src/session.rs`,
-`tool_cmca_allocate_recursive`) that already builds exactly what Checkpoint
-9's "Working system" diagram asked for: a `root` frontier of eight admitted
-candidates, then zero or more `descents`, each naming a
-`selected_parent_node` id pulled from the frontier one depth up and
-supplying a fresh local eight-candidate frontier of its own. Each depth's
-payload carries `parent_payload_digest`, and it's checked, not just
-declared, to equal the previous depth's real `allocation_payload_digest`.
+Checkpoint 9's 2026-07-29 audit found that `bind_allocation_receipt`'s only chaining
+field is a flat `previous_receipt`, and concluded that "true cross-call recursive
+descent" was "architecturally absent from the MCP tool schema." That conclusion was
+correct about `bind_allocation_receipt` specifically, but did not account for
+`cmca_allocate_recursive` — a separate MCP tool (`crates/ferroplan-mcp/src/session.rs`,
+`tool_cmca_allocate_recursive`) that already implements exactly the shape Checkpoint 9's
+"Working system" diagram describes: a `root` frontier of eight admitted candidates,
+followed by zero or more `descents`, each naming a `selected_parent_node` id drawn from
+the immediately preceding depth's own admitted frontier and supplying a fresh local
+eight-candidate frontier. Each depth's payload carries `parent_payload_digest`, which is
+asserted (not merely declared) to equal the previous depth's real
+`allocation_payload_digest`.
 
-This checkpoint put that tool through its paces directly — driving it live
-via `mcp__plugin_chatman-ecosystem_ferroplan__cmca_allocate_recursive`,
-running its existing suite plus one new Rust integration test.
+This checkpoint re-verified that tool directly, both by driving it live via
+`mcp__plugin_chatman-ecosystem_ferroplan__cmca_allocate_recursive` and by running its
+existing and one new Rust integration test.
 
 **Required proof**
 
@@ -1611,17 +1606,15 @@ running its existing suite plus one new Rust integration test.
 * Malformed-depth refusal collapses the whole chain, no partial result. Confirmed
   (existing test `cmca_recursive_refuses_the_whole_chain_on_a_bad_depth`).
 
-**What is still open, named rather than omitted.** Checkpoint 9's "parent
-receipt mismatch refusal" and "missing return consequence refusal" items
-aren't modeled by `cmca_allocate_recursive` — no mechanism exists for a
-child depth's result to be rejected or re-consumed by its parent depth
-after the fact, and `bind_allocation_receipt` still carries only that flat
-`previous_receipt` field. The gap Checkpoint 9 found in that specific tool
-hasn't moved. What closes here is narrower, and precise:
-`cmca_allocate_recursive` is a real, tested, live-confirmed cross-call
-recursive descent tool — distinct from both the in-array `parent`-index
-tree Checkpoint 9's earlier audit exercised and from the receipt-binding
-surface Checkpoint 9's gap language was really aimed at.
+**What is still open, named rather than omitted.** Checkpoint 9's "parent receipt
+mismatch refusal" and "missing return consequence refusal" items are not modeled by
+`cmca_allocate_recursive`: there is no mechanism for a child depth's result to be
+rejected or re-consumed by its parent depth after the fact, and `bind_allocation_receipt`
+still has only a flat `previous_receipt` field — the gap Checkpoint 9 identified in that
+specific tool is unchanged. What closes here is narrower and precise: `cmca_allocate_recursive`
+is a real, tested, live-confirmed cross-call recursive descent tool, distinct from both
+the in-array `parent`-index tree Checkpoint 9's earlier audit exercised and from the
+receipt-binding surface Checkpoint 9's gap language was really pointed at.
 
 **Live tool calls made this session** (not just tests):
 
@@ -1671,11 +1664,11 @@ exact error text above.
 
 **Open defect** — tests a gap named in Checkpoint CE-GALL-31
 
-CE-GALL-31 caught chain-fork detection missing entirely: `verify_chain`
-doesn't exist, `previous_receipt` is format-checked only (64 hex, never
-looked up). This checkpoint builds the fork for real against the running
-`ferroplan-mcp` server and asks a plain question: does anything in this
-repository catch it?
+CE-GALL-31 recorded that chain-fork detection is absent: `verify_chain` does
+not exist, and `previous_receipt` is format-checked only (64 hex, never
+looked up). This checkpoint constructs the fork for real against the running
+`ferroplan-mcp` server and checks whether anything in this repository catches
+it.
 
 **What was built**
 
@@ -1744,18 +1737,18 @@ whether a claimed predecessor already has another admitted child
 
 **Capstone over CE-GALL-35..39**
 
-A prior audit turned up no test that ran all 17 `ferroplan-mcp` tools in one
-continuous chained flow — just overlapping subsets, scattered across
+A prior audit found no test anywhere exercised all 17 `ferroplan-mcp` tools
+in one continuous chained flow — only overlapping subsets, spread across
 `session_protocol.rs`, `session_lifecycle_bookends.rs`,
-`session_goal_advance.rs`, the Python fork/validate fixtures. This
+`session_goal_advance.rs`, and the Python fork/validate fixtures. This
 checkpoint answers "does the ecosystem actually dogfood every
-`ferroplan-mcp` tool" with a receipt, not a shrug.
+`ferroplan-mcp` tool" with a receipt, not a guess.
 
 **Working system**
 
-A small two-action STRIPS domain (`at-a -> at-b -> at-c`) drives one
-continuous JSON-RPC session over stdio, straight through the built
-`ferroplan-mcp` binary:
+A small two-action STRIPS domain (`at-a -> at-b -> at-c`) drives, in one
+continuous JSON-RPC session over stdio against the built `ferroplan-mcp`
+binary:
 
 ```text
 parse (domain) -> parse (problem) -> solve
@@ -1778,13 +1771,12 @@ envelopes; chaining `previous_receipt` to the allocation receipt would
 overclaim a plan-envelope lineage that does not exist yet, since this is the
 only plan envelope bound in this session.
 
-The same trace ran live first, via direct
+The same trace was first run live via direct
 `mcp__plugin_chatman-ecosystem_ferroplan__*` tool calls in the authoring
-session, then got formalized into a re-runnable Rust fixture driving the
-binary over stdio — the more faithful "one continuous flow" transport,
-matching the harness pattern the existing `session_*` test files already
-use. That live run turned up a genuine finding, not a guess dressed up
-after the fact as an assertion:
+session, then formalized as a re-runnable Rust fixture driving the binary
+over stdio — the more faithful "one continuous flow" transport, matching the
+existing `session_*` test files' harness pattern. That live run surfaced a
+genuine finding, not a guess later encoded as an assertion:
 `bind_allocation_receipt` refuses `cmca_allocate_recursive`'s raw `depths`
 payload (`allocation_result lacks payload.bcinr_revision`,
 `crates/ferroplan-mcp/src/admission.rs:188-190`) because its schema expects
@@ -1848,34 +1840,33 @@ assumed from that prior checkpoint.
 
 ## 2026-07-29 — CE-GALL-39, receipt chain fork detection
 
-Went after the gap CE-GALL-31 named: `verify_chain` doesn't exist, so
-nothing checks whether two different receipts claim the same predecessor.
-Built the fork for real against the live `ferroplan-mcp` server —
-`solve`/`validate` on a trivial one-action domain, `cmca_allocate`/
-`bind_allocation_receipt` over eight candidates, `session_open`/
-`session_think`, then `bind_plan_receipt` three times: root A, then two
-children B1 and B2, both declaring A as `previous_receipt` with different
-`observation_frontier` payloads. Ran `verify_receipt` on B1 and B2
-separately; both came back `valid: true`. Neither carries any signal a
-sibling exists — `verify_receipt` recomputes digests and checks the
-declared predecessor is well-formed hex, nothing more. A corpus scan
-(`grep -rn verify_chain crates/ plugins/`, plus a walk of every script
-under `scripts/`) found no chain-walking or branch-detection capability
-anywhere; the only "fork" mention outside CE-GALL-31/34's own prose is
-`agents/receipt-auditor.md`, a markdown prompt for an LLM auditor, not an
-invocable tool. Logged as `UNSUPPORTED` / `DEFECT_OPEN` with an executing
-negative falsifier (`plugins/chatman-ecosystem/tests/test_fork_detection.py`,
-4/4 passing) that pins the exact live-tool receipts and verification
-results instead of describing the gap in prose. `blocked_by` names the
-missing `verify_chain` tool. Full suite re-run after the addition: 373
-passed, zero regressions.
+Tested the gap CE-GALL-31 named: `verify_chain` does not exist, so nothing
+checks whether two different receipts claim the same predecessor. Built the
+fork for real against the live `ferroplan-mcp` server — `solve`/`validate`
+on a trivial one-action domain, `cmca_allocate`/`bind_allocation_receipt`
+over eight candidates, `session_open`/`session_think`, then `bind_plan_receipt`
+three times: root A, then two children B1 and B2 that both declare A as
+`previous_receipt` with different `observation_frontier` payloads. Called
+`verify_receipt` on B1 and B2 independently; both returned `valid: true`.
+Neither result carries any signal that a sibling exists — `verify_receipt`
+recomputes digests and checks the declared predecessor is well-formed hex,
+nothing more. A corpus scan (`grep -rn verify_chain crates/ plugins/`, plus a
+walk of every script under `scripts/`) found no chain-walking or
+branch-detection capability; the only "fork" mention outside CE-GALL-31/34's
+own prose is `agents/receipt-auditor.md`, a markdown prompt for an LLM
+auditor, not an invocable tool. Recorded as `UNSUPPORTED` / `DEFECT_OPEN`
+with an executing negative falsifier
+(`plugins/chatman-ecosystem/tests/test_fork_detection.py`, 4/4 passing) that
+pins the exact live-tool receipts and verification results rather than
+describing the gap in prose. `blocked_by` names the missing `verify_chain`
+tool. Full suite re-run after the addition: 373 passed, zero regressions.
 
 ## 2026-07-29 — CE-GALL-38, re-witnessing CE-GALL-30's validate claim
 
 Called the live `mcp__plugin_chatman-ecosystem_ferroplan__validate` tool
-directly — not from old docs — against a trivial 1-action STRIPS domain,
-once for a valid plan, once for an invalid one (nonexistent grounded
-action). Both raw responses came back structured JSON
+directly (not from old docs) with a trivial 1-action STRIPS domain, once for
+a valid plan and once for an invalid one (nonexistent grounded action).
+Both raw responses were structured JSON
 (`{"reason":..., "schema":"urn:ferroplan:plan-validation:v1", "valid":bool}`),
 not the prose string `"Plan valid"` CE-GALL-30 recorded. Wrote and ran
 `plugins/chatman-ecosystem/tests/test_validate_verdict.py` (4 tests, all
@@ -1891,39 +1882,38 @@ engine independence (CE-GALL-13's VAL question) is resolved.
 
 ## 2026-07-29 — parallel-agent iteration (branch `chatman-dx-cycle`)
 
-Three agents, working in parallel, disjoint file sets. Two feature commits
-landed: `63a8a70` (Rust), `1a9ab50` (canonical Bash classification). The
-suite climbed from 251 to 308 tests. This entry is the receipt-and-document
-pass laid over that work.
+Three agents worked in parallel on disjoint file sets. Two feature commits
+landed: `63a8a70` (Rust) and `1a9ab50` (canonical Bash classification). The
+suite went from 251 to 308 tests. This entry is the receipt-and-document pass
+over that work.
 
-**Corrections to existing receipts** — recorded because a stale receipt is
-worse than a missing one. It's evidence pointing at the wrong line:
+**Corrections to existing receipts**, recorded because a stale receipt is worse
+than a missing one — it is evidence pointing at the wrong line:
 
-- CE-GALL-33 cited `loop.py:388` for the admission TOCTOU. The file's moved
-  on — `:388` is now the plan-digest format check, the true line is `:368`.
-  Follow the old citation and you'd audit an unrelated check and walk away
-  finding nothing wrong;
-- CE-GALL-33 also picked up an explicit **claim ceiling**. It read as if a
-  one-line fix would close it. It can't: `observation_frontier` has no
-  schema anywhere in this repository, sits as a bare `Value` in the Rust
-  binder, has no producer. The falsifier moved from a prose observation to
-  declared-absent with reason `DEPENDENCY_MISSING`, and `blocked_by` now
-  names the two artifacts that have to exist first;
-- CE-GALL-32 **understated its own blast radius**. The receipt implied two
-  copies of `project_key`; the grep turns up six (`effective-phase.py:47`,
-  `phase.py:69`, `grant-actuation.py:56`, `actuation-intent.py:82`,
-  `event-summary.py:50`, `loop.py:53`). Changes the shape of the defect, not
-  just its size — with six copies, any per-copy repair is a partial fix by
-  construction.
+- CE-GALL-33 cited `loop.py:388` for the admission TOCTOU. The file has shifted
+  and `:388` is now the plan-digest format check; the true line is `:368`. A
+  reader following the old citation would have audited an unrelated check and
+  found nothing wrong;
+- CE-GALL-33 also gained an explicit **claim ceiling**. It was written as though
+  a one-line fix would close it. It cannot: `observation_frontier` has no schema
+  anywhere in this repository, is a bare `Value` in the Rust binder, and has no
+  producer. The falsifier moved from a prose observation to declared-absent with
+  reason `DEPENDENCY_MISSING`, and `blocked_by` now names the two artifacts that
+  must exist first;
+- CE-GALL-32 **understated its blast radius**. The receipt implied two copies of
+  `project_key`; the grep shows six (`effective-phase.py:47`, `phase.py:69`,
+  `grant-actuation.py:56`, `actuation-intent.py:82`, `event-summary.py:50`,
+  `loop.py:53`). This changes the shape of the defect, not just its size: with
+  six copies, any per-copy repair is a partial fix by construction.
 
-CE-GALL-34 opened for the `MUTATING_BASH` prefix/divergence defect, closed
-by `1a9ab50`, carrying an executing falsifier — `PARTIAL_ALIVE` / `NO_REPLAY`,
-because the promotion law's boundary is the session and none of this has
-been replayed outside it.
+CE-GALL-34 opened for the `MUTATING_BASH` prefix/divergence defect, fixed by
+`1a9ab50`, with an executing falsifier — `PARTIAL_ALIVE` / `NO_REPLAY`, because
+the promotion law's boundary is the session and nothing here has been replayed
+outside it.
 
-**The most interesting result of the iteration: the implementing agents
-corrected the brief they were handed.** Both corrections surfaced by
-building, not by reviewing, and neither was in the plan:
+**The most interesting result of the iteration was that the implementing agents
+corrected the brief they were given.** Both corrections were found by building,
+not by reviewing, and neither was in the plan:
 
 - the empty-plan case was specified as *parseable but trivially satisfied*.
   Measured, it is **unparseable** — a different failure at a different layer,
@@ -1933,24 +1923,23 @@ building, not by reviewing, and neither was in the plan:
   landed fix uses `(?![\w-])`. A `\b` patch would have passed review, looked
   correct, and left `git commit-graph verify` misclassified.
 
-Same failure mode, caught twice: a plausible specification a real run
-refutes. Recorded here, not quietly absorbed — the whole value of running
-agents in parallel is that the one holding the file gets to disagree with
-the one holding the plan.
+Both are the same failure mode caught twice: a plausible specification that a
+run refutes. Recorded here rather than silently absorbed, since the value of the
+parallel structure is precisely that the agent holding the file disagreed with
+the agent holding the plan.
 
 ## 2026-07-29 — DX architecture cycle (branch `chatman-dx-cycle`)
 
-Seven commits. 141 tests where none stood before, plus a separate CI
-`plugin` job so a plugin failure never hides behind a Rust one.
+Seven commits. 141 tests where there were none, and a separate CI `plugin` job
+so a plugin failure is never masked by a Rust one.
 
 Added checkpoints 22–26, 28 (new working systems) and 29–33 (recorded
-negatives). Every one sits at `PARTIAL_ALIVE` or lower, every one snagged on
-the same hop: no clean-worktree replay outside this session, nothing
-pushed. The promotion law bars `ALIVE` on that alone, however green the
-suite reads.
+negatives). Every one is `PARTIAL_ALIVE` or lower, all blocked on the same hop:
+no clean-worktree replay outside this session, and nothing pushed. Under the
+promotion law that bars `ALIVE` however green the suite is.
 
-The canonical definition of a Gall checkpoint got pulled back from `~/mfw`, where
-it lives as a formal glossary symbol
+The canonical definition of a Gall checkpoint was recovered from `~/mfw`, where
+it exists as a formal glossary symbol
 (`mfw-math/15-galls-law-evolutionary-construction.omdoc:37`): *"the smallest
 closed, receipted transformation proving one complete category transition with
 explicit inputs, outputs, refusals, and verification."* `~/bcinr` supplied the
@@ -1966,7 +1955,8 @@ including a nonexistent surface. 13 **downgraded** to `PARTIAL_ALIVE` +
 five-link chain and lost the fork-refusal claim. 20 net honest downgrade: two
 more closes, but both fabricated the validator verdict.
 
-**Defects the new tests turned up while being written** — none of them known when the cycle was planned:
+**Defects the new tests found while being written**, none of which were known
+when the cycle was planned:
 
 - four surfaces pointed at nonexistent paths — `crates/ferroplan/src/{temporal,
   search,heuristic,ground}` are `.rs` files, and they sat on the two
@@ -1977,7 +1967,8 @@ more closes, but both fabricated the validator verdict.
 - the human projection of an unresolved binary was the empty string, which
   would have handed a launcher `exec ""`.
 
-**Two corrections to earlier claims made in this same session** — worth more on the record than folded into a quiet edit:
+**Two corrections to earlier claims made in this same session**, recorded
+because a corrected claim is worth more than a quiet edit:
 
 - the MCP resolution failure was first blamed on `env.setdefault` preserving an
   empty variable. Measured: the variables are *unset*, so `setdefault` fires.
@@ -1988,32 +1979,30 @@ more closes, but both fabricated the validator verdict.
   `planning=validated` vector and deleted the state from the reachable space.
   Deletion was correct.
 
-**The ledger fragmentation defect demonstrated itself during the very
-session that documented it** (CE-GALL-32): the `Stop` hook blocked on 47
-pending events in the `plugins/chatman-ecosystem` ledger while the
-repository ledger read 0.
+**The ledger fragmentation defect demonstrated itself during the session that
+documented it** (CE-GALL-32): the `Stop` hook blocked on 47 pending events in
+the `plugins/chatman-ecosystem` ledger while the repository ledger read 0.
 
-**Left undone, named rather than swept aside:** MCP `validate` still
-returns prose so the validator verdict stays fabricated (CE-GALL-30);
-`verify_chain` doesn't exist (CE-GALL-31); ledger anchoring is built but
-unwired (CE-GALL-32); the admission TOCTOU sits open and untested
-(CE-GALL-33); `loop.py close` isn't built, so both closes ran nine manual
-steps apiece; nothing is pushed, and `main` has none of it.
+**Left undone, named rather than omitted:** MCP `validate` still returns prose
+so the validator verdict is fabricated (CE-GALL-30); `verify_chain` does not
+exist (CE-GALL-31); ledger anchoring is built but unwired (CE-GALL-32); the
+admission TOCTOU is open and untested (CE-GALL-33); `loop.py close` is not
+built, so both closes were nine manual steps; nothing is pushed and `main` has
+none of it.
 
-**Clean-clone replay ran, and it does NOT promote anything.** At seal
-`2ee20a5` the tree was cloned to a fresh path, checked out at the sealed
-commit with a verified-clean worktree, run with all four steering variables
-cleared: 251 passed, `generate.py build --check` clean. Real evidence —
-kills two failure modes, a dirty worktree and environment leaking from the
-authoring shell.
+**Clean-clone replay performed, and it does NOT promote.** At seal `2ee20a5`
+the tree was cloned to a fresh path, checked out at the sealed commit with a
+verified-clean worktree, and run with all four steering variables cleared:
+251 passed, `generate.py build --check` clean. That is real evidence and it
+eliminates two failure modes — a dirty worktree, and environment leaking from
+the authoring shell.
 
-Deliberately **not** recorded as `replayed_outside_session`. The promotion
-law's boundary is the *session*, not the process, and here's the third
-failure mode a clone can't touch: the agent replaying is the same agent
-that wrote the tests and chose which ones to run. `wasm4pm` made the
-identical call, demoting its own receipts from `ALIVE` down to
-`PARTIAL_ALIVE` pending a genuinely independent replay. The flag stays
-`false` until someone else — or a later session — runs it.
+It is deliberately **not** recorded as `replayed_outside_session`. The promotion
+law's boundary is the *session*, not the process, and the reason is the third
+failure mode a clone cannot remove: the agent replaying is the agent that wrote
+the tests and chose which to run. `wasm4pm` made the same call, demoting its own
+receipts from `ALIVE` to `PARTIAL_ALIVE` pending a genuinely independent replay.
+The flag stays `false` until someone else, or a later session, runs it.
 
 **The one action that promotes 22–26, 28, 29 to `ALIVE`:** clone to a fresh
 path, check out the sealed commit, and run `pytest` plus
@@ -2022,23 +2011,22 @@ path, check out the sealed commit, and run `pytest` plus
 
 ## 2026-07-29 — first full pass
 
-Ran checkpoints 2, 3, 9, 13, 19 all the way to real evidence — commands and
-output shown inline above. Confirmed existence/non-existence for 11 and
-15–18 without attempting new implementation. Upgraded: 2 (`UNKNOWN` →
-`PARTIAL_ALIVE`), 13 (`UNSUPPORTED` → `PARTIAL_ALIVE`), 11 (`UNKNOWN` →
-`UNSUPPORTED` — sharpened, not upgraded). Sharpened without moving the
-label: 3, 9, 19. Left untouched: 0, 1, 4, 5, 6, 7, 8, 10, 12, 14, 16, 17,
-18, 20, 21 — either re-confirmed from existing evidence or plainly out of
-this pass's scope.
+Ran checkpoints 2, 3, 9, 13, 19 to real evidence (commands + output shown
+inline above); confirmed existence/non-existence for 11 and 15–18 without
+attempting new implementation. Upgraded: 2 (`UNKNOWN` → `PARTIAL_ALIVE`),
+13 (`UNSUPPORTED` → `PARTIAL_ALIVE`), 11 (`UNKNOWN` → `UNSUPPORTED`, i.e.
+sharpened, not upgraded). Sharpened without changing the label: 3, 9, 19.
+Left untouched: 0, 1, 4, 5, 6, 7, 8, 10, 12, 14, 16, 17, 18, 20, 21 (either
+re-confirmed from existing evidence or explicitly out of this pass's scope).
 
 Concrete artifacts left behind by this pass:
 - `benchmarks/.val/VAL/build/bin/Validate` — real vendored VAL binary
   (gitignored, not committed; rebuild with `sh benchmarks/get-val.sh
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5` if the plain script fails to
   configure).
-- This file (`docs/gall-checkpoints.md`), stood up for the first time —
-  before it, the checkpoint spec lived only in chat history, one re-derived
-  inconsistency away from drifting apart every session.
+- This file (`docs/gall-checkpoints.md`), created for the first time —
+  previously the checkpoint spec existed only in chat history and was at
+  risk of being re-derived inconsistently each session.
 
 Named next steps, not yet started: patch `get-val.sh`'s cmake invocation;
 add `tools:` frontmatter to the 8 agents (Checkpoint 3); decide and
@@ -2048,10 +2036,10 @@ failure or supersede it.
 
 ## 2026-07-29 — Session Lifecycle Bookends (CE-GALL-35)
 
-Opened CE-GALL-35 for `session_open`/`session_status`/`session_close` — the
-three MCP session tools nobody had ever given a dedicated checkpoint or
-test to (they only surfaced as intermediate steps buried inside
-`session_protocol.rs`'s longer chains). Added
+Opened CE-GALL-35 for `session_open`/`session_status`/`session_close`, the
+three MCP session tools with no prior dedicated checkpoint or test coverage
+(they only appeared as intermediate steps inside `session_protocol.rs`'s
+longer chains). Added
 `crates/ferroplan-mcp/tests/session_lifecycle_bookends.rs` with one positive
 witness (open → status reflects grounded state → close reports `closed:
 true`) and one negative falsifier (status on a closed session refuses with
@@ -2060,12 +2048,12 @@ actual observed behavior). Both tests run for real against the built
 `ferroplan-mcp` binary: `cargo test -p ferroplan-mcp --test
 session_lifecycle_bookends` — 2 passed, 0 failed.
 
-The negative test's first draft figured a double-close would also refuse
-with `unknown session`. Not against the live server: double-close returns
-`isError: false` / `closed: false`, an idempotent no-op, not a refusal. The
-assertion got rewritten to match the real response instead of asserting
-the wrong thing just to look tidy. `session_status`'s schema took the same
-correction mid-draft — no `goal` field; the real fields are
+The negative test's first draft assumed a double-close would also refuse with
+`unknown session`. Measured against the live server it does not: double-close
+returns `isError: false` / `closed: false`, an idempotent no-op, not a
+refusal. The assertion was rewritten to the real response rather than left
+asserting the wrong thing to look tidy. `session_status`'s schema was
+similarly corrected mid-draft — it has no `goal` field; the real fields are
 `cursor`/`epoch`/`goal_met`/`domain_digest`/`problem_digest`/`plan_length`/
 `remaining_plan_valid`/`receipt_chain_head`.
 
@@ -2076,8 +2064,8 @@ receipt, or test file was touched.
 
 ## 2026-07-29 — Goal Retarget and Cursor Advance (CE-GALL-36)
 
-Opened CE-GALL-36 for `session_set_goal` and `session_advance` — neither
-one had a dedicated checkpoint before this, both only ever showed up as
+Opened CE-GALL-36 for `session_set_goal` and `session_advance`, neither of
+which had prior dedicated checkpoint coverage — both were only exercised as
 steps inside `session_protocol.rs`'s longer happy-path chain.
 
 Added `crates/ferroplan-mcp/tests/session_goal_advance.rs` with one positive
@@ -2092,14 +2080,14 @@ the retarget by replanning — the new plan is a genuinely different shape (1
 step, not 3), not merely a status flag. `session_advance` then moves the
 cursor over that real plan and `session_status` confirms it.
 
-The negative falsifier pushed `session_advance` with `completed_steps` far
-past the plan's real length and checked the TRUE observed response instead
-of assuming a refusal. The tool refuses clean — a tool-level `isError`
-naming the plan-length bound (`do_session_advance`'s `next > plan_length`
-guard in `crates/ferroplan-mcp/src/session.rs`) — and a follow-up
-`session_status` confirms the rejected call left the cursor untouched. No
-silent-acceptance surprise on this path. The honest negative result here is
-a working refusal, not a discovered gap.
+The negative falsifier called `session_advance` with `completed_steps` far
+past the plan's real length and checked the TRUE observed response rather
+than assuming a refusal. The tool does refuse cleanly — a tool-level
+`isError` naming the plan-length bound (`do_session_advance`'s
+`next > plan_length` guard in `crates/ferroplan-mcp/src/session.rs`) — and a
+follow-up `session_status` confirms the rejected call left the cursor
+untouched. No silent-acceptance surprise was found on this path; the honest
+negative result is a working refusal, not a discovered gap.
 
 Standing: `PARTIAL_ALIVE` / `NO_REPLAY`, same cap as every other checkpoint
 in this file — not replayed outside the authoring session. Receipt:
@@ -2112,13 +2100,13 @@ other checkpoint, receipt, or test file was touched.
 
 ## 2026-07-29 — CE-GALL-37, true recursive CMCA descent
 
-Closed the specific gap CE-GALL-9 named: "true cross-call recursive descent
-... architecturally absent from the MCP tool schema." True for
-`bind_allocation_receipt`'s flat `previous_receipt` field — but blind to
+Closed the specific gap CE-GALL-9 named: "true cross-call recursive descent ...
+architecturally absent from the MCP tool schema." That claim held for
+`bind_allocation_receipt`'s flat `previous_receipt` field but overlooked
 `cmca_allocate_recursive`, a separate, already-implemented tool
-(`crates/ferroplan-mcp/src/session.rs`) that chains a `root` frontier
-through zero or more `descents`, each one binding `parent_payload_digest`
-to the real previous depth's `allocation_payload_digest`.
+(`crates/ferroplan-mcp/src/session.rs`) that chains a `root` frontier through
+zero or more `descents`, each binding `parent_payload_digest` to the real
+previous depth's `allocation_payload_digest`.
 
 Ran the existing six-test `cmca_recursive_*` suite in
 `crates/ferroplan-mcp/tests/session_protocol.rs` (`cargo test -p ferroplan-mcp
@@ -2141,9 +2129,9 @@ remains open and unaddressed by this work.
 
 ## 2026-07-29 — CE-GALL-40, full 17-tool dogfood chain (capstone)
 
-Closed the gap the CE-GALL-35..39 session's audit found: nowhere had a test
-run all 17 `ferroplan-mcp` tools in one continuous chained flow. Ran 16 of
-the 17 tools live first, via direct
+Closed the gap the CE-GALL-35..39 session's audit found: no test anywhere
+exercised all 17 `ferroplan-mcp` tools in one continuous chained flow. Ran
+16 of the 17 tools live first, via direct
 `mcp__plugin_chatman-ecosystem_ferroplan__*` tool calls in this session, on a
 small two-action STRIPS domain (`at-a -> at-b -> at-c`): `parse` (domain,
 problem) -> `solve` -> `session_open` -> `session_observe` ->
@@ -2157,21 +2145,21 @@ session_id immediately after `session_close` — confirmed live as a lawful
 mechanism. `decompose` was deliberately not called; named as the one
 uncovered tool rather than fabricated or silently skipped.
 
-That live run turned up a real defect, not just a confirmed guess:
+That live run found a real defect, not merely confirmed a guess:
 `bind_allocation_receipt` refused `cmca_allocate_recursive`'s raw `depths`
 payload with `allocation_result lacks payload.bcinr_revision`
 (`crates/ferroplan-mcp/src/admission.rs:188-190`) — its schema expects the
 flat shape `cmca_allocate` itself returns, not the recursive tool's own
-output shape. Worked around it by binding the recursive result's
-root-depth payload (which does carry `bcinr_revision`), the depth-2 chain
-folded in under an explicit `recursive_extension` field.
+output shape. Worked around by binding the recursive result's root-depth
+payload (which does carry `bcinr_revision`) with the depth-2 chain folded in
+under an explicit `recursive_extension` field.
 
 Formalized the whole trace as a re-runnable Rust fixture,
 `crates/ferroplan-mcp/tests/dogfood_chain.rs`, driving the built
-`ferroplan-mcp` binary over stdio in one continuous JSON-RPC session — same
-harness pattern as `session_lifecycle_bookends.rs` / `session_protocol.rs`,
-the more faithful transport for "one continuous flow" than separate
-agent-session MCP calls. Ran it for real:
+`ferroplan-mcp` binary over stdio in one continuous JSON-RPC session (same
+harness pattern as `session_lifecycle_bookends.rs` /
+`session_protocol.rs`) — the more faithful transport for "one continuous
+flow" than separate agent-session MCP calls. Ran it for real:
 `cargo test -p ferroplan-mcp --test dogfood_chain -- --nocapture` — 2
 passed (the chain, and the falsifier), 0 failed.
 

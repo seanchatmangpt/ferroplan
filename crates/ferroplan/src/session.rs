@@ -512,6 +512,48 @@ impl Session {
         }
     }
 
+    /// Canonical BLAKE3 identity of the complete mutable mind state.
+    ///
+    /// Immutable grounding columns are bound separately by the MCP layer's
+    /// domain/problem digests. This digest commits to every mutable planning
+    /// input: facts, fluents, definedness, goal, operator mask, scheduled
+    /// world events, and in-flight action ends.
+    pub fn state_fingerprint(&self) -> String {
+        const DOMAIN: &[u8] = b"urn:ferroplan:session-state:v1\0";
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(DOMAIN);
+        let mut frame = |bytes: &[u8]| {
+            hasher.update(&(bytes.len() as u64).to_be_bytes());
+            hasher.update(bytes);
+        };
+        for word in &self.task.init_bits {
+            frame(&word.to_be_bytes());
+        }
+        for value in &self.task.fv0 {
+            frame(&value.to_bits().to_be_bytes());
+        }
+        for defined in &self.task.fdef0 {
+            frame(&[*defined as u8]);
+        }
+        for fact in &self.task.goal_pos {
+            frame(&fact.to_be_bytes());
+        }
+        frame(format!("{:?}", self.task.goal_num).as_bytes());
+        for forbidden in &self.forbidden {
+            frame(&[*forbidden as u8]);
+        }
+        for (delay, fact, value) in &self.timed {
+            frame(&delay.to_bits().to_be_bytes());
+            frame(&fact.to_be_bytes());
+            frame(&[*value as u8]);
+        }
+        for (remaining, end_op) in &self.running {
+            frame(&remaining.to_bits().to_be_bytes());
+            frame(&(*end_op as u64).to_be_bytes());
+        }
+        hasher.finalize().to_hex().to_string()
+    }
+
     /// The temporal think (0.12 Phase 1): rebuild the duration table against
     /// the CURRENT fluent values (so `set_fluent` on an op-unmodified fluent
     /// flows into parameter-dependent durations), then run the bounded
@@ -544,6 +586,15 @@ impl Session {
             };
         }
         let (kind, dur_exprs, inv) = crate::temporal::build_kind(&self.task, c);
+        // The h-surgery probe (0.21 Phase 8): under FF_H_ENDGATE=1 the think
+        // runs on a clone armed with the pair table; the world's task stays
+        // untouched and the flag-off path pays nothing (`pair_end` None).
+        let armed = crate::temporal::endgate_pairs(&kind).map(|p| {
+            let mut t = self.task.clone();
+            t.pair_end = Some(p);
+            t
+        });
+        let task = armed.as_ref().unwrap_or(&self.task);
         let total = budget_evals.or(self.max_evaluated).unwrap_or(usize::MAX);
         let mut remaining = total;
         let node_bytes = memory_mb
@@ -566,13 +617,13 @@ impl Session {
                 .then(a.1.cmp(&b.1))
         });
         let tp = crate::temporal::solve_from_seeded(
-            &self.task,
+            task,
             &kind,
             &dur_exprs,
             &inv,
             &start,
-            &self.task.goal_pos,
-            &self.task.goal_num,
+            &task.goal_pos,
+            &task.goal_num,
             &self.forbidden,
             &til_events,
             self.threads,
@@ -1513,19 +1564,27 @@ impl Session {
         });
 
         let (kind, dur_exprs, inv) = crate::temporal::build_kind(&self.task, &c);
+        // The h-surgery probe rides the tail think too (same arming as
+        // `think`): clone-on-flag, world task untouched.
+        let armed = crate::temporal::endgate_pairs(&kind).map(|p| {
+            let mut t = self.task.clone();
+            t.pair_end = Some(p);
+            t
+        });
+        let task = armed.as_ref().unwrap_or(&self.task);
         let total = max_evaluated;
         let mut remaining = total;
         let node_bytes = memory_mb
             .map(|mb| mb.saturating_mul(1 << 20))
             .unwrap_or(crate::search::NODE_CAP_TARGET_BYTES);
         let tp = crate::temporal::solve_from_seeded(
-            &self.task,
+            task,
             &kind,
             &dur_exprs,
             &inv,
             &state,
-            &self.task.goal_pos,
-            &self.task.goal_num,
+            &task.goal_pos,
+            &task.goal_num,
             &self.forbidden,
             &carried,
             self.threads,
@@ -1929,6 +1988,68 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         assert_eq!(key(&t1), key(&t8), "temporal think differs across threads");
+    }
+
+    #[test]
+    fn set_fluent_on_op_untouched_fluent_flows_into_durations() {
+        // The 0.21 Phase 6 contract fixture (docs/roadmap-0.21.md): the
+        // static-fluent fold + compaction apply on the solve()/planner
+        // grounding entries ONLY — a session keeps FULL fluent tables, so
+        // `set_fluent` on a fluent no op writes stays LIVE and flows into a
+        // parameter-dependent duration at the next think. If the session
+        // entry ever folded, (build-time w1) would be frozen at grounding
+        // (or unknown to set_fluent entirely).
+        const DDOM: &str = "
+        (define (domain shop)
+          (:requirements :strips :typing :durative-actions :numeric-fluents)
+          (:types worker)
+          (:predicates (idle ?w - worker) (built ?w - worker))
+          (:functions (build-time ?w - worker))
+          (:durative-action build
+            :parameters (?w - worker)
+            :duration (= ?duration (build-time ?w))
+            :condition (at start (idle ?w))
+            :effect (and (at start (not (idle ?w))) (at end (built ?w)))))";
+        const DPRB: &str = "
+        (define (problem job) (:domain shop)
+          (:objects w1 - worker)
+          (:init (idle w1) (= (build-time w1) 5))
+          (:goal (built w1)))";
+        let mut s = Session::new(DDOM, DPRB, &Options::default()).expect("session");
+        let before = s.replan_budgeted(50_000, Some(128));
+        assert!(before.solved);
+        assert_eq!(before.plan.unwrap().steps[0].duration, Some(5.0));
+
+        s.set_fluent("(build-time w1)", 9.0)
+            .expect("an op-untouched fluent stays settable");
+        let after = s.replan_budgeted(50_000, Some(128));
+        assert!(after.solved);
+        assert_eq!(
+            after.plan.unwrap().steps[0].duration,
+            Some(9.0),
+            "set_fluent must flow into the rebuilt duration table"
+        );
+    }
+
+    #[test]
+    fn set_fluent_on_op_untouched_fluent_flips_numeric_precondition() {
+        // The classical half of the same contract: the session's
+        // ground_task entry keeps full tables too — a numeric gate on a
+        // fluent no op writes flips from unsolvable to solvable.
+        const GDOM: &str = "
+        (define (domain gate) (:requirements :strips :numeric-fluents)
+          (:predicates (done))
+          (:functions (permit))
+          (:action act :precondition (>= (permit) 1) :effect (done)))";
+        const GPRB: &str = "
+        (define (problem g) (:domain gate)
+          (:init (= (permit) 0))
+          (:goal (done)))";
+        let mut s = Session::new(GDOM, GPRB, &Options::default()).expect("session");
+        assert!(!s.replan().solved, "gate closed: permit 0");
+        s.set_fluent("(permit)", 1.0)
+            .expect("an op-untouched fluent stays settable");
+        assert!(s.replan().solved, "set_fluent must open the numeric gate");
     }
 
     #[test]

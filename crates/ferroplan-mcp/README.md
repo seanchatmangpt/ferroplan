@@ -1,14 +1,8 @@
 # ferroplan-mcp
 
-One server, standing at the edge of the wire. `ferroplan-mcp` speaks Model Context
-Protocol and hands out Ferroplan whole — deterministic planning, a persistent mind,
-evidence, diagnosis, composition, the full operator-experience stack — to whatever
-agent comes knocking.
+`ferroplan-mcp` is a single Model Context Protocol server that exposes Ferroplan as a deterministic planning, persistent-mind, evidence, diagnosis, composition, and operator-experience platform.
 
-The server advertises **42 typed tools** over MCP stdio. Tool schemas fall straight
-out of the Rust types that back them. Semantic resources get generated from the
-repository's Turtle ontologies at build time — the graph is the ground truth, not an
-afterthought bolted on.
+The server advertises **42 typed tools** over MCP stdio. Tool schemas are derived from Rust types. Semantic resources are generated from the repository's Turtle ontologies at build time.
 
 ## Authority map
 
@@ -28,10 +22,7 @@ afterthought bolted on.
 
 ## The persistent-mind model
 
-A `Session` keeps two things apart that most systems let bleed together: the
-immutable grounded columns of a world, and the mutable state of a mind moving
-through it. Fork a session and you spin up another independent mind — no
-re-grounding, no rebuilding the world it wakes up in.
+A `Session` separates immutable grounded columns from mutable mind state. Forking a session therefore creates another independent mind without re-grounding the world.
 
 Each managed mind carries:
 
@@ -45,7 +36,7 @@ Each managed mind carries:
 - receipt-chain head;
 - shared-world and private-mind memory measurements.
 
-The control plane holds these laws like law, not suggestion:
+The control plane preserves these laws:
 
 1. A stale `expected_epoch` is refused before mutation.
 2. `session_set` and `qol_batch` stage changes on a fork and commit only after complete validation.
@@ -117,7 +108,7 @@ The control plane holds these laws like law, not suggestion:
 
 `dx_compose` performs bounded breadth-first search over those contracts. Given admitted starting atoms and desired outcome atoms, it returns a minimal deterministic tool sequence or an explicit missing frontier.
 
-`vision_lattice` enumerates bounded reachable atom sets, minimal atom depth, tool dependency edges, blocked capabilities, and theoretical subset capacity. Its limits are the fence between mapping the maze and actually running through it — combinatorial exploration never becomes unbounded execution.
+`vision_lattice` enumerates bounded reachable atom sets, minimal atom depth, tool dependency edges, blocked capabilities, and theoretical subset capacity. Its limits prevent combinatorial exploration from becoming unbounded execution.
 
 ## Doctor and wizard
 
@@ -125,7 +116,7 @@ The control plane holds these laws like law, not suggestion:
 
 `doctor_explain` deterministically classifies common protocol and tool failures, including unknown sessions, stale epochs, identity collisions, bounded-search refusals, non-finite inputs, missing checkpoints, invalid plans, ungrounded facts, expired envelopes, and integrity mismatches.
 
-`wizard_recipe` converts supported operator intents into explicit tool recipes with preflight, rollback, and receipt checkpoints. Recipes never bypass tool schemas or session authority — no shortcut through the wall, only the marked doors.
+`wizard_recipe` converts supported operator intents into explicit tool recipes with preflight, rollback, and receipt checkpoints. Recipes never bypass tool schemas or session authority.
 
 ## Transport-neutral telco envelopes
 
@@ -133,7 +124,7 @@ The control plane holds these laws like law, not suggestion:
 
 `telco_verify` checks schema, payload identity, envelope identity, recipient expectation, predecessor expectation, issue time, and expiry.
 
-The boundary is deliberate, drawn and held:
+The boundary is deliberate:
 
 - the tools perform **no network operation**;
 - BLAKE3 establishes canonical identity and tamper evidence;
@@ -152,7 +143,7 @@ Planning, session, allocation, and admission semantics come from `plugins/chatma
 
 The operator-experience plane comes from `plugins/chatman-ecosystem/ontology/ferroplan-experience.ttl`. That graph defines the experience plane, capability contracts, composition atoms, mutation/reversibility/receipt properties, telco non-actuation law, integrity-versus-authentication distinction, all eleven experience tools, and SHACL constraints.
 
-`build.rs` extracts the tool comments into generated `OUT_DIR` constants. The runtime's own account of itself is welded to the admitted ontology source — it cannot quietly drift from it.
+`build.rs` extracts the tool comments into generated `OUT_DIR` constants. Runtime resource descriptions therefore cannot silently diverge from the admitted ontology source.
 
 ## Build and run
 
@@ -189,4 +180,4 @@ The permanent repository crown executes the built server through real MCP stdio 
 - strict Clippy with warnings denied;
 - plugin, Luna, live-harvest, receipt, replay, projection, and clean-tree boundaries.
 
-A tool refusal remains a tool-level error with a readable message. `solved: false` remains a normal bounded planning result. Neither one gets dressed up as success by the experience plane.
+A tool refusal remains a tool-level error with a readable message. `solved: false` remains a normal bounded planning result. Neither is promoted into success by the experience plane.

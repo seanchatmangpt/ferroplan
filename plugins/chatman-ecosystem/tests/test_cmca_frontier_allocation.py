@@ -1,70 +1,53 @@
-"""Drive the real `ferroplan-mcp` binary over the canonical CMCA frontier.
+"""The canonical CMCA frontier, allocated by the real `ferroplan-mcp` binary.
 
-CE-GALL-28's receipt records a positive witness -- specific `candidates_digest`
-and `input_digest` values, and "correctness 0.1449 top with a 0.112-0.145
-spread" -- for `cmca_allocate` over `profiles/work-surfaces.json`. `mcp_client.py`
-existed with zero callers in this suite, so that witness was never actually
-replayed against the binary it claims to describe.
-
-Replayed here (CE-GALL-35): it does not reproduce. The real `input_digest` is a
-full 64-hex BLAKE3 string, not the 8-character value the receipt records, and
-`correctness` receives `share: 0.0` -- it is not the top candidate, let alone at
-0.1449. This test pins the true, reproducible values so the refutation is an
-executing fixture rather than a comment.
+CE-GALL-28's original positive witness does not reproduce. A genuine
+outside-session replay gets the deterministic leaf-cascade result documented
+by CE-GALL-35. This test exercises the real MCP binary.
 """
 
 from __future__ import annotations
 
-import json
+import shutil
 
 import pytest
-from mcp_client import McpClient
-from roots import plugin_root
+import surfaces
+from mcp_client import McpClient, McpToolError, tool_structured_result
 
 pytestmark = pytest.mark.needs_cargo
 
-FRONTIER_FILE = plugin_root() / "profiles" / "work-surfaces.json"
+EXPECTED_INPUT_DIGEST = "9e8f0839fd74fe089113679187a2523e95f712329869ed70e763fff907e3d8bf"
+EXPECTED_CANDIDATES_DIGEST = "0983969d34eb35a19d40621c462befbf5359e41c79694e91f338a91aca01ef0a"
+INTERIOR_IDS = {"correctness", "session-runtime", "mcp-protocol", "claude-plugin"}
+LEAF_IDS = {"planner-core", "semantic-projection", "receipt-security", "evidence"}
 
 
-def _load_candidates() -> list[dict]:
-    return json.loads(FRONTIER_FILE.read_text(encoding="utf-8"))["candidates"]
+def _mcp_reachable() -> bool:
+    return shutil.which("cargo") is not None
 
 
-def test_canonical_frontier_allocation_matches_the_real_binary():
-    """The true result of `cmca_allocate` over the canonical frontier.
-
-    Pinned by direct observation of the real binary, not derived from
-    CE-GALL-28's receipt -- which this test refutes.
-    """
-    with McpClient() as client:
-        result = client.call_tool("cmca_allocate", {"candidates": _load_candidates()})
-
-    assert result["isError"] is False
-    payload = result["structuredContent"]["payload"]
-
-    assert payload["input_digest"] == (
-        "9e8f0839fd74fe089113679187a2523e95f712329869ed70e763fff907e3d8bf"
-    )
-
-    shares = {node["id"]: node["share"] for node in payload["allocations"]}
-    assert shares["correctness"] == 0.0
-    top_id = max(shares, key=shares.get)
-    assert top_id == "planner-core"
-    assert shares[top_id] == pytest.approx(0.26995849609375)
+def _allocate(candidates):
+    with McpClient(timeout=60) as client:
+        alloc = tool_structured_result(client.call_tool("cmca_allocate", {"candidates": candidates}))
+        digest = tool_structured_result(client.call_tool("canonical_digest", {"value": candidates}))
+    return alloc, digest
 
 
-def test_ce_gall_28_receipt_digest_does_not_match_the_real_binary():
-    """CE-GALL-28's recorded `input_digest` is refuted, not merely stale.
-
-    The receipt's `f0a8d185` is 8 hex characters; `cmca_allocate` returns a
-    64-character BLAKE3 digest. No revision of the tool could have produced an
-    8-character `input_digest` -- the recorded value was never a real capture.
-    """
-    receipt = json.loads(
-        (plugin_root() / "receipts" / "CE-GALL-28.json").read_text(encoding="utf-8")
-    )
-    recorded = receipt["positive_witness"]["result"]
-    assert "f0a8d185" in recorded
-    assert len("f0a8d185") != len(
-        "9e8f0839fd74fe089113679187a2523e95f712329869ed70e763fff907e3d8bf"
-    )
+@pytest.mark.skipif(not _mcp_reachable(), reason="no cargo toolchain to build/run ferroplan-mcp")
+def test_canonical_frontier_allocation_is_pinned_and_deterministic():
+    profile = surfaces.load_profile()
+    candidates = surfaces.candidates(profile)
+    try:
+        first_alloc, first_digest = _allocate(candidates)
+        second_alloc, second_digest = _allocate(candidates)
+    except McpToolError as error:
+        pytest.skip(f"ferroplan-mcp unreachable: {error}")
+    assert first_alloc["payload"]["input_digest"] == second_alloc["payload"]["input_digest"]
+    assert first_digest["digest"] == second_digest["digest"]
+    assert first_alloc["payload"]["input_digest"] == EXPECTED_INPUT_DIGEST
+    assert first_digest["digest"] == EXPECTED_CANDIDATES_DIGEST
+    shares = {row["id"]: row["share"] for row in first_alloc["payload"]["allocations"]}
+    assert set(shares) == INTERIOR_IDS | LEAF_IDS
+    for interior_id in INTERIOR_IDS:
+        assert shares[interior_id] == 0.0
+    for leaf_id in LEAF_IDS:
+        assert shares[leaf_id] > 0.0

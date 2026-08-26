@@ -19,8 +19,14 @@ use crate::types::*;
 pub enum Outcome {
     Task(PackedTask),
     GoalTrue,
-    GoalFalse,
-    GoalUndefinedFluent,
+    /// The goal is provably unsatisfiable; the payload NAMES the mechanism
+    /// (0.19 Phase 1: three whole 2018 domains returned `solved: false`
+    /// with zero facts and no explanation — a silent verdict is a bug in
+    /// itself, whatever else is wrong).
+    GoalFalse(String),
+    /// A numeric goal reads a fluent with no defined value; payload is the
+    /// fluent's display.
+    GoalUndefinedFluent(String),
     EmptyType {
         kind: &'static str,
         pred: String,
@@ -785,18 +791,17 @@ fn intern_cond(intern: &mut Interner, rc: &RCondEff) -> (CondEff, CondAtoms) {
     )
 }
 
-/// Entry point. `ground` runs PDDL goal simplification — TRUE/FALSE bail
-/// early; `ground_task` forces a Task out regardless, even on trivial or
-/// unreachable goals, for validators that have to execute a plan no matter
-/// how the goal trivially resolves.
+/// Grounding entry. `ground` does PDDL goal simplification (TRUE/FALSE early
+/// exits); `ground_task` forces a Task even for trivial/unreachable goals — for
+/// validators that must execute a plan regardless of goal triviality.
 ///
-/// The solve entries (`ground`, `ground_stratified`) fold and compact the
-/// fluent space (0.21 Phase 6); the session entry (`ground_fixpoint`) and the
-/// validator entry (`ground_task`) hold onto FULL fluent tables instead —
-/// `set_fluent` on a fluent no op ever touches has to stay live, the MCP
-/// world-edit contract, pinned by session.rs tests.
+/// The solve entries (`ground`, `ground_stratified`) fold+compact the fluent
+/// space (0.21 Phase 6); the session entry (`ground_fixpoint`) and the
+/// validator entry (`ground_task`) keep FULL fluent tables — `set_fluent` on
+/// an op-untouched fluent must stay live (the MCP world-edit contract,
+/// pinned by session.rs tests).
 pub fn ground(domain: &Domain, problem: &Problem, threads: usize) -> Outcome {
-    ground_v(domain, problem, threads, false, false, false)
+    ground_v(domain, problem, threads, false, false, false, true)
 }
 
 /// Like [`ground_stratified`] but with reached-restricted FIXPOINT
@@ -811,7 +816,7 @@ pub fn ground(domain: &Domain, problem: &Problem, threads: usize) -> Outcome {
 /// entry instead, where the memory win is the whole point and no scoreboard
 /// baseline gets disturbed. `FF_NO_FIXPOINT_GROUND=1` pulls the fallback.
 pub fn ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) -> Outcome {
-    ground_v(domain, problem, threads, false, true, true)
+    ground_v(domain, problem, threads, false, true, true, false)
 }
 
 /// Like [`ground`], but with stratified Phase B (see the block in `ground_v`):
@@ -821,14 +826,14 @@ pub fn ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) -> Ou
 /// classical path stays parked on the plain entry. The temporal snap path
 /// runs this one.
 pub fn ground_stratified(domain: &Domain, problem: &Problem, threads: usize) -> Outcome {
-    ground_v(domain, problem, threads, false, true, false)
+    ground_v(domain, problem, threads, false, true, false, true)
 }
 
 /// Hands back the grounded Task no matter what — skips past goal
 /// TRUE/FALSE/undefined verdicts entirely. `None` only on a fatal empty-type
 /// error, nothing softer.
 pub fn ground_task(domain: &Domain, problem: &Problem, threads: usize) -> Option<PackedTask> {
-    match ground_v(domain, problem, threads, true, false, false) {
+    match ground_v(domain, problem, threads, true, false, false, false) {
         Outcome::Task(t) => Some(t),
         _ => None,
     }
@@ -889,6 +894,7 @@ pub fn objects_by_type(domain: &Domain, problem: &Problem) -> HashMap<Sym, Vec<S
     objects_of_type
 }
 
+#[allow(clippy::too_many_arguments)]
 fn ground_v(
     domain: &Domain,
     problem: &Problem,
@@ -896,6 +902,7 @@ fn ground_v(
     validate: bool,
     stratified: bool,
     fixpoint: bool,
+    fold_fluents: bool,
 ) -> Outcome {
     // ---- type system ----
     let objects_of_type = objects_by_type(domain, problem);
@@ -1303,6 +1310,22 @@ fn ground_v(
         fv.resize(nfl, 0.0);
         fdef.resize(nfl, false);
     }
+    // PDDL 3.1 `:action-costs` convention (0.19 Phase 1): `(total-cost)`
+    // starts at 0 IMPLICITLY — IPC-2018's agricola/flashfill/settlers omit
+    // `(= (total-cost) 0)` from init, and the undefined fluent killed every
+    // cost-bearing action in the fixpoint below (60 instances returned
+    // "unsolvable" with zero facts). Fast Downward defaults it the same
+    // way. Only the exact zero-arity TOTAL-COST fluent, only when init
+    // leaves it undefined — every other undefined read stays a real error.
+    if let Some(&id) = intern
+        .fluent_id
+        .get(&("TOTAL-COST".to_string(), Vec::new()))
+    {
+        if !fdef[id as usize] {
+            fv[id as usize] = 0.0;
+            fdef[id as usize] = true;
+        }
+    }
     loop {
         let mut changed = false;
         for m in &mids {
@@ -1358,7 +1381,9 @@ fn ground_v(
         dnf_static.then_some(&goal_stx),
     );
     if goal_dnf.is_empty() {
-        return Outcome::GoalFalse;
+        return Outcome::GoalFalse(
+            "the goal simplifies to FALSE against static init (no satisfiable disjunct)".into(),
+        );
     }
     // collect negative atoms from EVERY disjunct (a disjunctive goal is compiled
     // below; each disjunct may carry its own negative literals)
@@ -1570,7 +1595,19 @@ fn ground_v(
         }
         for fl in &reads {
             if !fdef[*fl as usize] && !validate {
-                return Outcome::GoalUndefinedFluent;
+                let disp = intern
+                    .fluent_id
+                    .iter()
+                    .find(|(_, &id)| id == *fl)
+                    .map(|((name, args), _)| {
+                        if args.is_empty() {
+                            format!("({name})")
+                        } else {
+                            format!("({} {})", name, args.join(" "))
+                        }
+                    })
+                    .unwrap_or_else(|| format!("fluent #{fl}"));
+                return Outcome::GoalUndefinedFluent(disp);
             }
         }
         goal_num.push(NumPre { op: *op, lhs, rhs });
@@ -1633,7 +1670,10 @@ fn ground_v(
     if !validate {
         for &f in &remaining_pos {
             if !reached[f as usize] {
-                return Outcome::GoalFalse;
+                return Outcome::GoalFalse(format!(
+                    "goal fact {} is unreachable: no surviving grounded action adds it",
+                    intern.fact_names[f as usize]
+                ));
             }
         }
     }
@@ -1728,17 +1768,41 @@ fn ground_v(
     let n_reach_facts = reached.iter().filter(|&&x| x).count();
     let n_relevant_fluents = fdef.iter().filter(|&&x| x).count();
 
-    let mut op_display = Vec::with_capacity(n_reach_actions);
-    let mut pre_pos = CsrBuilder::new();
-    let mut add = CsrBuilder::new();
-    let mut del = CsrBuilder::new();
-    let mut pre_num = CsrBuilder::new();
-    let mut num_eff = CsrBuilder::new();
-    let mut cond_b = CsrBuilder::new();
-    // add-by-fact buckets + relevant-fluent set (for the heuristic hot path)
-    let mut add_buckets: Vec<Vec<u32>> = vec![Vec::new(); n_facts_packed];
-    let mut neff_buckets: Vec<Vec<u32>> = vec![Vec::new(); fv.len()];
-    let mut relevant_fluent = vec![false; fv.len()];
+    // ---- static-fluent fold + fluent-space compaction (0.21 Phase 6) ----
+    // Fluents never got the 0.20 fact compaction above: price/cost/duration
+    // tables intern into `fv0` and clone into EVERY search node (tpp i12:
+    // 20.6 KB/node, 99% of it fv+fdef, 62% static; data-network i12: 386 of
+    // 387 fluents static). Two levers, hatched separately:
+    //  - FOLD (`FF_NO_FLUENT_FOLD=1` off): a `Fluent` read of a
+    //    DEFINED-STATIC fluent (defined in init, written by no numeric
+    //    effect incl. conditional ones) substitutes the same f64
+    //    bit-for-bit as `NExpr::Num`. Folding is fenced to IRRELEVANT
+    //    statics: pre/goal/cond-read statics are exactly the relevant
+    //    ones — they stay in `fv0` regardless (visited keys and orbit
+    //    detection read `rel_fluents`, which must not move), and folding
+    //    them would flip shape-sensitive dispatch (numeric_achiever's
+    //    bare/linear split, `as_threshold`, `linearize`'s const
+    //    detection) — the 0.20 Phase 4 byte-identity bar outranks fold
+    //    coverage. Undefined statics stay unfolded (their reads must keep
+    //    evaluating to None).
+    //  - COMPACTION (`FF_NO_FLUENT_COMPACT=1` off): keep WRITTEN +
+    //    still-referenced + relevant + metric-named fluents, renumbered
+    //    MONOTONICALLY like the facts above; dropped DEFINED statics go
+    //    to the task-side `static_fluents` name table for the
+    //    name-resolved readers (temporal duration grounding/eval). The
+    //    per-node byte models read `fv0.len()` and raise their caps for
+    //    free.
+    // Both levers run on the solve()/planner entries ONLY (`fold_fluents`)
+    // — the session and validator entries keep FULL tables so `set_fluent`
+    // on an op-untouched fluent stays live (pinned by session.rs tests).
+    let fold_on = fold_fluents && std::env::var("FF_NO_FLUENT_FOLD").is_err();
+    let fcompact_on = fold_fluents && std::env::var("FF_NO_FLUENT_COMPACT").is_err();
+
+    // Relevance, in the RAW fluent space over the UNFOLDED sources — the
+    // fold is fenced by it, so it is computed before any transform. Same
+    // marks as always: numeric pre/cond/goal reads, then the transitive
+    // closure over effect RHS reads (see the comment at the loop).
+    let mut relevant_raw = vec![false; nfl_final];
     let mark = |np: &NumPre, rel: &mut [bool]| {
         let mut v = Vec::new();
         np.lhs.collect_fluents(&mut v);
@@ -1749,67 +1813,26 @@ fn ground_v(
             }
         }
     };
-    let mut monitored_v: Vec<bool> = Vec::with_capacity(n_reach_actions);
-    let remap_ce = |ce: &CondEff| CondEff {
-        cond_pos: ce.cond_pos.iter().map(|&f| remap(f)).collect(),
-        cond_neg: ce.cond_neg.iter().map(|&f| remap(f)).collect(),
-        cond_num: ce.cond_num.clone(),
-        add: ce.add.iter().map(|&f| remap(f)).collect(),
-        del: ce.del.iter().map(|&f| remap(f)).collect(),
-        num: ce.num.clone(),
-    };
-    for (oi, op) in reach_ops.iter().enumerate() {
-        op_display.push(op.display.clone());
-        pre_pos.push_row(op.pre_pos.iter().map(|&f| remap(f)));
-        add.push_row(op.add.iter().map(|&f| remap(f)));
-        del.push_row(op.del.iter().map(|&f| remap(f)));
-        pre_num.push_row(op.pre_num.iter().cloned());
-        num_eff.push_row(op.num_eff.iter().cloned());
-        cond_b.push_row(op.cond.iter().map(remap_ce));
-        monitored_v.push(op.monitored);
-        for &f in &op.add {
-            add_buckets[remap(f) as usize].push(oi as u32);
-        }
-        // fluent -> ops with a numeric effect on it (distinct targets, op-id order)
-        let mut seen_t: Vec<u32> = Vec::new();
-        for ne in &op.num_eff {
-            if !seen_t.contains(&ne.target) {
-                seen_t.push(ne.target);
-                neff_buckets[ne.target as usize].push(oi as u32);
-            }
-        }
-        // conditional adds also have this op as an achiever — including the
-        // shared monitor block's, in the 0.7 suffix order (own conds first)
-        for ce in &op.cond {
-            for &f in &ce.add {
-                add_buckets[remap(f) as usize].push(oi as u32);
-            }
-            for np in &ce.cond_num {
-                mark(np, &mut relevant_fluent);
-            }
-        }
-        if op.monitored {
-            // shared_cond was remapped above — its ids are already packed ids
-            for ce in &shared_cond {
-                for &f in &ce.add {
-                    add_buckets[f as usize].push(oi as u32);
-                }
-            }
-        }
+    for op in &reach_ops {
         for np in &op.pre_num {
-            mark(np, &mut relevant_fluent);
+            mark(np, &mut relevant_raw);
+        }
+        for ce in &op.cond {
+            for np in &ce.cond_num {
+                mark(np, &mut relevant_raw);
+            }
         }
     }
     // numeric comparisons inside shared monitor conditions read fluents too
     if any_monitored_reachable {
         for ce in &shared_cond {
             for np in &ce.cond_num {
-                mark(np, &mut relevant_fluent);
+                mark(np, &mut relevant_raw);
             }
         }
     }
     for np in &goal_num {
-        mark(np, &mut relevant_fluent);
+        mark(np, &mut relevant_raw);
     }
     // Transitive closure: a fluent read by the RHS of a numeric effect that
     // WRITES a relevant fluent is itself relevant (it determines that target's
@@ -1825,13 +1848,13 @@ fn ground_v(
                 .iter()
                 .chain(op.cond.iter().flat_map(|c| c.num.iter()));
             for ne in neffs {
-                if relevant_fluent[ne.target as usize] {
+                if relevant_raw[ne.target as usize] {
                     let mut v = Vec::new();
                     ne.value.collect_fluents(&mut v);
                     for f in v {
                         let f = f as usize;
-                        if f < relevant_fluent.len() && !relevant_fluent[f] {
-                            relevant_fluent[f] = true;
+                        if f < relevant_raw.len() && !relevant_raw[f] {
+                            relevant_raw[f] = true;
                             changed = true;
                         }
                     }
@@ -1840,6 +1863,246 @@ fn ground_v(
         }
         if !changed {
             break;
+        }
+    }
+
+    // WRITTEN = target of any surviving numeric effect (incl. conditional
+    // and the shared monitor block, which lands in the task either way).
+    let mut written = vec![false; nfl_final];
+    {
+        let mut w = |nes: &[NumEff]| {
+            for ne in nes {
+                written[ne.target as usize] = true;
+            }
+        };
+        for op in &reach_ops {
+            w(&op.num_eff);
+            for ce in &op.cond {
+                w(&ce.num);
+            }
+        }
+        for ce in &shared_cond {
+            w(&ce.num);
+        }
+    }
+    let foldable = |f: u32| {
+        let f = f as usize;
+        fold_on && fdef[f] && !written[f] && !relevant_raw[f]
+    };
+
+    // The census — every fluent id the packed task will carry, built as
+    // code from the same holders the pack loop folds (pre_num, effect
+    // values, conditional numeric parts, goal_num, the shared block), so a
+    // dropped id can never be referenced. The metric's fluents survive by
+    // NAME (costs::metric_fluent resolves them through `fluent_id` after
+    // packing, so an unwritten metric fluent must not vanish).
+    fn keep_metric_fluents(
+        e: &Expr,
+        fluent_id: &FxHashMap<(Sym, Vec<Sym>), u32>,
+        fkeep: &mut [bool],
+    ) {
+        match e {
+            Expr::Num(_) => {}
+            Expr::Fluent(name, terms) => {
+                let args: Vec<Sym> = terms
+                    .iter()
+                    .map(|t| match t {
+                        Term::Const(c) => c.clone(),
+                        Term::Var(v) => v.clone(),
+                    })
+                    .collect();
+                if let Some(&id) = fluent_id.get(&(name.clone(), args)) {
+                    fkeep[id as usize] = true;
+                }
+            }
+            Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Mul(a, b) | Expr::Div(a, b) => {
+                keep_metric_fluents(a, fluent_id, fkeep);
+                keep_metric_fluents(b, fluent_id, fkeep);
+            }
+            Expr::Neg(a) => keep_metric_fluents(a, fluent_id, fkeep),
+        }
+    }
+    let (fluent_map, nfl_packed): (Vec<u32>, usize) = if fcompact_on {
+        let mut fkeep = written.clone();
+        for (i, &r) in relevant_raw.iter().enumerate() {
+            if r {
+                fkeep[i] = true;
+            }
+        }
+        let cite = |e: &NExpr, fkeep: &mut Vec<bool>| {
+            let mut v = Vec::new();
+            e.collect_fluents(&mut v);
+            for f in v {
+                if !foldable(f) {
+                    fkeep[f as usize] = true;
+                }
+            }
+        };
+        let cite_ce = |ce: &CondEff, fkeep: &mut Vec<bool>| {
+            for np in &ce.cond_num {
+                cite(&np.lhs, fkeep);
+                cite(&np.rhs, fkeep);
+            }
+            for ne in &ce.num {
+                cite(&ne.value, fkeep);
+            }
+        };
+        for op in &reach_ops {
+            for np in &op.pre_num {
+                cite(&np.lhs, &mut fkeep);
+                cite(&np.rhs, &mut fkeep);
+            }
+            for ne in &op.num_eff {
+                cite(&ne.value, &mut fkeep);
+            }
+            for ce in &op.cond {
+                cite_ce(ce, &mut fkeep);
+            }
+        }
+        for ce in &shared_cond {
+            cite_ce(ce, &mut fkeep);
+        }
+        for np in &goal_num {
+            cite(&np.lhs, &mut fkeep);
+            cite(&np.rhs, &mut fkeep);
+        }
+        if let Some((_, e)) = &problem.metric {
+            keep_metric_fluents(e, &intern.fluent_id, &mut fkeep);
+        }
+        // The zero-arity TOTAL-COST convention fluent is read by NAME after
+        // packing even when no surviving op writes it and no metric names
+        // it (the pddl3 compiler injects it and api/planner resolve it via
+        // fluent_id) — the same carve-out as its implicit-zero init above.
+        if let Some(&id) = intern
+            .fluent_id
+            .get(&("TOTAL-COST".to_string(), Vec::new()))
+        {
+            fkeep[id as usize] = true;
+        }
+        let mut map = vec![u32::MAX; nfl_final];
+        let mut n = 0u32;
+        for (i, &k) in fkeep.iter().enumerate() {
+            if k {
+                map[i] = n;
+                n += 1;
+            }
+        }
+        (map, n as usize)
+    } else {
+        ((0..nfl_final as u32).collect(), nfl_final)
+    };
+    // Dropped ids map to u32::MAX — the poison namespace: a pre-compaction
+    // id surviving into a packed holder trips this assert, or lands >=
+    // nfl_packed and trips the census sweep before Task construction.
+    let fremap = |f: u32| -> u32 {
+        let nf = fluent_map[f as usize];
+        debug_assert!(
+            nf != u32::MAX,
+            "pre-compaction fluent id {f} survived the census"
+        );
+        nf
+    };
+    fn fold_nexpr<FB: Fn(u32) -> bool, FR: Fn(u32) -> u32>(
+        e: &NExpr,
+        fv: &[f64],
+        foldable: &FB,
+        fremap: &FR,
+    ) -> NExpr {
+        let rec = |x: &NExpr| Box::new(fold_nexpr(x, fv, foldable, fremap));
+        match e {
+            NExpr::Num(n) => NExpr::Num(*n),
+            NExpr::Fluent(f) => {
+                if foldable(*f) {
+                    NExpr::Num(fv[*f as usize])
+                } else {
+                    NExpr::Fluent(fremap(*f))
+                }
+            }
+            NExpr::Add(a, b) => NExpr::Add(rec(a), rec(b)),
+            NExpr::Sub(a, b) => NExpr::Sub(rec(a), rec(b)),
+            NExpr::Mul(a, b) => NExpr::Mul(rec(a), rec(b)),
+            NExpr::Div(a, b) => NExpr::Div(rec(a), rec(b)),
+            NExpr::Neg(a) => NExpr::Neg(rec(a)),
+        }
+    }
+    let fold_np = |np: &NumPre| NumPre {
+        op: np.op,
+        lhs: fold_nexpr(&np.lhs, &fv, &foldable, &fremap),
+        rhs: fold_nexpr(&np.rhs, &fv, &foldable, &fremap),
+    };
+    let fold_ne = |ne: &NumEff| NumEff {
+        op: ne.op,
+        target: fremap(ne.target),
+        value: fold_nexpr(&ne.value, &fv, &foldable, &fremap),
+    };
+    let shared_cond: Vec<CondEff> = shared_cond
+        .iter()
+        .map(|ce| CondEff {
+            cond_pos: ce.cond_pos.clone(),
+            cond_neg: ce.cond_neg.clone(),
+            cond_num: ce.cond_num.iter().map(&fold_np).collect(),
+            add: ce.add.clone(),
+            del: ce.del.clone(),
+            num: ce.num.iter().map(&fold_ne).collect(),
+        })
+        .collect();
+    let goal_num: Vec<NumPre> = goal_num.iter().map(&fold_np).collect();
+
+    let mut op_display = Vec::with_capacity(n_reach_actions);
+    let mut pre_pos = CsrBuilder::new();
+    let mut add = CsrBuilder::new();
+    let mut del = CsrBuilder::new();
+    let mut pre_num = CsrBuilder::new();
+    let mut num_eff = CsrBuilder::new();
+    let mut cond_b = CsrBuilder::new();
+    // add-by-fact buckets (for the heuristic hot path); the fluent-indexed
+    // buckets live in the PACKED fluent space
+    let mut add_buckets: Vec<Vec<u32>> = vec![Vec::new(); n_facts_packed];
+    let mut neff_buckets: Vec<Vec<u32>> = vec![Vec::new(); nfl_packed];
+    let mut monitored_v: Vec<bool> = Vec::with_capacity(n_reach_actions);
+    let remap_ce = |ce: &CondEff| CondEff {
+        cond_pos: ce.cond_pos.iter().map(|&f| remap(f)).collect(),
+        cond_neg: ce.cond_neg.iter().map(|&f| remap(f)).collect(),
+        cond_num: ce.cond_num.iter().map(&fold_np).collect(),
+        add: ce.add.iter().map(|&f| remap(f)).collect(),
+        del: ce.del.iter().map(|&f| remap(f)).collect(),
+        num: ce.num.iter().map(&fold_ne).collect(),
+    };
+    for (oi, op) in reach_ops.iter().enumerate() {
+        op_display.push(op.display.clone());
+        pre_pos.push_row(op.pre_pos.iter().map(|&f| remap(f)));
+        add.push_row(op.add.iter().map(|&f| remap(f)));
+        del.push_row(op.del.iter().map(|&f| remap(f)));
+        pre_num.push_row(op.pre_num.iter().map(&fold_np));
+        num_eff.push_row(op.num_eff.iter().map(&fold_ne));
+        cond_b.push_row(op.cond.iter().map(remap_ce));
+        monitored_v.push(op.monitored);
+        for &f in &op.add {
+            add_buckets[remap(f) as usize].push(oi as u32);
+        }
+        // fluent -> ops with a numeric effect on it (distinct targets, op-id order)
+        let mut seen_t: Vec<u32> = Vec::new();
+        for ne in &op.num_eff {
+            let t = fremap(ne.target);
+            if !seen_t.contains(&t) {
+                seen_t.push(t);
+                neff_buckets[t as usize].push(oi as u32);
+            }
+        }
+        // conditional adds also have this op as an achiever — including the
+        // shared monitor block's, in the 0.7 suffix order (own conds first)
+        for ce in &op.cond {
+            for &f in &ce.add {
+                add_buckets[remap(f) as usize].push(oi as u32);
+            }
+        }
+        if op.monitored {
+            // shared_cond was remapped above — its ids are already packed ids
+            for ce in &shared_cond {
+                for &f in &ce.add {
+                    add_buckets[f as usize].push(oi as u32);
+                }
+            }
         }
     }
     let mut add_by_fact = CsrBuilder::new();
@@ -1851,20 +2114,75 @@ fn ground_v(
         neff_by_fluent.push_row(bucket);
     }
 
-    // fluent id -> display string (for metric / cost-fluent lookup in sgp)
-    let mut fluent_names = vec![String::new(); intern.fluent_id.len()];
+    // the relevant set, mapped into the packed space (monotone renumber
+    // keeps `rel_fluents` sorted — visited-key order is unchanged)
+    let mut relevant_fluent = vec![false; nfl_packed];
+    let mut rel_fluents: Vec<u32> = Vec::new();
+    for (i, &r) in relevant_raw.iter().enumerate() {
+        if r {
+            let nf = fremap(i as u32);
+            relevant_fluent[nf as usize] = true;
+            rel_fluents.push(nf);
+        }
+    }
+
+    // fluent id -> display string (for metric / cost-fluent lookup in sgp),
+    // RAW space first, then split into packed names + the dropped-static
+    // side table (name-resolved duration/introspection readers).
+    let mut fluent_names_raw = vec![String::new(); nfl_final];
     for ((name, args), id) in &intern.fluent_id {
-        fluent_names[*id as usize] = if args.is_empty() {
+        fluent_names_raw[*id as usize] = if args.is_empty() {
             format!("({})", name)
         } else {
             format!("({} {})", name, args.join(" "))
         };
     }
+    let mut fv0 = Vec::with_capacity(nfl_packed);
+    let mut fdef0 = Vec::with_capacity(nfl_packed);
+    let mut fluent_names: Vec<String> = Vec::with_capacity(nfl_packed);
+    let mut static_fluents: Vec<(String, f64)> = Vec::new();
+    if fcompact_on {
+        for i in 0..nfl_final {
+            if fluent_map[i] != u32::MAX {
+                fv0.push(fv[i]);
+                fdef0.push(fdef[i]);
+                fluent_names.push(std::mem::take(&mut fluent_names_raw[i]));
+            } else if fdef[i] {
+                static_fluents.push((std::mem::take(&mut fluent_names_raw[i]), fv[i]));
+            }
+            // dropped UNDEFINED fluents get no table entry: a name-resolved
+            // read misses both sources, exactly like an undefined fluent
+        }
+    } else {
+        // clone, not move: the fold closures above still borrow fv/fdef
+        fv0 = fv.clone();
+        fdef0 = fdef.clone();
+        fluent_names = fluent_names_raw;
+    }
 
-    let rel_fluents: Vec<u32> = (0..relevant_fluent.len())
-        .filter(|&i| relevant_fluent[i])
-        .map(|i| i as u32)
-        .collect();
+    // Debug sweep (the poison-namespace referee): every fluent id in the
+    // packed holders must live in [0, nfl_packed) — a missed remap keeps a
+    // raw id, which on any compacting task lands at or past nfl_packed.
+    #[cfg(debug_assertions)]
+    {
+        let ok = |e: &NExpr| {
+            let mut v = Vec::new();
+            e.collect_fluents(&mut v);
+            v.into_iter().all(|f| (f as usize) < nfl_packed)
+        };
+        let ok_np = |np: &NumPre| ok(&np.lhs) && ok(&np.rhs);
+        let ok_ne = |ne: &NumEff| (ne.target as usize) < nfl_packed && ok(&ne.value);
+        let ok_ce = |ce: &CondEff| ce.cond_num.iter().all(ok_np) && ce.num.iter().all(ok_ne);
+        assert!(
+            pre_num.flat.iter().all(ok_np)
+                && num_eff.flat.iter().all(ok_ne)
+                && cond_b.flat.iter().all(ok_ce)
+                && shared_cond.iter().all(ok_ce)
+                && goal_num.iter().all(ok_np)
+                && rel_fluents.iter().all(|&f| (f as usize) < nfl_packed),
+            "a pre-compaction fluent id survived into the packed task"
+        );
+    }
 
     Outcome::Task(PackedTask {
         n_facts: n_facts_packed,
@@ -1884,12 +2202,19 @@ fn ground_v(
         relevant_fluent,
         rel_fluents,
         init_bits,
-        fv0: fv,
-        fdef0: fdef,
+        fv0,
+        fdef0,
         goal_pos,
         goal_num,
+        // The temporal entries (stratified snap path, fixpoint session)
+        // keep the numeric-precondition charge OFF — see the field docs.
+        charge_pre_num: !stratified,
+        // The end-gate pair table is a TEMPORAL think-time overlay
+        // (temporal.rs `endgate_pairs`, 0.21 Phase 8) — never grounded in.
+        pair_end: None,
         fact_names: fact_names_packed.into(),
         fluent_names: fluent_names.into(),
+        static_fluents: static_fluents.into(),
         n_easy,
         n_hard,
         n_reach_facts,

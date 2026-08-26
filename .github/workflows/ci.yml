@@ -9,9 +9,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Core library + CLI, run through the gauntlet. The Bevy GUI stays dark
-  # here — it needs heavy system libraries this runner doesn't carry, so
-  # it's built and checked on home turf for now.
+  # Core library + CLI. Excludes the Bevy GUI (the engine needs heavy system
+  # libraries to build on Linux; it's built locally for now).
   test:
     runs-on: ubuntu-latest
     steps:
@@ -20,26 +19,26 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Format check
+      - name: Format
         run: cargo fmt --all --check
-      - name: Clippy sweep
+      - name: Clippy
         run: cargo clippy --workspace --exclude ferroplan-bevy --all-targets --all-features -- -D warnings
-      - name: Run the suite
+      - name: Test
         run: cargo test --workspace --exclude ferroplan-bevy
-      # The IPC-benchmark regression guards (espc / ipc5_pref_metric) stay `#[ignore]`d —
-      # cut loose from the default `cargo test` (and the publish pre-flight) so multi-minute
-      # solves don't drag the fast path down. Released here instead, running ~3x lean.
+      # The IPC-benchmark regression guards (espc / ipc5_pref_metric) are `#[ignore]`d
+      # so they don't bloat the default `cargo test` (and the publish pre-flight) with
+      # multi-minute solves. Run them here in release, where they're ~3× faster.
       - name: Heavy IPC regression guards (release)
         run: cargo test --release -p ferroplan -- --ignored
-      - name: Docs build clean
+      - name: Docs
         run: cargo doc --no-deps --all-features --workspace --exclude ferroplan-bevy
         env:
           RUSTDOCFLAGS: -D warnings
       - name: Bench compiles (perf gate)
         run: cargo bench --no-run -p ferroplan
 
-  # The plugin's Python control plane, run in its own quarantine lane —
-  # a plugin failure must never hide behind a Rust one.
+  # The plugin's complete Python control plane. A separate job on purpose:
+  # a plugin failure must not be masked by a Rust failure.
   plugin:
     runs-on: ubuntu-latest
     defaults:
@@ -50,21 +49,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Stock the toolbelt
+      - name: Install tooling
         run: pip install --quiet pytest ruff typer pydantic jsonschema rdflib pyshacl
-      - name: Lint sweep
+      - name: Lint
         run: ruff check scripts tests
       - name: Compile every script
         run: python -m compileall -q scripts
-      - name: Shell syntax check
+      - name: Shell syntax
         run: for f in scripts/*.sh; do sh -n "$f"; done
-      - name: Generated files match source
+      - name: Generated files are current
         run: python3 scripts/generate.py build --check
-      - name: Run the suite
+      - name: Test
         run: pytest
 
-  # The OpenAI/OStar rail runs its own compatibility sweep, evidence sealed
-  # on the way out. Deterministic fakes only, dark — no key, no wire out.
+  # The OpenAI/OStar rail gets an independent compatibility and evidence job.
+  # It uses only local deterministic fakes; no external API credential is needed.
   openai-luna-verification:
     runs-on: ubuntu-latest
     strategy:
@@ -79,9 +78,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Stock the focused toolbelt
+      - name: Install focused verifier tooling
         run: pip install --quiet pytest ruff coverage
-      - name: Focused lint sweep
+      - name: Focused lint
         run: >-
           ruff check
           scripts/mcp_client.py
@@ -105,7 +104,7 @@ jobs:
           tests/openai_luna_testkit.py
           tests/test_openai_luna*.py
           tests/test_openai_ostar_star.py
-      - name: Shell syntax check
+      - name: Shell syntax
         run: for f in scripts/*.sh; do sh -n "$f"; done
       - name: Full focused ladder
         env:

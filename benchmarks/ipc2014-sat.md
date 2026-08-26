@@ -1,6 +1,6 @@
-# seq-sat-2014 — full corpus
+# IPC-2008/2011 seq-sat-2014 full-corpus results
 
-60s a head, 2 jobs, mode auto. Every plan run back through VAL.
+timeout 60s/instance, jobs 2, mode auto. Plans externally validated with VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -19,4 +19,4 @@
 | ipc-2014/transport-sequential-satisficing | 0/20 | 0 | 0.0s | 0/0 |
 | ipc-2014/visit-all-sequential-satisficing | 20/20 | 57438 | 117.3s | 20/20 |
 
-final tally: **138/280**
+total coverage: **138/280**

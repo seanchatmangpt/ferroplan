@@ -1,6 +1,6 @@
-# seq-agile-2014 — full corpus, no shortcuts
+# IPC-2008/2011 seq-agile-2014 full-corpus results
 
-60s a head, 2 jobs, mode auto. Every plan run back through VAL, cold.
+timeout 60s/instance, jobs 2, mode auto. Plans externally validated with VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -19,4 +19,4 @@
 | ipc-2014/transport-sequential-agile | 0/20 | 0 | 0.0s | 0/0 |
 | ipc-2014/visit-all-sequential-agile | 20/20 | 57438 | 102.2s | 20/20 |
 
-final tally: **142/280**
+total coverage: **142/280**

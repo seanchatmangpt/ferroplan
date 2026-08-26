@@ -1,7 +1,6 @@
-# IPC-2008/2011 seq-sat — full corpus, run cold
+# IPC-2008/2011 seq-sat full-corpus results
 
-Sixty seconds a instance, two jobs, mode auto. Every plan that lands gets
-run through VAL before it's real.
+timeout 60s/instance, jobs 2, mode auto. Plans externally validated with VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -30,4 +29,4 @@ run through VAL before it's real.
 | ipc-2011/visit-all-sequential-satisficing | 20/20 | 21943 | 30.2s | 20/20 |
 | ipc-2011/woodworking-sequential-satisficing | 20/20 | 31945 | 270.0s | 20/20 |
 
-total coverage, the take: **486/580**
+total coverage: **486/580**

@@ -1,6 +1,6 @@
-# sat-2018 — full corpus
+# IPC-2008/2011 sat-2018 full-corpus results
 
-60s a head, 2 jobs, mode auto. VAL signs off on every plan.
+timeout 60s/instance, jobs 2, mode auto. Plans externally validated with VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -17,4 +17,4 @@
 | ipc-2018/spider-sequential-satisficing | 3/20 | 91 | 89.3s | 3/3 |
 | ipc-2018/termes-sequential-satisficing | 7/20 | 1911 | 9.5s | 7/7 |
 
-final tally: **70/240**
+total coverage: **70/240**

@@ -25,8 +25,15 @@ Quality scoring, by track semantics:
     official per-instance archive is vendored for 2008/2011.
 
 Failure classes per unsolved instance (from the JSONL):
-  timeout (time == budget), mem-cap (notes), engine-reject/error
-  (no time recorded — parse/feature rejects land here), else search.
+  timeout (elapsed >= 90% of budget — including graceful engine exits
+  AT an armed FF_TIME_LIMIT wall; 90 because the refill loop's re-entry
+  floor is 10% of wall, so nothing between 90% and the wall can be a
+  give-up), mem-cap (notes), engine-reject/error (a named mechanism:
+  parse/feature reject, grounding verdict, nonzero exit, or a legacy
+  pre-0.20 row with no elapsed recorded), else early-exit (search gave
+  up with wall budget left — the class the 0.20 refill loop emptied;
+  0.21 closed the residual [90%, 95%) boundary sliver by moving the
+  line here to the refill floor).
 """
 
 import json
@@ -38,8 +45,34 @@ from collections import defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 B = os.path.join(ROOT, "benchmarks")
-OUT = os.path.join(B, "ipc-standings.md")
+# `--out FILE` so a regeneration can be inspected before it replaces the
+# committed table (a bare run overwrites ipc-standings.md in place, and on a
+# box holding only some of the raws that is a destructive act).
+OUT = (sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv
+       else os.path.join(B, "ipc-standings.md"))
 ARCHIVE = os.path.join(B, "IPC5-results.tgz")
+
+# WHICH BOX PRODUCED A BOARD. The 0.21 Phase 1 re-baseline re-swept the twelve
+# canonical boards on the M5 Air; every other board in this table still carries
+# numbers from the 4-core cloud container. Faster silicon inflates coverage at a
+# fixed budget, so an Air row and a cloud row MUST NOT be read against each
+# other — and a missing raw JSONL means different things for the two: for an
+# Air board it means the sweep has not finished, for a cloud board it means the
+# board was never re-baselined and its record lives in git history. Rendering
+# both as "not swept" would claim we had never measured them at all.
+AIR_REBASELINED = {
+    "2023 classical", "2014 tempo-sat", "2018 seq-sat", "2014 seq-sat",
+    "2014 seq-agile", "2014 seq-opt", "2026 numeric (first board)",
+    "2023 numeric", "2023 agile ENTRY (300s)", "2026 numeric-opt",
+    # shared-sweep labels, split per competition at render time
+    "seq-opt", "tempo-sat", "seq-sat",
+}
+CLOUD_ERA = "cloud-era board, NOT re-baselined — see git history"
+
+
+def absent(label, pending="sweep in flight / not yet run"):
+    """Row text for a board with no usable raw, honest about which case."""
+    return pending if label in AIR_REBASELINED else CLOUD_ERA
 
 # sweep jsonl -> (label, competition, budget seconds)
 SWEEPS = {
@@ -61,6 +94,22 @@ SWEEPS = {
     "ipc2018-sat.jsonl": ("2018 seq-sat", "modern", 60),
     "ipc2023-agile.jsonl": ("2023 classical", "modern", 60),
     "ipc2023-numeric.jsonl": ("2023 numeric", "modern", 60),
+    # 0.20: the IPC-2026 numeric dataset's first board (the track ran at
+    # ICAPS Dublin, June 2026; corpus vendored from the public repo).
+    "ipc2026-numeric.jsonl": ("2026 numeric (first board)", "modern", 60),
+    # The official-budget entry (0.19 cut, locked at scoping): ONE sweep
+    # at the competition's 300 s agile budget — an ENTRY, not a baseline.
+    "ipc2023-agile-300s.jsonl": ("2023 agile ENTRY (300s)", "modern", 300),
+    # The optimal tracks (0.19 Phase 2: Mode::Optimal, A* + h^max —
+    # coverage IS proof rate; every solved row carries a certificate).
+    "ipc-opt-2008-11.jsonl": ("seq-opt", "optimal", 60),
+    "ipc2014-opt.jsonl": ("2014 seq-opt", "optimal", 60),
+    # 0.21 Phase 4: the IPC-2026 corpus's three -sat/-opt pairs under
+    # Mode::Optimal — the third proof board. Certificates are LENGTH
+    # optima: the vendored corpus ships no active :metric anywhere
+    # (sailing-wind's is commented out; rainbowttles declares
+    # :action-costs with zero total-cost effects).
+    "ipc2026-opt.jsonl": ("2026 numeric-opt", "modern", 60),
 }
 
 # our 2006 variant name -> (archive domain dir, archive track dir prefix)
@@ -90,8 +139,36 @@ def load_jsonl(path):
     return rows
 
 
+def _load_val_unavailable():
+    """Domains VAL cannot INGEST at all (benchmarks/val-unavailable.json).
+
+    VAL has several ways to refuse a domain — "Parser failed",
+    "Problem in domain definition!" — and it emits them BEFORE judging any
+    plan, so a `val: false` row on such a domain is validation UNAVAILABLE,
+    not a rejected plan. The 0.20 runner learned the first signature only,
+    which is why data-network-2018 and factory-robot-2026 arrived here as
+    false and were dropped from coverage outright: the standings table said
+    46/240 and 113/320 where the boards beside it said 53 and 121. Reading
+    the map keeps the two artifacts telling the same story about one sweep.
+    """
+    p = os.path.join(B, "val-unavailable.json")
+    if not os.path.exists(p):
+        return set()
+    return set(json.load(open(p)).get("unavailable", {}))
+
+
+VAL_UNAVAILABLE = _load_val_unavailable()
+
+
+def val_unavailable(r):
+    return f"{r.get('ipc')}/{r.get('variant')}" in VAL_UNAVAILABLE
+
+
 def solved(r):
-    return bool(r["solved"]) and (r.get("val") is not False)
+    if not r["solved"]:
+        return False
+    # A false from a domain VAL cannot read is a harness gap, not a verdict.
+    return r.get("val") is not False or val_unavailable(r)
 
 
 def classify(r, budget):
@@ -104,9 +181,12 @@ def classify(r, budget):
         # search losses. The audit record investigates per corpus.
         return "VAL-RED"
     notes = r.get("notes") or ""
-    if notes == "mem-cap":
+    # Solution.notes is a list on engine rows; runner-stamped classes are
+    # plain strings. Normalize to one text for the mechanism checks.
+    ntext = notes if isinstance(notes, str) else " ".join(str(x) for x in notes)
+    if ntext == "mem-cap":
         return "mem-cap"
-    if notes == "spawn-fail":
+    if ntext == "spawn-fail":
         # Runner-side fork failure under memory pressure (environmental;
         # see run_instance's retry note in ipc67.py). Pre-0.16-fix sweeps
         # logged these as engine-reject/error — the 0.16 record names the
@@ -114,10 +194,28 @@ def classify(r, budget):
         return "spawn-fail"
     t = r.get("time")
     if t is None:
+        # Pre-0.20 runner rows only: elapsed was not recorded for
+        # unsolved rows, so a graceful engine exit AT the armed wall is
+        # indistinguishable from a true reject here. The 0.20 runner
+        # records elapsed for every row; this legacy class empties as
+        # boards re-sweep (the 0.20 audit showed maintenance-2014's
+        # "rejects" were wall-exit timeouts).
         return "engine-reject/error"
-    if t >= budget * 0.95:
+    if t >= budget * 0.90:
+        # 90, not 95: the refill loop refuses a new round below 10% of an
+        # armed wall (search.rs), so a graceful exit in [90%, 100%] is a
+        # spent wall by construction. At 95 the ten rows in [90%, 95%)
+        # booked as early-exit were a DEFINITIONAL gap between the two
+        # lines, not give-ups — the 0.21 decode's boundary-sliver finding.
         return "timeout"
-    return "search"
+    if ntext.startswith("engine-exit") or "unsolvable" in ntext or "reject" in ntext:
+        # A named mechanism: parse/feature reject, grounding verdict, or
+        # a nonzero exit without a JSON verdict.
+        return "engine-reject/error"
+    # Finished early, no plan, no named mechanism: the search gave up
+    # with wall budget left (capped ladder, exhaustion). The 0.20 refill
+    # loop exists to shrink this class; whatever remains is honest.
+    return "early-exit"
 
 
 def archive_lengths():
@@ -152,6 +250,208 @@ def coverage_line(rows, budget):
         f"{v} {k}" for k, v in sorted(cls.items()) if k != "solved" and v
     )
     return s, n, fails or "none"
+
+
+GH_BLOB = "https://github.com/hhh42/ferroplan/blob/main/"
+SUMMARY = os.path.join(ROOT, "STANDINGS.md")
+HISTORY = os.path.join(B, "standings-history.json")
+# Tracks where coverage IS proof rate: a solved row carries an optimality
+# certificate, so 45% there is a categorically different claim from 45% on a
+# satisficing board and must not be read as "worse".
+PROOF_TRACKS = {"seq-opt", "2014 seq-opt", "2026 numeric-opt"}
+
+
+def _history():
+    if not os.path.exists(HISTORY):
+        return []
+    return json.load(open(HISTORY)).get("snapshots", [])
+
+
+def _current_version():
+    """Workspace version, so the delta column never compares a release to
+    ITSELF. The snapshot for the release being cut is banked from the same
+    boards this table is generated from, so without this every row reads
+    `= (vs X)` — technically true and completely useless."""
+    try:
+        for line in open(os.path.join(ROOT, "Cargo.toml")):
+            if line.strip().startswith("version"):
+                return line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    return None
+
+
+def _bar(pct, width=20):
+    filled = int(round(pct / 100 * width))
+    return "█" * filled + "░" * (width - filled)
+
+
+def write_summary(data):
+    """STANDINGS.md — the at-a-glance view.
+
+    ipc-standings.md is the reference table: every track, every failure class,
+    five columns of prose. Correct, and useless for the question "roughly where
+    are we?". This answers that question and links there for the detail.
+
+    The delta column obeys one rule: a snapshot is only compared against a
+    predecessor measured on the SAME BOX. Faster silicon inflates coverage at a
+    fixed budget, so a cloud->Air "improvement" would be pure hardware. Where
+    there is no comparable predecessor the column says so instead of inventing
+    a number.
+    """
+    hist = _history()
+    box = os.environ.get("FERROPLAN_BOX", "m5-air")
+    cur = _current_version()
+
+    def vkey(v):
+        try:
+            return tuple(int(x) for x in str(v).split("."))
+        except ValueError:
+            return (0,)
+
+    # The PREVIOUS RELEASE, by version — not the most recently MEASURED
+    # snapshot. A backfilled old tag is measured late (0.19 was re-swept after
+    # 0.20 shipped), so picking by measured_at silently compares a release to
+    # its grandparent and skips one. On 2018-sat that is the difference between
+    # +7 and +17.
+    cands = [s for s in hist
+             if s.get("measured_on") == box and vkey(s.get("version")) < vkey(cur)]
+    prev = max(cands, key=lambda s: vkey(s.get("version"))) if cands else None
+
+    live, cloud, pending = [], [], []
+    for label, d in data.items():
+        if d is None:
+            # Two very different absences, and collapsing them would let a
+            # half-promoted sweep read as "we never re-measured this".
+            (pending if label in AIR_REBASELINED else cloud).append(label)
+            continue
+        rows, budget = d
+        s, n, _ = coverage_line(rows, budget)
+        if not n:
+            continue
+        live.append((label, s, n, 100.0 * s / n))
+    live.sort(key=lambda r: -r[3])
+
+    tot_s = sum(r[1] for r in live)
+    tot_n = sum(r[2] for r in live)
+    proofs = sum(r[1] for r in live if r[0] in PROOF_TRACKS)
+
+    L = ["# Where ferroplan stands", ""]
+    if tot_n:
+        plural = "board" if len(live) == 1 else "boards"
+        L += [f"**{100.0 * tot_s / tot_n:.0f}% coverage across {len(live)} IPC "
+              f"{plural}** ({tot_s:,}/{tot_n:,}), measured on `{box}`."]
+        if proofs:
+            L += ["", f"Of those, **{proofs:,} are certified optima** — on the "
+                  "optimal tracks coverage IS proof rate, so a solved row is a "
+                  "proof, not a plan."]
+    L += ["", "Generated by `python3 benchmarks/standings.py` — do not hand-edit. "
+          "Per-track detail, quality scoring and failure classes: "
+          "[`benchmarks/ipc-standings.md`](benchmarks/ipc-standings.md).", ""]
+
+    bands = [("Strong", lambda p: p >= 60), ("Middle", lambda p: 25 <= p < 60),
+             ("Weak", lambda p: p < 25)]
+    for name, pred in bands:
+        rows = [r for r in live if pred(r[3])]
+        if not rows:
+            continue
+        L += [f"## {name}", "",
+              "| track | coverage | | vs previous |", "|---|---|---|---|"]
+        for label, s, n, pct in rows:
+            mark = " ⚖️" if label in PROOF_TRACKS else ""
+            L.append(f"| {label}{mark} | {s}/{n} | `{_bar(pct)}` {pct:.0f}% "
+                     f"| {_delta(label, s, n, prev)} |")
+        L += [""]
+
+    if pending:
+        L += ["## Awaiting promotion", "",
+              "Swept on this box but not yet promoted into the table — a sweep "
+              "still in flight, or boards written but not published. Not a "
+              "measurement gap.", "",
+              "".join(f"`{c}` · " for c in sorted(pending)).rstrip(" ·"), ""]
+    if cloud:
+        L += ["## Not re-baselined", "",
+              "These still carry numbers from the previous machine. They are NOT "
+              "comparable to the boards above and are excluded from the headline "
+              "total — the old numbers stay in git history.", "",
+              "".join(f"`{c}` · " for c in sorted(cloud)).rstrip(" ·"), ""]
+
+    L += ["## How to read this", "",
+          "- **coverage** is solved/total at that track's official-ish budget "
+          "(60 s satisficing, 30 s temporal, 300 s where marked an entry).",
+          "- **⚖️ marks a proof track**: coverage is the share of instances "
+          "PROVEN optimal, a far harder bar than finding some plan.",
+          "- **vs previous** compares only against a release measured on the same "
+          "hardware. A blank means no comparable predecessor exists yet, not zero "
+          "movement.",
+          "- A board is only as honest as its conditions; those are recorded per "
+          "cycle in `docs/roadmap-0.N.md`.", ""]
+    with open(SUMMARY, "w") as f:
+        f.write("\n".join(L) + "\n")
+    print(f"wrote {SUMMARY}")
+    _patch_readme(live, tot_s, tot_n, proofs, box)
+
+
+README_BEGIN = "<!-- STANDINGS:BEGIN"
+README_END = "<!-- STANDINGS:END -->"
+
+
+def _patch_readme(live, tot_s, tot_n, proofs, box):
+    """Rewrite the README's headline block between its markers.
+
+    Hand-maintained numbers on a front page drift the moment a sweep lands, and
+    a stale headline is worse than none — so the shop window is generated from
+    the same data as the table behind it.
+    """
+    p = os.path.join(ROOT, "README.md")
+    if not os.path.exists(p) or not tot_n:
+        return
+    text = open(p).read()
+    i, j = text.find(README_BEGIN), text.find(README_END)
+    if i < 0 or j < 0:
+        return
+    head_end = text.find("-->", i) + 3
+    top = [f"| track | coverage | |", "|---|---|---|"]
+    for label, s, n, pct in live[:5]:
+        mark = " ⚖️" if label in PROOF_TRACKS else ""
+        top.append(f"| {label}{mark} | {s}/{n} | `{_bar(pct, 16)}` {pct:.0f}% |")
+    block = [
+        "",
+        f"**{100.0 * tot_s / tot_n:.0f}% coverage across {len(live)} IPC "
+        f"boards** ({tot_s:,}/{tot_n:,}) on `{box}`"
+        + (f", including **{proofs:,} certified optima**." if proofs else "."),
+        "",
+        *top,
+        "",
+        # ABSOLUTE urls, always. This block is generated into README.md, which
+        # ships as the crate README (`readme = "../../README.md"`), and
+        # crates.io/docs.rs resolve relative links against the CRATE dir —
+        # so `STANDINGS.md` there resolves to crates/ferroplan/STANDINGS.md
+        # and 404s. Every other link in that README is absolute for the same
+        # reason.
+        f"Best five shown. **[Full standings → `STANDINGS.md`]({GH_BLOB}STANDINGS.md)** · "
+        "per-track detail, quality scoring and failure classes in "
+        f"[`benchmarks/ipc-standings.md`]({GH_BLOB}benchmarks/ipc-standings.md).",
+        "",
+    ]
+    with open(p, "w") as f:
+        f.write(text[:head_end] + "\n".join(block) + text[j:])
+    print(f"patched {p} standings block")
+
+
+def _delta(label, s, n, prev):
+    if not prev:
+        return "— *baseline*"
+    p = prev.get("tracks", {}).get(label)
+    if not p or not p.get("total"):
+        return "— *new*"
+    # Compare shares, not raw counts: a corpus can grow between releases.
+    was = 100.0 * p["solved"] / p["total"]
+    now = 100.0 * s / n
+    d = now - was
+    if abs(d) < 0.05:
+        return f"= (vs {prev['version']})"
+    return f"{'+' if d > 0 else '−'}{abs(d):.1f} pts (vs {prev['version']})"
 
 
 def main():
@@ -196,7 +496,7 @@ def main():
     for label, qnote in ip5:
         d = data.get(label)
         if d is None:
-            lines.append(f"| {label} | not swept | — | — | — |")
+            lines.append(f"| {label} | {absent(label)} | — | — | — |")
             continue
         rows, budget = d
         s, n, fails = coverage_line(rows, budget)
@@ -255,7 +555,7 @@ def main():
                        ("net-benefit", "net-benefit")]:
         d = split_rows(key, "ipc-2008")
         if d is None:
-            lines.append(f"| {label} | not swept | — | — | — |")
+            lines.append(f"| {label} | {absent(label)} | — | — | — |")
             continue
         rows, budget = d
         s, n, fails = coverage_line(rows, budget)
@@ -263,9 +563,21 @@ def main():
             f"| {label} | yes | {s}/{n} | coverage + VAL "
             f"(no official per-instance archive vendored) | {fails} |"
         )
+    d = split_rows("seq-opt", "ipc-2008")
+    if d is None:
+        lines.append(f"| seq-opt | {absent('seq-opt')} | — | — | — |")
+    else:
+        rows, budget = d
+        s_, n, fails = coverage_line(rows, budget)
+        lines.append(
+            f"| seq-opt | yes (first entry, 0.19 — Mode::Optimal) | {s_}/{n} "
+            "| coverage = PROOF RATE (A* + admissible LM-cut, h^max sprint "
+            "first; every plan "
+            f"certified + VAL) | {fails} |"
+        )
     lines += [
-        "| seq-opt / tempo-opt | out of scope by design (satisficing "
-        "planner) | — | — | — |",
+        "| tempo-opt | out of scope by design (satisficing temporal "
+        "path) | — | — | — |",
         "",
     ]
 
@@ -277,7 +589,7 @@ def main():
     for label, key in [("seq-sat", "seq-sat"), ("tempo-sat", "tempo-sat")]:
         d = split_rows(key, "ipc-2011")
         if d is None:
-            lines.append(f"| {label} | not swept | — | — | — |")
+            lines.append(f"| {label} | {absent(label)} | — | — | — |")
             continue
         rows, budget = d
         s, n, fails = coverage_line(rows, budget)
@@ -288,7 +600,7 @@ def main():
         d = data.get(label)
         if d is None:
             lines.append(
-                f"| {label} | sweep in flight / not yet run | — | "
+                f"| {label} | {absent(label)} | — | "
                 "wall-clock per competition rule (4-core box; t8 "
                 "oversubscribed) | — |"
             )
@@ -300,11 +612,19 @@ def main():
             "per competition rule (4-core box; t8 oversubscribed) | "
             f"{fails} |"
         )
-    lines += [
-        "| seq-opt | out of scope by design (satisficing planner) | — | "
-        "— | — |",
-        "",
-    ]
+    d = split_rows("seq-opt", "ipc-2011")
+    if d is None:
+        lines.append(f"| seq-opt | {absent('seq-opt')} | — | — | — |")
+    else:
+        rows, budget = d
+        s_, n, fails = coverage_line(rows, budget)
+        lines.append(
+            f"| seq-opt | yes (first entry, 0.19 — Mode::Optimal) | {s_}/{n} "
+            "| coverage = PROOF RATE (A* + admissible LM-cut, h^max sprint "
+            "first; every plan "
+            f"certified + VAL) | {fails} |"
+        )
+    lines.append("")
 
     # ---------------- The modern corpora (0.17) ----------------
     corpus = os.path.join(B, ".ipc-corpus")
@@ -362,24 +682,52 @@ def main():
         "2023 classical": ("2023", "-agile"),
     }
     for label in ["2014 seq-sat", "2014 seq-agile", "2014 tempo-sat",
-                  "2014 seq-mco t4", "2018 seq-sat", "2023 classical",
-                  "2023 numeric"]:
+                  "2014 seq-mco t4", "2014 seq-opt", "2018 seq-sat",
+                  "2023 classical", "2023 agile ENTRY (300s)",
+                  "2023 numeric",
+                  # 0.20 cut prep added this board to SWEEPS but never to the
+                  # render list, so it could never have appeared in the table.
+                  "2026 numeric (first board)",
+                  "2026 numeric-opt"]:
         d = data.get(label)
         if d is None:
-            lines.append(f"| {label} | sweep in flight / not yet run | — | — | — |")
+            lines.append(f"| {label} | {absent(label)} | — | — | — |")
             continue
         rows, budget = d
         s, n, fails = coverage_line(rows, budget)
         if label in MODERN_Q:
             q = bounds_quality(rows, *MODERN_Q[label]) or "coverage-only"
+        elif label == "2023 agile ENTRY (300s)":
+            q = ("OFFICIAL 300 s budget — a competition-methodology ENTRY, "
+                 "not a baseline")
+        elif label == "2026 numeric (first board)":
+            q = ("coverage + VAL; the corpus ships -sat/-opt domain PAIRS, all "
+                 "swept satisficing-style on this first board")
+        elif label == "2026 numeric-opt":
+            q = ("coverage = PROOF RATE (Mode::Optimal over the three -opt "
+                 "pairs; LENGTH optima — the vendored corpus carries no "
+                 "active :metric; every certificate VAL-checked)")
         elif label == "2023 numeric":
             q = ("field CSVs vendored (ipc-2023n/results) — per-domain "
                  "comparison in the audit record")
         elif label == "2014 seq-mco t4":
             q = "wall-clock per competition rule (4-core box)"
+        elif label == "2014 seq-opt":
+            q = ("coverage = PROOF RATE (Mode::Optimal, A* + admissible "
+                 "LM-cut, h^max sprint first; every plan certified + VAL)")
         else:
             q = "coverage + VAL"
-        lines.append(f"| {label} | yes (first entry, 0.17) | {s}/{n} | {q} | {fails} |")
+        entered = ("yes (first entry, 0.19)" if label == "2014 seq-opt"
+                   else "yes (OFFICIAL-BUDGET entry, 0.19)" if label == "2023 agile ENTRY (300s)"
+                   # The 2026 corpus was a blocked rider at 0.20 scoping (the
+                   # organisers had not published yet) and is swept here for
+                   # the first time — not a 0.17 board.
+                   else "yes (FIRST ENTRY, 0.20 — new corpus)"
+                   if label == "2026 numeric (first board)"
+                   else "yes (FIRST ENTRY, 0.21 — the -opt pairs, ⚖️)"
+                   if label == "2026 numeric-opt"
+                   else "yes (first entry, 0.17)")
+        lines.append(f"| {label} | {entered} | {s}/{n} | {q} | {fails} |")
     lines += [
         "",
         "The 2023 classical corpus is swept on its agile instances at the "
@@ -392,6 +740,7 @@ def main():
     with open(OUT, "w") as f:
         f.write("\n".join(lines) + "\n")
     print(f"wrote {OUT}")
+    write_summary(data)
     if prop_quality:
         print(f"prop-2006 {prop_quality}")
 

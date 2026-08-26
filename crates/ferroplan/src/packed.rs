@@ -136,10 +136,33 @@ pub struct PackedTask {
     pub goal_pos: Vec<u32>,
     pub goal_num: Vec<NumPre>,
 
+    /// Arm the numeric-precondition charge (0.21 Phase 3) in relaxed-plan
+    /// extraction. True on the classical/numeric grounding entries; FALSE
+    /// on the temporal snap/session entries (stratified/fixpoint), whose
+    /// compiled tasks always carry `pre_num` — the charge re-routed the
+    /// village workshop economy (27-step carve plan → 47-step chisel-sale
+    /// plan), and the temporal boards are other phases' referee surface,
+    /// so they keep 0.20's h byte-identical until measured on their own.
+    pub charge_pre_num: bool,
+
+    /// The h-surgery probe (0.21 Phase 8, opt-in `FF_H_ENDGATE=1`): op id ->
+    /// paired END op id for snap-START ops, `u32::MAX` otherwise. Populated
+    /// ONLY by the temporal think paths (from `Kind::Start { end_op }`, after
+    /// `build_kind`) and only under the flag; `None` everywhere else, so the
+    /// classical heuristic provably never enters the end-gate discount.
+    pub pair_end: Option<Vec<u32>>,
+
     pub fact_names: Arc<[String]>,
     /// fluent id -> display string `(NAME ARGS)` for metric/cost-fluent
     /// lookup.
     pub fluent_names: Arc<[String]>,
+    /// DEFINED-STATIC fluents the 0.21 fluent compaction dropped from
+    /// `fv0`/`fdef0` (display -> init value), retained task-side for
+    /// NAME-resolved readers: temporal duration grounding/eval reads
+    /// statics from here when [`Self::fluent_id`] misses. Empty when the
+    /// compaction is off (`FF_NO_FLUENT_COMPACT=1`) or on the session/
+    /// validator grounding entries, which keep full tables.
+    pub static_fluents: Arc<[(String, f64)]>,
 
     // timing-footer stats
     pub n_easy: usize,
@@ -283,6 +306,18 @@ impl PackedTask {
         self.fluent_names.iter().position(|s| s == disp)
     }
 
+    /// Value of a DEFINED-STATIC fluent the 0.21 compaction dropped from
+    /// `fv0` — the name-resolved fallback behind [`Self::fluent_id`].
+    /// `None` = not a dropped static (either live in `fv0`, or undefined —
+    /// undefined statics never enter this table, so a miss on both sources
+    /// reads exactly like an undefined fluent).
+    pub fn static_fluent(&self, disp: &str) -> Option<f64> {
+        self.static_fluents
+            .iter()
+            .find(|(n, _)| n == disp)
+            .map(|&(_, v)| v)
+    }
+
     /// Look up a fact id by display string, e.g. `(AT A0 P1)`.
     pub fn fact_id(&self, disp: &str) -> Option<usize> {
         self.fact_names.iter().position(|s| s == disp)
@@ -349,6 +384,51 @@ impl PackedTask {
             });
         }
         k
+    }
+
+    /// Streaming hash of EXACTLY the content [`Self::state_key_with_cost`]
+    /// would clone: bits words, relevant-fluent quantized vals, then the
+    /// cost val when present (0.20 Phase 4, retained-state compression).
+    /// With [`Self::state_key_eq`] it lets a visited structure hold one
+    /// u64 and a node index per state instead of a second copy of the
+    /// bitset — the dedup verdicts are identical (equality stays exact;
+    /// the hash only routes to candidates), so search behavior is
+    /// byte-identical.
+    pub fn state_key_hash(&self, s: &State, cost_fluent: Option<usize>) -> u64 {
+        use std::hash::Hasher;
+        let mut h = crate::hash::FxHasher::default();
+        for &w in &s.bits {
+            h.write_u64(w);
+        }
+        for &i in self.rel_fluents.iter() {
+            h.write_i64(Self::quantized(s, i as usize));
+        }
+        if let Some(cf) = cost_fluent {
+            h.write_i64(Self::quantized(s, cf));
+        }
+        h.finish()
+    }
+
+    /// Exact equality of the [`Self::state_key_with_cost`] content between
+    /// two states — the collision check behind [`Self::state_key_hash`].
+    pub fn state_key_eq(&self, a: &State, b: &State, cost_fluent: Option<usize>) -> bool {
+        a.bits == b.bits
+            && self
+                .rel_fluents
+                .iter()
+                .all(|&i| Self::quantized(a, i as usize) == Self::quantized(b, i as usize))
+            && cost_fluent.map_or(true, |cf| Self::quantized(a, cf) == Self::quantized(b, cf))
+    }
+
+    // pub(crate): the FF_NUMNOV novelty envelope quantizes fluents with
+    // exactly the state-key contract (one 1e-6 quantizer everywhere).
+    #[inline]
+    pub(crate) fn quantized(s: &State, i: usize) -> i64 {
+        if s.fdef[i] {
+            (s.fv[i] * 1e6).round() as i64
+        } else {
+            0
+        }
     }
 
     /// Goal test against an arbitrary (sub)goal — used by the subplanner API.

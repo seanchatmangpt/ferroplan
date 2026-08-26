@@ -1,15 +1,15 @@
 # Releasing ferroplan
 
-Three crates go out from this workspace onto crates.io: the library `ferroplan`,
+The workspace publishes **three** crates to crates.io: the library `ferroplan`,
 the CLI `ferroplan-cli` (the `ff` binary), and the MCP server `ferroplan-mcp` —
-the latter two ride on the library's back. They must be published **in that order**
-(library first) or the index has nothing to resolve against.
+the latter two depend on the library. They must be published **in that order**
+(library first).
 
 > **TL;DR:** after `cargo login <token>`, run [`./publish.sh`](publish.sh) from a
 > machine with crates.io access — it runs the full pre-flight below, then publishes
 > both crates in order and tags `vX.Y.Z`. `./publish.sh --dry-run` does the
 > pre-flight + a packaging check without uploading. The steps below are the manual
-> equivalent, for when you want your own hands on every wire.
+> equivalent.
 
 ## Pre-flight (all must pass)
 
@@ -20,9 +20,9 @@ stable Rust:**
 rustup update stable
 ```
 
-Clippy grows teeth with every release and the pre-flight runs
-`-D warnings`, so a dev box on a stale toolchain passes clean locally and
-then gets flagged on the release machine. This has bitten twice
+Clippy grows new lints with every release and the pre-flight is
+`-D warnings`, so a dev box on an older toolchain will pass locally and
+then fail `publish.sh` on the release machine. This has bitten twice
 (most recently 1.94 vs 1.97, `collapsible_match`): green on latest
 stable is the only green that counts.
 
@@ -45,12 +45,12 @@ cargo test -p ferroplan -p ferroplan-cli -p ferroplan-mcp   # DEBUG
 > `ladder_wall.rs` asserts that a default 0.10 wall slice holds the light
 > rung's ~25k-pop dispatch; at a 40 s wall that slice is 4 s, and a debug run
 > was measured doing 20,480 pops in 4.40 s. It failed by 10% — intermittently,
-> which is the worst kind of failure to trust. Such tests must scale their wall
-> with `cfg!(debug_assertions)` so the assertion tracks the ENGINE, not the
-> build profile.
+> which is the worst kind. Such tests must scale their wall with
+> `cfg!(debug_assertions)` so the assertion tracks the ENGINE, not the build
+> profile.
 >
 > The `--include-ignored` pass matters for the opposite reason: the normally
-> ignored tests are the slow ones, and this is the only place they ever run.
+> ignored tests are the slow ones, and they only ever run here.
 
 ## Bump the version
 
@@ -64,8 +64,7 @@ and tag (`vX.Y.Z`).
 
 ## Refresh the record (standings, history, release notes)
 
-Three scripted steps, in this order. All are idempotent, so re-running costs
-nothing.
+Three scripted steps, in this order. All are idempotent, so re-running is safe.
 
 ```sh
 # 1. Promote the sweep, regenerate the tables. standings.py writes
@@ -88,12 +87,11 @@ Why these are gates and not chores:
 - **The front page rots fastest.** The README had accumulated SIXTEEN
   "What's new" blocks — ~308 lines, 45% of the file — so a visitor met a year
   of history before learning whether the planner is any good. Both the
-  changelog and the README are now trimmed by script, not by discipline that
-  eventually slips.
+  changelog and the README are now trimmed by script, not by discipline.
 - **`measured_at` is not the release date.** Coverage at a fixed time budget
   is a property of the hardware as much as the engine, so every snapshot
   records the BOX it ran on and STANDINGS.md only ever compares snapshots
-  sharing one. That is what keeps "improvement" an honest word here: a
+  sharing one. That is what makes "improvement" an honest word here: a
   cloud→Air jump would be silicon, not progress, and the table refuses to
   draw it. Re-measuring an OLD tag on the CURRENT box is the supported way to
   backfill a comparable history.
@@ -121,17 +119,16 @@ cargo publish -p ferroplan-mcp
 ```
 
 > A `cargo publish --dry-run` for the CLI or MCP crate BEFORE the library is on
-> crates.io fails with `no matching package named 'ferroplan' found` — the
-> index telling the truth, not a packaging bug. Verify them with
+> crates.io fails with `no matching package named 'ferroplan' found` — this is
+> expected, not a packaging bug. Verify them with
 > `cargo build -p ferroplan-cli -p ferroplan-mcp` instead, and publish only
 > after step 1 has landed.
 
 ## The Python wheel (staged, published separately)
 
-`crates/ferroplan-py` versions in lockstep with the workspace (bump its
-`version` in BOTH `Cargo.toml` and `pyproject.toml` alongside the workspace
-bump) but answers to a different authority — **PyPI**, not crates.io — via
-[maturin](https://www.maturin.rs):
+`crates/ferroplan-py` versions with the workspace (bump its `version` in BOTH
+`Cargo.toml` and `pyproject.toml` alongside the workspace bump) but publishes
+to **PyPI**, not crates.io, via [maturin](https://www.maturin.rs):
 
 ```sh
 pip install maturin
@@ -140,14 +137,14 @@ maturin publish -m crates/ferroplan-py/Cargo.toml           # needs a PyPI token
 ```
 
 The wheel build is part of the pre-flight from 0.14.0 on; publishing it is a
-separate, optional step (the crates.io release does not wait on it).
+separate, optional step (the crates.io release does not depend on it).
 
 **On the Air, build the wheel LOCALLY and record what that does not cover.**
 `docs/migration-m5.md` proposed downgrading this gate to "the CI wheel
 builds", on the grounds that a local `maturin build` produces a macOS-ARM
 wheel rather than the manylinux x86 one that ships. By direct decision the
-gate stays local, because a local build tests almost everything the gate
-exists for: the PyO3 bindings compile against the current library, maturin's
+gate stays local, because a local build tests almost everything the gate is
+for: the PyO3 bindings compile against the current library, maturin's
 packaging works, and the wheel is well-formed. The crate is **abi3-py38**, so
 one build covers Python 3.8+ and the Python-version dimension is not in
 question either.
@@ -156,14 +153,14 @@ What a local build does NOT test is the manylinux x86 cross-build. That is a
 real but narrow gap, and the honest form of this gate is therefore: run it
 locally, and say in the cut record that the shipped manylinux wheel is
 unverified until CI or a zig-cross build runs. A gate that names its own blind
-spot beats a gate that is quietly skipped.
+spot beats a gate that is skipped.
 
-Each crate package carries `README.md` and both `LICENSE-*` files (symlinked into
-the crate dirs) so the crates.io page and tarball arrive complete.
+Each crate package bundles `README.md` and both `LICENSE-*` files (symlinked into
+the crate dirs) so the crates.io page and tarball are complete.
 
 ## After publishing
 
 - Push the tag; the `pages.yml` workflow rebuilds the mdBook site.
 - The external comparison oracles (Metric-FF, SGPlan6, VAL) and IPC benchmark
-  instances stay off-grid — **not** part of any published crate. See
+  instances are **not** part of any published crate — see
   [`benchmarks/COMPARING.md`](benchmarks/COMPARING.md).

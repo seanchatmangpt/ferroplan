@@ -1,6 +1,6 @@
-# agile-2023 — full corpus, three-wide
+# IPC-2008/2011 agile-2023 full-corpus results
 
-60s a head, 3 jobs, mode auto. Every plan run back through VAL.
+timeout 60s/instance, jobs 3, mode auto. Plans externally validated with VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -12,4 +12,4 @@
 | ipc-2023/rubiks-cube-agile | 5/20 | 17 | 12.9s | 5/5 |
 | ipc-2023/slitherlink-agile | 2/20 | 58 | 18.4s | 2/2 |
 
-final tally: **27/140**
+total coverage: **27/140**

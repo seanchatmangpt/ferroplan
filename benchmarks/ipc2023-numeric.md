@@ -1,6 +1,6 @@
-# numeric-2023 — full corpus
+# IPC-2008/2011 numeric-2023 full-corpus results
 
-60s a head, 2 jobs, mode auto. Every plan checked cold against VAL.
+timeout 60s/instance, jobs 2, mode auto. Plans externally validated with VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -25,4 +25,4 @@
 | ipc-2023n/tpp-numeric-satisficing | 13/20 | 754481 | 131.8s | 13/13 |
 | ipc-2023n/zenotravel-numeric-satisficing | 19/20 | 41895 | 7.9s | 19/19 |
 
-final tally: **230/400**
+total coverage: **230/400**

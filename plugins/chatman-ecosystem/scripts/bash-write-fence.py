@@ -98,12 +98,8 @@ def main() -> int:
 
     tools = agent_tools(name)
     if tools is None:
-        # No tools: frontmatter for this agent (or an agent outside this
-        # plugin) — nothing to enforce against.
         return 0
     if "Write" in tools or "Edit" in tools:
-        # This agent (source-manufacturer) is already granted direct edit
-        # tools; Bash writes are not a privilege escalation for it.
         return 0
 
     tool_input = payload.get("tool_input")

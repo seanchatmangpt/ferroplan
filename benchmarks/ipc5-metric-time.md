@@ -1,7 +1,6 @@
-# IPC-2008/2011 metric-time-2006 — full corpus, run cold
+# IPC-2008/2011 metric-time-2006 full-corpus results
 
-Thirty seconds a instance, three jobs, mode auto. Every plan that survives
-gets checked against VAL before it counts for anything.
+timeout 30s/instance, jobs 3, mode auto. Plans externally validated with VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -12,4 +11,4 @@ gets checked against VAL before it counts for anything.
 | ipc-2006/rovers-metric-time | 5/40 | 74 | 0.3s | 5/5 |
 | ipc-2006/tpp-metric-time | 3/40 | 30 | 1.2s | 3/3 |
 
-total coverage, the take: **54/200**
+total coverage: **54/200**

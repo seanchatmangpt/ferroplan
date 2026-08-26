@@ -1,39 +1,35 @@
 //! # ferroplan
 //!
-//! Night-shift dispatcher for [PDDL](https://en.wikipedia.org/wiki/Planning_Domain_Definition_Language)
-//! problems — a deterministic core running cold and fast through the search
-//! space, built for an era that stopped trusting hand-tuned intuition. Under
-//! the hood: a delete-relaxation FF heuristic riding a data-oriented (bitset,
-//! structure-of-arrays) task grid, hill-climbing until it stalls, best-first
-//! standing by to pick up the slack, grounding and heuristic work sharded
-//! across threads.
+//! A fast, data-parallel [PDDL](https://en.wikipedia.org/wiki/Planning_Domain_Definition_Language)
+//! planner in Rust — a deterministic planning core for the age of AI. The engine is a
+//! delete-relaxation FF heuristic over a data-oriented (bitset / structure-of-arrays)
+//! task representation, with enforced hill-climbing + best-first fallback and parallel
+//! grounding / heuristic evaluation.
 //!
-//! Coverage across the wire: STRIPS, typing, ADL (conditional/`forall`
-//! effects, equality), numeric fluents, derived axioms, **PDDL3** soft-goal
-//! preferences and metric, **PDDL2.1 temporal** durative actions, and
-//! **PPDDL 1.0** probabilistic planning — explicit-MDP policy synthesis,
-//! rewards, simulation, validation, the whole chain. An SGPlan-style
-//! **partition-and-resolve** mode runs the split jobs too.
+//! PDDL coverage: STRIPS, typing, ADL (conditional/`forall` effects, equality),
+//! numeric fluents, derived axioms, **PDDL3** soft-goal preferences/metric,
+//! **PDDL2.1 temporal** durative actions, and **PPDDL 1.0 probabilistic planning**
+//! with explicit-MDP policy synthesis, rewards, simulation, and policy validation.
+//! Plus an SGPlan-style **partition-and-resolve** mode.
 //!
-//! [`eve`] is the relational contract layer above the engine: human intent
-//! gets grounded against a Genesis ontology, run through SPARQL, cut into
-//! HDDL pieces, kept honest by PPDDL when the world won't commit to a single
-//! outcome, then handed off to ggen/MCP+ — Truex receipt and replay chain
-//! unbroken the whole way down.
+//! The [`eve`] module adds the relational outer contract: human purpose is
+//! grounded against a Genesis ontology, projected through SPARQL, decomposed
+//! through HDDL, governed through PPDDL when uncertainty is explicit, and
+//! handed to ggen/MCP+ with Truex receipt and replay obligations intact.
 //!
 //! ## The public API (all `serde`-serializable)
 //!
-//! - [`solve`] — hand it a domain and a problem, it hands back a [`Solution`].
-//! - [`solve_ppddl`] — cuts a bounded stochastic policy out of PPDDL.
-//! - [`simulate_ppddl`] / [`validate_ppddl_policy`] — receipts from the probabilistic run.
-//! - [`decompose`] — breaks a temporal goal into ordered [`Contract`]s and works them.
-//! - [`Eve::enter`] — compiles human intent into the Genesis/HDDL/PPDDL/ggen/MCP+
-//!   handoff chain, no actuation authority granted along the way.
-//! - [`route_planning_request`] — picks the lawful rail for a typed planning request.
-//! - [`solve_planning_type`] — runs every admitted planning family over the bounded universal model.
-//! - [`parse`] / [`parse_ppddl`] — quick read on syntax and structure, no full commitment.
-//! - [`Session`] — ground once, replan as many times as the world keeps shifting.
-//! - [`plan::validate_plan`] — a second set of eyes on a deterministic plan.
+//! - [`solve`] — plan a deterministic domain + problem; returns a [`Solution`].
+//! - [`solve_ppddl`] — synthesize a bounded stochastic policy for PPDDL.
+//! - [`simulate_ppddl`] / [`validate_ppddl_policy`] — probabilistic execution receipts.
+//! - [`decompose`] — split and solve a temporal goal as ordered [`Contract`]s.
+//! - [`Eve::enter`] — compile human purpose into the Genesis/HDDL/PPDDL/ggen/MCP+
+//!   consequence handoff without granting actuation authority.
+//! - [`route_planning_request`] — select the lawful execution rail for a typed planning request.
+//! - [`solve_planning_type`] — execute every admitted planning family over the bounded universal model.
+//! - [`parse`] / [`parse_ppddl`] — fast syntax and structure feedback.
+//! - [`Session`] — ground once, replan many for mutable deterministic worlds.
+//! - [`plan::validate_plan`] — independently check a deterministic plan.
 //!
 //! ## Quick start
 //! ```no_run
@@ -54,11 +50,13 @@ pub mod features;
 pub mod ground;
 pub mod hash;
 pub mod heuristic;
+pub mod introspect;
 pub mod invariants;
 pub mod lama;
 pub mod landmarks;
 pub mod lexer;
 pub mod novelty;
+pub mod optimal;
 pub mod orbits;
 pub mod output;
 pub mod packed;
@@ -75,7 +73,10 @@ pub mod espc;
 pub mod partition;
 pub mod pddl3;
 pub mod plan;
+pub mod planning_runtime;
+pub mod planning_types;
 pub mod portfolio;
+pub mod ppddl;
 pub mod report;
 pub mod resolve;
 pub mod selection;
@@ -86,8 +87,9 @@ pub mod tsched;
 pub mod verify;
 pub mod viz;
 
-// orchestration + smart public API
+// relational orchestration + smart public API
 pub mod api;
+pub mod eve;
 pub mod planner;
 pub mod session;
 
@@ -95,7 +97,31 @@ pub use api::{
     decompose, parse, solve, Contract, Decomposition, DomainSummary, Metric, Mode, Options,
     ParseReport, Plan, ProblemSummary, Search, Solution, SolveError, Statistics, Step,
 };
+pub use eve::{
+    Activator, CapabilityTarget, Eve, EveError, EveHandoff, EveRequest, EveStage,
+    GenesisProjection, GenesisWorld, GgenManufacturingRequest, GroundedGoal,
+    HddlDecompositionRequest, HddlSurface, HumanPurpose, ManufactureTarget, McpPlusHandoff,
+    PlanningRegime, PpddlPolicyRequest, PpddlSurface, SplitDirective, TruexContinuation,
+    MAX_PRIMARY_ACTIVATORS,
+};
 pub use planner::{run_ff, run_planner};
+pub use planning_runtime::{
+    solve_planning_type, Agent, Goal as UniversalGoal, Method as PlanningMethod, PlanStep,
+    PlannerError, PlannerLimits, PlanningProblem, PolicyEntry as UniversalPolicyEntry,
+    PolicyOutcome as UniversalPolicyOutcome, QueueState, RdfTriple, State as UniversalState,
+    Task as PlanningTask, Tool, Transition as UniversalTransition, UniversalPlan,
+    UniversalPlanningRequest, WorkflowEdge,
+};
+pub use planning_types::{
+    route_planning_request, PlanningCapability, PlanningRail, PlanningRequest, PlanningRoute,
+    PlanningRouteError, PlanningType,
+};
+pub use ppddl::{
+    parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability,
+    PolicyDecision, PolicyOutcome, PolicyValidation, PpddlError, PpddlParseReport,
+    ProbabilisticObjective, ProbabilisticOptions, ProbabilisticSolution, ProbabilisticState,
+    ProbabilisticStatistics, SimulationReport,
+};
 pub use session::Session;
 pub use trace::{trace, StateSnapshot};
 pub use types::ParseError;

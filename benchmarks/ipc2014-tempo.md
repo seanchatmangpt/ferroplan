@@ -1,6 +1,6 @@
-# tempo-sat-2014 — full corpus, clock cut to 30s
+# IPC-2008/2011 tempo-sat-2014 full-corpus results
 
-30s a head, 2 jobs, mode auto. VAL clears every plan before it counts.
+timeout 30s/instance, jobs 2, mode auto. Plans externally validated with VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -15,4 +15,4 @@
 | ipc-2014/temporal-machine-shop-temporal-satisficing | 0/20 | 0 | 0.0s | 0/0 |
 | ipc-2014/turn-and-open-temporal-satisficing | 4/20 | 417 | 90.4s | 4/4 |
 
-final tally: **70/200**
+total coverage: **70/200**

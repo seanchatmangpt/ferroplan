@@ -562,8 +562,15 @@ fn eval_expr(e: &Expr, bind: &HashMap<&str, &str>, task: &PackedTask, init: &Sta
                 }
             }
             disp.push(')');
-            let id = task.fluent_id(&disp)?;
-            init.fdef[id].then(|| init.fv[id])
+            // Two-source lookup (0.21 Phase 6): dynamic (and retained)
+            // fluents live in the state; DEFINED statics the fluent
+            // compaction dropped resolve from the task-side name table.
+            // A miss on both sources reads as undefined, exactly like a
+            // full-table undefined fluent.
+            match task.fluent_id(&disp) {
+                Some(id) => init.fdef[id].then(|| init.fv[id]),
+                None => task.static_fluent(&disp),
+            }
         }
         Expr::Add(a, b) => Some(eval_expr(a, bind, task, init)? + eval_expr(b, bind, task, init)?),
         Expr::Sub(a, b) => Some(eval_expr(a, bind, task, init)? - eval_expr(b, bind, task, init)?),
@@ -657,7 +664,7 @@ fn solve_inner(
     tier: DemandMode,
 ) -> Option<TimedPlan> {
     let c = compile(domain, problem);
-    let task = match ground_stratified(&c.domain, &c.problem, threads) {
+    let mut task = match ground_stratified(&c.domain, &c.problem, threads) {
         Outcome::Task(t) => t,
         Outcome::GoalTrue => {
             return Some(TimedPlan {
@@ -669,6 +676,7 @@ fn solve_inner(
     };
 
     let (kind, dur_exprs, inv) = build_kind(&task, &c);
+    task.pair_end = endgate_pairs(&kind);
     // Resolve each TIL's synthetic applier to its grounded op id (0-arg ⇒ op display
     // is the action name). A TIL whose op didn't ground is silently dropped.
     let by_display: HashMap<&str, usize> = task
@@ -707,7 +715,7 @@ fn solve_inner(
         threads,
         tier,
         &mut budget,
-        crate::search::NODE_CAP_TARGET_BYTES,
+        crate::search::retained_bytes_budget(),
         false,
         orbit.as_ref(),
     );
@@ -718,7 +726,157 @@ fn solve_inner(
             r.is_some()
         );
     }
-    r
+    r.map(|p| reconcile_durations(&task, &c, p))
+}
+
+/// Post-emission duration reconciliation (0.19 Phase 5b — the 0.18
+/// refuted-hypothesis debt, map-analyzer's last three VAL-reds):
+/// ε-separation can move a start across another op's write to a fluent
+/// its DURATION expression reads, so the committed duration disagrees
+/// with the expression at the EMITTED start time and VAL fails the
+/// duration constraint. Replay the emitted plan chronologically (ends
+/// before starts at an epoch, `validate`'s semantics) and CLAMP each
+/// state-dependent duration into the `[min, max]` the domain expression
+/// yields at that emitted state (a fixed `=` collapses to a point — the
+/// re-evaluated value). Corrections move that interval's end, so the
+/// pass iterates to a fixpoint (cap 4 rounds); a replay failure or
+/// non-convergence returns the ORIGINAL plan — those instances stay
+/// honestly red rather than half-corrected. Plans without
+/// state-dependent durations return untouched on the first scan.
+fn reconcile_durations(task: &PackedTask, c: &TemporalCompiled, plan: TimedPlan) -> TimedPlan {
+    let modified = modified_fluents(task);
+    let snap_by_start: HashMap<&str, &SnapInfo> = c
+        .snaps
+        .iter()
+        .map(|s| (s.start_action.as_str(), s))
+        .collect();
+    let find = |disp: &str| task.op_display.iter().position(|d| d == disp);
+
+    let original = plan.clone();
+    let mut plan = plan;
+    for _round in 0..4 {
+        struct H<'a> {
+            time: f64,
+            op: usize,
+            is_start: bool,
+            /// step index + snap + args, for state-dependent starts only
+            fix: Option<(usize, &'a SnapInfo, Vec<&'a str>)>,
+        }
+        let mut hs: Vec<H> = Vec::new();
+        let mut any_state_dep = false;
+        for (si, step) in plan.steps.iter().enumerate() {
+            let mut it = step.action.splitn(2, ' ');
+            let head = it.next().unwrap_or("");
+            let rest = it.next();
+            let with = |suffix: &str| match rest {
+                Some(r) => format!("{head}{suffix} {r}"),
+                None => format!("{head}{suffix}"),
+            };
+            match step.duration {
+                Some(dur) => {
+                    let start_name = format!("{head}-START");
+                    let Some(snap) = snap_by_start.get(start_name.as_str()) else {
+                        return original;
+                    };
+                    let args: Vec<&str> = rest
+                        .map(|r| r.split_whitespace().collect())
+                        .unwrap_or_default();
+                    let bind = duration_bind(snap, &args);
+                    let state_dep = [&snap.duration.min, &snap.duration.max]
+                        .into_iter()
+                        .flatten()
+                        .any(|e| {
+                            ground_duration_nexpr(e, &bind, task).is_some_and(|ne| {
+                                let mut v = Vec::new();
+                                ne.collect_fluents(&mut v);
+                                v.iter().any(|&f| modified[f as usize])
+                            })
+                        });
+                    any_state_dep |= state_dep;
+                    let (Some(sop), Some(eop)) = (find(&with("-START")), find(&with("-END")))
+                    else {
+                        return original;
+                    };
+                    hs.push(H {
+                        time: step.time,
+                        op: sop,
+                        is_start: true,
+                        fix: state_dep.then_some((si, *snap, args)),
+                    });
+                    hs.push(H {
+                        time: step.time + dur,
+                        op: eop,
+                        is_start: false,
+                        fix: None,
+                    });
+                }
+                None => {
+                    let Some(op) = find(&step.action) else {
+                        return original;
+                    };
+                    hs.push(H {
+                        time: step.time,
+                        op,
+                        is_start: true,
+                        fix: None,
+                    });
+                }
+            }
+        }
+        if !any_state_dep {
+            return plan;
+        }
+        let horizon = hs.iter().map(|h| h.time).fold(0.0f64, f64::max);
+        for (t, name) in &c.til_ops {
+            if *t <= horizon + EPS {
+                let Some(op) = find(name) else {
+                    return original;
+                };
+                hs.push(H {
+                    time: *t,
+                    op,
+                    is_start: false,
+                    fix: None,
+                });
+            }
+        }
+        hs.sort_by_key(|h| ((h.time / EPS).round() as i64, h.is_start));
+
+        let mut state = task.initial();
+        let mut fixes: Vec<(usize, f64)> = Vec::new();
+        for h in &hs {
+            if let Some((si, snap, args)) = &h.fix {
+                let committed = plan.steps[*si].duration.unwrap_or(0.0);
+                let (lo, hi) = eval_duration_bounds(snap, args, task, &state);
+                let mut want = committed;
+                if let Some(min) = lo {
+                    want = want.max(min);
+                }
+                if let Some(max) = hi {
+                    want = want.min(max);
+                }
+                if (want - committed).abs() > 1e-9 {
+                    fixes.push((*si, want));
+                }
+            }
+            if !task.op_applicable(h.op, &state) {
+                return original;
+            }
+            state = task.apply(h.op, &state);
+        }
+        if fixes.is_empty() {
+            return plan; // fixpoint: every duration agrees with its emitted state
+        }
+        for (si, d) in fixes {
+            plan.steps[si].duration = Some(d);
+        }
+        plan.makespan = plan
+            .steps
+            .iter()
+            .map(|s| s.time + s.duration.unwrap_or(0.0))
+            .fold(0.0f64, f64::max);
+    }
+    original // did not converge in 4 rounds — never emit a half-corrected plan
 }
 
 /// Grounded `over all` invariant facts per END op id: (positive, negative)
@@ -734,6 +892,22 @@ fn solve_inner(
 /// a fuel decrease that stays above its floor sails through.
 pub(crate) type InvMap =
     crate::hash::FxHashMap<usize, (Vec<u32>, Vec<u32>, Vec<(NumPre, Vec<u32>)>)>;
+
+/// The h-surgery probe (0.21 Phase 8, opt-in `FF_H_ENDGATE=1`): derive the
+/// start→end pair table `relaxed_extract`'s end-gate discount reads from
+/// `build_kind`'s classification (`u32::MAX` = not a start). `None` when the
+/// flag is unset, so the flag-off heuristic is provably byte-identical —
+/// the discount pass keys on the table's presence, never on the env.
+pub(crate) fn endgate_pairs(kind: &[Kind]) -> Option<Vec<u32>> {
+    std::env::var("FF_H_ENDGATE").is_ok().then(|| {
+        kind.iter()
+            .map(|k| match k {
+                Kind::Start { end_op, .. } => *end_op as u32,
+                _ => u32::MAX,
+            })
+            .collect()
+    })
+}
 
 /// Classify every grounded op as a durative Start (with resolved duration + paired
 /// end op), End, Classical, or Skip (unresolvable). Shared by `solve` and the
@@ -955,7 +1129,12 @@ fn ground_duration_nexpr(e: &Expr, bind: &HashMap<&str, &str>, task: &PackedTask
                 }
             }
             disp.push(')');
-            NExpr::Fluent(task.fluent_id(&disp)? as u32)
+            // Two-source (0.21 Phase 6): a compacted-away DEFINED static
+            // grounds straight to its value — same f64 the full table held.
+            match task.fluent_id(&disp) {
+                Some(id) => NExpr::Fluent(id as u32),
+                None => NExpr::Num(task.static_fluent(&disp)?),
+            }
         }
         Expr::Add(a, b) => NExpr::Add(
             Box::new(ground_duration_nexpr(a, bind, task)?),
@@ -2257,7 +2436,7 @@ fn temporal_search(
             .any(|&(_, op)| !matches!(kind[op], Kind::Til));
         if task.goal_met_with(&nodes[ni].state, goal_pos, goal_num) && !ends_pending {
             let plan = reconstruct(task, &nodes, ni, kind, dur_exprs);
-            return Some(epsilon_separate(task, plan, !til_events.is_empty()));
+            return Some(epsilon_separate(task, inv, plan, !til_events.is_empty()));
         }
         if dbg && nodes.len() >= next_dump {
             next_dump += 25_000;
@@ -3047,15 +3226,22 @@ pub(crate) const EPS: f64 = 0.001;
 /// execution order, pin each end at start+duration, force ε between mutex pairs —
 /// and solve the earliest-time schedule by longest paths (Bellman–Ford). On any
 /// inconsistency or for very large plans the original plan is returned unchanged.
-fn epsilon_separate(task: &PackedTask, plan: TimedPlan, floor_to_search: bool) -> TimedPlan {
-    // happening: (owning step index, is_start); op ids became unnecessary
-    // when the pairwise interference test gave way to total ε-ordering, but
-    // the display lookups below still gate on mappability (an unmappable
-    // step means we cannot trust the schedule at all).
+fn epsilon_separate(
+    task: &PackedTask,
+    inv: &InvMap,
+    plan: TimedPlan,
+    floor_to_search: bool,
+) -> TimedPlan {
+    // happening: (owning step index, is_start, end-op id for ends). The end
+    // op id came back in 0.18: same-slot END groups must be ordered by the
+    // INVARIANT relation (below), and the display lookups gate on
+    // mappability (an unmappable step means we cannot trust the schedule).
     struct H {
         step: usize,
         is_start: bool,
         time: f64,
+        end_op: Option<usize>,
+        start_op: Option<usize>,
     }
     let find = |disp: &str| task.op_display.iter().position(|d| d == disp);
     let mut hs: Vec<H> = Vec::new();
@@ -3074,16 +3260,20 @@ fn epsilon_separate(task: &PackedTask, plan: TimedPlan, floor_to_search: bool) -
                     None => format!("{head}-END"),
                 };
                 match (find(&sd), find(&ed)) {
-                    (Some(_so), Some(_eo)) => {
+                    (Some(so), Some(eo)) => {
                         hs.push(H {
                             step: si,
                             is_start: true,
                             time: step.time,
+                            end_op: None,
+                            start_op: Some(so),
                         });
                         hs.push(H {
                             step: si,
                             is_start: false,
                             time: step.time + dur,
+                            end_op: Some(eo),
+                            start_op: None,
                         });
                     }
                     _ => {
@@ -3095,10 +3285,12 @@ fn epsilon_separate(task: &PackedTask, plan: TimedPlan, floor_to_search: bool) -
                 }
             }
             None => match find(&step.action) {
-                Some(_o) => hs.push(H {
+                Some(o) => hs.push(H {
                     step: si,
                     is_start: true,
                     time: step.time,
+                    end_op: None,
+                    start_op: Some(o),
                 }),
                 None => return plan,
             },
@@ -3119,6 +3311,170 @@ fn epsilon_separate(task: &PackedTask, plan: TimedPlan, floor_to_search: bool) -
             .unwrap_or(std::cmp::Ordering::Equal)
             .then(hs[a].is_start.cmp(&hs[b].is_start))
     });
+    // Same-slot groups: the sort above breaks equal-time ties ends-first
+    // then by construction order, which is NOT the engine's tie-scan order
+    // — and the difference is load-bearing in three witnessed shapes. Ends
+    // among ends (0.18, the 2014 match-cellar family; the eps-cross
+    // fixture): an end whose unconditional deletes (adds) hit another
+    // still-pending interval's invariant positives (negatives) must fire
+    // AFTER that interval's end, or the STN pushes the victim ε past its
+    // window. Starts among starts (0.20, the map-analyzer surgery; the
+    // eps-provider fixture): a start whose at-start add provides another
+    // start's precondition must fire FIRST. And ACROSS kinds (0.21, the
+    // map-analyzer i17/i18/i20 residue; the eps-threat fixture): a start
+    // whose precondition an end's effects delete was certified BEFORE that
+    // end by the search, but ends-first emission inverts it — the
+    // reader-start must precede the deleter-end, an order no within-kind
+    // bubble can reach. One per-slot topological order (Kahn) carries all
+    // three, plus three conservative cross-kind guards: an end whose adds
+    // provide a start's precondition keeps today's ε-chaining; an end
+    // whose still-open `over all` invariant a start's effects would break
+    // keeps that start behind the end; and an end whose effects would
+    // break a crossing start's OWN invariant keeps it ahead of that start
+    // (the witness fix must not trade one VAL-red for another). Relation-
+    // free END pairs are chained in today's order — ends are rigid, pinned
+    // at start+duration by starts already ε-chained in earlier slots, so
+    // any other end order hands the STN an infeasible chain and the veto
+    // ships the raw zero-spread plan. Same-step start/end pairs
+    // (zero-duration actions) carry no edge — the STN duration equality
+    // orders them. The ready-queue tie-break replays today's order (ends
+    // first, then construction order), so a group with no edges emits
+    // byte-identically to the plain sort; a cycle (mutual relations no
+    // guard-accepted plan produces) or an oversized group keeps today's
+    // order for the STN consistency check to veto.
+    {
+        // step index -> its END op id (None for classical steps): the
+        // cross-kind guards below need the START side's own interval
+        // invariant, which the InvMap keys by end op.
+        let step_end: Vec<Option<usize>> = {
+            let mut v = vec![None; plan.steps.len()];
+            for h in &hs {
+                if !h.is_start {
+                    v[h.step] = h.end_op;
+                }
+            }
+            v
+        };
+        // Does `eff_op`'s unconditional effect set break the open invariant
+        // keyed by `inv_end`? (dels hit its positives, adds its negatives)
+        let breaks_inv = |inv_end: usize, eff_op: usize| -> bool {
+            inv.get(&inv_end).is_some_and(|(pos, neg, _)| {
+                task.del.slice(eff_op).iter().any(|f| pos.contains(f))
+                    || task.add.slice(eff_op).iter().any(|f| neg.contains(f))
+            })
+        };
+        let must_precede = |a: usize, b: usize| -> bool {
+            if hs[a].step == hs[b].step {
+                return false;
+            }
+            let (ha, hb) = (&hs[a], &hs[b]);
+            match (ha.end_op, ha.start_op, hb.end_op, hb.start_op) {
+                // end -> start: ε-chaining (the end's adds provide the
+                // start's precondition), the `over all` guard (the start's
+                // effects would break the end's open invariant), or the
+                // reader-side guard (the end's effects would break the
+                // START's own invariant — a start pulled across such an end
+                // would trap it inside its interval).
+                (Some(ae), _, None, Some(bs)) => {
+                    task.add
+                        .slice(ae)
+                        .iter()
+                        .any(|f| task.pre_pos.slice(bs).contains(f))
+                        || breaks_inv(ae, bs)
+                        || step_end[hb.step].is_some_and(|bse| breaks_inv(bse, ae))
+                }
+                // start -> end: the end's dels hit the start's precondition
+                // — the reader-start precedes the deleter-end. VETOED when
+                // the end's effects also break the reader's own invariant:
+                // that pair is unfixable by ordering (before: the end lands
+                // inside the reader's interval; after: the precondition is
+                // already deleted), so it keeps today's order for the
+                // validator to referee instead of dragging the whole group
+                // into a cycle fallback.
+                (None, Some(sa), Some(be), _) => {
+                    task.del
+                        .slice(be)
+                        .iter()
+                        .any(|f| task.pre_pos.slice(sa).contains(f))
+                        && !step_end[ha.step].is_some_and(|ase| breaks_inv(ase, be))
+                }
+                // end -> end: b's effects break a's invariant -> a first (0.18).
+                (Some(ae), _, Some(be), _) => breaks_inv(ae, be),
+                // start -> start: a's adds provide b's precondition -> a first (0.20).
+                (None, Some(sa), None, Some(sb)) => task
+                    .add
+                    .slice(sa)
+                    .iter()
+                    .any(|f| task.pre_pos.slice(sb).contains(f)),
+                _ => false,
+            }
+        };
+        let slot = |x: f64| (x / EPS).round() as i64;
+        let mut i = 0;
+        while i < order.len() {
+            let mut j = i + 1;
+            while j < order.len() && slot(hs[order[j]].time) == slot(hs[order[i]].time) {
+                j += 1;
+            }
+            // Cap 64: the group spans BOTH kinds, so it must cover any pair
+            // of ≤16-happening runs the bubbles this pass replaced handled.
+            if j - i > 1 && j - i <= 64 {
+                let g: Vec<usize> = order[i..j].to_vec();
+                let m = g.len();
+                let mut edge = [0u64; 64];
+                let mut indeg = [0u8; 64];
+                for x in 0..m {
+                    for y in 0..m {
+                        if x != y && must_precede(g[x], g[y]) {
+                            edge[x] |= 1u64 << y;
+                            indeg[y] += 1;
+                        }
+                    }
+                }
+                // Rigidity defaults (the i17 STN veto, decoded): a slot's
+                // ENDS are pinned at start+duration with their starts
+                // already ε-chained in earlier slots, so today's end order
+                // is the only one the STN can schedule when durations
+                // match — yet the ready queue, left alone, emits an
+                // unrelated end ahead of a reader-blocked EARLIER end, and
+                // the consistency check then vetoes the WHOLE plan back to
+                // raw zero-spread times (map-analyzer i17/i18/i20). Chain
+                // every relation-free end pair in today's order: a blocked
+                // end now holds its followers, and the reader crosses the
+                // entire end run instead of splitting it.
+                for x in 0..m {
+                    for y in (x + 1)..m {
+                        if hs[g[x]].end_op.is_some()
+                            && hs[g[y]].end_op.is_some()
+                            && edge[x] & (1u64 << y) == 0
+                            && edge[y] & (1u64 << x) == 0
+                        {
+                            edge[x] |= 1u64 << y;
+                            indeg[y] += 1;
+                        }
+                    }
+                }
+                let mut out: Vec<usize> = Vec::with_capacity(m);
+                let mut used = [false; 64];
+                while out.len() < m {
+                    let Some(x) = (0..m).find(|&x| !used[x] && indeg[x] == 0) else {
+                        break; // cycle: leave the whole group in today's order
+                    };
+                    used[x] = true;
+                    out.push(g[x]);
+                    for (y, d) in indeg.iter_mut().enumerate().take(m) {
+                        if edge[x] & (1u64 << y) != 0 {
+                            *d -= 1;
+                        }
+                    }
+                }
+                if out.len() == m {
+                    order[i..j].copy_from_slice(&out);
+                }
+            }
+            i = j;
+        }
+    }
 
     // STN edges: t[v] >= t[u] + w. TOTAL ε-ordering: every consecutive pair
     // in execution order is ε apart. Concurrency lives in INTERVAL OVERLAP,
@@ -3207,4 +3563,246 @@ fn epsilon_separate(task: &PackedTask, plan: TimedPlan, floor_to_search: bool) -
         .map(|s| s.time + s.duration.unwrap_or(0.0))
         .fold(0.0f64, f64::max);
     TimedPlan { steps, makespan }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The 0.18 Phase 1 pin: same-slot END pairs must emit in the
+    /// invariant-respecting order. A mend that internally ends on the same
+    /// epoch as its light's end (the 2014 match-cellar shape) must NOT be
+    /// pushed past the window by the ε-stagger — the repair orders the end
+    /// group by the InvMap relation and the STN compresses the mend's wait
+    /// instead. (Zero-slack geometries where durations exactly fill the
+    /// window have NO strict ε-separation; there the pass falls back to
+    /// the raw schedule — the recorded escape, exercised by the eps-cross
+    /// bench fixture, not this test.)
+    /// The 0.20 Phase 5 pin (the map-analyzer surgery): a same-slot START
+    /// pair where one start's at-start add provides the other's at-start
+    /// precondition must emit provider-first, whatever the construction
+    /// order. Before the repair the dependent kept its earlier ε-slot and
+    /// executed before its provider ever fired — the exact mechanism VAL
+    /// rejected on map-analyzer-2014 i17/i18/i20.
+    #[test]
+    fn same_slot_start_pair_emits_provider_first() {
+        let dom = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../benchmarks/bench/eps-provider-domain.pddl"
+        ))
+        .unwrap();
+        let prb = "(define (problem p) (:domain epsprov)
+          (:init) (:goal (moved)))";
+        let d = crate::parser::parse_domain(&dom).unwrap();
+        let p = crate::parser::parse_problem(prb).unwrap();
+        let c = compile(&d, &p);
+        let task = match crate::ground::ground_stratified(&c.domain, &c.problem, 1) {
+            crate::ground::Outcome::Task(t) => t,
+            _ => panic!("ground"),
+        };
+        let (_kinds, _dur, inv) = build_kind(&task, &c);
+        // DEPENDENT constructed first: both starts share slot 0.
+        let plan = TimedPlan {
+            steps: vec![
+                TimedStep {
+                    time: 0.0,
+                    action: "TRAVERSE".into(),
+                    duration: Some(2.0),
+                },
+                TimedStep {
+                    time: 0.0,
+                    action: "CLEARJUNCTION".into(),
+                    duration: Some(3.0),
+                },
+            ],
+            makespan: 3.0,
+        };
+        let out = epsilon_separate(&task, &inv, plan, false);
+        let traverse = &out.steps[0];
+        let clearjunction = &out.steps[1];
+        assert!(
+            clearjunction.time < traverse.time,
+            "provider start must emit strictly first: clearjunction {} vs traverse {}",
+            clearjunction.time,
+            traverse.time
+        );
+    }
+
+    /// The 0.21 Phase 7 pin (the 0.20 negative, closed): a same-slot
+    /// reader-START vs deleter-END pair — the map-analyzer i17/i18/i20
+    /// residue neither standing repair can reach (0.18 reorders ends among
+    /// ends, 0.20 starts among starts). The search certified the reader's
+    /// precondition true at decision time by firing its start BEFORE the
+    /// deleting end; the ends-before-starts tie-break inverts that, and the
+    /// emitted plan executes the reader against a fact already deleted. The
+    /// pass must emit the reader's start strictly before the deleting end,
+    /// and the result must replay clean under the internal validator.
+    #[test]
+    fn same_slot_reader_start_emits_before_deleting_end() {
+        let dom = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../benchmarks/bench/eps-threat-domain.pddl"
+        ))
+        .unwrap();
+        let prb = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../benchmarks/bench/eps-threat-p01.pddl"
+        ))
+        .unwrap();
+        let d = crate::parser::parse_domain(&dom).unwrap();
+        let p = crate::parser::parse_problem(&prb).unwrap();
+        let c = compile(&d, &p);
+        let task = match crate::ground::ground_stratified(&c.domain, &c.problem, 1) {
+            crate::ground::Outcome::Task(t) => t,
+            _ => panic!("ground"),
+        };
+        let (_kinds, _dur, inv) = build_kind(&task, &c);
+        // The search-shaped schedule: BUILD's start shares raw slot 1.0
+        // with OCCUPY's deleting end.
+        let plan = TimedPlan {
+            steps: vec![
+                TimedStep {
+                    time: 0.0,
+                    action: "OCCUPY J1".into(),
+                    duration: Some(1.0),
+                },
+                TimedStep {
+                    time: 1.0,
+                    action: "BUILD J1".into(),
+                    duration: Some(2.0),
+                },
+            ],
+            makespan: 3.0,
+        };
+        let out = epsilon_separate(&task, &inv, plan, false);
+        let occupy = &out.steps[0];
+        let build = &out.steps[1];
+        assert!(
+            build.time < occupy.time + 1.0,
+            "reader start must emit strictly before the deleting end: build {} vs occupy end {}",
+            build.time,
+            occupy.time + 1.0
+        );
+        if let Err(e) = validate(&d, &p, &out) {
+            panic!("emitted plan must replay clean: {e}");
+        }
+    }
+
+    /// The i17 geometry proper: the reader must cross a RUN of rigid ends,
+    /// not one. A second occupier's unrelated end shares the slot, and every
+    /// end is pinned at start+duration with the starts already ε-chained one
+    /// slot earlier — so the only schedulable end order is today's. A repair
+    /// that lets an unrelated end jump ahead of the reader-blocked EARLIER
+    /// end hands the STN an infeasible chain, and the consistency veto ships
+    /// the raw zero-spread plan (the exact `[eps] STN inconsistency` line
+    /// map-analyzer i17/i18/i20 printed). The pass must pull the reader
+    /// ahead of the WHOLE end run and keep the run in its rigid order.
+    #[test]
+    fn same_slot_reader_start_crosses_rigid_end_run() {
+        let dom = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../benchmarks/bench/eps-threat-domain.pddl"
+        ))
+        .unwrap();
+        let prb = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../benchmarks/bench/eps-threat-p02.pddl"
+        ))
+        .unwrap();
+        let d = crate::parser::parse_domain(&dom).unwrap();
+        let p = crate::parser::parse_problem(&prb).unwrap();
+        let c = compile(&d, &p);
+        let task = match crate::ground::ground_stratified(&c.domain, &c.problem, 1) {
+            crate::ground::Outcome::Task(t) => t,
+            _ => panic!("ground"),
+        };
+        let (_kinds, _dur, inv) = build_kind(&task, &c);
+        // The search-shaped schedule: both occupiers' deleting ends and
+        // BUILD's reading start all share raw slot 1.0; the reader's fact
+        // is deleted by the FIRST-constructed (rigid-earliest) end.
+        let plan = TimedPlan {
+            steps: vec![
+                TimedStep {
+                    time: 0.0,
+                    action: "OCCUPY J1".into(),
+                    duration: Some(1.0),
+                },
+                TimedStep {
+                    time: 0.0,
+                    action: "OCCUPY J2".into(),
+                    duration: Some(1.0),
+                },
+                TimedStep {
+                    time: 1.0,
+                    action: "BUILD J1".into(),
+                    duration: Some(2.0),
+                },
+            ],
+            makespan: 3.0,
+        };
+        let out = epsilon_separate(&task, &inv, plan, false);
+        let occupy1 = &out.steps[0];
+        let build = &out.steps[2];
+        assert!(
+            build.time < occupy1.time + 1.0,
+            "reader start must emit strictly before the deleting end: build {} vs occupy-j1 end {}",
+            build.time,
+            occupy1.time + 1.0
+        );
+        if let Err(e) = validate(&d, &p, &out) {
+            panic!("emitted plan must replay clean: {e}");
+        }
+    }
+
+    #[test]
+    fn same_epoch_end_pair_emits_inside_the_window() {
+        let dom = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../benchmarks/bench/eps-cross-domain.pddl"
+        ))
+        .unwrap();
+        let prb = "(define (problem p) (:domain epscross)
+          (:objects m1 - match f1 - fuse)
+          (:init (handfree) (unused m1))
+          (:goal (mended f1)))";
+        let d = crate::parser::parse_domain(&dom).unwrap();
+        let p = crate::parser::parse_problem(prb).unwrap();
+        // The temporal pipeline grounds the COMPILED snap domain.
+        let c = compile(&d, &p);
+        let task = match crate::ground::ground_stratified(&c.domain, &c.problem, 1) {
+            crate::ground::Outcome::Task(t) => t,
+            _ => panic!("ground"),
+        };
+        let (_kinds, _dur, inv) = build_kind(&task, &c);
+        assert!(!inv.is_empty(), "the mend must carry its invariant");
+        // A search-shaped schedule with the mend riding the window end:
+        // light [2,7], mend [4.5,7] — same internal end epoch, compressible
+        // wait between light-start and mend-start.
+        let plan = TimedPlan {
+            steps: vec![
+                TimedStep {
+                    time: 2.0,
+                    action: "LIGHT_MATCH M1".into(),
+                    duration: Some(5.0),
+                },
+                TimedStep {
+                    time: 4.5,
+                    action: "MEND_FUSE F1 M1".into(),
+                    duration: Some(2.5),
+                },
+            ],
+            makespan: 7.0,
+        };
+        let out = epsilon_separate(&task, &inv, plan, false);
+        let light = &out.steps[0];
+        let mend = &out.steps[1];
+        assert!(
+            mend.time + 2.5 < light.time + 5.0,
+            "mend must end strictly inside the light window: mend {}..{} vs light {}..{}",
+            mend.time,
+            mend.time + 2.5,
+            light.time,
+            light.time + 5.0
+        );
+    }
 }

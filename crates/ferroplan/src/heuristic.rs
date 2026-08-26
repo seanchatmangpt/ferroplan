@@ -474,6 +474,72 @@ fn relaxed_extract(
         }
     }
 
+    // The numeric-precondition charge (0.21 Phase 3, lever a1): the loops
+    // above charge numeric distance only for TOP-LEVEL goals — a selected
+    // op's own unsatisfied `pre_num` contributed ZERO, so a propositional
+    // goal behind a numeric band (sailing's save_person) read h=1 across
+    // the whole approach. Walk each already-selected op's `pre_num` against
+    // THIS state and charge ONE level through the same achievers (charged
+    // achievers' own `pre_num` is not recursed — lever a2, not taken). The
+    // snapshot keeps the walk one-level by construction; a task with no
+    // numeric preconditions never enters, so classical extraction is
+    // byte-identical, and the temporal groundings clear `charge_pre_num`
+    // (their boards are other phases' referee surface — see packed.rs).
+    // `FF_NO_NUMPRE=1` restores the plateau.
+    if task.charge_pre_num
+        && !task.pre_num.flat.is_empty()
+        && std::env::var("FF_NO_NUMPRE").is_err()
+    {
+        let selected_ops: Vec<usize> = (0..task.n_ops)
+            .filter(|&oi| sc.selected[oi] == sc.gen)
+            .collect();
+        for oi in selected_ops {
+            for np in task.pre_num.slice(oi) {
+                if eval_numpre(np, fv, def).unwrap_or(false) {
+                    continue;
+                }
+                let Some((ai, reps)) = numeric_achiever(task, np, fv, def, &sc.op_stamp, sc.gen)
+                else {
+                    continue;
+                };
+                select(task, sc, ai, reps, &mut count);
+                while head < sc.queue.len() {
+                    let f = sc.queue[head] as usize;
+                    head += 1;
+                    if bitset::test(bits, f) {
+                        continue;
+                    }
+                    if let Some(o2) =
+                        achiever(task, &sc.op_layer, &sc.op_stamp, sc.gen, &sc.fact_layer, f)
+                    {
+                        select(task, sc, o2, 1, &mut count);
+                        queue_cond_for(task, sc, o2, f);
+                    }
+                }
+            }
+        }
+    }
+
+    // The h-surgery end gate (0.21 Phase 8 probe, opt-in FF_H_ENDGATE=1):
+    // h^FF pays for a snap-START the moment it fires while the interval
+    // delivers nothing until its END lands — the start-credit plateau (TMS's
+    // 110 floor, docs/roadmap-0.15.md). When the temporal think armed the
+    // pair table, a selected START whose paired END is ALSO selected this
+    // generation prices as ONE unit, paid while the END is owed. Discount
+    // only — selection is untouched, so helpful sets cannot move (emptying
+    // start selection replayed the 0.11 FF_LAX_HELPFUL negative). A START
+    // selected only for its at-start effects keeps its full charge; a
+    // reps>1 pair discounts at most 1 (recorded simplification). Composes
+    // additively with the pre_num charge above; the temporal groundings
+    // clear `charge_pre_num`, so the two passes never co-fire today.
+    if let Some(pairs) = &task.pair_end {
+        for (oi, &end) in pairs.iter().enumerate() {
+            if end != u32::MAX && sc.selected[oi] == sc.gen && sc.selected[end as usize] == sc.gen {
+                count -= 1;
+            }
+        }
+    }
+
     Some(count)
 }
 
@@ -777,6 +843,148 @@ fn select(task: &PackedTask, sc: &mut Scratch, oi: usize, reps: i32, count: &mut
     }
 }
 
+/// Fold a linear numeric expression into `Σ coeff·fluent + konst`,
+/// scaled by `scale`. `false` = not linear (fluent×fluent, fluent
+/// divisor) — the caller falls back to no charge, exactly as before.
+fn linearize(e: &NExpr, scale: f64, coeffs: &mut Vec<(u32, f64)>, konst: &mut f64) -> bool {
+    fn const_of(e: &NExpr) -> Option<f64> {
+        match e {
+            NExpr::Num(n) => Some(*n),
+            NExpr::Fluent(_) => None,
+            NExpr::Add(a, b) => Some(const_of(a)? + const_of(b)?),
+            NExpr::Sub(a, b) => Some(const_of(a)? - const_of(b)?),
+            NExpr::Mul(a, b) => Some(const_of(a)? * const_of(b)?),
+            NExpr::Div(a, b) => Some(const_of(a)? / const_of(b)?),
+            NExpr::Neg(a) => Some(-const_of(a)?),
+        }
+    }
+    match e {
+        NExpr::Num(n) => {
+            *konst += scale * n;
+            true
+        }
+        NExpr::Fluent(i) => {
+            coeffs.push((*i, scale));
+            true
+        }
+        NExpr::Add(a, b) => {
+            linearize(a, scale, coeffs, konst) && linearize(b, scale, coeffs, konst)
+        }
+        NExpr::Sub(a, b) => {
+            linearize(a, scale, coeffs, konst) && linearize(b, -scale, coeffs, konst)
+        }
+        NExpr::Mul(a, b) => {
+            if let Some(c) = const_of(a) {
+                linearize(b, scale * c, coeffs, konst)
+            } else if let Some(c) = const_of(b) {
+                linearize(a, scale * c, coeffs, konst)
+            } else {
+                false
+            }
+        }
+        NExpr::Div(a, b) => match const_of(b) {
+            Some(c) if c != 0.0 => linearize(a, scale / c, coeffs, konst),
+            _ => false,
+        },
+        NExpr::Neg(a) => linearize(a, -scale, coeffs, konst),
+    }
+}
+
+/// Repetition charge for a LINEAR numeric goal the bare-fluent path
+/// cannot see (0.19 Phase 3, the landscape memo's bet #2): normalize
+/// `lhs ≥ rhs` to `Σ coeff·fluent + konst ≥ 0`, then find the op whose
+/// combined constant-delta effects raise the combination fastest —
+/// reps = ⌈gap / combo_delta⌉. Runs ONLY where the bare path returned
+/// None, so every previously-charged shape keeps its exact charge (and
+/// tie-break); sailing's `(≥ (+ (* 2 (x)) (y)) (d))` class gains a
+/// gradient where it had a plateau. `FF_NO_NUMH=1` restores the hole.
+fn numeric_achiever_linear(
+    task: &PackedTask,
+    np: &NumPre,
+    fv: &[f64],
+    def: &[bool],
+    op_stamp: &[u32],
+    gen: u32,
+) -> Option<(usize, i32)> {
+    if std::env::var("FF_NO_NUMH").is_ok() {
+        return None;
+    }
+    let mut coeffs: Vec<(u32, f64)> = Vec::new();
+    let mut konst = 0.0;
+    if !linearize(&np.lhs, 1.0, &mut coeffs, &mut konst)
+        || !linearize(&np.rhs, -1.0, &mut coeffs, &mut konst)
+    {
+        return None;
+    }
+    let cur: f64 = konst
+        + coeffs
+            .iter()
+            .map(|&(f, c)| {
+                if def[f as usize] {
+                    c * fv[f as usize]
+                } else {
+                    0.0
+                }
+            })
+            .sum::<f64>();
+    let need_raise = match np.op {
+        CompOp::Ge | CompOp::Gt => true,
+        CompOp::Le | CompOp::Lt => false,
+        // An Eq from a POINT value is one-sided — raise if below zero,
+        // lower if above — so it charges like the Ge/Le pair's unmet half
+        // (0.21 Phase 3 probe rider c: block-grouping's entire goal shape
+        // is `(= (x b1) (x b2))`, refused outright before).
+        CompOp::Eq => cur < 0.0,
+    };
+    // condition is `combo ≥ 0` (or ≤): gap is how far the wrong side is
+    let gap = if need_raise { -cur } else { cur };
+    if gap <= 0.0 {
+        return None; // already satisfiable-side; the caller's eval said no, stay silent
+    }
+    let mut best: Option<(usize, i32)> = None;
+    let mut seen_ops: Vec<u32> = Vec::new();
+    for &(f, _) in &coeffs {
+        for &oi in task.neff_by_fluent.slice(f as usize) {
+            if op_stamp[oi as usize] != gen || seen_ops.contains(&oi) {
+                continue;
+            }
+            seen_ops.push(oi);
+            let mut combo_delta = 0.0;
+            for ne in task.num_eff.slice(oi as usize) {
+                let Some(&(_, coeff)) = coeffs.iter().find(|&&(f2, _)| f2 == ne.target) else {
+                    continue;
+                };
+                let Some(v) = ne.value.eval(fv, def) else {
+                    continue;
+                };
+                match ne.op {
+                    AssignOp::Increase => combo_delta += coeff * v,
+                    AssignOp::Decrease => combo_delta -= coeff * v,
+                    _ => {
+                        combo_delta = f64::NAN; // non-monotone writer: skip op
+                        break;
+                    }
+                }
+            }
+            let toward = if need_raise {
+                combo_delta
+            } else {
+                -combo_delta
+            };
+            if toward > 1e-9 && combo_delta.is_finite() {
+                let reps = ((gap / toward).ceil() as i32).max(1);
+                if best
+                    .map(|(bo, r)| reps < r || (reps == r && (oi as usize) < bo))
+                    .unwrap_or(true)
+                {
+                    best = Some((oi as usize, reps));
+                }
+            }
+        }
+    }
+    best
+}
+
 fn numeric_achiever(
     task: &PackedTask,
     np: &NumPre,
@@ -787,11 +995,11 @@ fn numeric_achiever(
 ) -> Option<(usize, i32)> {
     let target = match &np.lhs {
         NExpr::Fluent(i) => *i,
-        _ => return None,
+        _ => return numeric_achiever_linear(task, np, fv, def, op_stamp, gen),
     };
     let want = match &np.rhs {
         NExpr::Num(n) => *n,
-        _ => return None,
+        _ => return numeric_achiever_linear(task, np, fv, def, op_stamp, gen),
     };
     let cur = if def[target as usize] {
         fv[target as usize]
@@ -829,4 +1037,57 @@ fn numeric_achiever(
         }
     }
     best
+}
+
+#[cfg(test)]
+mod tests {
+    //! The numeric-precondition charge (0.21 Phase 3): extraction used to
+    //! charge numeric distance only for TOP-LEVEL goals, so a propositional
+    //! goal gated by a numeric band read h=1 across the whole approach.
+
+    use super::*;
+
+    fn task_of(dom: &str, prb: &str) -> PackedTask {
+        let d = crate::parser::parse_domain(dom).unwrap();
+        let p = crate::parser::parse_problem(prb).unwrap();
+        crate::ground::ground_task(&d, &p, 1).unwrap()
+    }
+
+    fn h_init(task: &PackedTask) -> Option<i32> {
+        let init = task.initial();
+        let mut sc = Scratch::new(task);
+        relaxed(task, &mut sc, &init.bits, &init.fv, &init.fdef)
+    }
+
+    /// The sailing-band pin: save's two unmet LOWER band sides each price
+    /// their best +3/step raiser against this state — h(init) =
+    /// 1 (save) + ceil(30/3) (x+y side) + ceil(30/3) (y-x side) = 21.
+    /// Before the charge this read 1 (the plateau EHC died on).
+    #[test]
+    fn sailing_band_h_init_carries_the_band_charge() {
+        let task = task_of(
+            include_str!("../../../benchmarks/bench/sailing-band-domain.pddl"),
+            include_str!("../../../benchmarks/bench/sailing-band-i1.pddl"),
+        );
+        assert_eq!(h_init(&task), Some(21), "1 + ceil(30/3) + ceil(30/3)");
+    }
+
+    /// The NEGATIVE control (markettrader shape): a cyclic resource flow —
+    /// buy consumes cash, sell restores it, profit requires the lap. The
+    /// charge keeps h FINITE and ~35 (the goal's ceil(480/14) sell charge
+    /// plus one-level lap costs) while the real plan is ~960 lap steps —
+    /// two orders of under-pricing. Cycle-blindness stays, and the boards'
+    /// markettrader ceiling is recorded, not fixed.
+    #[test]
+    fn trader_cycle_h_stays_finite_and_blind() {
+        let task = task_of(
+            include_str!("../../../benchmarks/bench/trader-cycle-domain.pddl"),
+            include_str!("../../../benchmarks/bench/trader-cycle-i1.pddl"),
+        );
+        let h = h_init(&task).expect("relaxed-reachable");
+        assert!(
+            h < 100,
+            "h(init) = {h}: the relaxation must keep under-pricing the cycle"
+        );
+    }
 }

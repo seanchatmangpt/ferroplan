@@ -27,11 +27,15 @@ summed cost instead. Do not present summed cost as an IPC quality score.
 per-instance costs (self-relative quality — regression tracking, not an
 official IPC score; label it as such).
 """
-import json, os, re, resource, shutil, subprocess, sys, tempfile, time
+import json, os, re, resource, shutil, subprocess, sys, tempfile, threading, time
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FF = os.path.join(ROOT, "target", "release", "ff")
+# $FERROPLAN_FF points the runner at a DIFFERENT `ff` binary — the supported
+# way to sweep an OLD tagged engine with the CURRENT harness, so that a
+# backfilled history varies only the engine. Building the old tree in a
+# worktree and pointing here keeps one instrument across every comparison.
+FF = os.environ.get("FERROPLAN_FF") or os.path.join(ROOT, "target", "release", "ff")
 
 
 def arg(name, default):
@@ -54,6 +58,37 @@ MODE = arg("--mode", None)  # ff --mode passthrough (None = ff's default, auto)
 # exactly that). Default: physical RAM / jobs, floored at 2 GiB; 0 = off.
 _phys_gb = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / (1 << 30)
 MEMGB = float(arg("--mem-gb", str(max(2, int(_phys_gb / max(JOBS, 1))))))
+
+
+def _rlimit_as_enforceable():
+    """Can we actually lower RLIMIT_AS on this kernel?
+
+    macOS reports RLIMIT_AS as INFINITY but rejects EVERY setrlimit on it
+    with EINVAL (surfacing as ValueError). That is far worse than the cap
+    silently not firing: raised inside `preexec_fn`, subprocess re-raises it
+    as SubprocessError, and this runner's spawn-retry then books EVERY
+    instance as `spawn-fail` after a 5 s breather — a full 12-board sweep
+    burns hours to produce nothing but garbage rows. So probe once, honestly:
+    lower the soft limit and put it back. Side-effect-free on both kernels.
+    """
+    if MEMGB <= 0:
+        return False
+    try:
+        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        resource.setrlimit(resource.RLIMIT_AS, (int(MEMGB * (1 << 30)), hard))
+        resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+RLIMIT_AS_OK = _rlimit_as_enforceable()
+# Where RLIMIT_AS is unavailable, an RSS watchdog enforces the same budget by
+# polling and killing (the rusage watchdog named in docs/migration-m5.md).
+# RSS is what actually drives a box into swap, so on the watchdog path the
+# mem-cap column measures resident bytes, not address space — a different
+# instrument for the same column, and recorded as such wherever it is used.
+MEMWATCH = bool(MEMGB > 0 and not RLIMIT_AS_OK)
 # Self-relative quality: per-instance reference costs from a prior run's raw
 # JSONL (see the scoring note above).
 SCORE_AGAINST = arg("--score-against", None)
@@ -91,10 +126,19 @@ TRACK_PATTERNS = {
     "seq-sat-2014": r"sequential-satisficing",
     "seq-agile-2014": r"sequential-agile",
     "seq-mco-2014": r"sequential-multi-core",
+    "seq-opt-2014": r"sequential-optimal",
     "tempo-sat-2014": r"temporal-satisficing",
     "sat-2018": r"sequential-satisficing",
     "agile-2023": r"-agile$",
     "numeric-2023": r"numeric-satisficing",
+    # 0.20: the IPC-2026 numeric dataset (vendored by get-ipc.sh from the
+    # competition's public repo after the track ran at ICAPS Dublin).
+    "numeric-2026": r"numeric-2026",
+    # 0.21 Phase 4: the corpus's three -sat/-opt pairs swept as a PROOF
+    # board (pair with `--mode optimal`; coverage = proof rate). The
+    # -opt instance sets also appear satisficing-style on numeric-2026 —
+    # same files, different question.
+    "opt-2026": r"-opt-numeric-2026",
 }
 
 # Which competition directories each track lives in.
@@ -111,10 +155,15 @@ TRACK_IPCS = {
     "seq-sat-2014": ("ipc-2014",),
     "seq-agile-2014": ("ipc-2014",),
     "seq-mco-2014": ("ipc-2014",),
+    # 0.19: the optimal-track entries (pair with `--mode optimal`; the
+    # engine certifies or stays silent, so coverage = proof rate).
+    "seq-opt-2014": ("ipc-2014",),
     "tempo-sat-2014": ("ipc-2014",),
     "sat-2018": ("ipc-2018",),
     "agile-2023": ("ipc-2023",),
     "numeric-2023": ("ipc-2023n",),
+    "numeric-2026": ("ipc-2026n",),
+    "opt-2026": ("ipc-2026n",),
 }
 
 
@@ -158,17 +207,49 @@ def instances(vdir):
     idir = os.path.join(vdir, "instances")
     shared = os.path.join(vdir, "domain.pddl")
     out = []
-    names = sorted(os.listdir(idir),
-                   key=lambda n: int(re.search(r"\d+", n).group()))
+    # A name with no digits cannot be addressed by instance number at all, so
+    # it is skipped LOUDLY rather than crashing the sweep (a bad normalization
+    # upstream once took out a whole board mid-run) — and never silently, or a
+    # missing instance reads as a smaller corpus instead of a corpus bug.
+    named, skipped = [], []
+    for f in os.listdir(idir):
+        m = re.search(r"\d+", f)
+        (named if m else skipped).append(f)
+    if skipped:
+        print(f"WARN {vdir}: skipping un-numbered instance file(s): "
+              f"{', '.join(sorted(skipped))}", file=sys.stderr)
+    # Multipart names (petri-net's instance-10-1.pddl, line-exchange's
+    # instance-3_10_50_10.pddl) must keep EVERY digit group in the row's
+    # instance label: first-group-only collapsed 20 distinct problems onto
+    # 3-5 labels (ipc2026-numeric held 320 rows under 288 keys), which
+    # silently breaks the per-instance diff and --score-against joins.
+    # Single-number names stay ints so every existing board's identity is
+    # unchanged; the domain-<n> pairing convention keys on the FIRST group
+    # either way.
+    def groups(f):
+        return re.findall(r"\d+", f)
+    names = sorted(named, key=lambda f: tuple(int(g) for g in groups(f)))
     for f in names:
-        n = int(re.search(r"\d+", f).group())
+        gs = groups(f)
+        n = int(gs[0]) if len(gs) == 1 else "_".join(gs)
         d = shared if os.path.isfile(shared) else os.path.join(
-            vdir, "domains", f"domain-{n}.pddl")
+            vdir, "domains", f"domain-{gs[0]}.pddl")
         if os.path.isfile(d):
             out.append((n, d, os.path.join(idir, f)))
     if MAXI:
         out = out[:MAXI]
     return out
+
+
+# Every way VAL says "I cannot read this", none of which is a verdict on a
+# plan. Kept in step with benchmarks/val-availability.py, which probes the
+# corpus for domains that hit them.
+VAL_UNAVAILABLE_SIGNATURES = (
+    "Parser failed",
+    "Problem in domain definition!",
+    "Problem in problem definition!",
+    "Syntax error",
+)
 
 
 def val_check(val, domain, problem, steps, temporal=False):
@@ -195,11 +276,81 @@ def val_check(val, domain, problem, steps, temporal=False):
         val, domain, problem, path]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        blob = (r.stdout or "") + (r.stderr or "")
+        if any(sig in blob for sig in VAL_UNAVAILABLE_SIGNATURES):
+            # VAL could not INGEST the domain/problem, independent of the plan.
+            # Validation is UNAVAILABLE, which is NOT the verdict "plan
+            # rejected": None, not False. 0.20 tested only "Parser failed"
+            # (the drone-numeric attribution) and so booked data-network-2018
+            # and factory-robot-2026 as rejected plans — both actually emit
+            # "Problem in domain definition!", and both do so against an EMPTY
+            # plan. standings.py drops val=false rows from coverage, so its
+            # table read 15 instances light against the boards beside it.
+            # benchmarks/val-availability.py enumerates which domains this
+            # hits; keep that map in step with this list.
+            return None
         return r.returncode == 0 and "Plan valid" in r.stdout
+    except subprocess.TimeoutExpired:
+        # VAL ran out of time. Also NOT a rejected plan — same shape as the
+        # 0.20 Phase 1 finding that graceful wall-exits were booked as engine
+        # rejects, on the one column standings.py calls a first-class signal.
+        return None
     except Exception:
-        return False
+        return None
     finally:
         os.unlink(path)
+
+
+def _rss_bytes(pid):
+    """Resident bytes for `pid`, or 0 if it has already gone."""
+    try:
+        out = subprocess.run(["ps", "-o", "rss=", "-p", str(pid)],
+                             capture_output=True, text=True, timeout=5).stdout.strip()
+        return int(out) * 1024 if out else 0   # ps reports KiB
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return 0
+
+
+def _run_capped(cmd, timeout, env, preexec):
+    """subprocess.run, plus an RSS watchdog when RLIMIT_AS is unavailable.
+
+    Returns (CompletedProcess, mem_exceeded). The watchdog kills the child the
+    moment it crosses MEMGB so a runaway grounding cannot drag its sibling job
+    (and the box) into swap for the rest of a multi-hour sweep.
+    """
+    if not MEMWATCH:
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout, preexec_fn=preexec, env=env), False
+    cap = int(MEMGB * (1 << 30))
+    hit = threading.Event()
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, preexec_fn=preexec, env=env)
+
+    def watch():
+        # 0.25s: unlike RLIMIT_AS, a poll can only catch a balloon it sees, and
+        # grounding transients are the fast ones (the elevator-11 spike above).
+        # Four `ps` calls/sec/job is nothing against a multi-hour sweep; the
+        # residual risk is whatever a job can allocate inside one interval, so
+        # leave real headroom between (jobs x --mem-gb) and physical RAM.
+        while proc.poll() is None:
+            if _rss_bytes(proc.pid) > cap:
+                hit.set()
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+                return
+            time.sleep(0.25)
+
+    threading.Thread(target=watch, daemon=True).start()
+    try:
+        out, err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        raise
+    return (subprocess.CompletedProcess(cmd, proc.returncode, out, err),
+            hit.is_set())
 
 
 def run_instance(val, n, d, p):
@@ -207,9 +358,23 @@ def run_instance(val, n, d, p):
     cmd = [FF, "-o", d, "-f", p, "--json", "--threads", THREADS]
     if MODE:
         cmd += ["--mode", MODE]
+    # Budget-aware ladder (0.18): tell the engine its real wall budget so
+    # bounded rungs stop starving the complete fallback near the edge.
+    env = dict(os.environ, FF_TIME_LIMIT=str(TIMEOUT))
+    if MEMGB > 0:
+        # The engine cannot learn the budget from RLIMIT_AS on Darwin
+        # (0.21 Phase 6 lever 0): tell it outright, so the retained-state
+        # cap trips INTERNALLY (capped:true, refill spends the wall)
+        # instead of the RSS watchdog killing the job with wall unspent.
+        env["FF_MEM_BUDGET_GB"] = str(MEMGB)
 
-    def _limit():
-        if MEMGB > 0:
+    # Only install a preexec_fn where the cap actually takes: an unusable
+    # setrlimit raises INSIDE the fork hook, and every row becomes spawn-fail.
+    # (preexec_fn is also documented-unsafe with threads, and this runner is a
+    # thread pool — so skipping it on the watchdog path is a bonus, not a loss.)
+    _limit = None
+    if RLIMIT_AS_OK:
+        def _limit():
             cap = int(MEMGB * (1 << 30))
             resource.setrlimit(resource.RLIMIT_AS, (cap, cap))
     rec = {"instance": n, "solved": False, "time": None, "metric": None,
@@ -224,25 +389,44 @@ def run_instance(val, n, d, p):
         # fails again the row is honestly marked spawn-fail, not engine.
         for attempt in (0, 1):
             try:
-                r = subprocess.run(cmd, capture_output=True, text=True,
-                                   timeout=TIMEOUT, preexec_fn=_limit)
+                r, mem_hit = _run_capped(cmd, TIMEOUT, env, _limit)
                 break
             except (OSError, subprocess.SubprocessError) as e:
                 if isinstance(e, subprocess.TimeoutExpired) or attempt == 1:
                     raise
                 time.sleep(5)
         el = time.perf_counter() - t
-        if r.returncode != 0 and "allocation" in (r.stderr or ""):
+        # Honest clocks (0.20 Phase 1): elapsed wall is recorded for
+        # UNSOLVED rows too. Before this, a graceful engine exit at the
+        # FF_TIME_LIMIT wall left time=None and the standings classed it
+        # as an engine-reject — maintenance-2014's "8 rejects" were
+        # ordinary timeouts wearing that costume.
+        rec["time"] = round(el, 2)
+        # Two instruments, one verdict: RLIMIT_AS makes the child fail its own
+        # allocation; the RSS watchdog SIGKILLs it (returncode -9, no stderr).
+        # Both are mem-cap, and the watchdog's verdict must be read before the
+        # generic nonzero-exit branch below or it books as engine-exit--9.
+        if mem_hit or (r.returncode != 0 and "allocation" in (r.stderr or "")):
             rec["notes"] = "mem-cap"
         s = json.loads(r.stdout) if r.stdout.strip() else {}
         plan = s.get("plan") or {}
+        if not s and r.returncode != 0 and rec["notes"] is None:
+            # No JSON came back and the exit was nonzero: a real engine
+            # error/reject (parse failure, panic), distinct from a clean
+            # "searched and found nothing" JSON verdict.
+            rec["notes"] = f"engine-exit-{r.returncode}"
         if s.get("solved"):
-            rec.update(solved=True, time=round(el, 2),
+            rec.update(solved=True,
                        metric=plan.get("metric"), length=plan.get("length"),
                        notes=s.get("notes"))
             if val:
                 rec["val"] = val_check(val, d, p, plan.get("steps", []),
                                        temporal=plan.get("makespan") is not None)
+        elif s.get("notes") and rec["notes"] is None:
+            # Unsolved WITH a mechanism (e.g. "unsolvable at grounding:
+            # ..." from the 0.19 named verdicts) — keep it for the
+            # standings' reject-vs-search attribution.
+            rec["notes"] = s.get("notes")
     except subprocess.TimeoutExpired:
         rec["time"] = TIMEOUT
     except (OSError, subprocess.SubprocessError):
@@ -262,8 +446,15 @@ def main():
     reference = load_reference(SCORE_AGAINST) if SCORE_AGAINST else None
     print(f"corpus: {corpus}\nVAL: {val or 'not found (external validation skipped)'}\n"
           f"timeout {TIMEOUT}s, jobs {JOBS}, mode {MODE or 'auto'}", flush=True)
-    subprocess.run(["cargo", "build", "--release", "-q", "-p", "ferroplan-cli"],
-                   cwd=ROOT, check=True)
+    if os.environ.get("FERROPLAN_FF"):
+        # An externally supplied binary must not be silently rebuilt from the
+        # CURRENT tree — that would defeat the entire point of the override.
+        if not os.path.isfile(FF):
+            sys.exit(f"FERROPLAN_FF={FF} does not exist")
+        print(f"using external binary: {FF}")
+    else:
+        subprocess.run(["cargo", "build", "--release", "-q", "-p", "ferroplan-cli"],
+                       cwd=ROOT, check=True)
     summary = []
     raw = open(RAW, "w")
     with ThreadPoolExecutor(max_workers=JOBS) as pool:

@@ -9,18 +9,17 @@
 [![live demo](https://img.shields.io/badge/live_demo-try_in_browser-6c5ce7)](https://seanchatmangpt.github.io/ferroplan/demo/index.html)
 [![license](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](#license)
 
-A fast, data-parallel **PDDL planner** in Rust — a deterministic planning core
-built for the age of AI, where the model does the talking and the machine does
-the arithmetic.
+A fast, data-parallel **PDDL planner** in Rust — a deterministic planning core for
+the age of AI.
 
 **The bet:** an LLM should be the *author and supervisor* of a planner, not its
-runtime. Same reason you don't ask a model to add a column of numbers — you have
-it emit code that does the arithmetic deterministically, for free — applied one
-level up: don't ask an LLM to *be* the planner for a whole village of agents.
-Let it author a PDDL domain that then plans deterministically, cheaply, and
-inspectably at scale, and let it only *nudge* that domain at runtime. PDDL is
-the auditable wire between your intent, the model's authorship, and a fast
-solver — and `ferroplan` is the solver on the other end of that wire.
+runtime. The same reason you don't ask a model to add a column of numbers — you have
+it emit code that does the arithmetic deterministically, and for free — applies one
+level up: don't ask an LLM to *be* the planner for a whole village of agents. Have it
+author a PDDL domain that then plans deterministically, cheaply, and inspectably at
+scale, and let it only *nudge* that domain at runtime. PDDL is the auditable interface
+between your intent, the model's authoring, and a fast solver — and `ferroplan` is
+that solver.
 
 **Why PDDL, not prompt-spaghetti:**
 
@@ -31,7 +30,7 @@ solver — and `ferroplan` is the solver on the other end of that wire.
 
 > **[▶ Try it live in your browser](https://seanchatmangpt.github.io/ferroplan/demo/index.html)** —
 > pick a built-in example or paste your own PDDL; it plans entirely client-side via
-> WebAssembly, no install, no calling home. There's also a
+> WebAssembly, no install. There's also a
 > [browser visualizer + block editor](https://seanchatmangpt.github.io/ferroplan/gui/index.html).
 
 ## Where it stands
@@ -68,54 +67,54 @@ trails and IPC-5 preference quality is competitive-not-winning — see
 
 <!-- WHATSNEW:BEGIN — newest first; trimmed by scripts/release-notes-roll.py -->
 
+
+
 > **What's new in 0.21.0 — the numeric cycle, and the ladders that pay
-> their own way.** The **sailing wall is down**: sailing-numeric sat
-> at 0/20 through both prior releases — named in 0.20 as "a genuine
-> numeric-reachability wall" and left for later — and now clears
-> **19/20**, with block-grouping and pathwaysmetric off zero for the
-> first time too. The **temporal debt carried since 0.18** is paid in
-> full: map-analyzer's three VAL-RED rows go green, and the twelve
-> boards now stand at **zero** VAL failures. The **−26 regression** the
-> v0.19 backfill exposed in 0.20 doesn't just get repaired, it gets
-> overshot — rung budgets are wall-denominated instead of fixed-pop, so
-> novelty-light keeps its visit-all win while the searches it had been
-> starving come back online. The optimal ladder **learns the clock**: a
+> their own way.** The **sailing wall is down**: sailing-numeric was
+> 0/20 in both prior releases — named in 0.20 as "a genuine
+> numeric-reachability wall" and deferred — and is now **19/20**, with
+> block-grouping and pathwaysmetric off zero for the first time too.
+> The **temporal debt carried since 0.18** is paid: map-analyzer's three
+> VAL-RED rows go green, and the twelve boards now carry **zero** VAL
+> failures. The **−26 regression** the v0.19 backfill exposed in 0.20 is
+> repaired *and overshot* — rung budgets are wall-denominated instead of
+> fixed-pop, so novelty-light keeps its visit-all win while the searches
+> it was starving come back. The optimal ladder **learns the clock**: a
 > root informativeness gate decides whether LM-cut earns the remaining
 > wall, taking LM-cut proofs from 13 to 53 and putting `scanalyzer` and
 > `parc-printer` in motion for the first time. Against 0.19 re-measured
 > on the same machine, the twelve comparable boards go **1,943 → 2,132
 > (+189)**; standings **53% across 13 boards, 354 certified optima**.
 > Two boards stay behind and are named rather than netted away
-> (tempo-sat −3, 2014 seq-opt −6, all `city-car`) — no board here gets
-> to hide behind an average. Full record:
+> (tempo-sat −3, 2014 seq-opt −6, all `city-car`). Every board here
+> carries its own measured conditions. Full record:
 > [`docs/roadmap-0.21.md`](https://github.com/hhh42/ferroplan/blob/main/docs/roadmap-0.21.md).
 
 > **What's new in 0.20.0 — the guidance cycle, cut on new silicon.**
-> The cycle set out to sharpen search GUIDANCE, then had to move house
-> mid-cut: **every scoreboard number here was re-measured from
-> scratch** on an M5 MacBook Air, and none of them may be read against
-> a 0.19 number — faster silicon inflates coverage at a fixed budget,
-> and that would be hardware talking, not progress. Guidance shipped
-> anyway: the **novelty-LIGHT rung** (IW(1) + goal count, zero
-> heuristic evaluations) took visit-all-2014 from 35 s to **under 1 s**
-> and the domain to 20/20, and the **refill loop** stops an engine
-> handing back "unsolved" with a tenth of its wall still unspent.
-> **LM-cut** came online with an admissibility repair found along the
-> way — and is logged honestly as proving only **13 of 306
-> certificates**: correct, wired right, not yet worth its per-node cost
-> at 60 s. The **MCP server grew a memory** — ten `session_*` tools on
-> the official `rmcp` SDK, so an agent grounds a world ONCE and then
-> tells it what changed, with `session_fork` giving a second mind its
-> own beliefs over one shared world. The move flushed out three harness
-> bugs that would each have wrecked a sweep (one would have produced
-> 4,016 garbage rows), plus a VAL misattribution that had fifteen
-> instances hiding in plain sight. Standings: **48% across 12 boards
+> The cycle that set out to improve search GUIDANCE, and then moved
+> house mid-cut: **every scoreboard number here was re-measured from
+> scratch** on an M5 MacBook Air, and none may be read against a 0.19
+> number (faster silicon inflates coverage at a fixed budget — that
+> would be hardware, not progress). Guidance shipped: the **novelty-
+> LIGHT rung** (IW(1) + goal count, zero heuristic evaluations) took
+> visit-all-2014 from 35 s to **under 1 s** and the domain to 20/20,
+> and the **refill loop** stops an engine returning unsolved with a
+> tenth of its wall unspent. **LM-cut** landed with an admissibility
+> repair it uncovered on the way — and is recorded honestly as proving
+> only **13 of 306 certificates**: correct, wired right, and not yet
+> worth its per-node cost at 60 s. The **MCP server grew a memory** —
+> ten `session_*` tools on the official `rmcp` SDK, so an agent grounds
+> a world ONCE and then tells it what changed, with `session_fork`
+> giving a second mind its own beliefs over one shared world. The move
+> exposed three harness bugs that would each have ruined a sweep (one
+> would have produced 4,016 garbage rows), and a VAL misattribution
+> hiding 15 instances. Standings: **48% across 12 boards
 > (1,917/4,016), 306 certified optima**, plus a first-ever board on the
 > **IPC-2026 numeric corpus (121/320, zero engine-rejects on 16 unseen
 > domains)**. Full record:
 > [`docs/roadmap-0.20.md`](https://github.com/hhh42/ferroplan/blob/main/docs/roadmap-0.20.md).
 
-Earlier releases are logged in the [changelog](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG.md) and its [archive](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG-ARCHIVE.md).
+Earlier releases are summarised in the [changelog](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG.md) and its [archive](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG-ARCHIVE.md).
 <!-- WHATSNEW:END -->
 
 ## Features
@@ -126,8 +125,7 @@ Earlier releases are logged in the [changelog](https://github.com/hhh42/ferropla
 - **FF heuristic** — delete-relaxation relaxed-plan heuristic over a
   data-oriented task, deferred evaluation, tunable `g`/`h` weights.
 - **Data parallelism** — parallel grounding and parallel batch heuristic
-  evaluation (`std::thread`); the plan found is identical for any thread count —
-  no drift between runs, no drift between machines.
+  evaluation (`std::thread`); the plan found is identical for any thread count.
 - **PDDL coverage** — STRIPS, typing, negative/disjunctive preconditions,
   numeric fluents (Metric-FF style), **ADL** (conditional effects,
   `forall`/`exists`, equality), and **derived predicates / axioms** (`:derived`,
@@ -142,8 +140,7 @@ Earlier releases are logged in the [changelog](https://github.com/hhh42/ferropla
   temporal plan format (`t: (action) [dur]`) with a makespan.
 - **SGPlan-style partitioning** — an optional partition-and-resolve mode.
 - **Robust** — a published library shouldn't crash: malformed/pathological PDDL
-  (incl. deeply-nested forms) returns a typed error, never a panic. Bad input
-  gets a verdict, not a segfault.
+  (incl. deeply-nested forms) returns a typed error, never a panic.
 - **Structured output** — the library returns typed, `serde`-serializable
   results; the CLI emits classic FF text **or** JSON.
 
@@ -151,8 +148,7 @@ Earlier releases are logged in the [changelog](https://github.com/hhh42/ferropla
 
 [`ferroplan-bevy`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-bevy) is a Bevy app that visualizes a
 domain+problem as a typed graph, animates the plan, and edits both problems and
-domains in a Blockly-style block editor (`cargo run -p ferroplan-bevy`) — the
-plan, rendered where you can watch it move.
+domains in a Blockly-style block editor (`cargo run -p ferroplan-bevy`).
 
 ![ferroplan-bevy visualizing a delivery problem as a typed graph](https://raw.githubusercontent.com/seanchatmangpt/ferroplan/main/book/src/images/graph.png)
 
@@ -296,10 +292,10 @@ suggested reading order. Highlights:
 
 ## Benchmarks
 
-ferroplan runs the gauntlet against **three International Planning
+ferroplan measures itself against **three International Planning
 Competitions — IPC-5 (2006), IPC-6 (2008), IPC-7 (2011)** — every
-deterministic satisficing track, at standard budgets, every plan
-VAL-validated before it counts. The one honest table per competition (generated by
+deterministic satisficing track, at standard budgets with every plan
+VAL-validated. The one honest table per competition (generated by
 `benchmarks/standings.py`, refreshed each cut):
 [`benchmarks/ipc-standings.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/benchmarks/ipc-standings.md)
 — also rendered as the book's
@@ -326,7 +322,7 @@ Per-board detail: IPC-5 preferences
 / [`benchmarks/ipc5-qualitative-scoreboard.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/benchmarks/ipc5-qualitative-scoreboard.md);
 classical/numeric
 detail: [`benchmarks/results.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/benchmarks/results.md) (and the
-[project site](https://seanchatmangpt.github.io/ferroplan)). The comparison oracles stay off the manifest
+[project site](https://seanchatmangpt.github.io/ferroplan)). The comparison oracles are not bundled
 (GPL / non-commercial licences) — reproduce per
 [`benchmarks/COMPARING.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/benchmarks/COMPARING.md).
 

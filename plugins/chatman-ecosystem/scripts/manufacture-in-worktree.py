@@ -28,7 +28,6 @@ import json
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -112,7 +111,7 @@ def apply_in_worktree(args: argparse.Namespace) -> int:
         )
 
     worktree_dir = Path(tempfile.mkdtemp(prefix="manufacture-worktree-"))
-    worktree_dir.rmdir()  # `git worktree add` requires the target not to exist yet.
+    worktree_dir.rmdir()
 
     manifest: dict[str, object] = {
         "schema": "urn:chatman:manufacture-worktree-report:v1",

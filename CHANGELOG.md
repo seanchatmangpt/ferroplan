@@ -1,6 +1,6 @@
 # Changelog
 
-The wire log. Every notable change to this project, filed here as it happened.
+All notable changes to this project are documented here.
 
 ## [Unreleased]
 
@@ -20,8 +20,8 @@ At-a-glance: [`STANDINGS.md`](https://github.com/hhh42/ferroplan/blob/main/STAND
 per-track detail: [`benchmarks/ipc-standings.md`](https://github.com/hhh42/ferroplan/blob/main/benchmarks/ipc-standings.md).
 
 Against 0.19.0 — re-measured on the SAME machine, so the comparison is
-engine against engine, nothing else in the room — the twelve comparable
-boards move **1,943 → 2,132, +189**:
+engine-to-engine — the twelve comparable boards move **1,943 → 2,132,
++189**:
 
 | board | 0.19 | 0.20 | **0.21** |
 |---|---|---|---|
@@ -38,22 +38,21 @@ boards move **1,943 → 2,132, +189**:
 | tempo-sat (08/11) | 419 | 419 | 416 |
 | 2014 seq-opt ⚖️ | 64 | 56 | 58 |
 
-Two boards remain behind 0.19 and are not netted away, not hidden in an
-average: **tempo-sat −3** (within the ±4 band re-measurement showed on
-this box) and **2014 seq-opt −6**, which is entirely `city-car` — the
-one domain where the optimal root gate doesn't recover what 0.20's
-unconditional quarter-budget sprint spent. Both are 0.22 work.
+Two boards remain behind 0.19 and are not netted away: **tempo-sat −3**
+(within the ±4 band re-measurement showed on this box) and **2014
+seq-opt −6**, which is entirely `city-car` — the one domain where the
+optimal root gate does not recover what 0.20's unconditional
+quarter-budget sprint cost. Both are 0.22 work.
 
 **Every board in this release was measured under recorded conditions.**
-This box is a laptop, and contention only ever depresses coverage — it
-invents regressions and hides gains alike, a liar in one direction only.
-Each board now carries a `conditions.json` (median idle, load, swap, and
-the competing processes by name); a board measured below 65% median idle
-is refused rather than banked, and the driver waits for a quieter window
-to try again. All 13 boards here are verdict `clean`, 67.8–74.2% median
-idle. Two apparent regressions in the first pass (tempo-sat −19, the
-300 s entry −3) turned out to be contention talking, and vanished on
-clean measurement.
+This box is a laptop, and contention only ever depresses coverage — so
+it invents regressions and hides gains. Each board now carries a
+`conditions.json` (median idle, load, swap, and the competing processes
+by name); a board measured below 65% median idle is refused rather than
+banked, and the driver re-measures it at the next quiet window. All 13
+boards here are verdict `clean`, 67.8–74.2% median idle. Two apparent
+regressions in the first pass (tempo-sat −19, the 300 s entry −3)
+turned out to be contention and vanished on clean measurement.
 
 - **The numeric-precondition charge** (Phase 3): extraction now
   charges a selected op's unsatisfied numeric preconditions through
@@ -110,14 +109,14 @@ clean measurement.
 
 ## [0.20.0] - 2026-08-01 — The guidance cycle, cut on new silicon
 
-The cycle set out to sharpen search GUIDANCE — and then had to move
+The cycle that set out to improve search GUIDANCE — and then had to move
 house mid-cut. Phases 1–5 landed on the old cloud container; the cut
-itself, every board in it, ran on an M5 MacBook Air. That migration is
-not a footnote: **every scoreboard number in this release was
-re-measured from scratch on the new machine**, and none of them may be
-read against a 0.19 number. Faster silicon inflates coverage at a fixed
-time budget — a cloud→Air "improvement" would be hardware talking, not
-the engine. Full record: [`docs/roadmap-0.20.md`](https://github.com/hhh42/ferroplan/blob/main/docs/roadmap-0.20.md)
+itself, and every board in it, was run on an M5 MacBook Air. That
+migration is not a footnote: **every scoreboard number in this release
+was re-measured from scratch on the new machine**, and none of them may
+be read against a 0.19 number. Faster silicon inflates coverage at a
+fixed time budget, so a cloud→Air "improvement" would be hardware, not
+progress. Full record: [`docs/roadmap-0.20.md`](https://github.com/hhh42/ferroplan/blob/main/docs/roadmap-0.20.md)
 and [`docs/roadmap-0.21.md`](https://github.com/hhh42/ferroplan/blob/main/docs/roadmap-0.21.md).
 
 ### Where this leaves the standings
@@ -172,16 +171,15 @@ the planner had never seen.**
 ### The novelty-LIGHT rung (Phase 3)
 
 visit-all-2014 — the canonical width-2 domain, dispatched in
-milliseconds by BFWS-class planners elsewhere — took 35 s here, and
-forcing the existing novelty rung changed nothing. The decode: that rung
-IS BFWS-shaped, and spent all 35 s on per-pop `relaxed_helpful` calls a
-width-1 structure never needed in the first place. So: `novelty::search_light`,
-IW(1) + goal count with ZERO heuristic evaluations. **visit-all-2014 i1
-35 s → under 1 s**, and the domain now scores 20/20. Cap priced at 300k
-pops (~1 s ladder tax). `FF_NOVLIGHT` / `FF_NO_NOVLIGHT` /
-`FF_NOVLIGHT_ONLY`. The cycle also named what it did NOT expect to
-move — transport, parking, cave-diving — and all three duly held at
-0/20, no surprises either way.
+milliseconds by BFWS-class planners — took 35 s here, and forcing the
+existing novelty rung changed nothing. The decode: that rung IS
+BFWS-shaped, and spent all 35 s on per-pop `relaxed_helpful` calls a
+width-1 structure never needed. So: `novelty::search_light`, IW(1) +
+goal count with ZERO heuristic evaluations. **visit-all-2014 i1 35 s →
+under 1 s**, and the domain now scores 20/20. Cap priced at 300k pops
+(~1 s ladder tax). `FF_NOVLIGHT` / `FF_NO_NOVLIGHT` / `FF_NOVLIGHT_ONLY`.
+The cycle also named what it did NOT expect to move — transport,
+parking, cave-diving — and all three duly stayed at 0/20.
 
 ### Retained-state compression (Phase 4)
 
@@ -211,12 +209,12 @@ forced cap: city-car 133.9 → 113.2 MB (−15%), block-grouping-numeric
 
 ### The MCP server grows a memory (`session_*`, on rmcp)
 
-The library has carried a rich `Session` API since the many-minds cycle — fork,
+The library has had a rich `Session` API since the many-minds cycle — fork,
 observe, elapse, timed facts, budgeted rethink — and the MCP server exposed
-none of it. An agent could ask `solve` a question but couldn't keep a world
-open: every step re-sent the whole domain and paid grounding again, amnesia
-by design. That's fixed now, and the server moved onto
-[`rmcp`](https://crates.io/crates/rmcp), the official MCP Rust SDK, to do it.
+none of it. An agent could ask `solve` a question but could not keep a world
+open: every step re-sent the whole domain and paid grounding again. That is now
+fixed, and the server moved onto [`rmcp`](https://crates.io/crates/rmcp), the
+official MCP Rust SDK, to do it.
 
 - **Ten session tools.** `session_open` grounds a world ONCE and returns a
   handle; then `session_set` (facts / fluents / scheduled timed facts / goal, in
@@ -268,11 +266,10 @@ patches and the pressure-testing.
   exogenous flip `dt` from now), plus `world_bytes` / `mind_bytes` for the
   shared-world vs per-fork memory split the bazaar demo wants.
 
-### The move to new hardware, and three bugs it flushed out
+### The move to new hardware, and three bugs it exposed
 
-Porting the harness to macOS/ARM was supposed to be paperwork. Instead it
-turned up three things, any one of which would have ruined a sweep on its
-own:
+Porting the harness to macOS/ARM was supposed to be paperwork. It found
+three things that would each have ruined a sweep:
 
 - **`RLIMIT_AS` cannot be set on macOS at all.** It reports INFINITY and
   rejects every `setrlimit` with EINVAL. Raised inside a `preexec_fn`,
@@ -293,16 +290,16 @@ own:
 Also: `benchmarks/get-val.sh` builds again (CMake 4.x removed the
 pre-3.5 compatibility VAL's CMakeLists declares).
 
-### VAL's other refusal, and the 15 instances it was hiding
+### VAL's other refusal, and 15 instances it was hiding
 
-VAL has more than one way to decline a domain. 0.19 taught the runner to
-recognize `"Parser failed"`; `data-network-2018` and `factory-robot-2026`
-instead say `"Problem in domain definition!"` — and say it against an
-EMPTY plan, so VAL never actually judged our plans at all. Those rows
-arrived as `val: false`, and since the standings drop a rejected plan
-from coverage, **the standings table read 15 instances lighter than the
+VAL has more than one way to decline a domain. 0.19 taught the runner
+`"Parser failed"`; `data-network-2018` and `factory-robot-2026` instead
+say `"Problem in domain definition!"` — and say it against an EMPTY
+plan, so VAL never judged our plans at all. Those rows arrived as
+`val: false`, and since the standings drop a rejected plan from
+coverage, **the standings table read 15 instances lighter than the
 boards beside it** (2018-sat 46 vs 53; 2026-numeric 113 vs 121). One
-sweep, two artifacts, and they disagreed.
+sweep, two artifacts, disagreeing.
 
 `val_check` now tests a list of unavailability signatures, and a VAL
 *timeout* returns `null` rather than `false` for the same reason.

@@ -3,8 +3,8 @@
 
 [package]
 name = "ferroplan-py"
-description = "Python jack-in for the ferroplan PDDL planner"
-version = "0.17.0"
+description = "Python bindings for the ferroplan PDDL planner"
+version = "0.21.0"
 edition = "2021"
 rust-version = "1.74"
 license = "MIT OR Apache-2.0"

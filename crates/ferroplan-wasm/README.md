@@ -1,8 +1,7 @@
 # ferroplan-wasm
 
-WebAssembly bindings for [ferroplan](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan) — the planner
-smuggled whole into the browser tab. No server answering on the other end, no
-install, no round trip. It runs where you're standing.
+WebAssembly bindings for [ferroplan](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan) — run the PDDL planner entirely
+in the browser, no server or install.
 
 ## Build
 
@@ -19,7 +18,7 @@ python3 -m http.server -d web 8000
 # open http://localhost:8000
 ```
 
-Paste a PDDL domain + problem, hit **Plan** — everything runs client-side, in the glow of your own machine.
+Paste a PDDL domain + problem, hit **Plan** — everything runs client-side.
 
 ## API
 
@@ -61,6 +60,5 @@ Paste a PDDL domain + problem, hit **Plan** — everything runs client-side, in 
   PY
   ```
 
-Not published to crates.io — it's a build target, not a library standing on its own.
-WASM has no threads here, so the planner runs single-threaded: same answers, just
-arriving one at a time instead of in parallel.
+Not published to crates.io (it's a build target). WASM has no threads here, so the
+planner runs single-threaded (identical results, just not parallel).

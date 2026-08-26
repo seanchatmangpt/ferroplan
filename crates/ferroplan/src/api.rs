@@ -42,6 +42,12 @@ pub enum Mode {
     /// only — temporal and preference/metric jobs get routed to their own
     /// machinery, same fallback as `auto`.
     Portfolio,
+    /// Sequential-OPTIMAL planning (0.19 Phase 2, LM-cut 0.20): A* +
+    /// admissible LM-cut (h^max behind `FF_NO_LMCUT=1`), proof-or-nothing.
+    /// Explicit only — `auto` never routes here (the default remains
+    /// satisficing). Classical tasks with constant action costs;
+    /// everything else is rejected with a named note.
+    Optimal,
 }
 
 /// The search doctrine inside a mode.
@@ -388,8 +394,10 @@ enum Grounded {
     Task(Box<PackedTask>),
     /// The goal was already standing — an empty plan closes it, no shots fired.
     Trivial,
-    /// goal provably false / references an undefined fluent
-    Unsolvable,
+    /// goal provably false / references an undefined fluent — the payload
+    /// names the mechanism, surfaced as a `Solution.notes` entry (0.19
+    /// Phase 1: a silent unsolvable verdict at grounding is a bug).
+    Unsolvable(String),
 }
 
 fn do_ground(
@@ -400,7 +408,10 @@ fn do_ground(
     match ground(domain, problem, threads) {
         Outcome::Task(t) => Ok(Grounded::Task(Box::new(t))),
         Outcome::GoalTrue => Ok(Grounded::Trivial),
-        Outcome::GoalFalse | Outcome::GoalUndefinedFluent => Ok(Grounded::Unsolvable),
+        Outcome::GoalFalse(why) => Ok(Grounded::Unsolvable(why)),
+        Outcome::GoalUndefinedFluent(fl) => Ok(Grounded::Unsolvable(format!(
+            "goal reads fluent {fl}, which never has a defined value"
+        ))),
         Outcome::EmptyType { kind, pred, ty } => Err(SolveError::EmptyType {
             kind: kind.to_string(),
             pred,
@@ -522,6 +533,9 @@ fn unsolved(mode: Mode, stats: Statistics, notes: Vec<String>) -> Solution {
 /// [`crate::features::set_escalate_override`]`(false)` in-process) to pull
 /// the old single-pass pre-0.3.0 behavior back.
 pub fn solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solution, SolveError> {
+    // Wall-budget clock (FF_TIME_LIMIT) starts BEFORE grounding: the
+    // ladder's affordability gate must see grounding time as spent budget.
+    crate::search::arm_wall_limit();
     let domain = parser::parse_domain(domain_src).map_err(SolveError::DomainParse)?;
     let problem = parser::parse_problem(problem_src).map_err(SolveError::ProblemParse)?;
     // Compile `:derived` axioms away (static rules -> init facts) before routing.
@@ -573,6 +587,7 @@ pub fn solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solu
     match mode {
         Mode::Temporal => solve_temporal(&domain, &problem, threads),
         Mode::Pddl3 => solve_pddl3(&domain, &problem, opts, threads, constrained),
+        Mode::Optimal => solve_optimal(&domain, &problem, threads),
         _ => solve_classic(
             &domain,
             &problem,
@@ -582,6 +597,93 @@ pub fn solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solu
             Vec::new(),
             constrained,
         ),
+    }
+}
+
+/// `Mode::Optimal` (0.19 Phase 2, LM-cut 0.20): A* + an admissible
+/// heuristic (LM-cut by default, h^max behind `FF_NO_LMCUT=1`) over the
+/// classical grounding, proof-or-nothing — see [`crate::optimal`].
+/// Problems outside the certified scope (temporal, preferences,
+/// non-constant costs) return unsolved with a named note, never an
+/// uncertified plan.
+fn solve_optimal(
+    domain: &crate::types::Domain,
+    problem: &crate::types::Problem,
+    threads: usize,
+) -> Result<Solution, SolveError> {
+    let stats0 = Statistics {
+        threads,
+        ..Default::default()
+    };
+    if crate::temporal::is_temporal(domain) {
+        return Ok(unsolved(
+            Mode::Optimal,
+            stats0,
+            vec!["optimal mode is classical-only (temporal problem)".into()],
+        ));
+    }
+    if pddl3::has_preferences(problem) {
+        return Ok(unsolved(
+            Mode::Optimal,
+            stats0,
+            vec!["optimal mode is classical-only (PDDL3 preferences)".into()],
+        ));
+    }
+    let task = match do_ground(domain, problem, threads)? {
+        Grounded::Task(t) => t,
+        Grounded::Trivial => return Ok(trivial(Mode::Optimal, threads)),
+        Grounded::Unsolvable(why) => {
+            return Ok(unsolved(
+                Mode::Optimal,
+                stats0,
+                vec![format!("unsolvable at grounding: {why}")],
+            ));
+        }
+    };
+    let cf = crate::costs::metric_fluent(problem).and_then(|d| task.fluent_id(&d));
+    let max_nodes = crate::search::node_cap_for(&task);
+    let o = crate::optimal::solve(&task, cf, max_nodes);
+    let stats = Statistics {
+        grounded_facts: task.fact_names.len(),
+        grounded_actions: task.n_ops,
+        evaluated_states: o.evaluated,
+        threads,
+    };
+    if let Some(why) = o.reject {
+        return Ok(unsolved(Mode::Optimal, stats, vec![why]));
+    }
+    match (o.ops, o.proven) {
+        (Some(ops), true) => {
+            let steps = steps_of(&task, &ops, None);
+            Ok(Solution {
+                solved: true,
+                mode: Mode::Optimal,
+                plan: Some(Plan {
+                    length: steps.len(),
+                    steps,
+                    metric: cf.map(|_| o.cost),
+                    makespan: None,
+                }),
+                statistics: stats,
+                notes: vec![format!(
+                    "PROVEN OPTIMAL: cost {} certified by A* + admissible {} ({} expansions)",
+                    o.cost, o.heuristic, o.expanded
+                )],
+            })
+        }
+        (None, true) => Ok(unsolved(
+            Mode::Optimal,
+            stats,
+            vec!["PROVEN UNSOLVABLE: A* exhausted the reachable space".into()],
+        )),
+        _ => Ok(unsolved(
+            Mode::Optimal,
+            stats,
+            vec![format!(
+                "inconclusive: node cap reached after {} expansions — no certificate, no plan reported",
+                o.expanded
+            )],
+        )),
     }
 }
 
@@ -727,7 +829,8 @@ fn solve_classic(
     let task = match do_ground(domain, problem, threads)? {
         Grounded::Task(t) => t,
         Grounded::Trivial => return Ok(trivial(mode, threads)),
-        Grounded::Unsolvable => {
+        Grounded::Unsolvable(why) => {
+            notes.push(format!("unsolvable at grounding: {why}"));
             return Ok(unsolved(
                 mode,
                 Statistics {
@@ -735,7 +838,7 @@ fn solve_classic(
                     ..Default::default()
                 },
                 notes,
-            ))
+            ));
         }
     };
 
@@ -749,7 +852,7 @@ fn solve_classic(
         let groups = crate::invariants::synthesize(domain, &task);
         match resolve::solve(&task, threads, opts.search_cfg(), &groups) {
             Solved::Plan(ops, _) => (Some(ops), 0),
-            Solved::Unsolvable => (None, 0),
+            Solved::Unsolvable { .. } => (None, 0),
         }
     } else {
         let ehc_first = opts.search != Search::BestFirst;
@@ -891,15 +994,15 @@ fn solve_pddl3(
     let task = match do_ground(&c.domain, &c.problem, threads)? {
         Grounded::Task(t) => t,
         Grounded::Trivial => return Ok(trivial(Mode::Pddl3, threads)),
-        Grounded::Unsolvable => {
+        Grounded::Unsolvable(why) => {
             return Ok(unsolved(
                 Mode::Pddl3,
                 Statistics {
                     threads,
                     ..Default::default()
                 },
-                Vec::new(),
-            ))
+                vec![format!("unsolvable at grounding: {why}")],
+            ));
         }
     };
 

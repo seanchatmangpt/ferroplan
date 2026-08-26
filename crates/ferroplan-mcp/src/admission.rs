@@ -23,15 +23,6 @@ use crate::Ferroplan;
 const BCINR_REVISION: &str = "fb9321d27882169acc83aaca0639b319cd3b7900";
 const RECEIPT_DOMAIN: &[u8] = b"urn:chatman:claude-code-admission:v1\0";
 
-// Static per-tool semantic descriptions sourced from
-// `plugins/chatman-ecosystem/ontology/ferroplan-domain.ttl`'s `rdfs:comment`
-// annotations. The ontology flags this module's tool schemas as
-// UNVERIFIED/lower-fidelity relative to session-mcp's, so field shapes here
-// follow the actual Rust source (this file), not the ontology — only the
-// prose semantic summary below is drawn from the ontology. Generated at
-// compile time by `build.rs` — see that file for the extraction logic. These
-// constants are read by `crate::main`'s merged
-// `list_resources`/`read_resource`.
 include!(concat!(env!("OUT_DIR"), "/admission_ontology.rs"));
 
 pub(crate) const RESOURCE_TOOLS: &[&str] = &[
@@ -125,9 +116,7 @@ impl Ferroplan {
     #[tool(
         description = "Bind exactly eight CMCA candidates, the allocation result, the \
             observation frontier, the admitted BCINR revision, and an optional predecessor. \
-            Pass parent_allocation (a prior, independently re-verified allocation envelope) \
-            and selected_node (one of its candidate ids) together to bind this local eight-node \
-            frontier as a recursive descent from that parent node."
+            Pass parent_allocation and selected_node together to bind a recursive descent."
     )]
     fn bind_allocation_receipt(
         &self,

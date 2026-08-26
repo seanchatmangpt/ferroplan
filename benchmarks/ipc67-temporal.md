@@ -1,7 +1,6 @@
-# IPC-2008/2011 tempo-sat — full corpus, run cold
+# IPC-2008/2011 tempo-sat full-corpus results
 
-Thirty seconds a instance, two jobs, mode auto. Every plan that comes back
-gets run through VAL before it's real.
+timeout 30s/instance, jobs 2, mode auto. Plans externally validated with VAL.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
@@ -31,4 +30,4 @@ gets run through VAL before it's real.
 | ipc-2011/temporal-machine-shop-temporal-satisficing | 0/20 | 0 | 0.0s | 0/0 |
 | ipc-2011/turn-and-open-temporal-satisficing | 2/20 | 192 | 37.7s | 2/2 |
 
-total coverage, the take: **416/630**
+total coverage: **416/630**
