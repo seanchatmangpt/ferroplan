@@ -2519,6 +2519,7 @@ name = "ferroplan-wasm"
 version = "0.26.0"
 dependencies = [
  "ferroplan",
+ "serde",
  "serde_json",
  "wasm-bindgen",
 ]

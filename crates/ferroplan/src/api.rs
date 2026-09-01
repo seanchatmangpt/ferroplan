@@ -22,10 +22,10 @@ use crate::search;
 ///
 /// Which planning strategy to use. `Mode::Sat` — bounded-horizon CNF over the
 /// absorbed solver core (`ferroplan-sat`) — has landed as a real variant
-/// below: ∃-step encoding + horizon ramp for pure-STRIPS slices, snap events
-/// + pairing clauses + STN-taught CEGAR for temporal tasks. It serializes as
-/// `"sat"` and rides `Solution::mode` on the session/MCP wire like every mode
-/// here.
+/// below: existential-step encoding and horizon ramp for pure-STRIPS
+/// slices, snap events, pairing clauses, and STN-taught CEGAR for temporal
+/// tasks. It serializes as `"sat"` and rides `Solution::mode` on the
+/// session/MCP wire like every mode here.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]

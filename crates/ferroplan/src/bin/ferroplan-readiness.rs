@@ -132,8 +132,6 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn evidence_identifiers_are_strictly_bounded() {
         let good = "core.solve.unit";

@@ -278,8 +278,8 @@ const ORB_PRB: &str = "
 #[test]
 fn a_replan_is_budget_stamped_on_the_wire() {
     let mut c = Client::start();
-    let s = c.call_json("session_open", json!({"domain": DOM, "problem": PROB}));
-    let sid = s["session_id"].as_str().unwrap().to_string();
+    let sid = "budget-stamped";
+    open(&mut c, sid);
     let before = c.call_json("session_state", json!({"session_id": sid}));
 
     let sol = c.call_json(
@@ -305,11 +305,11 @@ fn a_replan_is_budget_stamped_on_the_wire() {
 #[test]
 fn a_capped_think_never_reads_unsolvable_on_the_wire() {
     let mut c = Client::start();
-    let s = c.call_json(
+    let sid = "farm-capped";
+    c.call_json(
         "session_open",
-        json!({"domain": FARM_DOM, "problem": FARM_PRB}),
+        json!({"session_id": sid, "domain": FARM_DOM, "problem": FARM_PRB}),
     );
-    let sid = s["session_id"].as_str().unwrap().to_string();
 
     let (text, err) = c.call_text(
         "session_replan",
@@ -340,11 +340,11 @@ fn a_capped_think_never_reads_unsolvable_on_the_wire() {
 #[test]
 fn an_orbit_aware_replan_narrates_itself() {
     let mut c = Client::start();
-    let s = c.call_json(
+    let sid = "orbit-aware";
+    c.call_json(
         "session_open",
-        json!({"domain": ORB_DOM, "problem": ORB_PRB}),
+        json!({"session_id": sid, "domain": ORB_DOM, "problem": ORB_PRB}),
     );
-    let sid = s["session_id"].as_str().unwrap().to_string();
     let sol = c.call_json(
         "session_replan",
         json!({"session_id": sid, "max_evaluated": 10000}),

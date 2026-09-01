@@ -186,6 +186,7 @@ impl CapabilityManifest {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn contract(
     id: &str,
     component: &str,
@@ -1145,8 +1146,10 @@ mod tests {
     #[test]
     fn invalid_float_is_refused_and_fingerprint_distinct() {
         let valid = production_input_fingerprint(DOMAIN, PROBLEM, &Options::default());
-        let mut invalid = Options::default();
-        invalid.weight_h = f64::NAN;
+        let invalid = Options {
+            weight_h: f64::NAN,
+            ..Options::default()
+        };
         assert_ne!(
             valid,
             production_input_fingerprint(DOMAIN, PROBLEM, &invalid)

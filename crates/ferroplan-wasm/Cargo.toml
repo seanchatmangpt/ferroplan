@@ -12,6 +12,15 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 ferroplan = { path = "../ferroplan" }
+serde = "1"
+serde_json = "1"
+
+# Every target except wasm32-wasip1 (src/wasi_abi.rs, a beam4pm-consumable
+# linear-memory JSON ABI with no wasm-bindgen dependency at all — no JS
+# host, no JS glue). This mirrors lib.rs's own `cfg(not(all(target_arch =
+# "wasm32", target_os = "wasi")))` gate exactly, so `cargo check`/clippy on
+# the native host target also see the browser module (and wasm-bindgen
+# itself builds fine on non-wasm targets, it just isn't useful there).
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "wasi")))'.dependencies]
 # Must match the installed `wasm-bindgen` CLI exactly.
 wasm-bindgen = "=0.2.126"
-serde_json = "1"
