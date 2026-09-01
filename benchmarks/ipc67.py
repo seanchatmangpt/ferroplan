@@ -107,6 +107,21 @@ OUT = arg("--out", os.path.join(ROOT, "benchmarks", "ipc67-results.md"))
 RAW = arg("--raw", None)  # per-instance JSONL (default: OUT with .jsonl)
 if RAW is None:
     RAW = os.path.splitext(OUT)[0] + ".jsonl"
+# Per-instance resume (PER-INSTANCE-RETRY.md): a prior pass's raw + its
+# contention timeline. Rows whose wall-clock window sat entirely inside
+# clean samples (and whose run params match EXACTLY — see load_resume)
+# are reused without re-invoking ff; everything else runs fresh. Both
+# flags or neither.
+RESUME_RAW = arg("--resume-raw", None)
+RESUME_COND = arg("--resume-conditions", None)
+# The per-sample clean line, same currency as contention.py's whole-run
+# verdict (competitors_total_pcpu < 25 == clean). Kept in one place so
+# the two rules cannot drift apart silently.
+SAMPLE_CLEAN_PCPU = 25.0
+# Captured in main() from the actual binary; every row carries it so a
+# stitched board can never mix builds (the spec's version-drift care
+# point). None until main() runs.
+FF_VER = None
 
 TRACK_PATTERNS = {
     "seq-sat": r"sequential-satisficing",
@@ -139,6 +154,30 @@ TRACK_PATTERNS = {
     # -opt instance sets also appear satisficing-style on numeric-2026 —
     # same files, different question.
     "opt-2026": r"-opt-numeric-2026",
+    # 0.25 Phase 1 (the table grows).
+    # 2018's opt/ half and 2023's real sat/opt tracks (vendored by the
+    # matching get-ipc.sh stanzas; pair the *-opt-* tracks with
+    # `--mode optimal`).
+    "opt-2018": r"sequential-optimal",
+    "sat-2023": r"-satisficing$",
+    "opt-2023": r"-optimal$",
+    # The FULL 2026 Overall Optimal constituency: the official track is
+    # the 13-domain/260-instance slice — every variant EXCEPT the three
+    # -sat halves of the paired domains (the -opt halves carry those
+    # domains' optimal-track instance sets). The 3-pair opt-2026 board
+    # above stays as the like-for-like slice.
+    "opt-2026-full": r"(?<!-sat)-numeric-2026",
+    # The IPC-5 preference tracks, full-corpus at last (the curated
+    # 8-instance boards under benchmarks/ipc5-*.md predate this). The $
+    # anchors exclude the -grounded alternate formulations of the same
+    # domains (sweeping both would double-count).
+    "simple-pref-2006": r"preferences-simple$",
+    "qual-pref-2006": r"preferences-qualitative$",
+    # Complex preferences: the pattern exists so the Phase 2 entry has a
+    # track name waiting; today these rows reject on the preference-over-
+    # timed-body composition (the rankings row is precise: the operators
+    # PARSE) — a canary run before the entry lands is expected red.
+    "complex-pref-2006": r"preferences-complex$",
 }
 
 # Which competition directories each track lives in.
@@ -164,6 +203,14 @@ TRACK_IPCS = {
     "numeric-2023": ("ipc-2023n",),
     "numeric-2026": ("ipc-2026n",),
     "opt-2026": ("ipc-2026n",),
+    # 0.25 Phase 1 (the table grows).
+    "opt-2018": ("ipc-2018",),
+    "sat-2023": ("ipc-2023",),
+    "opt-2023": ("ipc-2023",),
+    "opt-2026-full": ("ipc-2026n",),
+    "simple-pref-2006": ("ipc-2006",),
+    "qual-pref-2006": ("ipc-2006",),
+    "complex-pref-2006": ("ipc-2006",),
 }
 
 
@@ -249,6 +296,13 @@ VAL_UNAVAILABLE_SIGNATURES = (
     "Problem in domain definition!",
     "Problem in problem definition!",
     "Syntax error",
+    # VAL's typechecker refuses the files BEFORE reading any plan (Validate
+    # main.cpp: typecheckDomain/typecheckProblem). markettrader's instances
+    # init undeclared fluents (fuel/fuel-used, a commented-out metric's
+    # leftovers) and hit the problem-side one — 0.21 booked its single solve
+    # as the board's only VAL-RED through exactly this gap (0.22 Phase 1).
+    "Type problem in domain description!",
+    "Type problem in problem specification!",
 )
 
 
@@ -277,6 +331,14 @@ def val_check(val, domain, problem, steps, temporal=False):
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         blob = (r.stdout or "") + (r.stderr or "")
+        if r.returncode not in (0, 1) and not blob.strip():
+            # VAL CRASHED (0.23 Phase 2 finding: deterministic SIGBUS/SEGV
+            # judging — and sometimes merely ingesting — several
+            # storage-time-constraints plans, exit -10/-11 with zero
+            # output). A validator that dies before rendering a verdict has
+            # not rejected the plan: None, same class as the ingest
+            # refusals below, and the same 0.20/0.21 lesson a third time.
+            return None
         if any(sig in blob for sig in VAL_UNAVAILABLE_SIGNATURES):
             # VAL could not INGEST the domain/problem, independent of the plan.
             # Validation is UNAVAILABLE, which is NOT the verdict "plan
@@ -377,8 +439,23 @@ def run_instance(val, n, d, p):
         def _limit():
             cap = int(MEMGB * (1 << 30))
             resource.setrlimit(resource.RLIMIT_AS, (cap, cap))
+    # `budget` stamps the row with the wall it was measured under (0.23
+    # Phase 3, the tier-move mechanism): standings.py's timeout class is
+    # denominated in the budget, and a registry-side budget is a LIE the
+    # moment one board's raws span two tiers (the 30 s temporal raws vs
+    # their 60 s re-sweeps). A row that carries its own budget classifies
+    # right whichever registry value is standing; rows that predate the
+    # stamp fall back to the registry.
     rec = {"instance": n, "solved": False, "time": None, "metric": None,
-           "length": None, "val": None, "notes": None}
+           "length": None, "val": None, "notes": None, "budget": TIMEOUT,
+           # The resume stamps (PER-INSTANCE-RETRY.md step 2): the
+           # wall-clock window a later pass intersects against the
+           # contention timeline, plus the exact run params the reuse
+           # gate demands. A row missing any of these is never reused —
+           # fail closed, so pre-stamp raws simply re-run.
+           "ver": FF_VER, "mode": MODE or "auto", "jobs": JOBS,
+           "threads": THREADS, "start_ts": round(time.time(), 2),
+           "end_ts": None}
     t = time.perf_counter()
     try:
         # One retry after a breather on spawn failure: a memory-bloated
@@ -407,7 +484,14 @@ def run_instance(val, n, d, p):
         # Both are mem-cap, and the watchdog's verdict must be read before the
         # generic nonzero-exit branch below or it books as engine-exit--9.
         if mem_hit or (r.returncode != 0 and "allocation" in (r.stderr or "")):
-            rec["notes"] = "mem-cap"
+            # Label hygiene (0.24 Phase 6): a mem-cap row whose stderr
+            # carries the engine's node-raise narration died on a byte
+            # target the REFILL RE-ENTRY raised past the declared model —
+            # self-inflicted, and the note names the raise so the decode
+            # never re-derives it.
+            raised = "node byte target raised" in (r.stderr or "")
+            rec["notes"] = ("mem-cap (self-inflicted: node byte target raised)"
+                            if raised else "mem-cap")
         s = json.loads(r.stdout) if r.stdout.strip() else {}
         plan = s.get("plan") or {}
         if not s and r.returncode != 0 and rec["notes"] is None:
@@ -416,8 +500,14 @@ def run_instance(val, n, d, p):
             # "searched and found nothing" JSON verdict.
             rec["notes"] = f"engine-exit-{r.returncode}"
         if s.get("solved"):
+            # makespan recorded since 0.22 (a 0.14-era runner debt): the
+            # temporal tracks' quality currency, so the IPC-5 time /
+            # metric-time boards can score against the archive when they
+            # re-baseline (0.23) without a second sweep. None on
+            # non-temporal plans.
             rec.update(solved=True,
                        metric=plan.get("metric"), length=plan.get("length"),
+                       makespan=plan.get("makespan"),
                        notes=s.get("notes"))
             if val:
                 rec["val"] = val_check(val, d, p, plan.get("steps", []),
@@ -433,7 +523,78 @@ def run_instance(val, n, d, p):
         rec["notes"] = "spawn-fail"
     except Exception:
         pass
+    # Stamped on every exit path: a row only reaches the raw once its run
+    # finished SOMEHOW. A row that never got written (runner killed
+    # mid-instance) has no end_ts by construction — the spec's straddle
+    # rule ("needs re-run, not clean by omission") falls out for free.
+    rec["end_ts"] = round(time.time(), 2)
     return rec
+
+
+def load_resume():
+    """Prior-pass rows reusable under PER-INSTANCE-RETRY.md's gate,
+    keyed (ipc, variant, instance).
+
+    A row is reused ONLY when every one of these holds:
+      - run params match EXACTLY: ff version string, budget, mode,
+        jobs, threads (a silently stitched row measured under different
+        settings is worse than a discarded board);
+      - it was already judged clean by an earlier stitch
+        (`resumed_clean` — its own conditions file is gone by now, the
+        judgment is the record), OR its full [start_ts, end_ts] window
+        lies inside the prior timeline's sampled span and every sample
+        overlapping the window (padded one interval each side) was
+        under SAMPLE_CLEAN_PCPU. Per-sample, not run-median — a clean
+        median over a dirty window is exactly the lie the whole-board
+        retry existed to prevent.
+    Everything else — missing stamps, corrupt lines, no timeline (an
+    old watcher), windows outside the sampled span — fails CLOSED and
+    re-runs."""
+    if not (RESUME_RAW and RESUME_COND):
+        return {}
+    try:
+        cond = json.load(open(RESUME_COND))
+    except (OSError, ValueError):
+        return {}
+    tl = [t for t in (cond.get("timeline") or [])
+          if isinstance(t, list) and len(t) >= 3 and t[0] is not None]
+    interval = float(cond.get("interval") or 20)
+    out = {}
+    try:
+        lines = list(open(RESUME_RAW))
+    except OSError:
+        return {}
+    for line in lines:
+        try:
+            r = json.loads(line)
+        except ValueError:
+            continue  # truncated tail line from a killed pass
+        if r.get("ver") is None or r.get("ver") != FF_VER:
+            continue
+        if r.get("budget") != TIMEOUT:
+            continue
+        if (r.get("mode") or "auto") != (MODE or "auto"):
+            continue
+        if str(r.get("threads")) != str(THREADS) or r.get("jobs") != JOBS:
+            continue
+        k = (r.get("ipc"), r.get("variant"), r.get("instance"))
+        if r.get("resumed_clean"):
+            out[k] = r
+            continue
+        s, e = r.get("start_ts"), r.get("end_ts")
+        if s is None or e is None or not tl:
+            continue
+        if s < tl[0][0] - interval or e > tl[-1][0] + interval:
+            continue  # window not covered by the sampled span
+        over = [t for t in tl if s - interval <= t[0] <= e + interval]
+        if not over:
+            continue
+        if any(t[2] is None or t[2] >= SAMPLE_CLEAN_PCPU for t in over):
+            continue
+        r2 = dict(r)
+        r2["resumed_clean"] = True
+        out[k] = r2
+    return out
 
 
 def main():
@@ -455,12 +616,30 @@ def main():
     else:
         subprocess.run(["cargo", "build", "--release", "-q", "-p", "ferroplan-cli"],
                        cwd=ROOT, check=True)
+    global FF_VER
+    try:
+        FF_VER = subprocess.run([FF, "--version"], capture_output=True,
+                                text=True, timeout=30).stdout.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        FF_VER = None
+    resume = load_resume()
+    reused_total = 0
+    if RESUME_RAW:
+        print(f"resume: {len(resume)} prior row(s) pass the reuse gate "
+              f"({RESUME_RAW})", flush=True)
     summary = []
     raw = open(RAW, "w")
     with ThreadPoolExecutor(max_workers=JOBS) as pool:
         for ipc, vname, vdir in variants(corpus):
             insts = instances(vdir)
-            recs = list(pool.map(lambda a: run_instance(val, *a), insts))
+
+            def run_or_reuse(a, ipc=ipc, vname=vname):
+                prior = resume.get((ipc, vname, a[0]))
+                return prior if prior is not None else run_instance(val, *a)
+
+            recs = list(pool.map(run_or_reuse, insts))
+            n_reused = sum(1 for r in recs if r.get("resumed_clean"))
+            reused_total += n_reused
             solved = sum(r["solved"] for r in recs)
             valok = sum(r["val"] is True for r in recs)
             valfail = sum(r["val"] is False for r in recs)
@@ -492,7 +671,11 @@ def main():
     out = [f"# IPC-2008/2011 {TRACK} full-corpus results\n",
            f"timeout {TIMEOUT}s/instance, jobs {JOBS}, mode {MODE or 'auto'}."
            + (" Plans externally validated with VAL."
-              if val else " VAL not available.") + "\n",
+              if val else " VAL not available.")
+           # A stitched board says so — the conditions honesty rule.
+           + (f" STITCHED: {reused_total} row(s) reused from a prior "
+              f"pass's clean windows ({os.path.basename(RESUME_RAW)})."
+              if reused_total else "") + "\n",
            "| variant | coverage | summed cost | solve time | val |"
            + (" quality |" if reference is not None else ""),
            "|---|---|---|---|---|" + ("---|" if reference is not None else "")]

@@ -1,0 +1,986 @@
+# ferroplan 0.26 roadmap — the proof gap, decoded first
+
+Scoped 2026-08-25, with the 0.25 cut sweep in flight, by conversation —
+the shape was CHOSEN against three named alternatives, and the decision
+trail is part of the record:
+
+- **The question 0.25 left open, in its own words:** "The 0.26 direction
+  question — decided at the 0.25 cut with Phase 4's three decodes and
+  Wing II's verdict on the table." Both are now on the table, and they
+  point in different directions.
+- **Wing II is NOT taken for a third cycle.** Two consecutive cycles
+  have priced a SAT-wing band and not converted it to board coverage:
+  0.24 priced +16–50 and delivered +1/+0; 0.25's wing produced a real
+  refund (the conflict-rate bail: match-cellar i1 30.7→17.5 s, i2
+  31→1.2 s) and still moved no board. Its own step-5 verdict is a
+  MEASURED NEGATIVE for default-on. A third band on the same wing,
+  without a new decode, is exactly the purchase the ten-negatives
+  ledger was made of.
+- **Centerpiece: the proof gap — and the READ COMES FIRST.** 0.25
+  nearly tripled the optimal surface. After promotion the proof tracks
+  are **669/1,906 (35%)**: seq-opt 287/550, 2018-opt 89/240, 2014-opt
+  77/256, 2023-opt 33/140, 2023-numeric-opt 81/400, 2026-opt-full
+  80/260, 2026-opt 22/60. That is over a fifth of the table and
+  **1,237 unproven instances** — the largest coherent block of missing
+  coverage anywhere in the record. The 0.25 roadmap already named it "its
+  own future centerpiece candidate".
+- **The sharpest framing available, and why it is a MECHANISM question
+  rather than a wish:** onlycraft-opt is 2/20 against its OWN 20/20
+  satisficing row. Same engine, same instances, same corpus. It finds
+  the plans and cannot prove them. barman-opt 0/14 and parking-opt 0/20
+  are the same shape. Something specific separates finding from proving
+  on these, and it has a name we have not read yet.
+- **NO BAND IS PRICED IN THIS PREAMBLE.** Phase 0 prices the centerpiece
+  or refuses it. That is the whole point of the shape, and it is the
+  0.24 lesson applied: "a priced band delivered +1. This cycle diagnoses
+  before it constructs."
+- **Co-headline: the instrument.** crucible is most of the way built
+  (Phase 5) and its one remaining gap is the one that matters — the
+  premise it was built for.
+
+**Addendum, 2026-08-26 — the cycle goes big.** The field-gaps memo
+(`docs/field-gaps-0.26.md` — drafted as a 0.27 candidate, adopted whole by
+decision the day after scoping) folds into this cycle: the SGPlan ledger,
+the modern-satisficing ladder, and the cross-cutting engine gaps, every
+gate intact. The expansion phases are recorded below ("The field-gaps
+expansion"), the executable specs land in
+`docs/field-gaps-execution-0.26.md`, and the 0.26 cut sweep runs on
+crucible (F6). Phase 0 keeps its primacy — the proof gap is still read
+first — and the expansion sequences behind the 0.25 cut sweep now in
+flight: no builds, no probes, while it owns the box.
+
+## Phase 0 — the proof-gap sitting (light, NO code)
+
+A design read, in the 0.25 Phase 4 mould, and under the house rule that
+cycle bought twice over: **a design read is a committed artifact, never a
+conversation.** Report lands at `benchmarks/metrics/attribution-0.26.md`
+whatever it concludes, including if it concludes nothing is claimable.
+
+The three pots, each with an exit clause:
+
+- **onlycraft-opt 2/20 vs its own 20/20 satisficing row.** Read what the
+  optimal path does on an instance the satisficing path solves in
+  seconds. Is it a node-cap non-proof, an admissibility ceiling on h, or
+  a search-order problem? The 0.25 Phase 0 re-check already established
+  the sat gain is real and load-survivable and that **opt is a real
+  ceiling** — so this asks WHICH ceiling.
+- **barman-opt 0/14 and parking-opt 0/20.** parking already has a
+  counted-case baseline banked this cycle
+  (`benchmarks/air25-entries/parking-opt-i*.json`) — the re-derivation
+  starts from receipts rather than from scratch.
+- **The CEGAR-seeding question, folded in HERE rather than given its own
+  wing.** `FF_SAT_BRANCH=fwd` measured a real **1.8× on the deep
+  UNSAT-proof stack** (storage-t h1–32, 6.8 s → 3.7 s, stable across
+  reps) and was disqualified only by its SAT-side poison (TMS-2011 i2:
+  one refutation and a 0.6 s solve becomes 247 refutations and a capped
+  budget). The proof tracks are exactly where the gradient measured
+  well and exactly where there is no SAT side to poison. If the sitting
+  finds proof-shaped horizons are separable, the residue 0.25 named
+  becomes this cycle's lever with a measurement already behind it.
+
+**Exit clause, stated before the read:** if no pot yields a named
+mechanism with a priced band, the centerpiece is REFUSED and recorded as
+refused, and the cycle's weight moves to Phase 5. A cycle that ships an
+honest "no lever found" plus a finished instrument is a better cycle than
+one that ships a band it invented to have one.
+
+## Phase 1 — the centerpiece (weight TBD by Phase 0)
+
+Nothing is scoped here until Phase 0 reports. What IS fixed in advance:
+
+- RED fixture first, as always — an instance that today cannot be proven,
+  which proves after.
+- The band is priced against the field file with the budget gap named,
+  and under-delivery gets the 0.24 treatment: measured shortfall,
+  hypotheses named, never papered over.
+- Anything armed at the sweep ships with its `FF_NO_*` restore. An opt-in
+  flag no sweep arms produces no evidence, and no evidence means no pitch.
+
+## Phase 2 — the standing corrections (light, each already named)
+
+- **The mem-cap classification fix.** `ipc67.py:493` emits
+  `"mem-cap (self-inflicted: node byte target raised)"`; `standings.py:262`
+  matches `"mem-cap"` by EXACT equality, so those rows land in
+  `early-exit` — the one column the refill loop is refereed by. Seven
+  rows are misfiled in the published table (ipc-standings.md lines 52
+  and 61); two more sit in ipc2014-mco-t8. Coverage does not move; the
+  attribution does. The cut record carries the −7/+7 movement.
+- **The PyPI wheel.** `crates/ferroplan-py` is a pyo3 extension-module
+  and the one artifact `publish.sh` does not touch. 0.24 built and
+  verified it in pre-flight and never published it; 0.25 is on course to
+  repeat that. Close it, or record deliberately that it stays staged.
+  (`maturin` is not on PATH: `~/Library/Python/3.9/bin/maturin`.)
+
+## Phase 3 — the two open riddles (light, decode only)
+
+Both are 0.25 probes that came back with the question sharpened rather
+than answered, and both are explicitly carried forward:
+
+- **pathways-metric-time is 0/30 AFTER both metric-time bugs were fixed.**
+  The zero-duration skip and the [TREL] relevance-mask hole were real,
+  the fixtures stay green, and neither was sufficient. Whatever blocks
+  pathways specifically is a separate, still-unnamed mechanism.
+- **tpp's empty `(:constraints (and))` does not explain its 0/30-vs-3/40
+  gap.** i1 is unsolved at 14.2 s — well under the wall, so not a
+  timeout. The riddle stays open.
+
+## Phase 4 — transport L1–L3 (medium, and now legitimately unlocked)
+
+The 0.25 anti-pot was "code at the transport wall BEFORE Phase 4's
+decode". The decode happened, so the gate is open — and it came with its
+own boundary in writing: **+8–20 of 211, on 2008/2011/mco ONLY.** The
+2014 sequential boards are explicitly NOT claimable (coverage is monotone
+in package count; the engine's line is ~12–14 packages and 2014 carries
+25 everywhere).
+
+The L3 probe reported in: with `FF_NO_NOVLIGHT=1 FF_NO_LAMA=1`, i4 solved
+in 16.18 s and i6 in 58.98 s against the wall. Both solve — but two
+instances is not a lever. **Widen the probe before pricing it.**
+
+## Phase 5 — the instrument gets rebuilt (crucible, co-headline)
+
+Most of this landed while the 0.25 cut sweep was being set up; the
+record below is as written then. The ONE remaining gap is the one the
+whole thing exists for -- see the closing section.
+
+
+Scoped 2026-08-25. This cycle's headline is not the engine. It is the
+**harness**: `crucible`, a resident Rust program that replaces the sweep
+drivers, the runner, the contention watcher and the standings generator with
+one supervised process. Design spec: `crucible-spec.md`. Working plan and
+phase gates: the approved crucible plan.
+
+The case, in one number from the record: the 0.25 entries sweep
+(`benchmarks/entries25-sweep.log`) took **five passes and roughly 37 hours** to
+bank ten boards, because a board measured under contention is thrown away
+whole. Pass 1 burned thirteen hours and banked one board.
+`PER-INSTANCE-RETRY.md` softened that to per-row reuse inside a pass;
+crucible finishes the job by making the *database* the truth and the JSONL a
+pure export, so a killed sweep loses nothing at all.
+
+The discipline for a harness cycle is the same as for an engine cycle, and
+one rule dominates: **a port that changes a number cannot prove it is a
+port.** Every decision below follows from that.
+
+---
+
+### The sitting, before any Rust (crucible)
+
+#### Recorded — the oracle is rescued, not retired
+
+The Python is **kept permanently** as a differential oracle. `standings.py` is
+1,104 lines of pure, stdlib-only, build-step-free code, and it is the only
+independent implementation of the failure-class taxonomy that exists. Running
+it beside crucible costs about two seconds per cut. Every incident in its own
+comment corpus is a case of one implementation drifting from another
+*unobserved*; retiring the observer to save Python nobody has to maintain
+would be the same trade that produced the incidents.
+
+What is being retired is the **shell driver and the model babysitting it**,
+not the measurement code.
+
+#### Recorded — the incident evidence was one disk failure from gone
+
+`.gitignore` excludes `benchmarks/air*/` and every `benchmarks/ipc*.jsonl`
+except the three optimal boards' raws — which it un-ignores with a comment
+arguing they are "evidence rather than logs".
+
+That argument generalizes further than it was applied. The **only** physical
+evidence of the 15-instances-light incident — eight `factory-robot-2026` and
+seven `data-network-2018` rows, both `val=false` because VAL could not
+*ingest* the domain — lived in `benchmarks/air/`, gitignored, unbacked. So did
+the only four conditions files on the box carrying a per-sample `timeline`,
+without which the resume gate's contention side cannot be tested at all.
+
+Rescued to `crucible/tests/fixtures/`, 108 KB, with a re-runnable extractor
+(`extract.py --check`) that refuses to let a fixture be hand-edited into
+agreement with a test. Provenance for each one is in that directory's README.
+
+Two full 12-board backfill sets (`benchmarks/air-0.19.0/`,
+`benchmarks/air-0.21.0/`) turned out to be tracked already, so the board-render
+goldens are hermetic today without committing anything further.
+
+#### Recorded — a live misclassification in the published table
+
+**Found while planning the port, verified against the committed raws and the
+committed table.**
+
+`standings.py:262` matches `ntext == "mem-cap"` by **exact equality**.
+`ipc67.py:493` — the 0.24 "label hygiene" change — began emitting
+`"mem-cap (self-inflicted: node byte target raised)"` for the case where the
+refill re-entry raised the node byte target past the declared model. The
+labelled variant matches nothing, falls past the `mem-cap` and `spawn-fail`
+tests, past the timeout line, and lands in **`early-exit`** — the class the
+0.20 refill loop exists to empty, and therefore the one column the refill loop
+is refereed by.
+
+Seven rows are misfiled in `benchmarks/ipc-standings.md` today:
+
+| line | board | reads | should read |
+|---|---|---|---|
+| 61 | 2023 numeric | `6 early-exit, 1 mem-cap` | `0 early-exit, 7 mem-cap` |
+| 52 | 2014 seq-mco t4 | `2 early-exit, 1 mem-cap` | `1 early-exit, 2 mem-cap` |
+
+Two more sit in `ipc2014-mco-t8`, swept and awaiting promotion.
+
+This is the same shape as the 0.20 audit's finding that maintenance-2014's
+"eight rejects" were ordinary timeouts wearing that costume: a label changed on
+one side of a two-file contract, and the other side kept matching the old one.
+Coverage is untouched — every one of these rows is an unsolved row either way —
+so no headline number moves. What moves is the attribution.
+
+**Decision: port the bug, prove the port, then fix it as its own named
+change.** `crucible`'s `classify()` ships with exact equality so byte-parity
+against the oracle is demonstrable; a *separate* commit then widens the match,
+regenerates the goldens, and records the −7 early-exit / +7 mem-cap movement in
+the cut record. `spawn-fail` has the identical exact-equality shape and gets
+the same treatment.
+
+After the fix the drift becomes structurally impossible: in Rust the runner's
+note is a typed variant and the classifier matches the variant, so there is no
+string for the two sides to disagree about.
+
+#### Recorded — dirty rows are kept, dirty boards are not banked
+
+`crucible-spec.md` §7 says to keep results measured under contention —
+"coverage is coverage" — and re-run only where timing matters. This repo's law
+is the opposite, and `contention.py`'s docstring says why: contention **only
+ever depresses** coverage, so it "manufactures REGRESSIONS and hides GAINS",
+which is the expensive direction to be wrong in when the output is a release
+record.
+
+Both are right about different things, and both hold:
+
+- Every measured row is **kept** in the database, marked dirty. Nothing is lost
+  to contention, the dashboard shows real progress, and a clean row later
+  supersedes the dirty one.
+- A board is **not banked and not promotable** until every row it carries is
+  clean. Published semantics stay exactly as strict as they are today.
+
+Consequence: the spec's `timeout_dirty` class and its separate "clean-timing
+pass" both collapse away. Dirty implies re-run, for every outcome, not just
+timeouts. `timing_matters` survives only as a scheduling hint.
+
+#### Recorded — the resume gate's version check is too weak, and is being closed
+
+`PER-INSTANCE-RETRY.md` names the risk — "a stitched board must never mix rows
+from two different `ff` builds" — and then gates on the `ff --version` string,
+adding "probably also the git SHA if the binary carries one". It does not.
+Every dev build of a cycle reports `ff 0.25.0`, so **two different 0.25.0
+builds stitch silently today**.
+
+crucible gates on the binary's **blake3** and keeps writing `ver` into the row
+for artifact compatibility. Under the candidate-driven trigger — where the
+working-tree binary is rebuilt constantly — this was the likeliest way the new
+harness would have produced a chimeric board.
+
+#### Recorded — the sweep environment is scrubbed, and says what it was
+
+`ipc67.py` builds the child environment as `dict(os.environ, ...)`. There are
+**132** `FF_*` hatches in the engine. An operator with any one of them exported
+in their shell silently changes every board in the sweep, and **nothing in any
+row records that it happened.**
+
+crucible starts from a scrubbed environment, injects the budgets, applies the
+board's declared `env`, and stores the canonical `env_json` on the board row.
+A row can no longer have been measured under a hatch nobody can name.
+
+---
+
+### Where `crucible-spec.md` is wrong
+
+The spec was written from a conversation rather than from the scripts. The
+corrections are in the working plan; the ones that are *decisions* rather than
+plain facts are recorded above. The plain factual ones, briefly: the remote is
+GitHub and not GitLab; the sweep runs **before** the tag, so tag-polling is a
+backfill path and not the trigger; the manifest is a **selector** (regex over
+variant directories) and not an enumeration, because the corpus is gitignored
+and an enumeration would drift with nothing to notice; the default timeout is
+60 s and not 1800 s; and a process cannot set another process's Darwin QoS
+class, so mid-flight demotion is `setpriority(PRIO_DARWIN_PROCESS, …,
+PRIO_DARWIN_BG)`.
+
+One more, which is a decision: the spec's §5.1 tiering says Tier A should
+"pack densely — timing not precious". **Here timing is coverage.** The metric
+is coverage-at-60s-wall, so an instance slowed by a neighbour is coverage
+removed. Packing densely *is* the contention. Tiering survives only as
+within-board ordering (bank the known-fast rows early, so a mid-board
+contention window costs less re-run) and as the ETA input. It never raises
+`jobs`.
+
+---
+
+### Recorded — what the port actually reproduces
+
+The gates below are the whole argument. A port that changes a number cannot
+prove it is a port, so every one of them is an equality against the oracle or
+against a committed artifact, run by `crucible/preflight.sh`.
+
+**The published tables regenerate byte for byte.**
+
+```
+$ crucible --repo . standings --doc all --check
+ok    detail   benchmarks/ipc-standings.md matches
+ok    summary  STANDINGS.md matches
+```
+
+That is `standings.py`'s failure-class taxonomy, its IPC-5 archive scoring
+(length and makespan, recomputed per `.soln` because the headers are empty on
+the planner that dominates those tracks), the vs-field column, the Strong /
+Middle / Weak split and the proof-track marks — all of it, from the committed
+raws, identical to the committed documents.
+
+**The classifier agrees with the oracle over every row on this box.**
+
+```
+314 agree, 0 MISMATCH (42,356 rows classified, 144 boards)
+```
+
+`classify()` per row, `coverage_line()` per board as an exact string, and the
+corpus selector per track.
+
+**The corpus selector survived losing its lookbehinds.** Two of `ipc67.py`'s
+`TRACK_PATTERNS` use negative lookbehind, which Rust's `regex` cannot compile by
+design. The manifest expresses them as include/exclude pairs, and the
+equivalence is not reasoned about but RUN: all 26 tracks select exactly the same
+variants, checked over the 292 variant directories on disk. Selecting one
+variant too many or too few would silently change a board's denominator.
+
+**Every committed raw round-trips byte for byte** — 43,186 rows across 144
+files.
+
+**The corpus enumeration agrees instance for instance.** All 26 tracks produce
+the same variant list AND the same instance counts as `ipc67.py --track T
+--list`, including the multipart labelling rule that keeps `ipc-2026n`'s 320
+instances under 320 distinct keys rather than the 288 a first-group rule gives.
+The independent confirmation is the sweep plan itself:
+
+```
+$ crucible sweep --set cut25 --require-version 0.25 --dry-run
+set cut25: 6366 instances
+```
+
+6,366 is the denominator `STANDINGS.md` publishes. The board registry, the
+track selectors and the corpus walk agree with the standing table without
+having been told what answer to reach.
+
+#### Recorded — three defects the port found on its way through
+
+1. **`serde_json` parses some floats one ULP off.** `9189.980000000001`, a real
+   metric in `ipc2023-numeric`, parses to `0x…70a` where both `std::parse` and
+   Python give `0x…70b`. Every version tested does it; it is the fast float
+   path, not a regression. A round-tripped board would have silently rewritten a
+   measured number. Closed with `arbitrary_precision`, which keeps the original
+   token.
+
+2. **`Option<T>` cannot express this row format.** `makespan` is present-and-null
+   on a solved row and absent entirely on an unsolved one — seven distinct key
+   sequences exist across the corpus — so presence had to become explicit. A
+   writer using `skip_serializing_if` alone produces rows that differ from every
+   board ever committed.
+
+3. **The spec's politeness lever does not exist.** `crucible-spec.md` §6 says to
+   "re-set children to `QOS_CLASS_BACKGROUND`". You cannot:
+   `pthread_set_qos_class_self_np` is self-only, and by the time the scheduler
+   wants to demote, the child has long since `exec`'d. Demoting a running
+   process is `setpriority(PRIO_DARWIN_PROCESS, pid, PRIO_DARWIN_BG)`.
+
+#### Recorded — the supervisor's properties are tested, not asserted
+
+Against a stub planner (`fakeff`) that does exactly what a test tells it:
+
+- A child emitting 4 MiB on stdout does not deadlock the supervisor. `try_wait`
+  in a poll loop without draining the pipes blocks the child in `write` and then
+  waits for it forever, the moment `ff --json` exceeds the 64 KiB pipe buffer —
+  which a long plan does routinely. Python's `communicate()` hid this.
+- **A `SIGSTOP`ped run does not time out.** Wall exceeds its budget; effective
+  time does not; the run survives and finishes. This is the property the whole
+  project exists for.
+- A stopped orphan is actually killed — `SIGCONT` before `SIGKILL`,
+  unconditionally, because a stopped process never processes a signal it is
+  asked to die by.
+- A recorded pid that now belongs to a **stranger** is reported and left alive.
+  The spec says to reap "from recorded pids"; pids recycle, and on a personal
+  workstation the stranger could be the user's editor.
+
+---
+
+### Recorded — what is built, and what is not
+
+Built and gated:
+
+- **The publication layer, whole.** `classify`, coverage, the IPC-5 archive
+  scorers, the bounds scorers, the field column, the history rules, and all
+  three documents. `crucible standings --check` regenerates
+  `benchmarks/ipc-standings.md` and `STANDINGS.md` byte for byte.
+- **The instrument.** `benchmarks/manifest.toml`, generated from the five
+  registries it consolidates and re-verified against them by
+  `crucible/tools/verify-manifest.py`.
+- **The corpus walk**, agreeing with `ipc67.py --list` on all 26 tracks,
+  variants and instance counts alike.
+- **The supervisor.** Spawn, process groups, the effective clock, the RSS
+  watchdog, kill escalation, orphan reaping with pid-identity verification.
+- **The contention monitor** and the FULL/POLITE/SUSPENDED machine, with game
+  detection that follows Steam's descendants rather than a name list.
+- **The scheduler**: the resume gate (gated on BLAKE3, not the version string),
+  the quiet gate, tiering as ordering-only, the core budget as an admission
+  gate, and a board loop whose atom is an instance.
+- **The database**, the artifact writers, the promotion gate, the snapshot
+  writer and the diff engine.
+- **The dashboard**, and a `--dump` that renders one frame off-screen so the
+  layout can be reviewed in a transcript or checked in CI.
+- **`crucible sweep`**, end to end: manifest, corpus, measurement, artifacts,
+  and the `.done` marker written only when nothing is still owed.
+
+NOT built, and the record should say so rather than let it be discovered:
+
+- **The sweep writes artifacts, not the database.** `db/` is implemented and
+  tested, and `sched::resume` implements the per-sample window intersection --
+  but `SweepRunner::attempt` still judges cleanliness from a before/after sample
+  pair and keeps its rows in memory. **So resumption today survives a killed
+  BOARD, not a killed PROCESS**, and surviving `kill -9` is the project's whole
+  premise. This is the next thing to do, and it is wiring rather than design.
+- **`crucible backfill` does not exist.** `repo.rs` carries the engine probe,
+  the capability gate and the worktree-naming rule, with tests; nothing drives
+  them.
+- **The Linux cross-check is not armed on this box.** `preflight.sh` runs
+  `cargo check --target x86_64-unknown-linux-gnu` to prove no macOS-only call
+  escaped `trait Platform`, and skips with a note because the target is not
+  installed. `rustup target add x86_64-unknown-linux-gnu` arms it.
+- **The clean-timing pass** collapsed away with the dirty-policy decision and is
+  deliberately absent: dirty implies re-run, for every outcome.
+
+### The gap that closes this phase
+
+`SweepRunner::attempt` still holds its rows in memory and judges
+cleanliness from a before/after sample pair. `db/` is implemented and
+tested and `sched::resume` implements the per-sample window intersection
+— they are simply not wired together. **So resumption survives a killed
+BOARD and not a killed PROCESS, and surviving `kill -9` is the premise.**
+It is wiring, not design, and it is the first thing this phase does.
+
+After it: `crucible backfill` (the engine probe, the capability gate and
+the worktree-naming rule already exist with tests; nothing drives them),
+and arming the Linux cross-check that keeps `trait Platform` honest
+(`rustup target add x86_64-unknown-linux-gnu`).
+
+#### Recorded — the gap is closed (2026-08-28, `4336c35`, merged `8cae317`)
+
+The wiring landed as the dossier specified it (F6 part 1), and the branch
+merged to `main` under the finish-in-main agreement with
+`crucible/preflight.sh` green on the merged tree: 378 boards agree with
+the oracle, 0 mismatch (50,800 rows, 176 boards classified); 55,620 rows
+across 186 raws round-trip byte for byte; the manifest agrees with the
+registries. Every measured instance is now committed in its own
+transaction the moment its run ends — before the verdict, before the
+artifacts — and the verdict is `Reader::window_gate`, the per-sample
+intersection over the watcher's box-wide timeline, not a before/after
+pair. A restarted sweep reads back every row and every clean verdict,
+regenerates the stage from them, and owes exactly what never banked.
+**The JSONL is an export.**
+
+The three unwired facts the dossier named, closed — and two it did not
+name, found on the way:
+
+- Rows are stamped with the engine's BLAKE3 under the resume gate's own
+  key. That exposed a second defect: `write_row` was silently DROPPING
+  `extra` columns, so the stamp never reached the raw. It keeps them now,
+  last, in key order — no committed row changes (the round-trip proves
+  it).
+- The watcher persists the timeline; `live_child` is written at spawn
+  with the KERNEL's identity (the configured path is not canonical on
+  Darwin — `/var` is `/private/var` — and a reaper comparing it would
+  spare every orphan as a stranger, which the first run of the test did).
+- The in-memory clean set was keyed by instance LABEL alone. Every
+  multi-variant board carries instance "1" once per variant, so under the
+  old key such a board could never reach zero owed. Keyed by the row's
+  full address now.
+- `requires_version` on a `[[set]]` gates when the CLI flag is absent.
+
+Tested, not asserted: `kill9_resume.rs` — the stamp; the `--no-db` hatch
+writes the pre-database shape; a restart over a database holding clean
+rows re-spawns ZERO (RED before the wiring: every restart re-measured
+everything); and the real thing — a crucible `SIGKILL`ed mid-instance, its
+orphaned planner found by the next one, identity-verified, killed, its row
+closed. `gate_agreement.rs` holds `window_gate` and `sched::resume::judge`
+against each other over every rescued timeline fixture, every window.
+
+Two things the merge surfaced, recorded rather than discovered:
+
+- **The crate's own tests were not hermetic**: a roundtrip test read a
+  gitignored `air24/` conditions file, the e2e harness opened the
+  operator's real `~/.crucible/db` from four tests at once, and three
+  tests pinned counts one cut stale (77 solved on `ipc2014-opt`, the
+  release list ending at 0.24.0, the tier-move warning). All now read
+  git-tracked fixtures, their own scratch database, or the property
+  rather than the number. The manifest is regenerated for the landed
+  tier move (`ipc5-time`/`ipc5-metric-time` scored at 60 s again, so the
+  manifest carries no warnings). The pre-flight's round-trip loop skips
+  `benchmarks/metrics/` — a decode sitting's `matrix.jsonl` carries a
+  `solved` key and is not a board.
+- **The Linux cross-check (F6 part 3) is BLOCKED on this box, not
+  armed.** `rustup target add` succeeds, but the gate's `cargo check`
+  builds `libsqlite3-sys` from bundled C source and needs
+  `x86_64-linux-gnu-gcc`, which is not installed. The target was removed
+  again so the gate reports SKIPPED honestly. Arming it is an operator
+  decision: a cross C toolchain (e.g. `messense/macos-cross-toolchains`)
+  or a feature gate that keeps SQLite out of the check.
+
+Still open from this phase: `crucible backfill` (part 2), the Linux
+cross-check (part 3, as above), and the cut-26 runbook (part 4).
+
+## The field-gaps expansion (adopted 2026-08-26)
+
+The program: `docs/field-gaps-0.26.md`, verified before adoption — every
+per-domain number re-derived from the raws, the anti-pot ledger re-read
+against every item, feasibility checked against source (the draft's 2014
+"+16" died in that verification; what survived is what is priced here).
+Specs: `docs/field-gaps-execution-0.26.md`. Order of operations: nothing
+below touches the box until the 0.25 cut sweep completes and promotes.
+
+- **F0 — the decode sittings** (committed reports, exit clauses, fixed
+  probe budgets): (a) trucks/storage-time — one unnamed mechanism carries
+  −49 gross across three SGPlan tracks and +4 flips ipc5-time;
+  temporal-relaxation exits pre-excluded (that ledger is closed). (b) the
+  cliff decode that must precede any forgetting/multi-heuristic rung
+  (rubiks, floor-tile-class, the 2018/2023 residue) — the rung builds only
+  on its number, per the standing width rule. **Executed 2026-08-29
+  (`benchmarks/metrics/fieldgaps-B-cliff.md`): the rung as specified is
+  refused; rubiks decodes to the h-guided novelty rung the 0.22 slot swap
+  removed from reach (i5/i6 in 574/814 evals under it, the default
+  ladder's driver 110k pops for nothing), spider to a binding driver
+  `|R|` cap, labyrinth to a 25 s ladder tax; floortile refuses (a
+  9–10M-eval flat plateau). Two narrower candidates — a bounded
+  h-guided-then-driver slot and a per-family R-cap — were gated on the
+  B2 pricing probe, and B2 priced them: rubiks **+1** (i6, at every slice
+  width from 5% to 30%; i7–i20 unmoved) and spider **0/6** at R-caps 1024
+  and 4096 — neither is built; the mechanism stays named with its
+  reproduction (`FF_NOV_OLD=1`, 814 evals).** (c) metric-time widened to
+  rovers i3/i5 — rides Phase 3's sitting. (d) the transport probe
+  widening — rides Phase 4; prices the 2008 share of the +8–20 aggregate.
+- Specs for every phase below: `docs/field-gaps-execution-0.26.md`
+  (assembled + house-law-verified 2026-08-26; its Amendments section is
+  binding — including the finding that the transport-L3 receipts are
+  ipc-2011 rows, so the 2008 overtake rides entirely on F0(d)'s widening).
+- **F1 — fallback enrichment** (ungated): preferred operators + `FF_CLM`
+  into the bare wBFS fallback that does most of the solving; RED fixture,
+  named `FF_NO_*` restore, old-binary referee; bands +10–17 (ipc5-prop
+  tails) and +9-to-median (2018).
+  **Recorded 2026-08-28 — F1 BUILT, unit-refereed, board A/B pending.**
+  Landed as specified: `SearchCfg.pref_ops` (default false at every
+  construction site — all nine other sites spread from a base), armed
+  with the landmark term at 3.0 inside `plan_avoiding`'s guarded block
+  (`FF_NO_ENRICH=1` restores the bare single-queue fallback; `FF_CLM`
+  keeps its opt-in semantics under the hatch), `search_from` gains the
+  lama.rs dual heap (192/64 shares, same 256 batch), `relaxed_helpful`
+  as the evaluator, preferred insertion, and the node-cap byte model
+  now charges `lm_acc` when the term is armed. Pin (`tests/enrich.rs`,
+  child-process pattern, a 30-step chain with 14 junk toggles at a 4k
+  eval cap): bare queue capped unsolved at 4,218 evals; enriched solves
+  in **1,808**, plan identical at 1 and 8 threads. Measured and recorded
+  rather than assumed: on that fixture the landmark term ALONE is inert
+  (7,034 evals, identical to bare at every K from 14 to 20) — the
+  deferred h already orders the chain, and the preferred queue's whole
+  gain there is batch composition (~65 evaluations a round instead of
+  256); attributing the two halves is the board A/B's job. The first
+  real receipt came from an existing pin, `tests/novlight.rs`: the
+  enriched fallback now SOLVES the 10×10 visit-all grid inside the
+  100k-eval cap the bare fallback capped on — the exact h-plateau the
+  novelty-light rung was justified against — so that test's bare arm
+  runs under the hatch and the new fact is pinned beside it. Debug test
+  pass green across ferroplan/cli/mcp. The referee is in flight ON
+  CRUCIBLE: `f1-before` (v0.25.0 engine, the published cut) sweeping
+  `ipc5-prop` + `ipc2018-sat` into `benchmarks/air26-f1-before`; the
+  armed leg (`f1-armed`, requires 0.26) follows once the 0.26.0
+  candidate is built — which waits for the before-leg to drain, because
+  rebuilding `target/release/ff` under a live sweep would hand later
+  rows a different binary than the hash they carry. The release
+  `--include-ignored` pass and the `hatch-differential.py` "enrich"
+  entry (its witnesses ARE the converted rows) wait on the same.
+
+  **The before-leg banked (2026-08-28, 690/690 in 6 passes,
+  `benchmarks/air26-f1-before/`).** Same 0.25.0 engine as the cut, and
+  it reads **ipc5-prop 372/450, ipc2018-sat 86/240** against the cut's
+  358 and 82 — **+18 from the instrument alone**: a quiet box (Brave,
+  Steam and the other agents' build bursts were the competitors; every
+  row they touched was re-measured until clean) and crucible's
+  instance-level retry. That is the number the armed leg is judged
+  against, never air25 — the cut's rows carry contention this leg does
+  not, and crediting F1 with the difference would be the exact lie the
+  old-binary referee exists to refuse.
+
+  **The armed leg banked (2026-08-29 00:10, 690/690 in 3 passes,
+  `benchmarks/air26-f1/`, `ff 0.26.0` blake3 `3709aeefc039`) — VERDICT:
+  F1 stays default-on, +12/−2 on the same instrument, band
+  under-delivered and said so.**
+
+  | board | before (0.25.0) | armed (0.26.0) | net | gains | losses |
+  |---|---|---|---|---|---|
+  | ipc5-prop | 372/450 | **380/450** | **+8** | 9 | 1 |
+  | ipc2018-sat | 86/240 | **90/240** | **+4** | 5 | 1 |
+
+  Where the gains are: pathways +3 (prop i27, strips i18/i22 — the tail
+  the band named, all three in the 56–58 s near-wall list the spec
+  cited), pipesworld-strips +2 (i23/i24), **trucks +4** (strips
+  i10/i13/i15 and prop i12 — the trucks cliff F1 explicitly did NOT
+  claim; F0(a) owns that decode, and this is evidence for it, not a
+  claim by F1), data-network +2 (i7/i16), flashfill +2 (i2/i3, both in
+  the spec's i2–i5 cluster), agricola +1 (i12, 0 → 1). **Every one of the 14 gained rows
+  carries the fallback note** — the mechanism witness the spec asked for.
+  Plan length on the 456 common solves: one row longer, none shorter;
+  time on common solves −0.1 s / −0.6 s mean; zero VAL rejects.
+
+  The two losses, named: **trucks-propositional i10** (before 43.3 s via
+  the fallback; armed unsolved at 58.2 s — a real loss, the preferred
+  queue's order on that instance, offset ×4 on its siblings but not
+  erased) and **spider i1** (before solved AT 60.0 s, armed unsolved — a
+  wall-margin row, the class the 0.25 adjudication called churn).
+
+  What did NOT happen: **settlers i12, the named must-convert RED fixture,
+  did not convert** (59.77 s before, 59.78 s armed — untouched), and
+  settlers moved 15 → 15. The 2018 +4 came from data-network and
+  flashfill, not the settlers slice the spec claimed. **ipc5-prop reads +8
+  against a +10–17 band** — under-delivery, the 0.24 treatment: the
+  band's arithmetic assumed the near-wall rows were fallback-ORDER rows,
+  and on settlers and storage (0 gained, i27–30 still at the wall) the
+  measurement says they are fallback-COST rows — the enriched queue
+  reorders but does not cheapen, and a row burning 58 s of h-evals is
+  not converted by popping better. Hypotheses for the shortfall, in
+  order: (1) F2's lookahead is the cost lever for exactly this class
+  (settlers/storage rows sit AT the wall with the plan found late) — its
+  differential runs next on the F1 binary ± the flag, which attributes
+  the 2018 mass instead of double-banking it; (2) the landmark term is
+  inert on chain-shaped tasks (the pin measured it) and may be inert on
+  these too — the `FF_NO_ENRICH=1 FF_CLM=3` decomposition arm on
+  ipc5-prop is the cheap test; (3) `relaxed_helpful`'s per-pop tax is
+  the recorded 0.22 parking risk, and on the slow-h rows it may be
+  eating the wall the reorder needs. None is pursued before F2's
+  receipt lands.
+
+  **Mechanism witness, re-read by rung (2026-08-29, solo re-runs under
+  `FF_WALL_DEBUG`): 13 of the 14 gains are "solved by best-first
+  fallback (round 1)"; agricola i12 is "solved by LAMA"** — a rung F1
+  never touches, so that gain is the instrument's, not F1's, and the
+  honest count is +13/−2. The correction that made this re-read
+  necessary: the raw's "EHC found no improving state; used weighted
+  best-first" note is emitted on `ehc_fell_back` alone (api.rs) — it
+  says EHC handed down, NOT which rung solved. It is not a fallback
+  witness, and two specs in the dossier (F1 §evidence, F2 §evidence)
+  read it as one. Rung attribution needs the `wall: solved by …`
+  narration, and from here on that is what the record cites.
+
+  **The hatch differential (2026-08-29, `--spec enrich --repeat 2`, the 13
+  fallback-attributed gains, `benchmarks/cut26/enrich.log`): shipped
+  12/13, `FF_NO_ENRICH=1` 0/13 — the feature is worth +12 on its own
+  witnesses, with every single row lost the moment the queue is bare.**
+  Solo times under the enrichment: pathways-strips i18 13.2 s, i22
+  16.4 s, trucks-prop i12 25.6 s, pipesworld i24 33.4 s — not wall-edge
+  flips but mid-wall solves against 55–60 s failures. trucks-strips i13
+  did not reproduce solo (0/2 shipped, 57.8 s — the board's 57.18 s
+  solve was a wall-margin row). That is the attribution the spec asked
+  for, on the rows the A/B named.
+
+  Referee status: both legs on crucible, same box, same instrument,
+  every row clean by the per-sample gate; the old-binary rule is
+  satisfied by the before-leg itself (0.25.0 IS the published cut
+  binary). The `hatch-differential.py` "enrich" entry is still owed
+  (its witnesses are now known: the 14 gained rows) and is queued
+  behind the lookahead differential on the same box.
+- **F2 — YAHSP-style relaxed-plan lookahead** (ungated; never tried in
+  this engine): opt-in hatch first; parking-2014's four 59.5–59.9 s
+  solves are the fixture class.
+  **Recorded 2026-08-28 — F2 BUILT as the opt-in probe, unit-pinned,
+  A/B pending.** `FF_LOOKAHEAD=1` arms `SearchCfg.lookahead` under the
+  same guard as F1 (so it and the cost-h rung exclude each other by
+  construction); inside `search_from` it requires the bare classical
+  shape. Per popped node with h > 0 the relaxed plan is read out in
+  RPG-layer order (`heuristic::extraction_plan_ops`, a new read-out —
+  the extraction only ever materialised a count and the helpful set) and
+  executed greedily first-fit on the concrete state, each op once; a
+  terminal reached by ≥ 2 ops joins the open list as one deep node on
+  its own TRUE h at its real depth, normal heap only, its edge in a side
+  table `reconstruct` splices; landmarks are accepted along the whole
+  edge; a goal-met terminal is the plan. Terminal evaluations count
+  against the cap. Flag-off is byte-identical (the read-out is dead code
+  and the field defaults false at every site). Pins
+  (`tests/lookahead.rs`): a 40-step serial chain — flag-off 40+
+  evaluations, flag-on solves from the root's ONE evaluation with the
+  identical plan, same at 8 threads; the read-out's layer order. The
+  `hatch-differential.py` "lookahead" entry (parking-2014, roles
+  inverted: the hatch ARMS the probe) and the board A/B (ipc2014-sat /
+  agile, ipc2018-sat, on the F1-enriched binary ± the flag so the 2018
+  marginal is attributed, never double-banked) wait on the box: they run
+  on crucible after the F1 referee. Clippy on F2 waits for the same
+  window (the box is quiet and the before-leg is banking; a build now
+  is a dirty row).
+
+  **Recorded 2026-08-29 — the parking differential is a NULL, and the
+  reason is a decode, not a tuning.** `hatch-differential.py --spec
+  lookahead --repeat 2` on the 0.26.0 candidate: 6/20 in both arms,
+  identical times to 0.1 s, none of i1/i4/i6–i8 converted, no
+  wall-sitting solve moved (`benchmarks/cut26/lookahead-parking.log`).
+  Solo under `FF_WALL_DEBUG` the probe reports NOTHING on parking i2 —
+  the search never reached a lookahead-eligible fallback pop — and the
+  narration says why: **parking i2 is "solved by LAMA"**, at 48 s, after
+  the novelty-light slice. Parking's solves are LAMA's, its failures
+  spend the wall in EHC → novelty → LAMA, and the complete fallback F2
+  was scoped to (by the note, misread — see the F1 record above) is not
+  where parking lives. On a domain that DOES reach the fallback the
+  probe fires on every popped node (transport-2008 i8: tried 18,596,
+  yielded 18,596, inserted 14,763 — the 2× per-pop tax the spec
+  warned about, in full) and converts nothing there either. So: the
+  parking half of the exit clause is met; the 2018 marginal is measured
+  next on the spec's own witness rows (settlers i12/i17–i20,
+  data-network i6–i10, flashfill i2–i5) rather than a whole board, and
+  if it reads ≤ 0 the flag leaves the tree per the clause. The
+  LAMA-side lookahead — the rung that actually holds parking — is the
+  deferred rider the spec named, and it stays deferred until a receipt
+  says the mechanism pays somewhere. (Parking's 4/20 → 6/20 between the
+  cut and the F1 differential's flag-off arm is the quiet instrument,
+  same as the +18 above: i10 solved once in two repeats.)
+
+  **The 2018 marginal (2026-08-29, `--spec lookahead-2018 --repeat 2`,
+  the spec's 14 witness rows on the F1 binary ± the flag,
+  `benchmarks/cut26/lookahead-2018.log`): −1.** Settlers i12/i17–i20,
+  data-network i6/i8–i10 and flashfill i4/i5 unsolved in both arms;
+  flashfill i2/i3 solved in both; **data-network i7 solved 2/2 without
+  the flag and LOST with it** (the terminal evaluations' tax, on a row
+  with no wall to spare). Both halves of the exit clause read against
+  the probe, so **the flag leaves the tree**: `SearchCfg.lookahead`,
+  `FF_LOOKAHEAD`, `lookahead_from`, the multi-op edge, the
+  `extraction_plan_ops` read-out and `tests/lookahead.rs` are removed
+  (`search.rs`/`heuristic.rs` restored to F1's shape; an archaeology
+  note marks where they stood), the two differential specs go with them,
+  and the receipts stay. What the probe taught, kept: (1) the fallback
+  is not where parking, tetris or cave-diving spend their wall — LAMA
+  is — so a lookahead worth another probe is a LAMA-side one, and that
+  rider is priced only if a receipt ever says the mechanism pays; (2)
+  first-fit relaxed-plan execution yields on every pop where it runs and
+  costs a second evaluation each time — the 0.22 parking tax, measured
+  again. F2 is CLOSED as a measured negative.
+- **F3 — the gated builds**, opened only by F0's decodes: the
+  `charge_pre_num` temporal hatch (the 0.22 charge-on-temporal negative
+  declared; the workshop-economy fixture mandatory; `FF_H_ENDGATE`/`FF_TRPG`
+  co-fire declared untested), AIBR/subgoaling numeric h, transport L1–L3,
+  the forgetting/multi-heuristic rung. **`FF_NUMPRE_TEMPORAL` executed
+  2026-08-29 (gate opened by Sitting C): built as specified (one armed
+  line at the packed-task constructor, `FF_NO_NUMPRE` the deep restore,
+  unset bit-identical by the short-circuit). Referee, the 2006
+  metric-time constituency armed solo at 30 s
+  (`benchmarks/air26-probes/numpre-temporal/`,
+  `benchmarks/metrics/fieldgaps-F3-numpre.md`): pathways-metric-time
+  **1/30 vs 0/30** — i1 converts (unsolved at 27 s → solved in 1.5 s,
+  the board's first solve ever), i2 (the RED fixture) and everything
+  above stay at the wall; tpp **3/40 = 3/40**; rovers **5/40 = 5/40**,
+  the same five rows. The mandatory quality rider fired: the workshop
+  economy re-routes 25 → 47 steps (chisel sale, never carves) under the
+  armed charge AND under every damping half (`FF_NUMPRE_NODAMP/NOSKIP/
+  NOSUM`, `FF_NO_NUMPRE_CHAIN`, `FF_NUMPRE_DEPTH=0`) — the 0.21 negative
+  shape exactly, so the damping that fixed it on classical groundings
+  does not reach the temporal one. Verdict: the hatch stays **opt-in**,
+  +1 measured, no board arms it; `tests/numpre_temporal.rs` pins the
+  unset carve plan and the armed re-route (if the re-route ever
+  disappears the item is re-refereed, not promoted). Instrument note:
+  Timberborn started six minutes into the probe (≈150 % CPU), so tpp/
+  rovers rows are contended reads — they match the banked coverage
+  exactly, and tpp i4 (the near-wall cliff row) solved solo at 8–10 s
+  both unset and armed, i.e. it is wall-flaky, not flag-sensitive.**
+  **Ladder dedup (Sitting A's F3 candidate, +2 firm) BUILT 2026-08-29:**
+  `temporal.rs` skips the tight pass when its mask equals the sound
+  mask, the unmasked backstop when the sound mask keeps every op (an
+  all-true mask IS the unmasked pass — `allow` reads them identically,
+  the only other use is narration), and the Full-tier escalation rung
+  when the predicate-goal thresholds add nothing to the demand (read
+  once by the numeric-tier pass function while its task exists, handed
+  to `solve_ladder` through a thread-local; unset cell ⇒ rung kept).
+  `FF_NO_LADDER_DEDUP=1` restores the quartet; `tests/ladder_dedup.rs`
+  pins the exact saving on a mask-degenerate ring (8 monolithic passes
+  → 2, the decomposer's contract passes shared) and that the solvable
+  ring still solves. **Receipts PENDING a quiet box:** the first take
+  (`benchmarks/air26-probes/ladder-dedup/`, engine af98f98131554a21) ran
+  beside Timberborn at ~190 % CPU and every pass ran ~4× slower than
+  Sitting A's ledger — storage-time i15's helpful pass reaches the same
+  589,433-eval exhaustion but in ~52 s instead of ~13 s, trucks-time i12's
+  never reaches its node cap inside 60 s — so both legs fail at the
+  wall and the dedup has nothing to return; the skips and the Full-rung
+  skip narrate correctly. **Retaken solo on the quiet box (12:16,
+  `rows.jsonl`; the contended take kept as `rows-contended.jsonl`):
+  trucks-time i12 FLIPS — dedup solved at 57.3 s (16 ladder passes, 16
+  skip lines: the decomposer's contract ladders dedup too), hatched
+  unsolved at 60 s (4 passes); trucks-time i13 solves at 59.97 s under
+  dedup (board row: unsolved) — a wall-margin row, fragile at jobs 2;
+  storage-time i15 stays unsolved both ways (21 vs 7 passes — the wall
+  the dedup returns goes to the decomposer, which does not convert it at
+  60 s) and i17 too. Priced: +1 firm (i12) +1 wall-margin (i13) on
+  ipc5-time, against Sitting A's "+2 firm" — i15's flip was the
+  `FF_TDECOMP=1` receipt at 51.9 s, and a returned ~40 s of wall is not
+  the same as decompose-first. Default-on (it is a pure skip of
+  byte-identical re-runs); the cut sweep referees the boards.**
+  **Transport (Sitting D's +12, gate open) BUILT 2026-08-29 as a default
+  move, after three probes corrected the decode
+  (`fieldgaps-F3-transport.md`, receipts `air26-probes/transport-arrival/`):
+  (1) the LAMA arrival flip is DEAD — 0 conversions on seven rows and it
+  loses spider i1, the 0.24 canary, exactly as recorded; (2) under
+  Sitting D's `FF_NO_LAMA` every conversion is the **novelty driver's**
+  (`wall: solved by novelty-driver` on 2011 i1/i2/i6 and 2008 i8), and
+  without the driver the fallback fails at 2–3× the eval counts the
+  sitting quoted — those counts were the post-plan cost sweep, not the
+  first plan; (3) with LAMA kept, `FF_NOV_WALL_FRAC=0.50` converts 2011
+  i1/i2/i6/i7/i11 (5/5) and 2008 i18, 0.70 adds 2008 i8, spider i1 intact
+  and faster at both. Shipped: the driver's slice default 0.30 → 0.50
+  (`search.rs`; `FF_NOV_WALL_FRAC=0.30` restores) — the 0.22 record's
+  own "0.5 converts loaded — the sweep referees the knob". Priced solo
+  +6 on 2011 (2/20 → 8/20), +1 on 2008; four conversions sit at
+  59.0–59.6 s and may miss at jobs 2. The cut26 like-for-like table is
+  the old-binary referee the F5 law demands of a budget reallocation.
+  `FF_COSTH_FIRST` (L1) not built: the driver is cost-blind and converts
+  anyway, so L1 stays a quality lever, unpriced for coverage.**
+- **F4 — quality + memory**: quantum-layout anytime polish (existing
+  boards only, coverage-neutrality refereed — no new tiers), the
+  folding/elevator memory sitting (+3–10 across boards), the storage-tc
+  i8–10 fold probe, the floor-tile no-code pricing probe, and the
+  model-train plan-then-schedule feasibility read — **executed
+  2026-08-26, exit clause FIRED**: the pre-state duration core has existed
+  since v0.10; the item is closed and its mass re-routes to F3's
+  `charge_pre_num` gate (dossier §3.7). **Executed 2026-08-29 — the
+  memory sitting (`fieldgaps-F42-memory.md`) refuses the memory build:
+  folding and elevator are both GROUNDING walls (binding enumeration;
+  folding never reaches search in 300 s, elevator-2008-strips i29
+  overruns its 60 s wall inside `ground_v` behind a too-coarse
+  checkpoint), which opens the or-aware-hoist rider's gate and names one
+  small checkpoint fix — **landed the same day**: `WallTick::STRIDE`
+  in `ground.rs` 8,192 → 256 bindings (the stride is denominated in
+  bindings, and a binding's DNF work is unbounded), receipt elevator i29
+  @60 s solo: returned at **60 s** with the no-verdict checkpoint note
+  (was 80.7 s under the guard with no output at all); `ground_wall`,
+  `novlight`, `enrich`, `refill` green. The storage-tc probe (`fieldgaps-F43-storage.md`)
+  refutes the crate-count hypothesis with its twin (i8's LAYOUT costs
+  7–21 ms per temporal node) and stays open on an instrument. **F4.1 (the
+  wall-denominated length polish) is a MEASURED NEGATIVE and left the
+  tree the same day:** built as specified (per-rung `SearchCfg.deadline`
+  from the unspent wall, w_h 3/2/1 with the incumbent bound, ≥ 25 % wall
+  gate, `FF_NO_LEN_POLISH` restore; unit pin green on a corridor
+  fixture), then run solo on the three worst quantum-layout rows the spec
+  named — **i13 212 → 212, i19 87 → 87, i20 129 → 129**, every rung
+  spending its deadline (~60k evals each on i13) and returning nothing
+  shorter. Two facts the spec did not have: all three rows are
+  novelty-rung solves (driver on i13, light on i19/i20), not the
+  fallback plans the note suggested, and a default-on polish would push
+  every solved metric-free row's wall to ~60 s on the boards — an
+  instrument side effect on the `time` column that no +0.02 quality
+  read could pay for. The same verdict class as 0.9 (the restart shape,
+  not the budget, is the limit), now measured at the wall too. Code
+  reverted (costs.rs at F1's shape, the test deleted; receipts in
+  `scratchpad`-era logs summarised here), the 0.9 opt-in
+  `FF_LEN_SWEEP_EVALS` untouched.**
+- **F5 — 2014 config reconciliation**: the hiking agile-ordering
+  diagnosis, then the +6-oracle config schedule, old-binary refereed and
+  priced after the referee (the true sat∪agile union is 155/280).
+  **Executed 2026-08-29 — REFUSED
+  (`benchmarks/metrics/fieldgaps-F5-hiking.md`):** the agile losses are
+  evaluation-cost tails (i5/i6 solve at 300 s, i7 spends 101 s of 143 s
+  in the heuristic), tetris i14 is a grounding-time row (27–47 s of the
+  60 s wall gone before search across three reps), and the corrected
+  ≤ +2 oracle does not survive either. No schedule is built. Flag for the
+  cut sweep: hiking-sat i16 (37 s on the board) did not solve solo on the
+  candidate.
+- **F6 — crucible sweeps the cut**: Phase 5's named gap closes first (the
+  DB wiring — resumption survives a killed PROCESS, the premise), then
+  `crucible backfill` and the Linux cross-check; the 0.26 cut sweep runs
+  on crucible gated on the byte-parity preconditions (`standings --check`,
+  the 314-board classifier agreement, the 6,366-instance enumeration),
+  with `standings.py` alongside as the differential oracle, and the
+  mem-cap classification fix landing as its own commit AFTER parity is
+  proven, carrying the −7/+7 movement in the cut record. **Part 4 progress
+  2026-08-29: `[[set]] cut26` transcribed (32 boards, one stage,
+  `benchmarks/air26`, requires 0.26) with every proof board at `jobs = 1`
+  per Phase 0's cross-cutting finding; the enumeration gate caught a real
+  crucible defect on its first run — the `--mode` probe read only clap's
+  inline help shape, the 0.26 binary renders the long form, and all seven
+  proof boards were SKIPPED (6,538 instances) — fixed and pinned
+  (`repo.rs::modes_from_help`, three shapes); the gate now reads
+  `set cut26: 8444 instances`. Remaining before the spawn: crucible
+  preflight on the merged tree, `standings --check` + the classifier
+  differential on the 0.26 candidate, and the certificate gate
+  (`opt-differential.py --board-budget`, fresh `--out` under
+  `benchmarks/cut26/`) — all queued behind the F3 receipt probes on the
+  quiet gate. Part 2 (`crucible backfill`) BUILT the same day: the tag's
+  planner in a crucible-owned worktree, the working tree's instrument, the
+  version gate skipped, stage `benchmarks/air-<ver>/`, feature-absent
+  boards now leave a `feature-absent` pass row for any engine; the RED
+  fixture `backfill --tag v0.18.0 --set cut25 --dry-run` converted (built
+  in 1 m 21 s, three proof boards skipped, 5,500 instances planned). The
+  suite also caught `STANDINGS.md` stale since the 0.25.0 publish ("vs
+  0.24.0" → "vs 0.25.0", both renderers agree) — regenerated. **Gates
+  run 2026-08-29 13:37–14:06 on the final candidate (`ff 0.26.0`,
+  blake3 `03a17198744b`): crucible preflight clean (after one red — the
+  round-trip walk read a probe receipt as a board raw; `air26-probes/`
+  now skipped like `metrics/`), standings parity ok both docs, 378
+  agree / 0 MISMATCH, certificate gate 382 agree / 0 mismatch / 0
+  REGRESSION at board budget, enumeration 8,444. THE 0.26 CUT SWEEP
+  SPAWNED 14:07 in a Terminal (`crucible sweep --set cut26
+  --require-version 0.26`, log `benchmarks/cut26-sweep.log`, stage
+  `benchmarks/air26/`, DB `~/.crucible/db`) — the first cut swept by
+  crucible, the shell drivers standing by as the fallback instrument.**
+
+Standing correction already landed with the adoption (2026-08-26):
+`docs/ipc-rankings.md`'s constraints row refreshed from the committed raws
+— the "12/120, 70 rows rejected" text was two cycles stale; the row now
+records 28/120, zero rejects, storage-tc won outright, 2nd-of-3 on the
+official subset. Every fence in the memo's §4 carries into this cycle's
+anti-pot list by reference.
+
+## Phase 6 — cut 0.26.0
+
+The standing template. What this cycle forces on top:
+
+- **The like-for-like table is now 32 boards, not 22.** 0.25's entry day
+  moved the headline from 63% (3,981/6,366) to 56% (4,743/8,444) by
+  growing the denominator. From this cycle on that IS the instrument, and
+  0.26 is the first cut that can show movement against it.
+- The doc gate runs EARLY. The private-intra-doc-link class has struck
+  three cycles running; 0.25 finally caught it at authoring. Keep it there.
+- Pre-flight is the four-crate order (ferroplan-sat → ferroplan →
+  ferroplan-cli → ferroplan-mcp).
+- The sweep itself runs on crucible (F6) — the shell drivers stay
+  runnable as the fallback, and `standings.py` referees byte-parity.
+- If Phase 0 refused the centerpiece, the cut record says so in its first
+  paragraph, not its last.
+
+## Anti-pots — priced at zero, standing
+
+Everything 0.25 listed carries forward unchanged: temporal
+delete-relaxation (ledger CLOSED), org-synth i11, agricola's coin-flip
+class, ricochet, **openstacks-opt PDBs (probe-NEGATIVE, mechanism
+named — and directly relevant to Phase 0, which must not re-buy it)**,
+a second classical driver swing, temporal orbit-iso, the 1998–2004
+corpora, and new 300 s tiers.
+
+Added this cycle:
+
+- **A third SAT-wing band without a new decode.** The wing keeps its
+  opt-in hooks and its refunds; what it does not get is another priced
+  band on the strength of the last two. Phase 0 may hand it one — that
+  is a different thing, and the difference is a measurement.
+- **Code at the pathways or tpp walls before Phase 3's decode.** Same
+  rule that governed transport, for the same reason, on the same
+  evidence.
+
+- **The field-gaps §4 fences, incorporated by reference** (added
+  2026-08-26): no code at the pathways/tpp walls pre-decode (rovers
+  treated the same by this cycle's own extension), no temporal
+  delete-relaxation ever, no STN-shaped model-train revival, no
+  2014-transport claims from L1–L3, no un-decoded novelty promotion, no
+  anytime-for-coverage, no new tiers.
+
+## Deferred, on the record (carried forward)
+
+- ITSAT-style in-CNF timing; incremental assumptions (only if
+  horizon-ramp profiling demands them).
+- caldera's selectivity-aware route gate; block-grouping's search residue
+  (10 rows, field ceiling proven); the or-aware hoist for folding p01
+  (sized, not taken — folding's 300 s face is a MEMORY ceiling).
+- floor-tile's irreversible-consumption dead-end test: one NEW lever
+  named at 0.25 with a no-code pricing probe attached, unclaimed.
+- Cross-mind planning; continuous `#t`; dynamic derived predicates — the
+  standing lists.

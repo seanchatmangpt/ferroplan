@@ -55,11 +55,22 @@ fn eval_expr(task: &PackedTask, s: &State, e: &Expr) -> Option<f64> {
     Some(match e {
         Expr::Num(n) => *n,
         Expr::Fluent(name, args) => {
-            let id = task.fluent_id(&disp(name, args))?;
-            if s.fdef[id] {
-                s.fv[id]
-            } else {
-                return None;
+            // Two-source lookup (0.21 Phase 6 / 0.23 Phase 2): dynamic (and
+            // retained) fluents live in the state; DEFINED statics the fluent
+            // compaction dropped resolve from the task-side name table —
+            // without the fallback, a constraint body reading a compacted
+            // static (tpp's `(request goods1)`) folds as undefined and the
+            // verdict is wrong.
+            let d = disp(name, args);
+            match task.fluent_id(&d) {
+                Some(id) => {
+                    if s.fdef[id] {
+                        s.fv[id]
+                    } else {
+                        return None;
+                    }
+                }
+                None => task.static_fluent(&d)?,
             }
         }
         Expr::Add(a, b) => eval_expr(task, s, a)? + eval_expr(task, s, b)?,
@@ -71,7 +82,10 @@ fn eval_expr(task: &PackedTask, s: &State, e: &Expr) -> Option<f64> {
 }
 
 /// Read a ground formula against a concrete state — one pulse, true or dark.
-fn eval_formula(task: &PackedTask, s: &State, f: &Formula) -> bool {
+///
+/// Shared with the temporal validator's constraint fold (0.23 Phase 2) — one
+/// evaluator, one semantics, both replays.
+pub(crate) fn eval_formula(task: &PackedTask, s: &State, f: &Formula) -> bool {
     match f {
         Formula::True => true,
         Formula::False => false,
@@ -132,12 +146,23 @@ pub fn verify(
         None => return Err("grounding failed (empty type)".into()),
     };
 
-    // 0.7: expand the ORIGINAL trajectory constraints (errors on the timed
-    // operators — a plan for a problem verify cannot check is never Valid)
-    // and fold their semantics incrementally over the replay, S_0 included.
-    // HARD instances decide `constraints_met`; SOFT (preference-wrapped)
-    // instances are scored into the metric below, weighted like goal prefs.
+    // 0.7: expand the ORIGINAL trajectory constraints and fold their
+    // semantics incrementally over the replay, S_0 included. HARD instances
+    // decide `constraints_met`; SOFT (preference-wrapped) instances are
+    // scored into the metric below, weighted like goal prefs. The timed
+    // operators are rejected BY NAME (0.24 Phase 4: expand now accepts
+    // `within` / `always-within` for the temporal path, but this replay is
+    // SEQUENTIAL — its states carry no times to fold a deadline over;
+    // `temporal::validate` is the timed referee). A plan for a problem
+    // verify cannot check is never Valid.
     let expanded = crate::constraints::expand(&domain, &problem)?;
+    if let Some(op) = crate::constraints::first_timed(&expanded) {
+        return Err(format!(
+            "trajectory constraint `{op}` is time-bounded — the sequential replay \
+             has no state times to fold it over (temporal::validate referees \
+             timed constraints on durative domains)"
+        ));
+    }
     let mut folds: Vec<crate::constraints::Fold> = expanded
         .hard
         .iter()

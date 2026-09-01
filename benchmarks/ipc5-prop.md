@@ -1,22 +1,23 @@
 # IPC-2008/2011 prop-2006 — full corpus, run cold
 
-Sixty seconds a instance, three jobs, mode auto. Every plan that lands gets
-run through VAL before it's real.
+Sixty seconds a instance, jobs 2, mode auto. Every plan that lands gets
+run through VAL before it's real. STITCHED: 292 row(s) reused from a prior
+pass's clean windows (ipc5-prop.prior.jsonl).
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
-| ipc-2006/openstacks-propositional | 30/30 | 4753 | 59.8s | 30/30 |
-| ipc-2006/openstacks-propositional-strips | 29/30 | 4145 | 91.0s | 29/29 |
-| ipc-2006/pathways-propositional | 23/30 | 2765 | 348.8s | 23/23 |
-| ipc-2006/pathways-propositional-strips | 24/30 | 3184 | 67.1s | 24/24 |
-| ipc-2006/pipesworld-propositional | 41/50 | 1731 | 285.1s | 41/41 |
-| ipc-2006/pipesworld-propositional-strips | 34/50 | 1327 | 219.1s | 34/34 |
-| ipc-2006/rovers-propositional | 38/40 | 3538 | 188.9s | 38/38 |
-| ipc-2006/rovers-propositional-strips | 35/40 | 2516 | 127.8s | 35/35 |
-| ipc-2006/storage-propositional | 24/30 | 840 | 76.3s | 24/24 |
-| ipc-2006/tpp-propositional | 28/30 | 3180 | 121.9s | 28/28 |
-| ipc-2006/tpp-propositional-strips | 26/30 | 2838 | 120.1s | 26/26 |
-| ipc-2006/trucks-propositional | 10/30 | 264 | 3.6s | 10/10 |
-| ipc-2006/trucks-propositional-strips | 12/30 | 333 | 25.2s | 12/12 |
+| ipc-2006/openstacks-propositional | 30/30 | 4753 | 41.5s | 30/30 |
+| ipc-2006/openstacks-propositional-strips | 28/30 | 3648 | 33.8s | 28/28 |
+| ipc-2006/pathways-propositional | 15/30 | 1095 | 135.4s | 15/15 |
+| ipc-2006/pathways-propositional-strips | 25/30 | 3270 | 64.8s | 25/25 |
+| ipc-2006/pipesworld-propositional | 42/50 | 1979 | 303.0s | 42/42 |
+| ipc-2006/pipesworld-propositional-strips | 39/50 | 1766 | 312.8s | 39/39 |
+| ipc-2006/rovers-propositional | 36/40 | 2879 | 61.6s | 36/36 |
+| ipc-2006/rovers-propositional-strips | 35/40 | 2414 | 86.2s | 35/35 |
+| ipc-2006/storage-propositional | 26/30 | 1028 | 92.7s | 26/26 |
+| ipc-2006/tpp-propositional | 30/30 | 3616 | 226.0s | 30/30 |
+| ipc-2006/tpp-propositional-strips | 28/30 | 3258 | 187.8s | 28/28 |
+| ipc-2006/trucks-propositional | 12/30 | 342 | 76.5s | 12/12 |
+| ipc-2006/trucks-propositional-strips | 12/30 | 340 | 39.1s | 12/12 |
 
-total coverage, the count: **354/450**
+total coverage: **358/450**

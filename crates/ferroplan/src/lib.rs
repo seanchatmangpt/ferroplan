@@ -87,6 +87,7 @@ pub mod production;
 pub mod production_explain;
 pub mod report;
 pub mod resolve;
+pub mod sat;
 pub mod selection;
 pub mod temporal;
 pub mod trace;
@@ -144,6 +145,6 @@ pub use readiness::{
     SecurityClass, ValidationStatus, CANDIDATE_AUTHORITY, CAPABILITY_MANIFEST_SCHEMA,
     OPERATION_ENVELOPE_SCHEMA,
 };
-pub use session::Session;
+pub use session::{Session, Think, ThinkBudget, ThinkVerdict};
 pub use trace::{trace, StateSnapshot};
 pub use types::ParseError;

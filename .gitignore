@@ -49,3 +49,24 @@ plugins/chatman-ecosystem/logs/
 
 # uv-managed venv for the plugin's CLI-tier scripts (uv.lock IS committed)
 plugins/chatman-ecosystem/.venv/
+
+benchmarks/air22/
+benchmarks/air23/
+.solver-refs/
+benchmarks/air24/
+benchmarks/cut24-sweep*.log
+benchmarks/cut24/opt-differential.log
+benchmarks/air25/
+benchmarks/air25-entries/
+benchmarks/entries25-sweep.log
+benchmarks/post-entries25.log
+
+# crucible: build output, local state, and the regenerable differential ledger.
+# The fixtures under crucible/tests/fixtures/ are deliberately NOT ignored --
+# they are rescued incident evidence (see that directory's README).
+crucible/target/
+crucible/state/
+benchmarks/crucible-differential.jsonl
+
+# 0.26 referee stages (crucible sets f1-before / f1-armed) and the cut.
+benchmarks/air26*/

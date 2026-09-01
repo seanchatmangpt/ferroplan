@@ -9,7 +9,7 @@
 
 /// A monotonic timestamp. Reads real time everywhere except wasm, where it
 /// goes still and reports zero.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Clock {
     #[cfg(not(target_arch = "wasm32"))]
     t0: std::time::Instant,

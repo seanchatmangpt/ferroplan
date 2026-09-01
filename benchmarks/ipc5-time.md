@@ -1,14 +1,14 @@
 # IPC-2008/2011 time-2006 — full corpus, run cold
 
-Thirty seconds a instance, three jobs, mode auto. Every plan that comes back
-gets run through VAL before it counts.
+timeout 60s/instance, jobs 2, mode auto. Every plan that comes back gets run
+through VAL before it counts.
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
-| ipc-2006/openstacks-time | 19/20 | 1354 | 7.1s | 19/19 |
-| ipc-2006/openstacks-time-strips | 20/20 | 1504 | 3.9s | 20/20 |
-| ipc-2006/storage-time | 15/30 | 199 | 10.5s | 15/15 |
-| ipc-2006/trucks-time | 11/30 | 431 | 14.8s | 11/11 |
-| ipc-2006/trucks-time-strips | 11/30 | 416 | 10.6s | 11/11 |
+| ipc-2006/openstacks-time | 20/20 | 1504 | 42.2s | 20/20 |
+| ipc-2006/openstacks-time-strips | 20/20 | 1504 | 1.4s | 20/20 |
+| ipc-2006/storage-time | 15/30 | 199 | 4.2s | 15/15 |
+| ipc-2006/trucks-time | 11/30 | 431 | 8.5s | 11/11 |
+| ipc-2006/trucks-time-strips | 13/30 | 561 | 75.3s | 13/13 |
 
-total coverage, the take: **76/130**
+total coverage, the take: **79/130**

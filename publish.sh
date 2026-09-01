@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #
-# publish.sh — release the two crates.io crates (library first, then the CLI),
-# then cut the matching GitHub Release (title + body sourced straight from
-# CHANGELOG.md — never hand-copied, so it can't drift).
+# publish.sh — release the four crates.io crates (ferroplan-sat first, since
+# 0.24.0 the library's own dependency; then the library; then the CLI and MCP
+# server, which depend on the library), then cut the matching GitHub Release
+# (title + body sourced straight from CHANGELOG.md — never hand-copied, so it
+# can't drift).
 #
 # Run from your OWN machine after `cargo login <token>` (the sandbox this was
 # authored in has no crates.io token and the network blocks crates.io, so it
@@ -52,6 +54,20 @@ TAG="v${VERSION}"
 # nice-to-have, never worth failing a crates.io publish over).
 create_github_release() {
   local ver="$1" tag="v${1}"
+  # Derive owner/repo from ORIGIN and pass it explicitly to every gh call.
+  # Without --repo, gh needs a "default repository" — per-clone state written
+  # by `gh repo set-default`. This repo has a second remote (the downstream
+  # fork), so gh refuses to guess, and on 0.21.0 the release step died AFTER
+  # all three crates were already published. A fresh clone would hit it again,
+  # so ambient state is the wrong place for this to live.
+  local slug
+  slug="$(git remote get-url origin 2>/dev/null \
+          | sed -E 's#^git@github\.com:#https://github.com/#; s#\.git$##' \
+          | sed -E 's#^https://github\.com/##')"
+  if [[ -z "$slug" ]]; then
+    echo "!! could not derive owner/repo from the 'origin' remote" >&2
+    return 1
+  fi
   if ! git rev-parse "$tag" >/dev/null 2>&1; then
     git fetch origin --tags -q 2>/dev/null || true
   fi
@@ -63,7 +79,7 @@ create_github_release() {
     echo "==> gh CLI not found — skipping the GitHub Release."
     echo "    Install: https://cli.github.com/, then \`gh auth login\`, then re-run:"
     echo "      ./publish.sh --release-only ${ver}"
-    echo "    Or create it by hand: https://github.com/seanchatmangpt/ferroplan/releases/new?tag=${tag}"
+    echo "    Or create it by hand: https://github.com/${slug}/releases/new?tag=${tag}"
     return 0
   fi
   local header notes_file title src
@@ -91,14 +107,15 @@ create_github_release() {
     /^## \[/ {flag=0}
     flag {print}
   ' "$src" | sed -e '/./,$!d' >"$notes_file"  # drop leading blank line(s) only
-  if gh release view "$tag" >/dev/null 2>&1; then
+  echo "==> GitHub repo: ${slug}"
+  if gh release view "$tag" --repo "$slug" >/dev/null 2>&1; then
     echo "==> Updating the existing GitHub Release for ${tag}"
-    gh release edit "$tag" --title "$title" --notes-file "$notes_file"
+    gh release edit "$tag" --repo "$slug" --title "$title" --notes-file "$notes_file"
   else
     echo "==> Creating the GitHub Release for ${tag}"
-    gh release create "$tag" --title "$title" --notes-file "$notes_file"
+    gh release create "$tag" --repo "$slug" --title "$title" --notes-file "$notes_file"
   fi
-  echo "    https://github.com/seanchatmangpt/ferroplan/releases/tag/${tag}"
+  echo "    https://github.com/${slug}/releases/tag/${tag}"
 }
 
 if [[ "$RELEASE_ONLY" == 1 ]]; then
@@ -111,11 +128,11 @@ echo "==> Releasing ferroplan ${VERSION} (tag ${TAG})"
 
 echo "==> Pre-flight (scoped to the published crates — does NOT build ferroplan-bevy)"
 cargo fmt --all --check
-# Scope clippy to the two crates we publish; a bare `--all-targets` would compile the
+# Scope clippy to the crates we publish; a bare `--all-targets` would compile the
 # whole workspace, including the Bevy GUI (minutes of build for nothing — the library
 # itself has no graphics dependency).
-cargo clippy -p ferroplan -p ferroplan-cli --all-targets -- -D warnings
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p ferroplan -p ferroplan-cli
+cargo clippy -p ferroplan-sat -p ferroplan -p ferroplan-cli --all-targets -- -D warnings
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p ferroplan-sat -p ferroplan -p ferroplan-cli
 # Skips the `#[ignore]`d IPC-benchmark regression guards (multi-minute solves); those
 # are CI-gated on every push. Set RUN_HEAVY=1 to include them here too (release-built).
 if [[ "${RUN_HEAVY:-0}" == 1 ]]; then
@@ -123,14 +140,22 @@ if [[ "${RUN_HEAVY:-0}" == 1 ]]; then
 else
   cargo test -p ferroplan -p ferroplan-cli -p ferroplan-mcp
 fi
-# Build the library tarball and verify it compiles in isolation.
-cargo package -p ferroplan
+# ferroplan-sat has no unpublished path deps of its own, so it packages AND
+# dry-run-publishes cleanly standalone — a real check. ferroplan CANNOT: both
+# `cargo package` and `cargo publish --dry-run` resolve deps against the
+# index as if already published, and ferroplan-sat isn't there yet — so
+# ferroplan only gets a build check here; its own package/publish verification
+# happens for real inside `cargo publish -p ferroplan` below, once
+# ferroplan-sat is actually live.
+cargo package -p ferroplan-sat
+cargo publish -p ferroplan-sat --dry-run
 
 if [[ "$DRY_RUN" == 1 ]]; then
-  echo "==> --dry-run: library packages cleanly."
-  # The CLI dry-run needs `ferroplan ${VERSION}` on the index; before it is
-  # published that fails by design, so only build-check the CLI here.
-  cargo build -p ferroplan-cli
+  echo "==> --dry-run: ferroplan-sat dry-run-published clean."
+  # ferroplan's own dry-run (and the CLI's) needs `ferroplan-sat`/`ferroplan`
+  # ${VERSION} on the index; before they are published that fails by design,
+  # so only build-check them here.
+  cargo build -p ferroplan -p ferroplan-cli
   echo "==> Dry run OK. Re-run without --dry-run to publish."
   exit 0
 fi
@@ -148,10 +173,30 @@ fi
 if [[ "$ALREADY_ON_INDEX" != 1 ]]; then
   if [[ "$ASSUME_YES" != 1 ]]; then
     echo
-    echo "About to PUBLISH ferroplan, ferroplan-cli, and ferroplan-mcp ${VERSION} to crates.io."
+    echo "About to PUBLISH ferroplan-sat, ferroplan, ferroplan-cli, and ferroplan-mcp ${VERSION} to crates.io."
     echo "This is irreversible (a version can only be yanked, never deleted/reused)."
     read -r -p "Type the version (${VERSION}) to confirm: " reply
     [[ "$reply" == "$VERSION" ]] || { echo "aborted."; exit 1; }
+  fi
+
+  # ferroplan-sat may already be on the index from a prior interrupted run
+  # (same resume logic as the library, below, but checked separately since
+  # it's a distinct crate with its own index entry).
+  if cargo search ferroplan-sat 2>/dev/null | grep -qE "^ferroplan-sat = \"${VERSION}\""; then
+    echo "==> ferroplan-sat ${VERSION} already on crates.io — skipping."
+  else
+    echo "==> Publishing ferroplan-sat"
+    cargo publish -p ferroplan-sat
+
+    echo "==> Waiting for ferroplan-sat ${VERSION} to appear on the index"
+    for i in $(seq 1 30); do
+      if cargo search ferroplan-sat 2>/dev/null | grep -qE "^ferroplan-sat = \"${VERSION}\""; then
+        echo "   ferroplan-sat is on the index."
+        break
+      fi
+      sleep 5
+      [[ "$i" == 30 ]] && echo "   (still not visible after ~150s; the library publish may need a retry)"
+    done
   fi
 
   echo "==> Publishing the library"
@@ -186,5 +231,5 @@ fi
 
 create_github_release "$VERSION"
 
-echo "==> Done. Published ferroplan + ferroplan-cli ${VERSION}, tagged ${TAG}, cut the GitHub Release."
+echo "==> Done. Published ferroplan-sat + ferroplan + ferroplan-cli + ferroplan-mcp ${VERSION}, tagged ${TAG}, cut the GitHub Release."
 echo "    (Pushing the tag triggers the pages.yml rebuild.)"

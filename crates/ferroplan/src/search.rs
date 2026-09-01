@@ -23,8 +23,12 @@ use crate::types::NumPre;
 /// stay identical no matter how many workers show up. More hands only
 /// split the h-eval load inside one batch.
 const BATCH: usize = 256;
+/// The preferred-operator split of one batch (0.26 F1): lama.rs's shares,
+/// summing to `BATCH` so the wall/cap cadence is the same either way.
+const PREF_BATCH: usize = 192;
+const NORM_BATCH: usize = 64;
 /// The kill switch. States evaluated past this line, the sweep calls it —
-/// deterministic, no negotiation.
+/// deterministic, no negotiation. Default safety cap on evaluated states.
 pub const DEFAULT_MAX_EVAL: usize = 5_000_000;
 /// Fixed-point scale for the fractional heuristic weights — keeps the
 /// priority key an integer so the heap order, and the plan riding on it,
@@ -94,7 +98,7 @@ pub(crate) fn retained_bytes_budget() -> usize {
 /// kernel — a capped return the refill loop can spend the remaining
 /// wall on. The same 60% retained share applies as on the RLIMIT path;
 /// env absent ⇒ today's behavior exactly.
-fn rlimit_budget() -> usize {
+pub(crate) fn rlimit_budget() -> usize {
     if let Ok(v) = std::env::var("FF_MEM_BUDGET_GB") {
         if let Some(bytes) = mem_budget_bytes(&v) {
             return bytes;
@@ -139,12 +143,42 @@ pub(crate) fn node_cap_for_bytes(task: &PackedTask, bytes: usize) -> usize {
             return if n == 0 { usize::MAX } else { n };
         }
     }
-    // One stored `State` in the arena + the hash->index dedup entry (0.20
-    // Phase 4 dropped the visited set's second bitset copy — the old model
-    // charged `2 * words * 8`). The +128 covers Node bookkeeping, the map
-    // entry, and its singleton index bucket.
-    let per_node = task.words * 8 + task.fv0.len() * 8 + task.fdef0.len() + 128;
-    bytes / per_node.max(1)
+    bytes / per_node_model_bytes(task).max(1)
+}
+
+/// One stored `State` in the arena + the hash->index dedup entry (0.20
+/// Phase 4 dropped the visited set's second bitset copy — the old model
+/// charged `2 * words * 8`). The +128 covers Node bookkeeping, the map
+/// entry, and its singleton index bucket. Shared with the optimal
+/// ladder's teardown reserve (0.22 Phase 2), which needs the same
+/// per-node byte estimate the cap was derived from.
+pub(crate) fn per_node_model_bytes(task: &PackedTask) -> usize {
+    task.words * 8 + task.fv0.len() * 8 + task.fdef0.len() + 128
+}
+
+/// The OPTIMAL ladder's per-node byte model (0.22 Phase 2 lever 2):
+/// astar retains, per stored node, the arena `State` PLUS a full
+/// `StateKey` in the `best_g` memo — bits words and one quantized i64
+/// per RELEVANT fluent (the satisficing searches dropped their key
+/// copy at 0.20 Phase 4; the optimal path never did) — plus the
+/// g_of/open entries (+48). The old cap read the satisficing model and
+/// UNDER-charged fluent-heavy tasks ~2×: sailing-wind-opt i9's 8 GiB
+/// budget capped at 6.8M nodes whose true retained bytes ran ~15 GB
+/// into the macOS compressor, where a pop costs milliseconds, the
+/// count-cadence deadline goes blind, and teardown takes minutes
+/// (docs/roadmap-0.22.md Phase 2 receipts).
+pub(crate) fn opt_per_node_model_bytes(task: &PackedTask) -> usize {
+    per_node_model_bytes(task) + task.words * 8 + task.rel_fluents.len() * 8 + 48
+}
+
+/// [`node_cap_for`] under the optimal ladder's model.
+pub(crate) fn opt_node_cap_for(task: &PackedTask) -> usize {
+    if let Ok(v) = std::env::var("FF_SEARCH_NODE_CAP") {
+        if let Ok(n) = v.trim().parse::<usize>() {
+            return if n == 0 { usize::MAX } else { n };
+        }
+    }
+    retained_bytes_budget() / opt_per_node_model_bytes(task).max(1)
 }
 
 /// The dials on the weighted-best-first rig, wired through the library
@@ -221,6 +255,17 @@ pub struct SearchCfg {
     /// rides the `RESLM` cell `resolve::solve` sets while it's still
     /// holding the mutex groups.
     pub w_res: i64,
+    /// Preferred-operator alternation in the complete fallback (0.26 F1,
+    /// the LAMA recipe transplanted): the popped batch evaluates with
+    /// [`relaxed_helpful`], successors reached via a parent's helpful op
+    /// also sit in a second, favored heap, and each round pops 192 from
+    /// that heap and 64 from the normal one. Pop ORDER only — every key is
+    /// computed exactly as before, the normal heap still holds everything,
+    /// so open-list exhaustion still means exhaustion. `false` (the default
+    /// at every construction site) is the historical single heap and
+    /// [`relaxed_to`], bit-identical; only `plan_avoiding`'s plain
+    /// classical fallback arms it, and `FF_NO_ENRICH=1` restores it there.
+    pub pref_ops: bool,
     /// Per-run retained-memory target in raw bytes (0.11 Phase 4, the
     /// budgeted-think hook): overrides the default 8 GiB ceiling inside
     /// the `node_cap_for` byte model. `None` keeps the default.
@@ -228,7 +273,28 @@ pub struct SearchCfg {
     /// budget has to bound memory without smuggling in wall-clock
     /// nondeterminism. `FF_SEARCH_NODE_CAP` still overrides when set.
     pub node_bytes_target: Option<usize>,
+    /// Per-SEARCH wall deadline (0.24 Phase 5, the budget-stamped think):
+    /// `(start clock, total seconds)` for THIS call, independent of the
+    /// process-global `FF_TIME_LIMIT`. Checked at the same cadences the
+    /// 0.21/0.22 machinery established — the best-first batch boundary
+    /// (with the teardown/report reserve), EHC's per-evaluation slice, and
+    /// the bounded rungs' slice deadlines — and NOT subject to
+    /// `FF_NO_RUNG_WALLCAP` (this deadline never existed before 0.24, so
+    /// there is no prior shape to restore). `None` (the default
+    /// everywhere) is byte-identical to the pre-0.24 behavior.
+    pub deadline: Option<(crate::clock::Clock, f64)>,
 }
+
+// ARCHAEOLOGY (0.23 Phase 1): `tie_seed` — the diversification-on-refill
+// probe's ordering jitter (0.22 Phase 5B, opt-in `FF_REFILL_DIVERSIFY=1`)
+// — lived here and was REMOVED with its null-armed receipt filed: the one
+// motivating receipt (data-network i12's accidental byte-cap restart,
+// worth 6.5×) read NULL on the 0.22 binary — i12 solves in round 1, the
+// refill seed never fires, identical 473,488 evals both ways — and the
+// flag was opt-in, so no sweep ever armed it. House law, so it is never
+// pitched again: an opt-in flag that no sweep arms produces no evidence,
+// and no evidence means no pitch — a probe either rides a sweep or
+// leaves the tree.
 
 impl Default for SearchCfg {
     fn default() -> Self {
@@ -271,7 +337,9 @@ impl SearchCfg {
             len_anytime: false,
             w_lm: 0,
             w_res: 0,
+            pref_ops: false,
             node_bytes_target: None,
+            deadline: None,
         }
     }
 
@@ -416,11 +484,92 @@ pub fn arm_wall_limit() {
 }
 
 /// Fraction of the wall budget remaining, `None` if no limit is set.
-fn wall_remaining_frac() -> Option<f64> {
+pub(crate) fn wall_remaining_frac() -> Option<f64> {
     WALL.get_or_init(|| None).as_ref().map(|(start, total)| {
         let used = start.elapsed_ms() as f64 / 1000.0;
         ((total - used) / total).max(0.0)
     })
+}
+
+/// The armed wall's raw (start clock, total seconds), `None` when no
+/// limit is set. For loops that cache their own deadline copy (0.22
+/// Phase 2 lever 1: grounding's binding enumeration) instead of paying
+/// OnceLock traffic per check.
+pub(crate) fn wall_deadline() -> Option<(crate::clock::Clock, f64)> {
+    *WALL.get_or_init(|| None)
+}
+
+/// The 0.22 Phase 2 checkpoint hatch: `FF_NO_RUNG_WALLCAP=1` turns OFF
+/// the clock checkpoints this cycle added (the LAMA/novelty wall
+/// slices, the best-first batch-boundary check, grounding's enumeration
+/// check, per-rung-entry affordability) — restoring the 0.21 shapes so
+/// the RED overruns stay pinnable, exactly as `FF_NO_EHC_WALLCAP` keeps
+/// EHC's. Unset ⇒ checkpoints armed (they still do nothing without an
+/// armed `FF_TIME_LIMIT`).
+pub(crate) fn rung_wallcap_on() -> bool {
+    std::env::var("FF_NO_RUNG_WALLCAP").is_err()
+}
+
+/// TRUE iff an armed `FF_TIME_LIMIT` has FULLY expired and the 0.22
+/// checkpoints are not hatched off — the hard backstop the hot search
+/// loops check at their batch cadence (a Clock read per batch, never
+/// per state). Unarmed or hatched ⇒ always false, so every no-wall
+/// path stays byte-identical.
+pub(crate) fn wall_hard_expired() -> bool {
+    rung_wallcap_on() && wall_remaining_secs().is_some_and(|s| s <= 0.0)
+}
+
+/// [`wall_hard_expired`] with a TEARDOWN/REPORT reserve: dropping a big
+/// arena is paid at return, BEFORE the caller can print a verdict, so a
+/// trip at exactly the wall still crosses the runner's wire (tetris i4:
+/// solved by novelty, then the cost-improvement pass rode its plain
+/// checkpoint to a 60.09 s exit against a 60 s kill). Reserve
+/// `retained_bytes / 4e8` seconds — the measured arena-drop rate on the
+/// sweep box — capped at 15 s (the largest teardown measured, sailing
+/// i9's ~13 s). Small arenas reserve milliseconds.
+pub(crate) fn wall_expired_reserving(retained_bytes: usize) -> bool {
+    if !rung_wallcap_on() {
+        return false;
+    }
+    wall_deadline().is_some_and(|d| deadline_expired_reserving(d, retained_bytes))
+}
+
+/// [`wall_expired_reserving`] against a CACHED deadline copy — for hot
+/// loops that hold `wall_deadline()` once at entry (the grounding
+/// enumeration idiom) instead of paying OnceLock + env traffic per
+/// check. The caller owns the hatch read; this is just the arithmetic:
+/// expired iff remaining wall ≤ the teardown/report reserve for
+/// `retained_bytes` (see [`wall_expired_reserving`]'s rustdoc for the
+/// reserve's receipts).
+pub(crate) fn deadline_expired_reserving(
+    deadline: (crate::clock::Clock, f64),
+    retained_bytes: usize,
+) -> bool {
+    let (start, total) = deadline;
+    let reserve = (retained_bytes as f64 / 4e8).min(15.0);
+    (total - start.elapsed_ms() as f64 / 1000.0).max(0.0) <= reserve
+}
+
+/// Remaining seconds of a per-call `(start, total)` deadline, `None` when
+/// unarmed (0.24 Phase 5 — the budget-stamped think's own wall).
+pub(crate) fn deadline_remaining_secs(d: &Option<(crate::clock::Clock, f64)>) -> Option<f64> {
+    d.as_ref()
+        .map(|(t0, total)| (total - t0.elapsed_secs()).max(0.0))
+}
+
+/// Earliest-expiring of two optional `(start, total)` deadlines — how the
+/// bounded rungs fold a think's own wall (0.24 Phase 5) into the slice
+/// argument they already take from the global-wall machinery.
+pub(crate) fn sooner_deadline(
+    a: Option<(crate::clock::Clock, f64)>,
+    b: Option<(crate::clock::Clock, f64)>,
+) -> Option<(crate::clock::Clock, f64)> {
+    let rem = |d: &(crate::clock::Clock, f64)| (d.1 - d.0.elapsed_secs()).max(0.0);
+    match (a, b) {
+        (Some(x), Some(y)) => Some(if rem(&x) <= rem(&y) { x } else { y }),
+        (x, None) => x,
+        (None, y) => y,
+    }
 }
 
 /// Seconds of the wall budget remaining, `None` if no limit is set. The
@@ -517,10 +666,21 @@ impl SatGuidance {
     }
 }
 
-/// Runs toward an ARBITRARY (sub)goal from an arbitrary start state, over
-/// a grounded task shared with the rest of the operation — the reusable
-/// subplanner entry point for SGPlan-style partition-and-resolve.
-/// `search` is the whole-task convenience wrapper riding on top.
+/// Solve toward an ARBITRARY (sub)goal from an arbitrary start state over a
+/// shared grounded task — the reusable subplanner entry point for SGPlan-style
+/// partition-and-resolve. `search` is the whole-task convenience wrapper.
+///
+/// `orbit` (0.22 Phase 6 L3) switches the visited structure to CANONICAL
+/// keys: the successor hash and the on-collision equality both run
+/// through [`crate::orbits::OrbitMap::canonical_skey`], so states
+/// differing only by a member permutation dedup to one stored node.
+/// Memory stays Phase-4-shaped (one u64 + node index per state, states
+/// concrete in the arena); the canonicalization is paid per successor
+/// hash and per duplicate. The B&B cost fluent is appended AFTER
+/// canonicalization, so equal-orbit/different-cost states stay distinct.
+/// Guarded here — the single enforcement point — to plain searches: any
+/// forbidden mask, guidance, or closure drops the orbit (a mask the σ
+/// does not fix would break the automorphism the merge relies on).
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn search_from(
     task: &PackedTask,
@@ -534,12 +694,15 @@ pub fn search_from(
     forbidden: &[bool],
     sat: Option<&SatGuidance>,
     closure: Option<&ClosureCost>,
+    orbit: Option<&crate::orbits::OrbitMap>,
 ) -> PlanResult {
-    let batch = BATCH;
-    let node_cap = match cfg.node_bytes_target {
-        Some(b) => node_cap_for_bytes(task, b),
-        None => node_cap_for(task),
+    let orbit =
+        orbit.filter(|_| sat.is_none() && closure.is_none() && !forbidden.iter().any(|&b| b));
+    let khash = |s: &State| match orbit {
+        Some(om) => om.canonical_skey_hash(task, s, cost_fluent),
+        None => task.state_key_hash(s, cost_fluent),
     };
+    let batch = BATCH;
     // Phase-time attribution, printed only under FF_RES_DEBUG at the cap
     // return (measurement only — never affects behavior).
     let dbg = std::env::var("FF_RES_DEBUG").is_ok();
@@ -578,6 +741,23 @@ pub fn search_from(
         None
     };
     let clm_words = clms.len().div_ceil(64);
+    // The node cap's byte model charges `lm_acc` when the landmark term is
+    // armed (0.26 F1 — default-on in the classical fallback now, so the
+    // `clm_words × 8` bytes per node are real retained memory, not an
+    // opt-in curiosity the model could ignore). An explicit
+    // FF_SEARCH_NODE_CAP is a count and stays a count.
+    let node_cap = {
+        let base = match cfg.node_bytes_target {
+            Some(b) => node_cap_for_bytes(task, b),
+            None => node_cap_for(task),
+        };
+        if clm_words > 0 && std::env::var("FF_SEARCH_NODE_CAP").is_err() {
+            let per = per_node_model_bytes(task).max(1);
+            (base as u128 * per as u128 / (per + clm_words * 8) as u128) as usize
+        } else {
+            base
+        }
+    };
     let mut root_clm = vec![0u64; clm_words];
     if !clms.is_empty() {
         clm_accept_into(&mut root_clm, &clms, &init);
@@ -597,15 +777,27 @@ pub fn search_from(
     // states stay distinct (see PackedTask::state_key_with_cost).
     let mut heap: BinaryHeap<Reverse<(i64, usize)>> = BinaryHeap::new();
     heap.push(Reverse((0, 0))); // init popped first
-                                // Retained-state compression (0.20 Phase 4): visited is hash -> node
-                                // indices; equality is checked EXACTLY against the arena state, so
-                                // nothing stores a second copy of the bitset (the old StateKey set
-                                // held bits + vals per entry — words*8 bytes of pure duplication on
-                                // every inserted node). Dedup verdicts and expansion order are
-                                // byte-identical: the hash only routes to candidates, the exact
-                                // `state_key_eq` decides.
+                                // Preferred-operator alternation (cfg.pref_ops, 0.26 F1): the
+                                // LAMA rung's second heap. A successor reached via a parent's
+                                // helpful op sits in BOTH heaps; `expanded` makes it expand once.
+                                // The normal heap holds everything, so completeness is lama's
+                                // argument verbatim. Off (the default): never touched, and the
+                                // pop loop below is the historical one.
+    let mut pref_heap: BinaryHeap<Reverse<(i64, usize)>> = BinaryHeap::new();
+    let mut expanded: Vec<bool> = if cfg.pref_ops {
+        vec![false]
+    } else {
+        Vec::new()
+    };
+    // Retained-state compression (0.20 Phase 4): visited is hash -> node
+    // indices; equality is checked EXACTLY against the arena state, so
+    // nothing stores a second copy of the bitset (the old StateKey set
+    // held bits + vals per entry — words*8 bytes of pure duplication on
+    // every inserted node). Dedup verdicts and expansion order are
+    // byte-identical: the hash only routes to candidates, the exact
+    // `state_key_eq` decides.
     let mut visited: FxHashMap<u64, Vec<u32>> = FxHashMap::default();
-    visited.insert(task.state_key_hash(&init, cost_fluent), vec![0]);
+    visited.insert(khash(&init), vec![0]);
 
     let mut evaluated = 0usize;
     let mut best = i32::MAX;
@@ -623,13 +815,44 @@ pub fn search_from(
     let mut len_acc: Option<usize> = None;
     let mut eval_ceiling: usize = cfg.max_eval;
 
-    while !heap.is_empty() {
+    while !heap.is_empty() || !pref_heap.is_empty() {
         // pop a batch of lowest-priority nodes
         let mut popped: Vec<usize> = Vec::with_capacity(batch);
-        for _ in 0..batch {
-            match heap.pop() {
-                Some(Reverse((_, ni))) => popped.push(ni),
-                None => break,
+        if cfg.pref_ops {
+            // Deterministic mixed batch, lama.rs's shape: the boosted share
+            // from the preferred heap, the rest from the normal one — the
+            // same 256 total, so the wall/cap cadence below is unchanged.
+            for _ in 0..PREF_BATCH {
+                match pref_heap.pop() {
+                    Some(Reverse((_, ni))) if !expanded[ni] => {
+                        expanded[ni] = true;
+                        popped.push(ni);
+                    }
+                    Some(_) => continue,
+                    None => break,
+                }
+            }
+            for _ in 0..NORM_BATCH {
+                match heap.pop() {
+                    Some(Reverse((_, ni))) if !expanded[ni] => {
+                        expanded[ni] = true;
+                        popped.push(ni);
+                    }
+                    Some(_) => continue,
+                    None => break,
+                }
+            }
+            if popped.is_empty() {
+                // Only already-expanded entries came out; the heaps shrank
+                // by that much, so the loop condition decides what is left.
+                continue;
+            }
+        } else {
+            for _ in 0..batch {
+                match heap.pop() {
+                    Some(Reverse((_, ni))) => popped.push(ni),
+                    None => break,
+                }
             }
         }
 
@@ -728,28 +951,59 @@ pub fn search_from(
         // PARALLEL: evaluate h for the popped batch (the only evaluations),
         // each worker reusing one Scratch across its chunk.
         let t_phase = crate::clock::Clock::now();
-        let hs: Vec<Option<i32>> = par::par_map_with(
+        // Under pref_ops the evaluator is `relaxed_helpful`: the same relaxed
+        // plan, the same h, plus the helpful-action set the expansion below
+        // marks preferred successors with. Otherwise the historical
+        // evaluators, and the helpful slot is an empty (non-allocating) Vec.
+        let evals: Vec<Option<(i32, Vec<u32>)>> = par::par_map_with(
             &popped,
             threads,
             || Scratch::new(task),
             |sc, &ni| {
                 let s = &nodes[ni].state;
+                if cfg.pref_ops {
+                    return relaxed_helpful(task, sc, &s.bits, &s.fv, &s.fdef, goal_pos, goal_num);
+                }
                 match cfg.h_cost {
                     Some(hcf) => {
                         relaxed_costed(task, sc, &s.bits, &s.fv, &s.fdef, goal_pos, goal_num, hcf)
                     }
                     None => relaxed_to(task, sc, &s.bits, &s.fv, &s.fdef, goal_pos, goal_num),
                 }
+                .map(|h| (h, Vec::new()))
             },
         );
+        let hs: Vec<Option<i32>> = evals.iter().map(|e| e.as_ref().map(|(h, _)| *h)).collect();
         t_h += t_phase.elapsed_us();
         evaluated += popped.len();
+        // The wall checkpoint (0.22 Phase 2 lever 1): the eval cap is
+        // denominated in states and the wall in seconds, and on slow-eval
+        // domains the two run apart by MINUTES — gear-car i6 ran this loop
+        // to 72.1 s of a 60 s armed budget because 5M evals never came
+        // (solo receipts, docs/roadmap-0.22.md). One Clock read per
+        // 256-eval batch, with the teardown/report reserve so the verdict
+        // still crosses the runner's wire; a trip is a capped return like
+        // any other, so the refill loop (which re-checks the wall itself)
+        // winds down and the caller reports honestly. Unarmed or
+        // `FF_NO_RUNG_WALLCAP=1` ⇒ never trips.
+        let retained = nodes.len() * per_node_model_bytes(task);
+        let wall_hit = wall_expired_reserving(retained)
+            || cfg
+                .deadline
+                .is_some_and(|d| deadline_expired_reserving(d, retained));
+        if wall_hit && std::env::var("FF_WALL_DEBUG").is_ok() {
+            eprintln!("wall: best-first checkpoint expired at {evaluated} evals (capped return)");
+        }
         // The node cap (0.8 Phase 3) trips at the same batch boundary as the
         // eval cap: `nodes.len()` counts INSERTED successors — the quantity
         // that actually holds the memory — and is maintained serially, so the
         // check is thread-count independent. Overshoot is bounded by one
         // batch's insertions (the check precedes this batch's expansion).
-        if evaluated > cfg.max_eval || evaluated > eval_ceiling || nodes.len() > node_cap {
+        if evaluated > cfg.max_eval
+            || evaluated > eval_ceiling
+            || nodes.len() > node_cap
+            || wall_hit
+        {
             // Anytime: a capped sweep still hands back its incumbent — the
             // caller tightens to its cost and (with budget) sweeps again.
             if dbg {
@@ -790,14 +1044,14 @@ pub fn search_from(
 
         // PARALLEL: expand non-dead-end popped nodes; successors carry the
         // parent's h as their (deferred) priority key.
-        let live: Vec<(usize, i32)> = popped
+        let live: Vec<(usize, i32, &Vec<u32>)> = popped
             .iter()
-            .zip(hs.iter())
-            .filter_map(|(&ni, h)| h.map(|h| (ni, h)))
+            .zip(evals.iter())
+            .filter_map(|(&ni, e)| e.as_ref().map(|(h, help)| (ni, *h, help)))
             .collect();
         let t_phase = crate::clock::Clock::now();
-        let cand_chunks: Vec<Vec<(usize, usize, State, u64, i32)>> =
-            par::par_map(&live, threads, |&(ni, ph)| {
+        let cand_chunks: Vec<Vec<(usize, usize, State, u64, i32, bool)>> =
+            par::par_map(&live, threads, |&(ni, ph, helpful)| {
                 let st = &nodes[ni].state;
                 let mut v = Vec::new();
                 for oi in 0..task.n_ops {
@@ -811,8 +1065,12 @@ pub fn search_from(
                                 continue; // cost already >= bound: cannot beat incumbent
                             }
                         }
-                        let k = task.state_key_hash(&ns, cost_fluent);
-                        v.push((ni, oi, ns, k, ph));
+                        let k = khash(&ns);
+                        // Preferred = reached via one of the parent's helpful
+                        // ops. The set is empty off-path, so this is false
+                        // there and nothing downstream changes.
+                        let pref = cfg.pref_ops && helpful.contains(&(oi as u32));
+                        v.push((ni, oi, ns, k, ph, pref));
                     }
                 }
                 v
@@ -823,16 +1081,27 @@ pub fn search_from(
         // SERIAL: dedup + insert (deterministic order, independent of threads).
         let t_phase = crate::clock::Clock::now();
         for chunk in cand_chunks {
-            for (pi, oi, s, k, ph) in chunk {
+            for (pi, oi, s, k, ph, pref) in chunk {
                 let g = nodes[pi].g + 1;
                 if g >= cfg.g_bound || g >= len_bound {
                     continue; // cannot beat the length incumbent (see SearchCfg)
                 }
                 let bucket = visited.entry(k).or_default();
-                if bucket
-                    .iter()
-                    .any(|&idx| task.state_key_eq(&nodes[idx as usize].state, &s, cost_fluent))
-                {
+                // Orbit dedup pays canonicalization per COLLISION (the
+                // candidate once, plus each bucket occupant) — genuine
+                // duplicates are exactly where the lever earns its keep.
+                let dup = match orbit {
+                    Some(om) => {
+                        let ck = om.canonical_skey(task, &s, cost_fluent);
+                        bucket.iter().any(|&idx| {
+                            om.canonical_skey(task, &nodes[idx as usize].state, cost_fluent) == ck
+                        })
+                    }
+                    None => bucket
+                        .iter()
+                        .any(|&idx| task.state_key_eq(&nodes[idx as usize].state, &s, cost_fluent)),
+                };
+                if dup {
                     continue;
                 }
                 bucket.push(nodes.len() as u32);
@@ -866,15 +1135,19 @@ pub fn search_from(
                             g,
                             lm_acc: acc,
                         });
-                        heap.push(Reverse((
-                            cfg.w_g * g as i64
-                                + cfg.w_h * ph as i64
-                                + cfg.w_lm * un
-                                + res_term
-                                + sat_pen
-                                + cost_term,
-                            idx,
-                        )));
+                        let key = cfg.w_g * g as i64
+                            + cfg.w_h * ph as i64
+                            + cfg.w_lm * un
+                            + res_term
+                            + sat_pen
+                            + cost_term;
+                        heap.push(Reverse((key, idx)));
+                        if cfg.pref_ops {
+                            expanded.push(false);
+                            if pref {
+                                pref_heap.push(Reverse((key, idx)));
+                            }
+                        }
                         continue;
                     };
                     let idx = nodes.len();
@@ -885,15 +1158,19 @@ pub fn search_from(
                         g,
                         lm_acc: Vec::new(),
                     });
-                    heap.push(Reverse((
-                        cfg.w_g * g as i64
-                            + cfg.w_h * ph as i64
-                            + lm_term
-                            + res_term
-                            + sat_pen
-                            + cost_term,
-                        idx,
-                    )));
+                    let key = cfg.w_g * g as i64
+                        + cfg.w_h * ph as i64
+                        + lm_term
+                        + res_term
+                        + sat_pen
+                        + cost_term;
+                    heap.push(Reverse((key, idx)));
+                    if cfg.pref_ops {
+                        expanded.push(false);
+                        if pref {
+                            pref_heap.push(Reverse((key, idx)));
+                        }
+                    }
                 }
             }
         }
@@ -941,6 +1218,7 @@ pub fn search(task: &PackedTask, threads: usize, cfg: SearchCfg) -> PlanResult {
         &[],
         None,
         None,
+        None,
     )
 }
 
@@ -958,25 +1236,35 @@ pub struct PlanOutcome {
     pub capped: bool,
 }
 
-/// Runs the whole task. With `ehc_first` armed, tries enforced
-/// hill-climbing first — fast on most jobs — and falls back to weighted
-/// best-first the moment it stalls; otherwise goes straight to
-/// best-first. EHC plans are valid but not length-optimal — matches the
-/// FF/Metric-FF default and is the main lever on speed.
-pub fn plan(task: &PackedTask, threads: usize, cfg: SearchCfg, ehc_first: bool) -> PlanOutcome {
-    plan_avoiding(task, threads, cfg, ehc_first, &[])
+/// Plan the whole task. With `ehc_first`, run enforced hill-climbing (fast on
+/// most problems) and fall back to weighted best-first if it gets stuck;
+/// otherwise run best-first directly. EHC plans are valid but not length-optimal
+/// — this matches the FF/Metric-FF default and is the main speed lever.
+pub fn plan(
+    task: &PackedTask,
+    threads: usize,
+    cfg: SearchCfg,
+    ehc_first: bool,
+    orbit: Option<&crate::orbits::OrbitMap>,
+) -> PlanOutcome {
+    plan_avoiding(task, threads, cfg, ehc_first, &[], orbit)
 }
 
-/// [`plan`], but never touches any op `oi` where `forbidden[oi]` reads
-/// true. The metric optimizer's force-collect tightening leans on this —
-/// forbid the forgo actions so their preferences are actually forced to
-/// pay out.
+/// Like [`plan`], but never uses any op `oi` where `forbidden[oi]` is true. Used
+/// by the metric optimizer's force-collect tightening (forbid forgo actions to
+/// force their preferences to actually be satisfied).
+///
+/// `orbit` reaches only the best-first fallback's canonical dedup
+/// (0.22 Phase 6 L3) — the EHC/novelty/LAMA rungs keep their own visited
+/// structures untouched — and is dropped by `search_from`'s guard the
+/// moment a forbidden mask is in play.
 pub fn plan_avoiding(
     task: &PackedTask,
     threads: usize,
     cfg: SearchCfg,
     ehc_first: bool,
     forbidden: &[bool],
+    orbit: Option<&crate::orbits::OrbitMap>,
 ) -> PlanOutcome {
     // Budget-aware ladder (0.18 Phase 4, the novelty referee's next idea):
     // `FF_TIME_LIMIT=<secs>` tells the ladder its REAL wall budget (the
@@ -989,24 +1277,65 @@ pub fn plan_avoiding(
     // No limit set → all-rungs behavior, byte-identical to before.
     // (`map_or`, not `is_none_or`: the latter is stable only since 1.82,
     // above the crate's 1.74 MSRV.)
-    let rungs_affordable = wall_remaining_frac().map_or(true, |f| f > 0.4);
+    //
+    // 0.22 Phase 5A(a3): affordability is re-read AT EACH RUNG ENTRY —
+    // the 0.21 shape computed it once, here, so a rung entered after its
+    // predecessors spent the ladder down to a sliver still ran on a
+    // stale "affordable" verdict. `FF_NO_RUNG_WALLCAP=1` restores the
+    // compute-once shape; without an armed limit both read `true`
+    // forever, so the no-wall ladder is untouched.
+    let afford_once = wall_remaining_frac().map_or(true, |f| f > 0.4);
+    let reeval_afford = rung_wallcap_on();
+    let rungs_affordable = move |rung: &str| {
+        let now = if reeval_afford {
+            wall_remaining_frac().map_or(true, |f| f > 0.4)
+        } else {
+            afford_once
+        };
+        if !now && std::env::var("FF_WALL_DEBUG").is_ok() {
+            eprintln!(
+                "wall: {rung} skipped (remaining {:?} unaffordable at rung entry)",
+                wall_remaining_frac()
+            );
+        }
+        now
+    };
     // The probe eyes (FF_ORBIT_DEBUG's pattern): narrate the gate's
     // verdict on stderr, never affect the search.
     if std::env::var("FF_WALL_DEBUG").is_ok() {
         eprintln!(
             "wall: remaining {:?}, bounded rungs {}",
             wall_remaining_frac(),
-            if rungs_affordable {
-                "affordable"
-            } else {
-                "SKIPPED"
-            }
+            if afford_once { "affordable" } else { "SKIPPED" }
         );
     }
+    // 0.22 Phase 5A(a1/a2): the LAMA and h-guided-novelty rungs join
+    // EHC and novelty-light in paying for wall in the currency the
+    // board charges — a slice of the REMAINING wall at rung entry,
+    // checked at the rung's batch boundary. Deadlines, not pre-converted
+    // eval counts (evals/sec spans orders of magnitude). No armed
+    // budget ⇒ `None` ⇒ byte-identical; `FF_NO_RUNG_WALLCAP=1` restores
+    // the 0.21 unsliced rungs (the tetris i4 RED shape: LAMA's 400k-eval
+    // budget eating the clock ahead of the rung that solves).
+    let rung_slice = |var: &str, default: f64| {
+        if rung_wallcap_on() {
+            wall_remaining_secs().map(|rem| {
+                (
+                    crate::clock::Clock::now(),
+                    wall_frac_env(var, default) * rem,
+                )
+            })
+        } else {
+            None
+        }
+    };
     // Probe hatch (A/B eyes for the novelty rung): skip straight to it.
+    // The probe rung gets the WHOLE wall (slice `None`) — its receipts
+    // price what the rung converts when given wall, the 0.22 scoping's
+    // tetris i4 form.
     if std::env::var("FF_NOVELTY_ONLY").is_ok() {
         if let Some((ops, evaluated)) =
-            crate::novelty::search(task, threads, cfg.max_eval, forbidden)
+            crate::novelty::search(task, threads, cfg.max_eval, forbidden, None)
         {
             return PlanOutcome {
                 ops: Some(ops),
@@ -1028,6 +1357,24 @@ pub fn plan_avoiding(
             };
         }
     }
+    // Probe hatch for the partitioned h-free DRIVER (0.22 Phase 5B): the
+    // FF_NOVELTY_ONLY pattern — whole wall (slice `None`), A/B eyes only.
+    if std::env::var("FF_NOVDRIVER_ONLY").is_ok() {
+        if let Some((ops, evaluated)) = crate::novelty::search_driver(
+            task,
+            cfg.max_eval,
+            forbidden,
+            None,
+            &crate::novelty::DriverCfg::from_env(),
+        ) {
+            return PlanOutcome {
+                ops: Some(ops),
+                evaluated,
+                ehc_fell_back: true,
+                capped: false,
+            };
+        }
+    }
     // The probe eyes again (0.21 Phase 5): the wall-slice receipts need
     // to name WHICH rung solved, so each rung's win is narrated on
     // stderr under the same flag. Never affects the search.
@@ -1037,7 +1384,7 @@ pub fn plan_avoiding(
         }
     };
     if ehc_first {
-        if let Some((ops, evaluated)) = ehc(task, forbidden, cfg.max_eval) {
+        if let Some((ops, evaluated)) = ehc(task, forbidden, cfg.max_eval, cfg.deadline) {
             narrate_rung("EHC");
             return PlanOutcome {
                 ops: Some(ops),
@@ -1058,7 +1405,7 @@ pub fn plan_avoiding(
         // `FF_NO_NOVLIGHT=1` opts out.
         let novlight_on = std::env::var("FF_NOVLIGHT").is_ok()
             || (wall_remaining_frac().is_some() && std::env::var("FF_NO_NOVLIGHT").is_err());
-        if novlight_on && rungs_affordable {
+        if novlight_on && rungs_affordable("novelty-light") {
             // 300k pops: the width-y wins need plan-length pops (the
             // visit-all-2014 receipts: 899/3135/3248 — two orders below
             // this), while a hopeless domain's tax stays ~1 s (the
@@ -1081,11 +1428,15 @@ pub fn plan_avoiding(
         // boosting keep a gradient. Bounded, so the complete weighted
         // fallback below still gets its shot; never entered under an
         // explicit --search bfs. `FF_NO_LAMA=1` restores the two-rung ladder.
-        if std::env::var("FF_NO_LAMA").is_err() && rungs_affordable {
+        if std::env::var("FF_NO_LAMA").is_err() && rungs_affordable("LAMA") {
             const LAMA_CAP: usize = 400_000;
-            if let Some((ops, evaluated)) =
-                crate::lama::search(task, threads, LAMA_CAP.min(cfg.max_eval), forbidden)
-            {
+            if let Some((ops, evaluated)) = crate::lama::search(
+                task,
+                threads,
+                LAMA_CAP.min(cfg.max_eval),
+                forbidden,
+                sooner_deadline(rung_slice("FF_LAMA_WALL_FRAC", 0.25), cfg.deadline),
+            ) {
                 narrate_rung("LAMA");
                 return PlanOutcome {
                     ops: Some(ops),
@@ -1108,12 +1459,50 @@ pub fn plan_avoiding(
         // byte-identical to 0.17's.
         let novelty_on = std::env::var("FF_NOVELTY").is_ok()
             || (wall_remaining_frac().is_some() && std::env::var("FF_NO_NOVELTY").is_err());
-        if novelty_on && rungs_affordable {
+        if novelty_on && rungs_affordable("novelty") {
             const NOVELTY_CAP: usize = 400_000;
-            if let Some((ops, evaluated)) =
-                crate::novelty::search(task, threads, NOVELTY_CAP.min(cfg.max_eval), forbidden)
-            {
-                narrate_rung("novelty");
+            // 0.22 Phase 5B lever 3: the partitioned h-free DRIVER
+            // REPLACES the h-guided rung at this slot (post-LAMA,
+            // pre-fallback) — same cap, same slice, no per-pop
+            // `relaxed_helpful` (the parking receipt: 86 s of cumulative
+            // worker time building h at 100k evals). `FF_NOV_OLD=1`
+            // restores the 0.21 rung WHOLESALE (its code is untouched;
+            // the hatch swaps rungs). novelty-light stays ahead of LAMA
+            // — its +19 visit-all receipt is bankable and its slice
+            // proven.
+            let old_rung = std::env::var("FF_NOV_OLD").is_ok();
+            // The last bounded rung can afford the biggest slice:
+            // everything behind it is the fallback. 0.30 at 0.22 ("0.5
+            // converts loaded — the sweep referees the knob"); 0.50 since
+            // 0.26 F3 (the transport decode, `fieldgaps-F3-transport.md`):
+            // every transport conversion on 2008/2011 is the DRIVER's, and
+            // at 0.50 it converts 2011 i1/i2/i6/i7/i11 + 2008 i18 with LAMA
+            // kept, spider i1 (the arrival canary) intact and faster.
+            // `FF_NOV_WALL_FRAC=0.30` restores.
+            let slice = sooner_deadline(rung_slice("FF_NOV_WALL_FRAC", 0.50), cfg.deadline);
+            let solved = if old_rung {
+                crate::novelty::search(
+                    task,
+                    threads,
+                    NOVELTY_CAP.min(cfg.max_eval),
+                    forbidden,
+                    slice,
+                )
+            } else {
+                crate::novelty::search_driver(
+                    task,
+                    NOVELTY_CAP.min(cfg.max_eval),
+                    forbidden,
+                    slice,
+                    &crate::novelty::DriverCfg::from_env(),
+                )
+            };
+            if let Some((ops, evaluated)) = solved {
+                narrate_rung(if old_rung {
+                    "novelty"
+                } else {
+                    "novelty-driver"
+                });
                 return PlanOutcome {
                     ops: Some(ops),
                     evaluated,
@@ -1133,6 +1522,30 @@ pub fn plan_avoiding(
     // FF_CLM=<weight> adds w_lm × unaccepted-landmarks to the best-first
     // fallback's key (EHC and the LAMA rung are untouched).
     if cfg.h_cost.is_none() && !cfg.anytime {
+        // Fallback enrichment (0.26 F1): the plain classical fallback —
+        // the rung that writes the "used weighted best-first" note on 128
+        // of ipc5-prop's 369 solved rows — carries the LAMA recipe by
+        // default: preferred-operator alternation plus the landmark-count
+        // term at FF_CLM's historical parse-fallback weight (3.0). Scoped
+        // by this guard to exactly that rung: the cost-h rung, the anytime
+        // B&B loops, temporal and the optimal ladder never enter here.
+        // `FF_NO_ENRICH=1` is the restore hatch — single heap, plain h,
+        // no landmark term unless FF_CLM says otherwise, which it keeps
+        // saying exactly as it did (the 0.11 opt-in path is what the
+        // referee's decomposition arm measures).
+        let enrich = std::env::var("FF_NO_ENRICH").is_err();
+        cfg.pref_ops = enrich;
+        if enrich {
+            cfg.w_lm = (3.0 * WEIGHT_SCALE) as i64;
+        }
+        // ARCHAEOLOGY (0.26 F2): `FF_LOOKAHEAD=1` armed a YAHSP-style
+        // relaxed-plan lookahead in this fallback here — the relaxed plan
+        // read out of the scratch in RPG-layer order, executed first-fit
+        // on the concrete state, the deep terminal inserted on its own h
+        // with a multi-op edge. Removed with its receipts: parking, its
+        // constituency, is solved by LAMA and never reaches this rung; on
+        // the 2018 near-wall witnesses the terminal evaluations' tax read
+        // −1 (data-network i7 lost). docs/roadmap-0.26.md, F2.
         if let Ok(v) = std::env::var("FF_CLM") {
             let w = v.trim().parse::<f64>().unwrap_or(3.0);
             if w.is_finite() && w > 0.0 {
@@ -1167,6 +1580,20 @@ pub fn plan_avoiding(
     let mut round_cfg = cfg;
     let mut round = 0usize;
     let mut total_evaluated = 0usize;
+    // 0.22 Phase 2 lever 2 (the sailing-wind node cap): a refill round
+    // that died on the NODE cap — evals still under its eval budget —
+    // re-ran into the very same cap, so 9 early-exit rows handed back
+    // 20–40 s of a 60 s wall. When such a round has wall left, re-enter
+    // with the byte target doubled instead, at most ×4 total (the byte
+    // model demonstrably overcharges small post-fold numeric nodes ~2×
+    // — sailing-wind-sat i0: 3.94 GB RSS at the 4.08M-node trip against
+    // the 8 GiB model budget — and the ×4 ceiling keeps an accurate
+    // model's overshoot inside watchdog territory, never OOM-the-box
+    // territory). Only when the caller left `node_bytes_target` unset
+    // (an explicit target is a budgeted-think contract); the refill
+    // loop itself only arms under a declared wall, so no-wall runs are
+    // byte-identical. `FF_NO_NODECAP_REFILL=1` restores the fixed cap.
+    let mut node_raise = 1usize;
     loop {
         match search_from(
             task,
@@ -1180,6 +1607,7 @@ pub fn plan_avoiding(
             forbidden,
             None,
             None,
+            orbit,
         ) {
             PlanResult::Plan { ops, evaluated, .. } => {
                 narrate_rung(&format!("best-first fallback (round {})", round + 1));
@@ -1192,7 +1620,8 @@ pub fn plan_avoiding(
             }
             PlanResult::Unsolvable { evaluated, capped } => {
                 total_evaluated += evaluated;
-                let wall_ok = wall_remaining_frac().is_some_and(|f| f > 0.10);
+                let wall_ok = wall_remaining_frac().is_some_and(|f| f > 0.10)
+                    && deadline_remaining_secs(&cfg.deadline).map_or(true, |s| s > 0.0);
                 if !(capped && refill_armed && wall_ok && round < REFILL_MAX_ROUNDS) {
                     return PlanOutcome {
                         ops: None,
@@ -1201,12 +1630,45 @@ pub fn plan_avoiding(
                         capped,
                     };
                 }
+                // Node-capped, not eval-capped: the eval cap trips only
+                // past `max_eval`, so a capped round at or under it died
+                // on the node cap (or the wall checkpoint — and then
+                // `wall_ok` has already ended the loop above).
+                let node_capped = evaluated <= round_cfg.max_eval;
                 round += 1;
                 round_cfg.w_h = round_cfg
                     .w_h
                     .saturating_mul(4)
                     .min((1e9 * WEIGHT_SCALE) as i64);
                 round_cfg.max_eval = round_cfg.max_eval.saturating_mul(4);
+                // ARCHAEOLOGY (0.23 Phase 1): the diversification-on-refill
+                // probe (`FF_REFILL_DIVERSIFY=1`, 0.22 Phase 5B) hooked in
+                // here, seeding a per-round tie-break jitter. Removed with
+                // its null-armed receipt: data-network i12 — its one
+                // motivating case — solves in round 1 on the 0.22 binary,
+                // so the seed never fired (identical 473,488 evals both
+                // ways), and no sweep ever armed the opt-in flag. House
+                // law: no sweep armed means no evidence, no evidence means
+                // no pitch.
+                if node_capped
+                    && cfg.node_bytes_target.is_none()
+                    && node_raise < 4
+                    && std::env::var("FF_NO_NODECAP_REFILL").is_err()
+                {
+                    node_raise *= 2;
+                    round_cfg.node_bytes_target =
+                        Some(retained_bytes_budget().saturating_mul(node_raise));
+                    // Narrated UNGATED, not behind FF_WALL_DEBUG (0.24
+                    // Phase 6 label hygiene): the raise deliberately
+                    // overshoots the declared byte model into "watchdog
+                    // territory", and when the runner's RSS watchdog
+                    // SIGKILLs the overshoot there is no JSON — this
+                    // stderr line is the only trace by which the board's
+                    // mem-cap can name itself SELF-INFLICTED (ipc67.py
+                    // reads it into the note). At most two lines per run
+                    // (x2, x4), armed-wall refill rounds only.
+                    eprintln!("wall: node byte target raised x{node_raise} for the re-entry");
+                }
                 if std::env::var("FF_WALL_DEBUG").is_ok() {
                     eprintln!(
                         "wall: refill round {} (w_h {}, max_eval {})",
@@ -1220,14 +1682,17 @@ pub fn plan_avoiding(
     }
 }
 
-/// Enforced hill-climbing, running toward the task goal. From wherever it
-/// stands, it fires a breadth-first lookahead restricted to HELPFUL
-/// actions until a strictly lower-h state surfaces, jumps there, and
-/// repeats. Returns the plan and the body count of states burned, or
-/// `None` if it stalls or hits a dead end — the caller falls back to
-/// best-first, which always finishes the job. Single-threaded,
-/// deterministic.
-fn ehc(task: &PackedTask, forbidden: &[bool], max_eval: usize) -> Option<(Vec<usize>, usize)> {
+/// Enforced hill-climbing toward the task goal. From the current state, run a
+/// breadth-first lookahead restricted to HELPFUL actions until a strictly
+/// lower-h state is found, then jump to it and repeat. Returns the plan + states
+/// evaluated, or None if it gets stuck / hits a dead end (caller falls back to
+/// best-first, which is complete). Single-threaded and deterministic.
+fn ehc(
+    task: &PackedTask,
+    forbidden: &[bool],
+    max_eval: usize,
+    deadline: Option<(crate::clock::Clock, f64)>,
+) -> Option<(Vec<usize>, usize)> {
     // The ladder tax (0.21 Phase 5, lever 2): under an ARMED wall budget
     // the op-scaled eval budget below is joined by a wall-denominated
     // deadline — `FF_EHC_WALL_FRAC` (default 0.25) of the REMAINING wall
@@ -1238,7 +1703,9 @@ fn ehc(task: &PackedTask, forbidden: &[bool], max_eval: usize) -> Option<(Vec<us
     // across tasks, so the slice is a DEADLINE checked per evaluation in
     // the lookahead (where the wall is actually spent), not a
     // pre-converted eval count. No armed budget ⇒ `None` ⇒ byte-identical;
-    // `FF_NO_EHC_WALLCAP=1` restores op-scaled-only.
+    // `FF_NO_EHC_WALLCAP=1` restores op-scaled-only. A per-call deadline
+    // (0.24 Phase 5, the budget-stamped think) folds in as the
+    // earliest-expiring of the two — it is not subject to the hatch.
     let slice = if std::env::var("FF_NO_EHC_WALLCAP").is_err() {
         wall_remaining_secs().map(|rem| {
             (
@@ -1249,6 +1716,7 @@ fn ehc(task: &PackedTask, forbidden: &[bool], max_eval: usize) -> Option<(Vec<us
     } else {
         None
     };
+    let slice = sooner_deadline(slice, deadline);
     let init = task.initial();
     let mut sc = Scratch::new(task);
     let (mut cur_h, _) = relaxed_helpful(
@@ -1428,9 +1896,14 @@ fn bfs_improve(
     None
 }
 
-/// Subplanner contract: hands back the op sequence achieving
-/// `(goal_pos, goal_num)` from `start`, or `None` if the job is dead.
-/// This is what `sgp` calls per partition.
+/// Subplanner API: return the op sequence achieving `(goal_pos, goal_num)` from
+/// `start`, or None if unsolvable. This is what `sgp` calls per partition.
+///
+/// `orbit` (0.22 Phase 6 L5): the partition cascade hands its GOAL-FREE
+/// orbit view down here — a subgoal is a goal subset, so only orbits no
+/// goal fact touches stay sound. The avoiding-path siblings below take
+/// no orbit at all: their forbidden masks are built from sibling goal
+/// facts and are not σ-invariant.
 pub fn solve_subgoal(
     task: &PackedTask,
     start: &State,
@@ -1438,8 +1911,25 @@ pub fn solve_subgoal(
     goal_num: &[NumPre],
     threads: usize,
     cfg: SearchCfg,
+    orbit: Option<&crate::orbits::OrbitMap>,
 ) -> Option<Vec<usize>> {
-    solve_subgoal_avoiding(task, start, goal_pos, goal_num, &[], threads, cfg)
+    match search_from(
+        task,
+        start,
+        goal_pos,
+        goal_num,
+        None,
+        f64::INFINITY,
+        threads,
+        cfg,
+        &[],
+        None,
+        None,
+        orbit,
+    ) {
+        PlanResult::Plan { ops, .. } => Some(ops),
+        PlanResult::Unsolvable { .. } => None,
+    }
 }
 
 /// `solve_subgoal`, but never touching any op `oi` where `forbidden[oi]`
@@ -1466,6 +1956,7 @@ pub fn solve_subgoal_avoiding(
         threads,
         cfg,
         forbidden,
+        None,
         None,
         None,
     ) {
@@ -1501,6 +1992,7 @@ pub fn solve_subgoal_bounded(
         cfg,
         &[],
         sat,
+        None,
         None,
     ) {
         PlanResult::Plan { ops, evaluated, .. } => (Some(ops), evaluated, false),
@@ -1542,6 +2034,7 @@ pub fn solve_closure_bounded(
         forbidden,
         sat,
         Some(closure),
+        None,
     ) {
         PlanResult::Plan { ops, evaluated, .. } => (Some(ops), evaluated, false),
         PlanResult::Unsolvable { evaluated, capped } => (None, evaluated, capped),
@@ -1578,6 +2071,7 @@ pub fn solve_subgoal_guided(
         cfg,
         forbidden,
         sat,
+        None,
         None,
     ) {
         PlanResult::Plan { ops, evaluated, .. } => (Some(ops), evaluated),

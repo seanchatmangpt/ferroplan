@@ -18,6 +18,13 @@ pub fn run_planner(
     opts: &crate::Options,
     ipc: bool,
 ) -> (String, i32) {
+    // `--mode sat` (0.24, the wing): the SAT compilation owns its own text
+    // rendering — the capped/declined honesty lives in the notes, and the
+    // no-plan line never says "unsolvable" (a bounded-horizon verdict is
+    // not a proof).
+    if opts.mode == crate::Mode::Sat {
+        return run_sat_text(domain_src, problem_src, opts);
+    }
     let threads = if opts.threads == 0 {
         crate::par::num_threads()
     } else {
@@ -94,6 +101,17 @@ pub fn run_planner(
         }
     }
 
+    // FF_SAT_CLASSICAL (0.24 Phase 2): the same smoke opt-in as the library
+    // auto router — text and JSON must agree on where the flag routes. A
+    // decline inside falls back to the classic path (api's rule), so this
+    // can only re-render solves, never lose them.
+    if opts.mode == crate::Mode::Auto
+        && std::env::var("FF_SAT_CLASSICAL").is_ok()
+        && !pddl3::has_preferences(&problem)
+    {
+        return run_sat_text(domain_src, problem_src, opts);
+    }
+
     // PDDL3.0: soft-goal preferences / metric -> compile + anytime B&B optimize.
     // EXCEPT the plain single-fluent `:action-costs` shape without preferences,
     // which the classical path below owns (costs.rs) — the same routing the
@@ -136,16 +154,34 @@ pub fn run_planner(
             );
             return (out, 1);
         }
+        Outcome::WallExhausted(_) => {
+            out.push_str(GROUNDING_WALL_LINE);
+            return (out, 0);
+        }
         Outcome::Task(t) => t,
     };
 
     out.push_str(&report::preamble(threads));
+    // The classical orbit consumer (0.22 Phase 6): partition passdown +
+    // B&B sweep keys. Constrained tasks stay orbit-free (api.rs's rule).
+    let orbit = if constrained {
+        None
+    } else {
+        crate::orbits::detect_classical(&domain, &problem, &task)
+    };
     let groups = crate::invariants::synthesize(&domain, &task);
-    match resolve::solve(&task, threads, cfg, &groups) {
+    match resolve::solve(&task, threads, cfg, &groups, orbit.as_ref()) {
         Solved::Plan(mut ops, stats) => {
             // IPC6 `:action-costs`: anytime cost sweep + reported plan cost.
-            let cost =
-                crate::costs::optimize_text(&problem, &task, opts.optimize, threads, cfg, &mut ops);
+            let cost = crate::costs::optimize_text(
+                &problem,
+                &task,
+                opts.optimize,
+                threads,
+                cfg,
+                &mut ops,
+                orbit.as_ref(),
+            );
             if constrained {
                 crate::constraints::strip_end(&task, &mut ops);
             }
@@ -169,6 +205,73 @@ pub fn run_planner(
     }
 }
 
+/// The `--mode sat` text renderer (0.24, the wing): plan (timed IPC lines
+/// for the temporal face, classic step lines for the classical face) plus
+/// the wing's notes verbatim — the ramp trail, decline reasons, and cap
+/// notices ARE the honesty surface, in text exactly as in JSON.
+fn run_sat_text(domain_src: &str, problem_src: &str, opts: &crate::Options) -> (String, i32) {
+    let mut out = String::new();
+    let sol = match crate::solve(domain_src, problem_src, opts) {
+        Ok(s) => s,
+        Err(e) => {
+            out.push_str(&format!("\nff: {}\n", e));
+            return (out, 1);
+        }
+    };
+    match (&sol.plan, sol.solved) {
+        (Some(plan), true) => {
+            out.push_str("\nff: found legal plan as follows\n");
+            if sol.plan.as_ref().is_some_and(|p| p.makespan.is_some()) {
+                for st in &plan.steps {
+                    let args = if st.args.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" {}", st.args.join(" ").to_lowercase())
+                    };
+                    match st.duration {
+                        Some(d) => out.push_str(&format!(
+                            "{:.3}: ({}{}) [{:.3}]\n",
+                            st.time.unwrap_or(0.0),
+                            st.action.to_lowercase(),
+                            args,
+                            d
+                        )),
+                        None => out.push_str(&format!(
+                            "{:.3}: ({}{})\n",
+                            st.time.unwrap_or(0.0),
+                            st.action.to_lowercase(),
+                            args
+                        )),
+                    }
+                }
+                if let Some(ms) = plan.makespan {
+                    out.push_str(&format!("\nplan makespan: {:.3}\n", ms));
+                }
+            } else {
+                for st in &plan.steps {
+                    let args = if st.args.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" {}", st.args.join(" "))
+                    };
+                    out.push_str(&format!("step {:>4}: {}{}\n", st.index, st.action, args));
+                }
+            }
+            for n in &sol.notes {
+                out.push_str(&format!("note: {n}\n"));
+            }
+            (out, 0)
+        }
+        _ => {
+            out.push_str("\n\nno plan found by the SAT rung (see notes).\n\n");
+            for n in &sol.notes {
+                out.push_str(&format!("note: {n}\n"));
+            }
+            (out, 1)
+        }
+    }
+}
+
 /// The unsolved wording, kept HONEST (0.21 Phase 3): "proven unsolvable"
 /// fires only on genuine open-list exhaustion; a capped search (eval
 /// budget, node-cap byte model) says so instead. Same exit code — a clean
@@ -180,6 +283,12 @@ fn unsolvable_line(capped: bool) -> &'static str {
         "\n\nbest first search space empty! problem proven unsolvable.\n\n"
     }
 }
+
+/// Same honesty bar for a grounding that stopped at the armed wall (0.22
+/// Phase 1): a budget exit, never a verdict — the word "unsolvable" must
+/// not appear.
+const GROUNDING_WALL_LINE: &str =
+    "\n\ngrounding budget reached! no plan found within budget (grounding NOT finished).\n\n";
 
 /// PDDL3 path: compile soft goals away, ground the augmented problem, and
 /// anytime branch-and-bound minimize the metric. Appends to `out`, returns exit.
@@ -256,6 +365,10 @@ fn plan_pddl3(
                 "\n\nff: goal accesses a fluent that will never have a defined value. Problem unsolvable.\n\n",
             );
             return 1;
+        }
+        Outcome::WallExhausted(_) => {
+            out.push_str(GROUNDING_WALL_LINE);
+            return 0;
         }
         Outcome::Task(t) => t,
     };
@@ -338,6 +451,10 @@ fn satisficing_fallback(
             out.push_str("\n\nff: goal can be simplified to FALSE. No plan will solve it\n\n");
             return 1;
         }
+        Outcome::WallExhausted(_) => {
+            out.push_str(GROUNDING_WALL_LINE);
+            return 0;
+        }
         _ => {
             out.push_str("\n\nbest first search space empty! problem proven unsolvable.\n\n");
             return 0;
@@ -345,10 +462,12 @@ fn satisficing_fallback(
     };
     out.push_str(&report::preamble(threads));
     let groups = crate::invariants::synthesize(domain, &task);
-    match resolve::solve(&task, threads, cfg, &groups) {
+    // Orbit-free on purpose: this is the PDDL3 fallback — the compiled
+    // preference machinery is outside the orbit audit.
+    match resolve::solve(&task, threads, cfg, &groups, None) {
         Solved::Plan(mut ops, stats) => {
             let cost =
-                crate::costs::optimize_text(problem, &task, optimize, threads, cfg, &mut ops);
+                crate::costs::optimize_text(problem, &task, optimize, threads, cfg, &mut ops, None);
             // The "NOT optimized" disclaimer stays honest: it is dropped only
             // when the classical cost path actually optimized the metric.
             let note = if cost.is_some() && optimize {
@@ -507,9 +626,25 @@ pub fn run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) -> (St
             out.push_str("\n\nff: goal accesses a fluent that will never have a defined value. Problem unsolvable.\n\n");
             (out, 1)
         }
+        Outcome::WallExhausted(_) => {
+            out.push_str(GROUNDING_WALL_LINE);
+            (out, 0)
+        }
         Outcome::Task(task) => {
-            let o =
-                crate::search::plan(&task, threads, cfg, opts.search != crate::Search::BestFirst);
+            // The classical orbit consumer (0.22 Phase 6), same rule as
+            // run_planner: constrained tasks stay orbit-free.
+            let orbit = if constrained {
+                None
+            } else {
+                crate::orbits::detect_classical(&domain, &problem, &task)
+            };
+            let o = crate::search::plan(
+                &task,
+                threads,
+                cfg,
+                opts.search != crate::Search::BestFirst,
+                orbit.as_ref(),
+            );
             let mut cost = None;
             let result = match o.ops {
                 Some(mut ops) => {
@@ -521,6 +656,7 @@ pub fn run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) -> (St
                         threads,
                         cfg,
                         &mut ops,
+                        orbit.as_ref(),
                     );
                     if constrained {
                         crate::constraints::strip_end(&task, &mut ops);

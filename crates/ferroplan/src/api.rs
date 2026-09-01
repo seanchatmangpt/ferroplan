@@ -19,6 +19,13 @@ use crate::resolve::{self, Solved};
 use crate::search;
 
 /// The doctrine the engine runs under.
+///
+/// Which planning strategy to use. `Mode::Sat` — bounded-horizon CNF over the
+/// absorbed solver core (`ferroplan-sat`) — has landed as a real variant
+/// below: ∃-step encoding + horizon ramp for pure-STRIPS slices, snap events
+/// + pairing clauses + STN-taught CEGAR for temporal tasks. It serializes as
+/// `"sat"` and rides `Solution::mode` on the session/MCP wire like every mode
+/// here.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
@@ -48,6 +55,17 @@ pub enum Mode {
     /// satisficing). Classical tasks with constant action costs;
     /// everything else is rejected with a named note.
     Optimal,
+    /// Bounded-layer SAT compilation over the in-tree CDCL solver (0.24,
+    /// the wing): ∃-step encoding + horizon ramp for pure-STRIPS slices;
+    /// snap events + pairing clauses + STN-taught CEGAR for temporal
+    /// tasks. The encoder prices itself and DECLINES tasks outside its
+    /// slice with a named note (numeric, conditional effects, TILs,
+    /// constraints) — a decline or a budget cap is never "unsolvable".
+    /// `auto` routes classical problems here only under the
+    /// `FF_SAT_CLASSICAL` smoke opt-in (falling back to the classic path
+    /// when SAT declines); temporal `auto` arms the rung on the ladder
+    /// per [`crate::temporal::solve`]'s policy (`FF_NO_SAT` restores).
+    Sat,
 }
 
 /// The search doctrine inside a mode.
@@ -398,6 +416,13 @@ enum Grounded {
     /// names the mechanism, surfaced as a `Solution.notes` entry (0.19
     /// Phase 1: a silent unsolvable verdict at grounding is a bug).
     Unsolvable(String),
+    /// grounding stopped at a declared budget — the armed wall
+    /// (0.22 Phase 2: the enumeration did not finish inside
+    /// `FF_TIME_LIMIT`) or the byte budget (0.22 Phase 1: the DNF
+    /// balloon). A BUDGET note, never the word "unsolvable" (the 0.21
+    /// honesty rider's wording bar: no substring classifier may read a
+    /// cap as a proof). The string names which budget and where.
+    Budget(String),
 }
 
 fn do_ground(
@@ -412,6 +437,7 @@ fn do_ground(
         Outcome::GoalUndefinedFluent(fl) => Ok(Grounded::Unsolvable(format!(
             "goal reads fluent {fl}, which never has a defined value"
         ))),
+        Outcome::WallExhausted(why) => Ok(Grounded::Budget(why)),
         Outcome::EmptyType { kind, pred, ty } => Err(SolveError::EmptyType {
             kind: kind.to_string(),
             pred,
@@ -557,12 +583,19 @@ pub fn solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solu
         opts.threads
     };
 
+    // FF_SAT_CLASSICAL (0.24 Phase 2): the classical/puzzle face of the
+    // SAT wing on the auto router, as the smoke test it is — band
+    // honestly ~0. Only classical problems reroute; a decline inside
+    // solve_sat falls back to the classic path with the note kept.
+    let sat_smoke = std::env::var("FF_SAT_CLASSICAL").is_ok();
     let mode = match opts.mode {
         Mode::Auto => {
             if crate::temporal::is_temporal(&domain) {
                 Mode::Temporal
             } else if pddl3::has_preferences(&problem) {
                 Mode::Pddl3
+            } else if sat_smoke {
+                Mode::Sat
             } else {
                 Mode::Ff
             }
@@ -587,7 +620,17 @@ pub fn solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solu
     match mode {
         Mode::Temporal => solve_temporal(&domain, &problem, threads),
         Mode::Pddl3 => solve_pddl3(&domain, &problem, opts, threads, constrained),
-        Mode::Optimal => solve_optimal(&domain, &problem, threads),
+        Mode::Optimal => solve_optimal(&domain, &problem, threads, constrained),
+        Mode::Sat => solve_sat(
+            &domain,
+            &problem,
+            opts,
+            threads,
+            constrained,
+            // From-auto smoke routing keeps auto's contract: a decline or
+            // cap falls back to the classic path (notes preserved).
+            opts.mode == Mode::Auto,
+        ),
         _ => solve_classic(
             &domain,
             &problem,
@@ -597,6 +640,117 @@ pub fn solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solu
             Vec::new(),
             constrained,
         ),
+    }
+}
+
+/// `Mode::Sat` (0.24, the wing): the bounded-layer SAT compilation. The
+/// temporal face runs snap events + pairing + STN-taught CEGAR
+/// ([`crate::sat::solve_temporal`]); the classical face runs the ∃-step
+/// encoder + horizon ramp over the grounded task. Every exit keeps the
+/// capped/declined honesty: a decline names its mechanism, a budget trip
+/// says "no plan within horizon H", and only budget-intact UNSAT sweeps
+/// claim per-horizon proofs — the word "unsolvable" appears exactly for
+/// grounding-time proofs, as everywhere else.
+fn solve_sat(
+    domain: &crate::types::Domain,
+    problem: &crate::types::Problem,
+    opts: &Options,
+    threads: usize,
+    constrained: bool,
+    from_auto: bool,
+) -> Result<Solution, SolveError> {
+    let cfg = crate::sat::SatCfg::from_env();
+    if crate::temporal::is_temporal(domain) {
+        let o = crate::sat::solve_temporal(domain, problem, threads, &cfg);
+        let stats = Statistics {
+            grounded_facts: o.grounded_facts,
+            grounded_actions: o.grounded_actions,
+            evaluated_states: 0,
+            threads,
+        };
+        return Ok(match o.plan {
+            Some(tp) => {
+                let steps = timed_steps(&tp);
+                Solution {
+                    solved: true,
+                    mode: Mode::Sat,
+                    plan: Some(Plan {
+                        length: steps.len(),
+                        steps,
+                        metric: None,
+                        makespan: Some(tp.makespan),
+                    }),
+                    statistics: stats,
+                    notes: o.notes,
+                }
+            }
+            None => unsolved(Mode::Sat, stats, o.notes),
+        });
+    }
+    if pddl3::has_preferences(problem) {
+        let notes = vec![
+            "SAT encoder declined: PDDL3 preferences (the wing is STRIPS/temporal only)"
+                .to_string(),
+        ];
+        return Ok(unsolved(
+            Mode::Sat,
+            Statistics {
+                threads,
+                ..Default::default()
+            },
+            notes,
+        ));
+    }
+    let task = match do_ground(domain, problem, threads)? {
+        Grounded::Task(t) => t,
+        Grounded::Trivial => return Ok(trivial(Mode::Sat, threads)),
+        Grounded::Unsolvable(why) => {
+            return Ok(unsolved(
+                Mode::Sat,
+                Statistics {
+                    threads,
+                    ..Default::default()
+                },
+                vec![format!("unsolvable at grounding: {why}")],
+            ));
+        }
+        Grounded::Budget(why) => {
+            return Ok(unsolved(
+                Mode::Sat,
+                Statistics {
+                    threads,
+                    ..Default::default()
+                },
+                vec![format!("grounding stopped at the declared budget: {why}")],
+            ));
+        }
+    };
+    let groups = crate::invariants::synthesize(domain, &task);
+    let o = crate::sat::solve_classical(&task, &groups, &cfg);
+    match o.plan {
+        Some(ops) => {
+            let steps = steps_of(&task, &ops, None);
+            Ok(Solution {
+                solved: true,
+                mode: Mode::Sat,
+                plan: Some(Plan {
+                    length: steps.len(),
+                    steps,
+                    metric: None,
+                    makespan: None,
+                }),
+                statistics: stats(&task, 0, threads),
+                notes: o.notes,
+            })
+        }
+        None if from_auto => {
+            // The smoke opt-in must not cost auto a solve: fall back to
+            // the classic route, notes carried.
+            let mut notes = o.notes;
+            notes.push("FF_SAT_CLASSICAL: SAT found no plan; fell back to the classic path".into());
+            solve_classic(domain, problem, opts, threads, Mode::Ff, notes, constrained)
+        }
+        None => Ok(unsolved(Mode::Sat, stats(&task, 0, threads), o.notes)),
     }
 }
 
@@ -610,6 +764,9 @@ fn solve_optimal(
     domain: &crate::types::Domain,
     problem: &crate::types::Problem,
     threads: usize,
+    // The constraint gate compiled monitor machinery in: stay orbit-free
+    // (solve_classic's rule).
+    constrained: bool,
 ) -> Result<Solution, SolveError> {
     let stats0 = Statistics {
         threads,
@@ -639,10 +796,32 @@ fn solve_optimal(
                 vec![format!("unsolvable at grounding: {why}")],
             ));
         }
+        Grounded::Budget(why) => {
+            return Ok(unsolved(
+                Mode::Optimal,
+                stats0,
+                vec![format!("grounding stopped at the declared budget: {why}")],
+            ));
+        }
     };
     let cf = crate::costs::metric_fluent(problem).and_then(|d| task.fluent_id(&d));
-    let max_nodes = crate::search::node_cap_for(&task);
-    let o = crate::optimal::solve(&task, cf, max_nodes);
+    // The optimal ladder's OWN byte model (0.22 Phase 2 lever 2): its
+    // best_g memo retains a full StateKey per stored node, which the
+    // satisficing model never counted — see `opt_per_node_model_bytes`.
+    let max_nodes = crate::search::opt_node_cap_for(&task);
+    // The 0.22 Phase 6 L1 consumer: orbit-canonical visited keys on the
+    // proof ladder (child-snack's factorial core is the constituency).
+    // The L2 gate inside detection bails any cost shape σ cannot fix.
+    // The iso-aware entry (0.23 Phase 4 probe 1): optimal A* is the one
+    // classical consumer wired for the relaxed goal test, so it alone
+    // may receive designations under FF_ORBIT_ISO=1; flag off this is
+    // detect_classical byte-for-byte.
+    let orbit = if constrained {
+        None
+    } else {
+        crate::orbits::detect_classical_iso(domain, problem, &task)
+    };
+    let o = crate::optimal::solve(&task, cf, max_nodes, orbit.as_ref());
     let stats = Statistics {
         grounded_facts: task.fact_names.len(),
         grounded_actions: task.n_ops,
@@ -702,10 +881,12 @@ pub fn decompose(
     let problem = parser::parse_problem(problem_src).map_err(SolveError::ProblemParse)?;
     let (domain, problem) =
         crate::derived::compile(&domain, &problem).map_err(SolveError::Derived)?;
-    // 0.7 gate: decompose targets temporal goals, where trajectory
-    // constraints stay rejected (Phase 3) — the gate names that. A CLASSICAL
-    // constrained input still passes through (falling back to one contract),
-    // so `constrained` drives the TRAJ-END step strip below.
+    // The constraints gate: timed operators and soft-on-temporal keep NAMED
+    // rejections; hard untimed constraints pass — classical inputs compiled
+    // here, temporal inputs vetted and compiled post-snap inside the
+    // temporal pipeline (0.23 Phase 2; the decomposer solves them
+    // monolithically). `constrained` drives the classical TRAJ-END step
+    // strip below — temporal plans never carry the step at all.
     let (domain, problem, constrained) = match crate::constraints::gate(&domain, &problem) {
         Ok(Some((d, p))) => (d, p, true),
         Ok(None) => (domain, problem, false),
@@ -786,6 +967,30 @@ fn solve_temporal(
     };
     match result {
         Some(tp) => {
+            // The complex-preferences entry (0.25 Phase 2): a temporal
+            // plan's PDDL3 preferences are scored post-hoc against the
+            // ORIGINAL pair — the metric and the violated-instance list
+            // ride the Solution; None means the pair carries none.
+            let score = crate::temporal::score_soft(domain, problem, &tp);
+            let mut notes = Vec::new();
+            if let Some(s) = &score {
+                let viol = if s.violated.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({})", s.violated.join(", "))
+                };
+                let m = match (s.metric, problem.metric.is_some()) {
+                    (Some(m), _) => format!("; metric {m}"),
+                    (None, true) => "; metric not evaluable by the scorer".into(),
+                    (None, false) => String::new(), // no :metric declared
+                };
+                notes.push(format!(
+                    "PDDL3 preferences scored post-hoc: {} satisfied, {} \
+                     violated{viol}{m}",
+                    s.satisfied,
+                    s.violated.len(),
+                ));
+            }
             let steps = timed_steps(&tp);
             Ok(Solution {
                 solved: true,
@@ -793,24 +998,41 @@ fn solve_temporal(
                 plan: Some(Plan {
                     length: steps.len(),
                     steps,
-                    metric: None,
+                    metric: score.as_ref().and_then(|s| s.metric),
                     makespan: Some(tp.makespan),
                 }),
                 statistics: Statistics {
                     threads,
                     ..Default::default()
                 },
-                notes: Vec::new(),
+                notes,
             })
         }
-        None => Ok(unsolved(
-            Mode::Temporal,
-            Statistics {
-                threads,
-                ..Default::default()
-            },
-            Vec::new(),
-        )),
+        None => {
+            // The unsolved story (0.25 Phase 4 — the early-exit
+            // classification found 35 rows whose reason nobody recorded):
+            // one observable, wall-vs-budget, splits the two big classes
+            // — a ladder that stopped AT the wall vs one that exhausted
+            // its own budgets with wall still on the table (the refill
+            // hand-back / instant-exhaust shapes). The runner plumbs this
+            // into the raws' notes column, so the standings can classify
+            // without a decode next time.
+            let note = match crate::search::wall_remaining_secs() {
+                Some(rem) if rem > 1.0 => {
+                    format!("temporal ladder exhausted its budgets with {rem:.0} s of wall left")
+                }
+                Some(_) => "temporal ladder stopped at the wall".to_string(),
+                None => "temporal ladder exhausted its budgets (no wall armed)".to_string(),
+            };
+            Ok(unsolved(
+                Mode::Temporal,
+                Statistics {
+                    threads,
+                    ..Default::default()
+                },
+                vec![note],
+            ))
+        }
     }
 }
 
@@ -840,8 +1062,29 @@ fn solve_classic(
                 notes,
             ));
         }
+        Grounded::Budget(why) => {
+            notes.push(format!("grounding stopped at the declared budget: {why}"));
+            return Ok(unsolved(
+                mode,
+                Statistics {
+                    threads,
+                    ..Default::default()
+                },
+                notes,
+            ));
+        }
     };
 
+    // The classical orbit consumer (0.22 Phase 6): canonical visited
+    // keys for the best-first dedup, the partition passdown, and the
+    // B&B cost sweep. Constrained (monitor-compiled) tasks stay
+    // orbit-free — a trajectory constraint can distinguish members over
+    // time in ways the compiled artifacts alone are not re-audited for.
+    let orbit = if strip_end {
+        None
+    } else {
+        crate::orbits::detect_classical(domain, problem, &task)
+    };
     let (ops, evaluated) = if mode == Mode::Portfolio {
         let o = crate::portfolio::solve(&task, threads, opts.search_cfg());
         if let Some(w) = o.winner {
@@ -850,13 +1093,13 @@ fn solve_classic(
         (o.ops, o.evaluated)
     } else if mode == Mode::Partition {
         let groups = crate::invariants::synthesize(domain, &task);
-        match resolve::solve(&task, threads, opts.search_cfg(), &groups) {
+        match resolve::solve(&task, threads, opts.search_cfg(), &groups, orbit.as_ref()) {
             Solved::Plan(ops, _) => (Some(ops), 0),
             Solved::Unsolvable { .. } => (None, 0),
         }
     } else {
         let ehc_first = opts.search != Search::BestFirst;
-        let o = search::plan(&task, threads, opts.search_cfg(), ehc_first);
+        let o = search::plan(&task, threads, opts.search_cfg(), ehc_first, orbit.as_ref());
         if o.ehc_fell_back && o.ops.is_some() {
             notes.push("EHC found no improving state; used weighted best-first".into());
         }
@@ -883,6 +1126,7 @@ fn solve_classic(
                             threads,
                             opts.search_cfg(),
                             evaluated,
+                            orbit.as_ref(),
                         );
                         ops = r.ops;
                         metric = Some(r.cost);
@@ -1002,6 +1246,16 @@ fn solve_pddl3(
                     ..Default::default()
                 },
                 vec![format!("unsolvable at grounding: {why}")],
+            ));
+        }
+        Grounded::Budget(why) => {
+            return Ok(unsolved(
+                Mode::Pddl3,
+                Statistics {
+                    threads,
+                    ..Default::default()
+                },
+                vec![format!("grounding stopped at the declared budget: {why}")],
             ));
         }
     };

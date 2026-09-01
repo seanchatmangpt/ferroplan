@@ -4,6 +4,16 @@
 //! the remainder at all; with no armed wall the ladder is bit-identical
 //! to the 0.20 node-split.
 //!
+//! 0.22 Phase 3 grows the battery three ways (docs/roadmap-0.22.md):
+//! the gate becomes MARGIN-shaped (`FF_OPT_GATE_MARGIN`, default 1.4 —
+//! thin ratios b-flip to h^max; margin 1.0 restores the 0.21 binary
+//! gate), the sprint slice is margin-SCALED (ratio ≥ 2 reads
+//! `FF_OPT_SPRINT_FRAC_HI`, default 0.1 — narrated as "0.1-class"), and
+//! the sprint's A* state SURVIVES the handover: LM-cut runs a bounded
+//! probe (`FF_OPT_LMCUT_PROBE_FRAC`) and on its failure h^max RESUMES
+//! its own open list with the leftover wall (`FF_OPT_NO_RESUME=1`
+//! restores the throw-away handover).
+//!
 //! One sequential test on purpose: the wall clock is a process-global
 //! OnceLock and FF_* are process-global env knobs, so each scenario runs
 //! in a CHILD process (the tests/refill.rs convention).
@@ -72,6 +82,58 @@ fn chain() -> (String, String) {
     )
 }
 
+/// The ratio dial: an `n`-step serial chain (h^max root = n) plus `m`
+/// independent flips (LM-cut root = n + m ⇒ ratio (n+m)/n), with the
+/// gatecheck junk chain (`junk` facts) inflating every heuristic eval so
+/// wall slices are actually FELT. n=3/m=1 is the city-car shape (ratio
+/// 1.33 — thin margin, must b-flip); n=6/m=6 is the lost-h^max-cert
+/// shape (ratio 2.0 — inside the true-c band, only resume saves it).
+fn chain_plus_flips(n: usize, m: usize, junk: usize) -> (String, String) {
+    let mut preds = String::new();
+    let mut acts = String::new();
+    let mut goal = String::new();
+    for i in 0..=n {
+        preds.push_str(&format!(" (p{i})"));
+    }
+    for i in 1..=n {
+        acts.push_str(&format!(
+            "(:action s{i} :parameters () :precondition (p{}) :effect (p{i}))\n",
+            i - 1
+        ));
+    }
+    goal.push_str(&format!(" (p{n})"));
+    for i in 0..m {
+        preds.push_str(&format!(" (on-{i})"));
+        acts.push_str(&format!(
+            "(:action flip-{i} :parameters () :precondition (and) :effect (on-{i}))\n"
+        ));
+        goal.push_str(&format!(" (on-{i})"));
+    }
+    let mut init = "(p0)".to_string();
+    if junk > 0 {
+        preds.push_str(" (free) (mua) (mub)");
+        acts.push_str(
+            "(:action mk-a :parameters () :precondition (free) :effect (and (mua) (not (free))))\n\
+             (:action mk-b :parameters () :precondition (free) :effect (and (mub) (not (free))))\n\
+             (:action chain-0 :parameters () :precondition (and (mua) (mub)) :effect (jf-0))\n",
+        );
+        for j in 0..junk {
+            preds.push_str(&format!(" (jf-{j})"));
+            if j > 0 {
+                acts.push_str(&format!(
+                    "(:action chain-{j} :parameters () :precondition (jf-{}) :effect (jf-{j}))\n",
+                    j - 1
+                ));
+            }
+        }
+        init.push_str(" (free)");
+    }
+    (
+        format!("(define (domain ratio) (:predicates{preds}) {acts})"),
+        format!("(define (problem r) (:domain ratio) (:init {init}) (:goal (and{goal})))"),
+    )
+}
+
 fn run_child(scenario: &str) -> (String, String, f64) {
     let exe = std::env::current_exe().unwrap();
     let mut cmd = Command::new(&exe);
@@ -80,7 +142,7 @@ fn run_child(scenario: &str) -> (String, String, f64) {
         .env("FF_TIME_LIMIT", "5")
         .env("FF_WALL_DEBUG", "1");
     match scenario {
-        "default" | "gate-b" => {}
+        "default" | "gate-b" | "margin-b" => {}
         "no-sprint" => {
             cmd.env("FF_NO_HMAX_SPRINT", "1");
         }
@@ -89,6 +151,49 @@ fn run_child(scenario: &str) -> (String, String, f64) {
         }
         "no-rootgate" => {
             cmd.env("FF_OPT_NO_ROOTGATE", "1");
+        }
+        "margin-1" => {
+            cmd.env("FF_OPT_GATE_MARGIN", "1.0");
+        }
+        "resume" => {
+            // 0.23 Phase 5 note: this scenario pins the 0.22
+            // SPRINT-RESUME machinery, whose trigger is a FAILED LM-cut
+            // probe. Incremental LM-cut (0.23) made the probe ~10× more
+            // label-efficient — strong enough to certify inside the
+            // 30 ms slice this fixture starves it with — so the subject
+            // is held fixed under the new lever's restore hatch; the
+            // incremental machinery has its own battery
+            // (tests/inc_lmcut.rs).
+            cmd.env("FF_NO_INC_LMCUT", "1");
+            // 0.22 Phase 9 pre-flight, root-caused (not a contention
+            // guess): this fixture's FULL h^max proof is only ~2521
+            // expansions — cheap enough that a release build finishes
+            // it in ~50-70 ms wall-clock, parse+ground included. The
+            // OLD sprint slice (0.005 x 10 s = 50 ms) was already
+            // marginal; raising the wall to 30 s without re-deriving
+            // the fraction (an earlier, wrong fix here) made it WORSE
+            // (150 ms slice) — release-mode sprint then reliably
+            // proves cost 13 solo, before ever reaching the LM-cut
+            // probe, so neither "LM-cut probe inconclusive" nor
+            // "resumes its open list" is ever printed. 100%
+            // reproducible on an idle box once the fixture and a FRESH
+            // release binary are lined up — this was never about
+            // background noise. 0.0002 (a ~6 ms slice of the 30 s
+            // wall) is release-mode-verified (40/40) to stay below
+            // what h^max needs; the probe fraction (0.001, ~30 ms) was
+            // already reliably too small for LM-cut's ~130-280
+            // expansions and is unchanged. The wall itself stays 30 s
+            // (not reverted to 10) purely to give the RESUMED search
+            // generous absolute margin to finish once it is properly
+            // forced to happen.
+            cmd.env("FF_TIME_LIMIT", "30")
+                .env("FF_OPT_SPRINT_FRAC_HI", "0.0002")
+                .env("FF_OPT_LMCUT_PROBE_FRAC", "0.001");
+        }
+        "no-resume" => {
+            cmd.env("FF_TIME_LIMIT", "30")
+                .env("FF_OPT_SPRINT_FRAC_HI", "0.005")
+                .env("FF_OPT_NO_RESUME", "1");
         }
         other => panic!("unknown scenario {other}"),
     }
@@ -126,6 +231,8 @@ fn opt_ladder_spends_the_wall() {
     if let Ok(scenario) = std::env::var("OPT_WALL_CHILD") {
         let (dom, prb) = match scenario.as_str() {
             "gate-b" | "no-rootgate" => chain(),
+            "margin-b" | "margin-1" => chain_plus_flips(3, 1, 0),
+            "resume" | "no-resume" => chain_plus_flips(6, 7, 3000),
             _ => gatecheck(),
         };
         let opts = ferroplan::Options {
@@ -139,10 +246,10 @@ fn opt_ladder_spends_the_wall() {
         return;
     }
 
-    // Default ladder, armed 5 s wall: the root gate sees LM-cut 18 >
-    // h^max 1, the time-boxed sprint trips at 0.4 x wall, and LM-cut
-    // certifies with the remainder — inside the wall (today: the
-    // node-split sprint floods ~14 s past it and h^max gets the credit).
+    // Default ladder, armed 5 s wall: the root gate sees LM-cut 18 vs
+    // h^max 1 (ratio 18 ≥ 2 ⇒ the 0.1-class sprint slice), the sprint
+    // trips fast, and LM-cut certifies inside its probe — inside the
+    // wall (0.21's node-split sprint flooded ~14 s past it).
     let (stdout, stderr, secs) = run_child("default");
     assert!(stdout.contains("CHILD-default-SOLVED:true"), "{stdout}");
     assert!(
@@ -152,6 +259,10 @@ fn opt_ladder_spends_the_wall() {
     assert!(
         stderr.contains("LM-cut earns the remainder"),
         "gate verdict missing from stderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("0.1-class"),
+        "ratio 18 must pick the margin-scaled sprint slice:\n{stderr}"
     );
     if !cfg!(debug_assertions) {
         assert!(secs < 5.0, "blew the 5 s wall: {secs:.1} s");
@@ -169,14 +280,19 @@ fn opt_ladder_spends_the_wall() {
     );
 
     // FF_NO_LMCUT keeps its pure-rung meaning: h^max with the FULL node
-    // budget holds the FULL wall (not the sprint slice), then returns
-    // the honest inconclusive instead of flooding ~14 s past the limit.
+    // budget holds the wall (not the 0.4 sprint slice — the lower bound
+    // discriminates against 2.0 s), then returns the honest inconclusive
+    // instead of flooding ~14 s past the limit. Since 0.22 Phase 2 the
+    // deadline carries a TEARDOWN RESERVE (stored-bytes / 4e8 s, the
+    // measured arena-drop rate), so the trip lands a beat BEFORE the
+    // wall and the process still EXITS by it — the upper bound is the
+    // honesty assertion, the lower one the slice discrimination.
     let (stdout, _, secs) = run_child("no-lmcut");
     assert!(stdout.contains("CHILD-no-lmcut-SOLVED:false"), "{stdout}");
     assert!(stdout.contains("inconclusive"), "{stdout}");
     assert!(
-        (4.5..15.0).contains(&secs),
-        "h^max must hold the whole 5 s wall, then stop: {secs:.1} s"
+        (2.4..15.0).contains(&secs),
+        "h^max must hold the wall past any sprint slice, then stop: {secs:.1} s"
     );
 
     // The gate's b-branch: LM-cut root == h^max root on a serial chain,
@@ -198,5 +314,60 @@ fn opt_ladder_spends_the_wall() {
     assert!(
         !stderr.contains("opt root gate"),
         "hatch must silence the gate:\n{stderr}"
+    );
+
+    // The margin b-flip (0.22 Phase 3 lever 1): LM-cut 4 vs h^max 3 —
+    // strictly greater, so the 0.21 binary gate went c-branch — but the
+    // ratio 1.33 sits in the city-car band (its six lost v0.19 proofs
+    // gated at 1.09–1.36 while every probed TRUE-c domain reads
+    // 2.2–6.0), so the margin gate hands h^max the whole wall.
+    let (stdout, stderr, _) = run_child("margin-b");
+    assert!(stdout.contains("CHILD-margin-b-SOLVED:true"), "{stdout}");
+    assert!(stdout.contains("h^max"), "{stdout}");
+    assert!(
+        stderr.contains("h^max holds the wall"),
+        "ratio 1.33 < margin 1.4 must b-flip:\n{stderr}"
+    );
+
+    // FF_OPT_GATE_MARGIN=1.0 restores the 0.21 binary gate exactly: the
+    // same 1.33-ratio fixture goes c-branch again (and, below 2, keeps
+    // the plain 0.4 sprint slice — no "0.1-class" narration).
+    let (stdout, stderr, _) = run_child("margin-1");
+    assert!(stdout.contains("CHILD-margin-1-SOLVED:true"), "{stdout}");
+    assert!(
+        stderr.contains("LM-cut earns the remainder"),
+        "margin 1.0 must restore lc > hm:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("0.1-class"),
+        "ratio 1.33 < 2 must keep the plain sprint slice:\n{stderr}"
+    );
+
+    // Sprint-resume (0.22 Phase 3 lever 3): ratio 13/6 ≈ 2.17 — INSIDE
+    // the true-c band, the shape of the ten h^max certificates the 0.21
+    // slice killed (root ratios 2.59–3.5). The sprint trips at its
+    // (tiny, knob-forced) slice holding 3000-junk-inflated state, the
+    // LM-cut probe trips at its (tiny, knob-forced) bound, and h^max
+    // RESUMES its own open list and certifies cost 13 with the leftover
+    // wall — the seconds the 0.21 ladder threw away at handover.
+    let (stdout, stderr, _) = run_child("resume");
+    assert!(stdout.contains("CHILD-resume-SOLVED:true"), "{stdout}");
+    assert!(
+        stderr.contains("h^max resumes its open list"),
+        "the probe handover must narrate:\n{stderr}"
+    );
+    assert!(
+        stdout.contains("cost 13") && stdout.contains("h^max"),
+        "the RESUMED sprint must carry the certificate: {stdout}"
+    );
+
+    // FF_OPT_NO_RESUME restores the throw-away handover: no resume
+    // narration on the same fixture (LM-cut keeps the whole remainder;
+    // whether it finishes is a timing question the hatch pin does not
+    // ride on).
+    let (_, stderr, _) = run_child("no-resume");
+    assert!(
+        !stderr.contains("resumes its open list"),
+        "the hatch must silence the resume machinery:\n{stderr}"
     );
 }

@@ -117,13 +117,16 @@ def thermal():
         return None
 
 
-def summarize(idles, loads, comp_totals, swaps, therms, started):
+def summarize(idles, loads, comp_totals, swaps, therms, started,
+              timeline=None, interval=None):
     def pct(v, p):
         if not v:
             return None
         s = sorted(v)
         return round(s[min(len(s) - 1, int(len(s) * p))], 1)
     med = pct(idles, 0.5)
+    comp_total = (round(sum(comp_totals.values()) / max(len(idles), 1), 1)
+                  if idles else None)
     return {
         "started": started,
         "ended": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -137,10 +140,33 @@ def summarize(idles, loads, comp_totals, swaps, therms, started):
         "competitors_mean_pcpu": {k: round(v / max(len(idles), 1), 1)
                                   for k, v in sorted(comp_totals.items(),
                                                      key=lambda kv: -kv[1])[:TOP_N]},
+        "competitors_total_pcpu": comp_total,
         "swap_mb": {"max": round(max(swaps), 1) if swaps else None},
         "cpu_speed_limit": {"min": min(therms) if therms else None},
-        "verdict": ("clean" if med is not None and med >= 65
+        # 0.24: verdict moved OFF raw idle_pct onto named-competitor load.
+        # idle_pct is whole-machine and includes the board's OWN threads —
+        # a --threads 4/8 mco board burns 40-80% of this 10-core box by
+        # design, so a fixed idle floor (was >=65%) can never pass those
+        # boards even in an empty room (measured: mco-t8 read 38-40% idle
+        # with a combined 4-5% of real competing load). competitors_total
+        # already excludes the sweep's own process (SELF_HINTS), so it is
+        # the actual "who else is on this box" signal the module's own
+        # docstring says was the point. 25% clears every historical clean
+        # run on record (15-24% typical with Brave/Spotlight/etc. open) and
+        # still catches real contention (Brave+WindowServer 36%+, a pegged
+        # renderer at 100%, Spotlight mid-index at 40%).
+        "verdict": ("clean" if comp_total is not None and comp_total < 25.0
                     else "DEGRADED" if med is not None else "unknown"),
+        # The per-sample timeline (PER-INSTANCE-RETRY.md step 1): every
+        # sample as [epoch_ts, idle_pct, competitors_total_pcpu], so a
+        # later pass can intersect an instance's wall-clock window
+        # against the actual contention windows instead of throwing the
+        # whole board away over one bad stretch. ~360 samples on a
+        # 2-hour board at the default 20 s interval — trivial size. The
+        # rollup above stays the whole-board verdict; the timeline is
+        # the fine print a resume reads.
+        "interval": interval,
+        "timeline": timeline or [],
     }
 
 
@@ -152,6 +178,7 @@ def main():
     started = time.strftime("%Y-%m-%d %H:%M:%S")
     idles, loads, swaps, therms = [], [], [], []
     comp_totals = {}
+    timeline = []
     stop = {"now": False}
 
     def bye(*_):
@@ -172,13 +199,19 @@ def main():
         t = thermal()
         if t is not None:
             therms.append(t)
-        for k, v in competitors().items():
+        comp_now = competitors()
+        for k, v in comp_now.items():
             comp_totals[k] = comp_totals.get(k, 0.0) + v
+        timeline.append([
+            round(time.time(), 1),
+            round(i, 1) if i is not None else None,
+            round(sum(comp_now.values()), 1),
+        ])
         # Rewrite every sample so an interrupted board still has its record.
         if idles:
             with open(out, "w") as f:
                 json.dump(summarize(idles, loads, comp_totals, swaps, therms,
-                                    started), f, indent=1)
+                                    started, timeline, interval), f, indent=1)
                 f.write("\n")
         for _ in range(int(max(interval, 1))):
             if stop["now"]:

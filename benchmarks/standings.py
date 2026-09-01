@@ -18,14 +18,21 @@ Quality scoring, by track semantics:
   - IPC-5 preference tracks: already reference-scored on their own boards
     (ipc5-scoreboard.md, ipc5-qualitative-scoreboard.md) — linked, not
     recomputed here.
-  - IPC-5 time / metric-time / constraints: coverage-only. The honest
-    reason, on the record: the runner does not record MAKESPAN (the
-    track's quality currency) — a named runner debt, not an archive gap.
+  - IPC-5 time / metric-time: MAKESPAN vs the archive field's makespans
+    (computed per .soln from the timed steps, max(t + duration) — the
+    `; MakeSpan` headers are empty on exactly the planner that dominates
+    these tracks, sgplan). Scored only on rows that CARRY a makespan:
+    the runner records it since 0.22 (the 0.14-era debt, closed at that
+    cut so this cycle's re-baseline could score without a second sweep),
+    so a pre-0.22 raw renders coverage-only rather than a guessed number.
+  - IPC-5 constraints: coverage-only.
   - IPC-6/7 tracks: coverage (+ VAL) against standing baselines; no
     official per-instance archive is vendored for 2008/2011.
 
 Failure classes per unsolved instance (from the JSONL):
-  timeout (elapsed >= 90% of budget — including graceful engine exits
+  timeout (elapsed >= 90% of budget — the row's OWN `budget` stamp where
+  the raw carries one (ipc67.py records it since 0.23; the tier-move
+  mechanism), else this file's SWEEPS registry value — including graceful engine exits
   AT an armed FF_TIME_LIMIT wall; 90 because the refill loop's re-entry
   floor is 10% of wall, so nothing between 90% and the wall can be a
   give-up), mem-cap (notes), engine-reject/error (a named mechanism:
@@ -64,8 +71,23 @@ AIR_REBASELINED = {
     "2023 classical", "2014 tempo-sat", "2018 seq-sat", "2014 seq-sat",
     "2014 seq-agile", "2014 seq-opt", "2026 numeric (first board)",
     "2023 numeric", "2023 agile ENTRY (300s)", "2026 numeric-opt",
+    # 0.22 Phase 8 re-entries: committed to the Air this cycle, so a
+    # missing raw is a sweep in flight, not a cloud-era ghost.
+    "propositional", "net-benefit", "constraints",
+    # 0.23 Phase 3 re-entries (the sitting): time/metric-time re-baseline
+    # plus the four mco boards — the LAST cloud-era ghosts. Committed to
+    # the Air this cycle (cut23-sweeps.sh carries all six), so a missing
+    # raw is a sweep in flight from here on.
+    "time", "metric-time", "seq-mco t2", "seq-mco t4", "seq-mco t8",
+    "2014 seq-mco t4",
     # shared-sweep labels, split per competition at render time
     "seq-opt", "tempo-sat", "seq-sat",
+    # 0.25 Phase 1 entries: born on the Air — a missing raw means the
+    # entries sweep hasn't run yet, never a cloud-era ghost.
+    "2014 seq-mco t2", "2014 seq-mco t8", "2018 seq-opt", "2023 seq-sat",
+    "2023 seq-opt", "2023 numeric-opt", "2026 numeric-opt FULL",
+    "simple-preferences (full corpus)", "qualitative-preferences (full corpus)",
+    "complex-preferences (full corpus)",
 }
 CLOUD_ERA = "cloud-era board, NOT re-baselined — see git history"
 
@@ -77,19 +99,37 @@ def absent(label, pending="sweep in flight / not yet run"):
 # sweep jsonl -> (label, competition, budget seconds)
 SWEEPS = {
     "ipc5-prop.jsonl": ("propositional", "ipc5", 60),
-    "ipc5-time.jsonl": ("time", "ipc5", 30),
-    "ipc5-metric-time.jsonl": ("metric-time", "ipc5", 30),
+    "ipc5-time.jsonl": ("time", "ipc5", 60),
+    "ipc5-metric-time.jsonl": ("metric-time", "ipc5", 60),
     "ipc5-constraints.jsonl": ("constraints", "ipc5", 60),
     "ipc67-default.jsonl": ("seq-sat", "ipc67", 60),
-    "ipc67-temporal.jsonl": ("tempo-sat", "ipc67", 30),
+    # >>> TIER MOVE 30 -> 60 (0.23 Phase 3), DEFERRED TO PROMOTE TIME <<<
+    # The two temporal boards (this one and ipc2014-tempo below) sweep at
+    # 60 s from cut23-sweeps.sh on — but the COMMITTED raws are still the
+    # 30 s tier, carry no per-row budget stamp, and this registry value is
+    # what classifies their timeouts. Flipping it early would re-class
+    # every 30 s wall-exit as "early-exit" — a lie in the one column the
+    # refill loop is refereed by. The mechanism: ipc67.py stamps `budget`
+    # into every row since 0.23 and classify() prefers the row's own
+    # stamp, so the 60 s raws classify right the moment they land, with
+    # this field lagging harmlessly. FLIP BOTH FIELDS TO 60 when
+    # promote-air23.sh promotes the 60 s boards (it checks the stamps and
+    # reminds you), so the fallback and the budget prose in write_summary
+    # ("30 s temporal") stay truthful for pre-stamp archaeology.
+    "ipc67-temporal.jsonl": ("tempo-sat", "ipc67", 60),
     "ipc67-netben.jsonl": ("net-benefit", "ipc67", 60),
+    # The mco methodology (0.16, re-affirmed for the 0.23 re-entry): 60 s
+    # WALL-CLOCK per the competition rule — the track scores wall time on
+    # a fixed box, however many cores a planner burns — one instance at a
+    # time (--threads N --jobs 1). t8 is oversubscribed by construction
+    # on the 4P+6E Air and is recorded as such, not excused.
     "ipc7-mco-t2.jsonl": ("seq-mco t2", "ipc7", 60),
     "ipc7-mco-t4.jsonl": ("seq-mco t4", "ipc7", 60),
     "ipc7-mco-t8.jsonl": ("seq-mco t8", "ipc7", 60),
     # The modern corpora (0.17 frontier cycle).
     "ipc2014-sat.jsonl": ("2014 seq-sat", "modern", 60),
     "ipc2014-agile.jsonl": ("2014 seq-agile", "modern", 60),
-    "ipc2014-tempo.jsonl": ("2014 tempo-sat", "modern", 30),
+    "ipc2014-tempo.jsonl": ("2014 tempo-sat", "modern", 60),
     "ipc2014-mco-t4.jsonl": ("2014 seq-mco t4", "modern", 60),
     "ipc2018-sat.jsonl": ("2018 seq-sat", "modern", 60),
     "ipc2023-agile.jsonl": ("2023 classical", "modern", 60),
@@ -110,6 +150,35 @@ SWEEPS = {
     # (sailing-wind's is commented out; rainbowttles declares
     # :action-costs with zero total-cost effects).
     "ipc2026-opt.jsonl": ("2026 numeric-opt", "modern", 60),
+    # ------------------------------------------------------------------
+    # 0.25 Phase 1 — the table grows. New ENTRIES, first swept by
+    # entries25-sweeps.sh (a separate sweep from the standing 22 so the
+    # like-for-like table keeps its identity; the cut record carries two
+    # headlines by design). Every one is an entry, not a movement — no
+    # before/after exists until its second cut.
+    "ipc2014-mco-t2.jsonl": ("2014 seq-mco t2", "modern", 60),
+    "ipc2014-mco-t8.jsonl": ("2014 seq-mco t8", "modern", 60),
+    "ipc2018-opt.jsonl": ("2018 seq-opt", "optimal", 60),
+    "ipc2023-sat.jsonl": ("2023 seq-sat", "modern", 60),
+    "ipc2023-opt.jsonl": ("2023 seq-opt", "optimal", 60),
+    # The 2023 numeric corpus under Mode::Optimal — the track whose field
+    # receipts (ipc-2023n/results/opt.csv) were vendored with the corpus
+    # and never had a board to referee.
+    "ipc2023-numeric-opt.jsonl": ("2023 numeric-opt", "modern", 60),
+    # The FULL 2026 Overall Optimal constituency (13 domains / 260): the
+    # 3-pair ipc2026-opt board above stays as the like-for-like slice.
+    "ipc2026-opt-full.jsonl": ("2026 numeric-opt FULL", "modern", 60),
+    # The IPC-5 preference tracks at full corpus (the curated 8-instance
+    # boards under benchmarks/ipc5-*.md predate these and keep their
+    # reference-scored role).
+    "ipc5-simple-pref.jsonl": ("simple-preferences (full corpus)", "ipc5", 60),
+    "ipc5-qual-pref.jsonl": ("qualitative-preferences (full corpus)", "ipc5", 60),
+    # 0.25 Phase 2: the complex-preferences ENTRY — the track ferroplan
+    # could never attempt ("last of 3, until the feature ships"). Soft
+    # trajectory constraints + goal preferences on temporal domains,
+    # scored post-hoc; the metric column carries the PDDL3 preference
+    # score. Swept once the entries sweep's driver picks it up.
+    "ipc5-complex-pref.jsonl": ("complex-preferences (full corpus)", "ipc5", 60),
 }
 
 # our 2006 variant name -> (archive domain dir, archive track dir prefix)
@@ -172,6 +241,12 @@ def solved(r):
 
 
 def classify(r, budget):
+    # A row measured since 0.23 carries its own `budget` stamp, and it wins
+    # over the registry value: the 0.23 temporal tier move means one board
+    # name spans raws from two tiers, and the timeout class is denominated
+    # in the budget the row actually ran under, not the tier the registry
+    # currently declares (see the tier-move comment in SWEEPS).
+    budget = r.get("budget") or budget
     if solved(r):
         return "solved"
     if r.get("solved") and r.get("val") is False:
@@ -240,6 +315,91 @@ def archive_lengths():
     return out
 
 
+# A timed .soln step: `T: (action) [D]` — sgplan glues the bracket to the
+# paren, mips-xxl spaces everything, yochanps lowercases; one regex reads
+# all three (the classical `T: (action)` shape leaves group 2 empty).
+_SOLN_STEP = re.compile(
+    r"^\s*([\d.]+)\s*:\s*\([^)]*\)\s*(?:\[\s*([\d.]+)\s*\])?", re.M)
+
+
+def archive_makespans():
+    """(domain, track, instance) -> {planner: makespan} from the tgz.
+
+    The temporal mirror of archive_lengths (0.23 Phase 3): makespan is
+    computed from the timed steps — max(t + duration) — NEVER from the
+    `; MakeSpan` header, which is empty on exactly the planner that
+    dominates these tracks (sgplan), the same reason the length pass
+    counts action lines instead of trusting NrActions. Only Time*/
+    MetricTime* members are parsed; the *Constraints track variants land
+    in the dict too but no variant of ours ever maps to their keys
+    (arch_track), so they are inert, not filtered by guesswork.
+    """
+    if not os.path.exists(ARCHIVE):
+        return {}
+    out = defaultdict(dict)
+    with tarfile.open(ARCHIVE) as t:
+        for m in t.getmembers():
+            if not m.name.endswith(".soln"):
+                continue
+            parts = m.name.split("/")  # RESULTS/planner/dom/track.../pNN.soln
+            if len(parts) < 5:
+                continue
+            planner, dom = parts[1], parts[2]
+            track = "/".join(parts[3:-1])
+            if "Time" not in track:
+                continue
+            inst = int(re.search(r"p(\d+)\.soln", parts[-1]).group(1))
+            body = t.extractfile(m).read().decode(errors="replace")
+            ms = 0.0
+            for st in _SOLN_STEP.finditer(body):
+                ms = max(ms, float(st.group(1)) +
+                         (float(st.group(2)) if st.group(2) else 0.0))
+            if ms > 0:
+                out[(dom, track, inst)][planner] = ms
+    return out
+
+
+# Makespan W/T/L tie band: one ε slot at the COARSEST granularity on either
+# side of the comparison (sgplan's archive plans stagger at 0.01 where ours
+# ε-separate at 0.001), so ε bookkeeping can never book a win or a loss —
+# the quality ratio itself stays raw division, uncushioned.
+MS_TIE = 0.011
+
+
+def makespan_quality(rows, arch_ms):
+    """IPC-2008-style quality on the temporal tracks' currency (0.23
+    Phase 3) — the mirror of the propositional length path: best-of-field
+    makespan / ours, capped at 1, plus W/T/L. Scores ONLY rows that carry
+    a `makespan` (recorded since 0.22), so a cloud-era raw yields None and
+    the caller keeps its coverage-only note instead of a guessed column.
+    """
+    w = t_ = l = 0
+    ratios = []
+    for r in rows:
+        ours = r.get("makespan")
+        if not solved(r) or not ours or ours <= 0:
+            continue
+        dom, track = arch_track(r["variant"])
+        field = arch_ms.get((dom, track, r["instance"]), {})
+        if not field:
+            continue
+        best = min(field.values())
+        ratios.append(min(best / ours, 1.0))
+        if ours < best - MS_TIE:
+            w += 1
+        elif ours > best + MS_TIE:
+            l += 1
+        else:
+            t_ += 1
+    if not ratios:
+        return None
+    return (
+        f"makespan vs best-of-field: {w}W/{t_}T/{l}L, "
+        f"mean quality {sum(ratios)/len(ratios):.2f} "
+        f"({len(ratios)} scored)"
+    )
+
+
 def coverage_line(rows, budget):
     n = len(rows)
     s = sum(1 for r in rows if solved(r))
@@ -249,6 +409,20 @@ def coverage_line(rows, budget):
     fails = ", ".join(
         f"{v} {k}" for k, v in sorted(cls.items()) if k != "solved" and v
     )
+    # The attestation gap, named per board (0.25 Phase 0): a solved row
+    # with val=None was judged by NO external referee — VAL could not
+    # ingest that domain (typechecker refusal) or crashed judging it
+    # (the storage-time-constraints SIGBUS class); ipc67.py records the
+    # distinction deliberately (None, never False). Every such row still
+    # passed the ENGINE'S own oracles (replay/emitted-order audit; the
+    # SAT wing and temporal paths additionally run `temporal::validate`),
+    # but the table must say which referee a row had — 71 quiet rows at
+    # the 0.24 audit is how this line got here.
+    unattested = sum(1 for r in rows if solved(r) and r.get("val") is None)
+    if unattested:
+        note = (f"{unattested} solved VAL-unavailable "
+                "(engine-oracle only; see benchmarks/val-availability.py)")
+        fails = f"{fails}, {note}" if fails else note
     return s, n, fails or "none"
 
 
@@ -258,7 +432,127 @@ HISTORY = os.path.join(B, "standings-history.json")
 # Tracks where coverage IS proof rate: a solved row carries an optimality
 # certificate, so 45% there is a categorically different claim from 45% on a
 # satisficing board and must not be read as "worse".
-PROOF_TRACKS = {"seq-opt", "2014 seq-opt", "2026 numeric-opt"}
+PROOF_TRACKS = {"seq-opt", "2014 seq-opt", "2026 numeric-opt",
+                # 0.25 Phase 1 entries — proof boards from birth.
+                "2018 seq-opt", "2023 seq-opt", "2023 numeric-opt",
+                "2026 numeric-opt FULL"}
+
+
+# --------------------------------------------------------------------------
+# The vs-field column (0.25 Phase 1): field placement as DATA, not a
+# hand-refreshed page. Cohorts come from benchmarks/field-results.json
+# (the ipc-rankings.md numbers, promoted to machine-readable with their
+# provenance) plus the vendored official IPC-2023 numeric CSVs, parsed
+# live. A cell is a rough coverage-rate placement under the standing
+# caveats (30x budget gap, hardware confound, coverage != IPC's quality
+# formula) — never a claimed result. docs/ipc-rankings.md stays the
+# prose companion.
+def load_field():
+    out = {}
+    p = os.path.join(B, "field-results.json")
+    if os.path.exists(p):
+        out.update(json.load(open(p)).get("cohorts", {}))
+    import csv as _csv
+    for label, fname in (("2023 numeric", "sat.csv"),
+                         ("2023 numeric-opt", "opt.csv")):
+        cp = os.path.join(B, ".ipc-corpus", "ipc-2023n", "results", fname)
+        if not os.path.exists(cp):
+            continue
+        with open(cp, encoding="utf-8-sig") as f:
+            rows = list(_csv.reader(f))
+        names = [n.strip() for n in rows[0][2:] if n.strip()]
+        tot = [0] * len(names)
+        doms = 0
+        total_row = None
+        for r in rows[1:]:
+            if len(r) < 3:
+                continue
+            # Domain rows carry a group tag in col 1 (SNP/LNP); the
+            # trailing summary rows ("Total", per-group) leave it empty —
+            # summing those in triples every count.
+            if not r[0].strip():
+                if r[1].strip() == "Total":
+                    total_row = r
+                continue
+            doms += 1
+            for i in range(len(names)):
+                try:
+                    tot[i] += int(r[2 + i])
+                except (ValueError, IndexError):
+                    pass
+        if total_row is not None:
+            # Prefer the official Total row verbatim over our own sum.
+            for i in range(len(names)):
+                try:
+                    tot[i] = int(total_row[2 + i])
+                except (ValueError, IndexError):
+                    pass
+        of = doms * 20
+        out[label] = {
+            "entrants": [[n, t, of] for n, t in zip(names, tot)],
+            "field_size": len(names),
+            "note": "official per-domain CSV (ipc-2023n/results), parsed live",
+            "confidence": "high",
+        }
+    return out
+
+
+def _ord(n):
+    if 10 <= n % 100 <= 20:
+        return "th"
+    return {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+
+
+def _placement(cohort, s, n):
+    """Rank our s/n among a cohort's entrants by coverage RATE (the only
+    currency that survives mismatched denominators). '~' marks a field
+    with unlocated entrants — the rank is a floor on ignorance, and says
+    so by being approximate."""
+    ents = cohort.get("entrants") or []
+    if not ents or not n:
+        return None
+    ours = s / n
+    ahead = sum(1 for _, es, eo in ents if eo and es / eo > ours)
+    known = len(ents)
+    fs = cohort.get("field_size") or known
+    total = fs + 1  # the field plus us, the ipc-rankings.md convention
+    approx = "~" if fs > known else ""
+    lead = max(ents, key=lambda e: (e[1] / e[2]) if e[2] else 0.0)
+    r = ahead + 1
+    # A sparse entrant list makes strict-rank optimistic; a cohort that
+    # KNOWS more entrants sit ahead than it lists carries a rank_floor
+    # (e.g. "7 confirmed entrants span 163-198", "below the field
+    # median of 24"), and the cell says ≥ instead of pretending. The
+    # floor is CONDITIONAL on its justifying entrant still being ahead
+    # (rank_floor_if_behind names it) — a future cut that passes that
+    # mark must not inherit a stale pessimism either.
+    floor = cohort.get("rank_floor", 1)
+    justif = cohort.get("rank_floor_if_behind")
+    if justif is not None:
+        je = next((e for e in ents if e[0] == justif), None)
+        if not (je and je[2] and je[1] / je[2] > ours):
+            floor = 1
+    if floor > r:
+        r, approx = floor, "≥"
+    return (f"{approx}{r}{_ord(r)} of {total} by rate "
+            f"(leader {lead[0]} {lead[1]}/{lead[2]})")
+
+
+def field_cell(field, label, rows, s, n):
+    cohort = field.get(label)
+    if not cohort:
+        return "—"
+    if "splits" in cohort:
+        parts = []
+        for ipc, sub in sorted(cohort["splits"].items()):
+            rs = [r for r in rows if r.get("ipc") == ipc]
+            ss = sum(1 for r in rs if solved(r))
+            p = _placement(sub, ss, len(rs))
+            if p:
+                parts.append(f"{ipc[-4:]}: {p}")
+        return " · ".join(parts) if parts else "—"
+    p = _placement(cohort, s, n)
+    return p or "—"
 
 
 def _history():
@@ -329,8 +623,9 @@ def write_summary(data):
         s, n, _ = coverage_line(rows, budget)
         if not n:
             continue
-        live.append((label, s, n, 100.0 * s / n))
+        live.append((label, s, n, 100.0 * s / n, rows))
     live.sort(key=lambda r: -r[3])
+    field = load_field()
 
     tot_s = sum(r[1] for r in live)
     tot_n = sum(r[2] for r in live)
@@ -352,15 +647,17 @@ def write_summary(data):
     bands = [("Strong", lambda p: p >= 60), ("Middle", lambda p: 25 <= p < 60),
              ("Weak", lambda p: p < 25)]
     for name, pred in bands:
-        rows = [r for r in live if pred(r[3])]
-        if not rows:
+        band_rows = [r for r in live if pred(r[3])]
+        if not band_rows:
             continue
         L += [f"## {name}", "",
-              "| track | coverage | | vs previous |", "|---|---|---|---|"]
-        for label, s, n, pct in rows:
+              "| track | coverage | | vs previous | vs field |",
+              "|---|---|---|---|---|"]
+        for label, s, n, pct, rows in band_rows:
             mark = " ⚖️" if label in PROOF_TRACKS else ""
             L.append(f"| {label}{mark} | {s}/{n} | `{_bar(pct)}` {pct:.0f}% "
-                     f"| {_delta(label, s, n, prev)} |")
+                     f"| {_delta(label, s, n, prev)} "
+                     f"| {field_cell(field, label, rows, s, n)} |")
         L += [""]
 
     if pending:
@@ -378,12 +675,19 @@ def write_summary(data):
 
     L += ["## How to read this", "",
           "- **coverage** is solved/total at that track's official-ish budget "
-          "(60 s satisficing, 30 s temporal, 300 s where marked an entry).",
+          "(60 s satisficing, 60 s temporal, 300 s where marked an entry).",
           "- **⚖️ marks a proof track**: coverage is the share of instances "
           "PROVEN optimal, a far harder bar than finding some plan.",
           "- **vs previous** compares only against a release measured on the same "
           "hardware. A blank means no comparable predecessor exists yet, not zero "
           "movement.",
+          "- **vs field** is a rough coverage-RATE placement against that "
+          "competition's actual entrants (data: `benchmarks/field-results.json` "
+          "+ the vendored official IPC-2023n CSVs), under the standing caveats "
+          "— official budgets are ~30× ours, and coverage ≠ IPC's "
+          "quality-weighted scoring. `~` marks a field with unlocated "
+          "entrants; `—` means no per-entrant field data is held. Prose and "
+          "provenance: [`docs/ipc-rankings.md`](docs/ipc-rankings.md).",
           "- A board is only as honest as its conditions; those are recorded per "
           "cycle in `docs/roadmap-0.N.md`.", ""]
     with open(SUMMARY, "w") as f:
@@ -412,7 +716,7 @@ def _patch_readme(live, tot_s, tot_n, proofs, box):
         return
     head_end = text.find("-->", i) + 3
     top = [f"| track | coverage | |", "|---|---|---|"]
-    for label, s, n, pct in live[:5]:
+    for label, s, n, pct, _rows in live[:5]:
         mark = " ⚖️" if label in PROOF_TRACKS else ""
         top.append(f"| {label}{mark} | {s}/{n} | `{_bar(pct, 16)}` {pct:.0f}% |")
     block = [
@@ -456,6 +760,7 @@ def _delta(label, s, n, prev):
 
 def main():
     arch = archive_lengths()
+    arch_ms = archive_makespans()
     lines = [
         "# IPC standings — the one honest table per competition",
         "",
@@ -484,9 +789,23 @@ def main():
     lines += ["## IPC-5 (2006)", ""]
     ip5 = [
         ("propositional", "quality vs field"),
-        ("time", "coverage-only (makespan not recorded — runner debt)"),
-        ("metric-time", "coverage-only (makespan not recorded — runner debt)"),
+        # The fallback text renders only when a raw exists but carries no
+        # makespan column (a pre-0.22 runner's rows); a scored raw gets the
+        # makespan_quality line instead. The 0.14-era runner debt itself is
+        # CLOSED (0.22: 486/486 solved temporal rows carry makespan).
+        ("time", "coverage-only (raw predates the 0.22 makespan column)"),
+        ("metric-time",
+         "coverage-only (raw predates the 0.22 makespan column)"),
         ("constraints", "coverage-only (timed modal ops rejected by name)"),
+        # 0.25 Phase 1: the preference tracks at full corpus (the curated
+        # 8-instance reference-scored boards keep their own files).
+        ("simple-preferences (full corpus)",
+         "coverage = hard-goal solves; preference metric in the raw"),
+        ("qualitative-preferences (full corpus)",
+         "coverage = hard-goal solves; preference metric in the raw"),
+        ("complex-preferences (full corpus)",
+         "coverage = hard-goal solves; PDDL3 preference metric scored "
+         "post-hoc in the raw (0.25 Phase 2 entry)"),
     ]
     lines += [
         "| track | entered | coverage | quality | failure classes |",
@@ -524,6 +843,12 @@ def main():
                     f"({len(ratios)} scored)"
                 )
                 prop_quality = q
+        # The temporal quality currency (0.23 Phase 3): renders only off a
+        # re-baselined raw — makespan_quality returns None on rows without
+        # the 0.22 makespan column, so a cloud-era ghost cannot acquire a
+        # quality number it never measured.
+        if label in ("time", "metric-time") and arch_ms:
+            q = makespan_quality(rows, arch_ms) or q
         lines.append(f"| {label} | yes | {s}/{n} | {q} | {fails} |")
     lines += [
         "| simple-preferences | yes | see board | reference-scored — "
@@ -596,20 +921,20 @@ def main():
         lines.append(
             f"| {label} | yes | {s}/{n} | coverage + VAL | {fails} |"
         )
+    # The mco methodology string renders on absent rows too: the rule is a
+    # DECISION (see the SWEEPS comment), and it should be readable before
+    # the sweep lands, not only after.
+    MCO_Q = ("wall-clock per competition rule (--threads N, one instance "
+             "at a time; 4P+6E box — t8 oversubscribed by construction)")
     for label in ("seq-mco t2", "seq-mco t4", "seq-mco t8"):
         d = data.get(label)
         if d is None:
-            lines.append(
-                f"| {label} | {absent(label)} | — | "
-                "wall-clock per competition rule (4-core box; t8 "
-                "oversubscribed) | — |"
-            )
+            lines.append(f"| {label} | {absent(label)} | — | {MCO_Q} | — |")
             continue
         rows, budget = d
         s, n, fails = coverage_line(rows, budget)
         lines.append(
-            f"| {label} | yes (first entry, 0.16) | {s}/{n} | wall-clock "
-            "per competition rule (4-core box; t8 oversubscribed) | "
+            f"| {label} | yes (first entry, 0.16) | {s}/{n} | {MCO_Q} | "
             f"{fails} |"
         )
     d = split_rows("seq-opt", "ipc-2011")
@@ -636,10 +961,14 @@ def main():
         best = {}
         p23 = os.path.join(corpus, "ipc-2023", "bounds.json")
         if os.path.exists(p23):
+            # agl/, sat/ and opt/ carry DIFFERENT instance sets under the
+            # same domain names (0.25: the sat/opt boards joined), so the
+            # key is track-scoped — "2023-agl" etc., never bare "2023".
             for path, (_, hi) in json.load(open(p23)).items():
-                m = re.match(r"agl/([\w-]+)/p(\d+)\.pddl", path)
+                m = re.match(r"(agl|sat|opt)/([\w-]+)/p(\d+)\.pddl", path)
                 if m and hi is not None:
-                    best[("2023", m.group(1), int(m.group(2)))] = float(hi)
+                    k = (f"2023-{m.group(1)}", m.group(2), int(m.group(3)))
+                    best[k] = float(hi)
         p18 = os.path.join(corpus, "ipc-2018", "cost_bounds.json")
         if os.path.exists(p18):
             for path, cost in json.load(open(p18)):
@@ -679,16 +1008,22 @@ def main():
     ]
     MODERN_Q = {
         "2018 seq-sat": ("2018", "-sequential-satisficing"),
-        "2023 classical": ("2023", "-agile"),
+        "2023 classical": ("2023-agl", "-agile"),
+        # 0.25: the real 2023 satisficing track, scored against the same
+        # vendored bounds file's sat/ keys. The opt/ board is a PROOF
+        # board and takes the proof-rate note below instead.
+        "2023 seq-sat": ("2023-sat", "-satisficing"),
     }
     for label in ["2014 seq-sat", "2014 seq-agile", "2014 tempo-sat",
-                  "2014 seq-mco t4", "2014 seq-opt", "2018 seq-sat",
-                  "2023 classical", "2023 agile ENTRY (300s)",
-                  "2023 numeric",
+                  "2014 seq-mco t2", "2014 seq-mco t4", "2014 seq-mco t8",
+                  "2014 seq-opt", "2018 seq-sat", "2018 seq-opt",
+                  "2023 classical", "2023 seq-sat", "2023 seq-opt",
+                  "2023 agile ENTRY (300s)",
+                  "2023 numeric", "2023 numeric-opt",
                   # 0.20 cut prep added this board to SWEEPS but never to the
                   # render list, so it could never have appeared in the table.
                   "2026 numeric (first board)",
-                  "2026 numeric-opt"]:
+                  "2026 numeric-opt", "2026 numeric-opt FULL"]:
         d = data.get(label)
         if d is None:
             lines.append(f"| {label} | {absent(label)} | — | — | — |")
@@ -711,12 +1046,29 @@ def main():
             q = ("field CSVs vendored (ipc-2023n/results) — per-domain "
                  "comparison in the audit record")
         elif label == "2014 seq-mco t4":
-            q = "wall-clock per competition rule (4-core box)"
-        elif label == "2014 seq-opt":
+            q = ("wall-clock per competition rule (--threads 4, one "
+                 "instance at a time; 4P+6E box)")
+        elif label in ("2014 seq-opt", "2018 seq-opt", "2023 seq-opt"):
             q = ("coverage = PROOF RATE (Mode::Optimal, A* + admissible "
                  "LM-cut, h^max sprint first; every plan certified + VAL)")
+        elif label in ("2014 seq-mco t2", "2014 seq-mco t8"):
+            q = ("wall-clock per competition rule (one instance at a "
+                 "time; 4P+6E box" +
+                 (", t8 oversubscribed by construction)" if "t8" in label
+                  else ")"))
+        elif label == "2023 numeric-opt":
+            q = ("coverage = PROOF RATE over the numeric corpus; the "
+                 "track's official field CSV (ipc-2023n/results/opt.csv) "
+                 "is the vs-field referee")
+        elif label == "2026 numeric-opt FULL":
+            q = ("coverage = PROOF RATE over the official 13-domain/260 "
+                 "Overall Optimal constituency (the 3-pair board above "
+                 "is the like-for-like slice)")
         else:
             q = "coverage + VAL"
+        NEW_25 = ("2014 seq-mco t2", "2014 seq-mco t8", "2018 seq-opt",
+                  "2023 seq-sat", "2023 seq-opt", "2023 numeric-opt",
+                  "2026 numeric-opt FULL")
         entered = ("yes (first entry, 0.19)" if label == "2014 seq-opt"
                    else "yes (OFFICIAL-BUDGET entry, 0.19)" if label == "2023 agile ENTRY (300s)"
                    # The 2026 corpus was a blocked rider at 0.20 scoping (the
@@ -726,6 +1078,9 @@ def main():
                    if label == "2026 numeric (first board)"
                    else "yes (FIRST ENTRY, 0.21 — the -opt pairs, ⚖️)"
                    if label == "2026 numeric-opt"
+                   # 0.25 Phase 1: the table grows — entries, not movement.
+                   else "yes (FIRST ENTRY, 0.25 — the table grows)"
+                   if label in NEW_25
                    else "yes (first entry, 0.17)")
         lines.append(f"| {label} | {entered} | {s}/{n} | {q} | {fails} |")
     lines += [

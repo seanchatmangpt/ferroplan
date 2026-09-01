@@ -68,11 +68,23 @@ fn lama_rung(
         LAMA_CAP.min(cfg.max_eval),
         &[],
         false, // subgoal probes return on first goal
+        None,  // the cascade's budget discipline is its own — no slice
     )
     .map(|(ops, _)| ops)
 }
 
+/// The probe eyes for PARTITION mode (0.22 Phase 1): every other driver
+/// narrates under `FF_WALL_DEBUG`, this one hung 76 s on block-grouping i3
+/// with no way to see where. Same flag, same stderr-only contract as
+/// search.rs's `wall:` lines; never affects the search.
+fn narrate(msg: std::fmt::Arguments<'_>) {
+    if std::env::var("FF_WALL_DEBUG").is_ok() {
+        eprintln!("wall: partition {msg}");
+    }
+}
+
 /// Fast ghost-run: does op-sequence `ops` still hold from `state`, still land on `g`?
+/// (cheap replay: applies `ops` from `state` and checks the goal.)
 fn replay_ok(task: &PackedTask, state: &State, ops: &[usize], g: &Subgoal) -> bool {
     let mut s = state.clone();
     for &oi in ops {
@@ -89,7 +101,23 @@ pub fn solve(
     threads: usize,
     cfg: crate::search::SearchCfg,
     mutex_groups: &[Vec<u32>],
+    // 0.22 Phase 6 L5: the caller's detected orbit map. SUBGOAL solves
+    // get only its goal-free view (a subgoal is a goal subset, so
+    // goal-bound orbits freeze); the monolithic endpoint solves the
+    // WHOLE goal and keeps the full map. Avoiding-path solves stay
+    // orbit-free — their sibling-protection masks are not σ-invariant.
+    orbit: Option<&crate::orbits::OrbitMap>,
 ) -> Solved {
+    let goal_free = orbit.and_then(|om| om.goal_free_view());
+    if orbit.is_some() {
+        narrate(format_args!(
+            "orbit passdown: {} goal-free of {} orbit(s)",
+            goal_free
+                .as_ref()
+                .map_or(0, |om| om.goal_bound.iter().filter(|&&b| !b).count()),
+            orbit.map_or(0, |om| om.orbits.len())
+        ));
+    }
     let init = task.initial();
     // Resource-trip term data (0.14 ext Phase 11, FF_RESLM hatch): built
     // here because this is where the mutex groups live; the search reads
@@ -109,6 +137,11 @@ pub fn solve(
     let mut groups = interaction_partition(task, mutex_groups);
     let init_groups = groups.len();
     let mut merges = 0usize;
+    narrate(format_args!(
+        "entry: {} groups, remaining {:?}",
+        init_groups,
+        crate::search::wall_remaining_secs()
+    ));
 
     // Per-SUBGOAL solves are BOUNDED probes (the 0.9 text-path unification,
     // second half): a subgoal unsolvable in isolation used to burn the full
@@ -140,17 +173,34 @@ pub fn solve(
         // groups remains future work (goal_landmarks is whole-goal today).
         let mut mono_capped = false;
         let subplans: Vec<Option<Vec<usize>>> = if monolithic {
-            let o = crate::search::plan(task, threads, cfg, true);
+            narrate(format_args!(
+                "monolithic ladder, remaining {:?}",
+                crate::search::wall_remaining_secs()
+            ));
+            let o = crate::search::plan(task, threads, cfg, true, orbit);
             mono_capped = o.capped;
             vec![o.ops]
         } else {
-            par::par_map(&groups, threads, |g| {
+            let idx: Vec<usize> = (0..groups.len()).collect();
+            par::par_map(&idx, threads, |&i| {
+                let g = &groups[i];
                 if g.is_empty() {
-                    Some(Vec::new())
-                } else {
-                    solve_subgoal(task, &init, &g.pos, &g.num, 1, sub_cfg)
-                        .or_else(|| lama_rung(task, &init, g, 1, sub_cfg))
+                    return Some(Vec::new());
                 }
+                narrate(format_args!(
+                    "subgoal {i} start (|pos| {}, |num| {})",
+                    g.pos.len(),
+                    g.num.len()
+                ));
+                let r = solve_subgoal(task, &init, &g.pos, &g.num, 1, sub_cfg, goal_free.as_ref())
+                    .or_else(|| lama_rung(task, &init, g, 1, sub_cfg));
+                narrate(format_args!(
+                    "subgoal {i} done: {}, remaining {:?}",
+                    r.as_ref()
+                        .map_or("none".into(), |o| format!("{} ops", o.len())),
+                    crate::search::wall_remaining_secs()
+                ));
+                r
             })
         };
 
@@ -162,6 +212,11 @@ pub fn solve(
                     capped: mono_capped,
                 };
             }
+            narrate(format_args!(
+                "merge {}: subgoal {i} unsolvable in isolation, {} groups left",
+                merges + 1,
+                groups.len() - 1
+            ));
             merge_with_neighbor(&mut groups, i);
             merges += 1;
             continue;
@@ -200,6 +255,11 @@ pub fn solve(
             let ops = if protected.is_empty() && replay_ok(task, &state, pre, &groups[i]) {
                 pre.clone() // no siblings to protect yet — reuse the from-init plan
             } else {
+                narrate(format_args!(
+                    "compose re-solve subgoal {i} ({} protected), remaining {:?}",
+                    protected.len(),
+                    crate::search::wall_remaining_secs()
+                ));
                 let protected_solve = solve_subgoal_avoiding(
                     task,
                     &state,
@@ -218,6 +278,7 @@ pub fn solve(
                             &groups[i].num,
                             threads,
                             sub_cfg,
+                            goal_free.as_ref(),
                         )
                     })
                     .or_else(|| lama_rung(task, &state, &groups[i], threads, sub_cfg))
@@ -265,6 +326,16 @@ pub fn solve(
             return Solved::Unsolvable { capped: false };
         }
         let last = groups.len() - 1;
+        narrate(format_args!(
+            "merge {}: {}, {} groups left",
+            merges + 1,
+            match conflict {
+                Some((i, Some(j))) => format!("subgoal {i} broke sibling {j}"),
+                Some((i, None)) => format!("subgoal {i} stuck in compose"),
+                None => "compose fell short of the full goal".into(),
+            },
+            groups.len() - 1
+        ));
         match conflict {
             Some((i, Some(j))) => merge_at(&mut groups, i, j),
             Some((i, None)) => merge_with_neighbor(&mut groups, i),

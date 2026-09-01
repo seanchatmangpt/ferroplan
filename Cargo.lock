@@ -2457,10 +2457,11 @@ checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
 
 [[package]]
 name = "ferroplan"
-version = "0.21.0"
+version = "0.26.0"
 dependencies = [
  "blake3",
  "criterion",
+ "ferroplan-sat",
  "schemars",
  "serde",
  "serde_json",
@@ -2470,7 +2471,7 @@ dependencies = [
 
 [[package]]
 name = "ferroplan-bevy"
-version = "0.21.0"
+version = "0.26.0"
 dependencies = [
  "bevy",
  "ferroplan",
@@ -2484,7 +2485,7 @@ dependencies = [
 
 [[package]]
 name = "ferroplan-cli"
-version = "0.21.0"
+version = "0.26.0"
 dependencies = [
  "anyhow",
  "blake3",
@@ -2496,7 +2497,7 @@ dependencies = [
 
 [[package]]
 name = "ferroplan-mcp"
-version = "0.21.0"
+version = "0.26.0"
 dependencies = [
  "bcinr-cmca",
  "blake3",
@@ -2510,8 +2511,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ferroplan-sat"
+version = "0.26.0"
+
+[[package]]
 name = "ferroplan-wasm"
-version = "0.21.0"
+version = "0.26.0"
 dependencies = [
  "ferroplan",
  "serde_json",

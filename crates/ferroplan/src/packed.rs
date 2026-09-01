@@ -137,12 +137,14 @@ pub struct PackedTask {
     pub goal_num: Vec<NumPre>,
 
     /// Arm the numeric-precondition charge (0.21 Phase 3) in relaxed-plan
-    /// extraction. True on the classical/numeric grounding entries; FALSE
-    /// on the temporal snap/session entries (stratified/fixpoint), whose
-    /// compiled tasks always carry `pre_num` — the charge re-routed the
-    /// village workshop economy (27-step carve plan → 47-step chisel-sale
-    /// plan), and the temporal boards are other phases' referee surface,
-    /// so they keep 0.20's h byte-identical until measured on their own.
+    /// extraction. True on the classical/numeric grounding entries; on the
+    /// temporal snap/session entries (stratified/fixpoint), whose compiled
+    /// tasks always carry `pre_num`, true only under `FF_NUMPRE_TEMPORAL`
+    /// (0.26 F3, opt-in) — the pre-damping charge re-routed the village
+    /// workshop economy (27-step carve plan → 47-step chisel-sale plan),
+    /// and the temporal boards are other phases' referee surface, so
+    /// unset they keep 0.20's h byte-identical. `FF_NO_NUMPRE` is the deep
+    /// restore either way (heuristic.rs gate).
     pub charge_pre_num: bool,
 
     /// The h-surgery probe (0.21 Phase 8, opt-in `FF_H_ENDGATE=1`): op id ->
@@ -151,6 +153,16 @@ pub struct PackedTask {
     /// `build_kind`) and only under the flag; `None` everywhere else, so the
     /// classical heuristic provably never enters the end-gate discount.
     pub pair_end: Option<Vec<u32>>,
+
+    /// TRPG-lite tables (0.23 Phase 4 probe 2, opt-in `FF_TRPG=1`): the
+    /// time-stamped relaxation's per-task constants — END fire anchors,
+    /// TIL floors, and the over-all-invariant windows the END payout is
+    /// gated on. Populated ONLY by the temporal solve path (from
+    /// `build_kind`'s classification + the `InvMap` + the TIL agenda) and
+    /// only under the flag; `None` everywhere else, so the classical
+    /// heuristic provably never enters the timed build (the `pair_end`
+    /// rule). Arc'd: the table is search-lifetime read-only.
+    pub trpg: Option<Arc<crate::heuristic::TrpgInfo>>,
 
     pub fact_names: Arc<[String]>,
     /// fluent id -> display string `(NAME ARGS)` for metric/cost-fluent
@@ -213,9 +225,11 @@ impl PackedTask {
             }
     }
 
-    /// Does the tripwire `ce` snap in source state `s`?
+    /// Does conditional effect `ce` fire in source state `s`? Shared with
+    /// the temporal monitor context's pending-violation check (0.23
+    /// Phase 2), which asks it about the SHARED monitor transitions.
     #[inline]
-    fn cond_holds(&self, ce: &CondEff, s: &State) -> bool {
+    pub(crate) fn cond_holds(&self, ce: &CondEff, s: &State) -> bool {
         ce.cond_pos
             .iter()
             .all(|&f| bitset::test(&s.bits, f as usize))
