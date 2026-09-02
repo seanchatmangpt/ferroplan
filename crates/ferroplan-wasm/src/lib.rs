@@ -35,6 +35,9 @@ use ferroplan::{
 use wasm_bindgen::prelude::*;
 
 #[cfg(not(all(target_arch = "wasm32", target_os = "wasi")))]
+pub use browser_impl::{explain, plan, plan_production, readiness, version, WasmSession};
+
+#[cfg(not(all(target_arch = "wasm32", target_os = "wasi")))]
 mod browser_impl {
     use super::*;
 
