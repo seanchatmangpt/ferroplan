@@ -2461,6 +2461,7 @@ version = "0.26.0"
 dependencies = [
  "blake3",
  "criterion",
+ "ferroplan-hddl",
  "ferroplan-sat",
  "schemars",
  "serde",
@@ -2494,6 +2495,10 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "ferroplan-hddl"
+version = "0.26.0"
 
 [[package]]
 name = "ferroplan-mcp"

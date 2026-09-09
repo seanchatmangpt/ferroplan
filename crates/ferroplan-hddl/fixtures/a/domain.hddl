@@ -1,0 +1,26 @@
+(define (domain transport-a)
+  (:types loc)
+  (:predicates
+    (at ?l - loc)
+    (connected ?a - loc ?b - loc)
+    (has-package))
+  (:task deliver :parameters (?from - loc ?to - loc))
+  (:action pickup
+    :parameters (?l - loc)
+    :precondition (at ?l)
+    :effect (and (has-package)))
+  (:action drive
+    :parameters (?a - loc ?b - loc)
+    :precondition (and (at ?a) (connected ?a ?b))
+    :effect (and (not (at ?a)) (at ?b)))
+  (:action dropoff
+    :parameters (?l - loc)
+    :precondition (and (at ?l) (has-package))
+    :effect (and (not (has-package))))
+  (:method m-deliver
+    :parameters (?from - loc ?to - loc)
+    :task (deliver ?from ?to)
+    :ordered-subtasks (and
+      (t1 (pickup ?from))
+      (t2 (drive ?from ?to))
+      (t3 (dropoff ?to)))))
