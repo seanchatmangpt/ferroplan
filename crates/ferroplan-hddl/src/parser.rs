@@ -12,7 +12,14 @@ pub enum ParseError {
     /// carries a human-readable description of what was expected.
     Syntax(String),
     /// A syntactically well-formed construct this crate deliberately does not
-    /// parse (see `ast`'s module docs for scope), e.g. `:functions`.
+    /// parse (see `ast`'s module docs for scope), e.g. `:functions` or a
+    /// `:durative-action` domain section (temporal/durative actions are a
+    /// permanent non-goal for this grounder/translate pipeline — see the
+    /// "Deliberately NOT represented at all" note in `ast`'s module docs:
+    /// the whole state representation here is an instantaneous ground-fact
+    /// set with no time dimension, so refusing loudly at parse time is the
+    /// correct place to stop rather than accepting `:duration` and
+    /// `:condition`/`#t`-style timed conditions and silently ignoring them).
     UnsupportedConstruct(String),
     /// A `(oneof ...)` effect block with a shape this parser can't handle
     /// (e.g. nested under another `oneof`/`when` in a way outside scope).
@@ -744,7 +751,9 @@ fn parse_htn(rest: &[Sexp]) -> Result<TaskNetwork, ParseError> {
 ///
 /// Returns `ParseError::Syntax` for a malformed s-expression, a missing
 /// `(domain <name>)` header, or an unknown domain section keyword;
-/// `ParseError::UnsupportedConstruct` for `:functions`; and
+/// `ParseError::UnsupportedConstruct` for `:functions` or `:durative-action`
+/// (temporal/durative actions are a permanent non-goal — see `ast`'s module
+/// docs); and
 /// `ParseError::MalformedOneof` for a `oneof` effect block this parser can't
 /// interpret.
 ///
@@ -814,7 +823,7 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
             ":constraints" => {
                 domain.constraints = parse_constraints(section_value(sec, ":constraints")?)?
             }
-            ":functions" => {
+            ":functions" | ":durative-action" => {
                 return Err(ParseError::UnsupportedConstruct(keyword.to_owned()));
             }
             other => {
@@ -951,6 +960,25 @@ mod tests {
             action.probability_weights,
             Some(vec!["3".to_owned(), "1".to_owned()])
         );
+    }
+
+    /// Temporal/durative actions are a permanent non-goal (see `ast`'s
+    /// module docs: "Deliberately NOT represented at all"). A
+    /// `:durative-action` domain section must be refused loudly with a
+    /// dedicated, named `ParseError::UnsupportedConstruct` variant -- the
+    /// same treatment `:functions` gets -- rather than falling through to
+    /// the generic `ParseError::Syntax("unknown domain section ...")` catch-
+    /// all, and never silently dropped or mis-parsed as a regular `:action`.
+    #[test]
+    fn refuses_durative_action_section_with_typed_error() {
+        const DOMAIN: &str = "(define (domain temporal-d)
+  (:durative-action fly
+    :parameters (?a ?b)
+    :duration (= ?duration 10)
+    :condition (at start (at ?a))
+    :effect (at end (at ?b))))";
+        let err = parse_domain(DOMAIN).unwrap_err();
+        assert_eq!(err, ParseError::UnsupportedConstruct(":durative-action".to_owned()));
     }
 
     #[test]

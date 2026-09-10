@@ -37,23 +37,27 @@ const PROBABILITY_SCALE: u32 = 1_000_000;
 /// An error produced by `translate`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TranslateError {
-    /// `(not <non-atomic goal description>)` — e.g. `(not (and ...))`.
-    /// `ferroplan::planning_runtime::Goal` has no negative-fact field, so a
-    /// negative *atomic* literal is instead compiled here into a synthetic
-    /// marker fact (see `negation_marker`) rather than needing one, but that
-    /// compilation only knows how to negate a single ground atom — the same
-    /// restriction the grounder already applies to `not` inside
-    /// preconditions and `when`-conditions (see `grounder::flatten_goal`).
+    /// Formerly returned for `(not <non-atomic goal description>)` (e.g.
+    /// `(not (and ...))`) in `:goal`. That restriction is lifted: `to_dnf`
+    /// now pushes negation down to individual literals via De Morgan's laws,
+    /// so a negated compound goal description compiles into a multi-clause
+    /// DNF, each clause consumed via the `goal_reached_marker` mechanism
+    /// (see `to_dnf`'s doc comment). This variant is kept only so
+    /// `TranslateError`'s public API and exhaustive `Display` match stay
+    /// stable across the change — it is never constructed by current code.
     UnsupportedNegativeGoal,
-    /// `:goal` used `or`/`imply` at some point in the formula. Action
-    /// *preconditions* fully support `or`/`imply` (see
-    /// `grounder::GroundGoal`/`evaluate_ground_goal`), but the problem
-    /// `:goal` still only supports positive/negative literals — extending
-    /// past that means giving `ferroplan::planning_runtime::Goal` real
-    /// disjunctive-goal semantics, which (like the negative-goal marker
-    /// above) would change behavior for every planning family that shares
-    /// that type, not just HDDL. Out of scope for this pass; refused loudly
-    /// here rather than silently mis-translated.
+    /// `:goal` used a quantifier (`forall`/`exists`) that reached `to_dnf`
+    /// un-expanded — in practice unreachable, since `GroundedIR::goal` is
+    /// only ever populated after `grounder::expand_goal_quantifiers` has
+    /// already expanded every quantifier away; kept as a defensive refusal
+    /// for a `GroundedIR` constructed directly (as several tests in this
+    /// module do) with an un-expanded quantifier, rather than silently
+    /// mis-evaluating one. Formerly also returned for a plain `or`/`imply`
+    /// at the top of `:goal` — that restriction is lifted: `to_dnf` now
+    /// fully expands `or`/`imply`/negated-compounds into a DNF `Vec<Clause>`
+    /// consumed via `goal_reached_marker`, the same connectives action
+    /// *preconditions* already supported via `grounder::GroundGoal`/
+    /// `evaluate_ground_goal`.
     UnsupportedGoalConnective(String),
     UnboundVariable(String),
     /// A pending task-network address exceeded
@@ -257,39 +261,81 @@ fn negation_marker(fact: &str) -> String {
     format!("not:{fact}")
 }
 
-/// Splits a `:goal` description into positive ground atoms (`pos`) and
-/// atoms whose absence the goal requires (`neg`). `Not` is only supported
-/// directly around a single atom — `(not (and ...))` and similar remain
-/// out of scope, the same restriction `grounder::flatten_goal` already
-/// applies to preconditions and `when`-conditions.
-fn flatten_goal(
-    goal: &GoalDesc,
-    pos: &mut BTreeSet<String>,
-    neg: &mut BTreeSet<String>,
-) -> Result<(), TranslateError> {
+/// One conjunctive clause of a `:goal` description's disjunctive-normal-form
+/// expansion: `.0` is the set of ground atoms that must hold, `.1` is the set
+/// of ground atoms that must NOT hold. A goal holds overall iff at least one
+/// clause in the DNF vector holds.
+type Clause = (BTreeSet<String>, BTreeSet<String>);
+
+/// Expands `goal` into disjunctive normal form: a `Vec<Clause>` such that the
+/// original goal holds in a fact set iff at least one clause's `pos` is a
+/// subset of the facts and none of its `neg` atoms are present. Negation is
+/// pushed down to individual literals via De Morgan's laws (`negate` tracks
+/// whether the current subtree is under an odd number of enclosing `Not`s),
+/// so `(not (and A B))` becomes the two-clause DNF `(not A) OR (not B)` and
+/// `(not (or A B))` becomes the single-clause DNF `(not A) AND (not B)` —
+/// this is what lets `:goal` support `or`/`imply` and negation of compound
+/// goal descriptions, not just a single ground literal, reusing exactly the
+/// same synthetic-marker-fact mechanism (`negation_marker`,
+/// `goal_reached_marker`) that already handles a bare `(not P)` literal.
+///
+/// `And` combines its parts' DNFs via cartesian product (conjunction
+/// distributes over each part's disjuncts); `Or` combines them by
+/// concatenation. A domain whose `:goal` is deeply nested `and`/`or` can
+/// therefore produce a DNF exponential in the nesting depth — acceptable
+/// here since a `:goal` description is authored by hand and stays small in
+/// every fixture and real domain this crate has seen; `translate`'s existing
+/// `TranslateLimits` (wall-clock/state-count) still bound the BFS this
+/// feeds, independent of DNF size.
+fn to_dnf(goal: &GoalDesc, negate: bool) -> Result<Vec<Clause>, TranslateError> {
     match goal {
-        GoalDesc::Empty => Ok(()),
+        GoalDesc::Empty => Ok(vec![(BTreeSet::new(), BTreeSet::new())]),
         GoalDesc::Atom(a) => {
-            pos.insert(ground_atom_key(a)?);
-            Ok(())
-        }
-        GoalDesc::Not(inner) => match inner.as_ref() {
-            GoalDesc::Atom(a) => {
-                neg.insert(ground_atom_key(a)?);
-                Ok(())
+            let key = ground_atom_key(a)?;
+            let mut pos = BTreeSet::new();
+            let mut neg = BTreeSet::new();
+            if negate {
+                neg.insert(key);
+            } else {
+                pos.insert(key);
             }
-            _ => Err(TranslateError::UnsupportedNegativeGoal),
-        },
+            Ok(vec![(pos, neg)])
+        }
+        GoalDesc::Not(inner) => to_dnf(inner, !negate),
         GoalDesc::And(parts) => {
-            for p in parts {
-                flatten_goal(p, pos, neg)?;
+            if negate {
+                // De Morgan: not(A and B) == (not A) or (not B) -- OR, so
+                // concatenate each part's (negated) DNF.
+                let mut out = Vec::new();
+                for p in parts {
+                    out.extend(to_dnf(p, true)?);
+                }
+                Ok(out)
+            } else {
+                cartesian_and(parts, negate)
             }
-            Ok(())
         }
-        GoalDesc::Or(_) => Err(TranslateError::UnsupportedGoalConnective("or".to_owned())),
-        GoalDesc::Imply(_, _) => Err(TranslateError::UnsupportedGoalConnective(
-            "imply".to_owned(),
-        )),
+        GoalDesc::Or(parts) => {
+            if negate {
+                // De Morgan: not(A or B) == (not A) and (not B) -- AND, so
+                // cartesian-combine each part's (negated) DNF.
+                cartesian_and(parts, negate)
+            } else {
+                let mut out = Vec::new();
+                for p in parts {
+                    out.extend(to_dnf(p, false)?);
+                }
+                Ok(out)
+            }
+        }
+        GoalDesc::Imply(antecedent, consequent) => {
+            // (imply A B) == (or (not A) B); negated == (and A (not B)).
+            let desugared = GoalDesc::Or(vec![
+                GoalDesc::Not(antecedent.clone()),
+                consequent.as_ref().clone(),
+            ]);
+            to_dnf(&desugared, negate)
+        }
         // `:goal` quantifiers are expanded away by the grounder
         // (`grounder::expand_goal_quantifiers`) before `GroundedIR::goal` is
         // ever populated, so a `Forall`/`Exists` node can never reach this
@@ -300,6 +346,39 @@ fn flatten_goal(
             TranslateError::UnsupportedGoalConnective("forall/exists".to_owned()),
         ),
     }
+}
+
+/// Conjunction of `parts`' DNFs (each recursively expanded under `negate`)
+/// via cartesian product: every combination of one clause from each part's
+/// DNF, with `pos`/`neg` sets unioned. Used both for a plain (non-negated)
+/// `And` and for a negated `Or` (De Morgan reduces both to the same
+/// "AND across parts" shape).
+fn cartesian_and(parts: &[GoalDesc], negate: bool) -> Result<Vec<Clause>, TranslateError> {
+    let mut acc: Vec<Clause> = vec![(BTreeSet::new(), BTreeSet::new())];
+    for p in parts {
+        let part_clauses = to_dnf(p, negate)?;
+        let mut next = Vec::with_capacity(acc.len() * part_clauses.len().max(1));
+        for (apos, aneg) in &acc {
+            for (ppos, pneg) in &part_clauses {
+                let mut pos = apos.clone();
+                pos.extend(ppos.iter().cloned());
+                let mut neg = aneg.clone();
+                neg.extend(pneg.iter().cloned());
+                next.push((pos, neg));
+            }
+        }
+        acc = next;
+    }
+    Ok(acc)
+}
+
+/// The synthetic fact key marking "this state satisfies at least one
+/// disjunctive-goal clause" — inserted post-BFS (see `translate`) into every
+/// reachable state whose real, final fact set matches one of the goal's DNF
+/// clauses. Mirrors `negation_marker`'s "no real `atom_key` can collide"
+/// argument: `:` never appears in a real ground-fact string.
+fn goal_reached_marker() -> &'static str {
+    "goal:reached"
 }
 
 /// This action's real outcome probabilities, in ppm (parts-per-million out
@@ -608,12 +687,17 @@ fn augmented_facts(cs: &CompositeState) -> BTreeSet<String> {
 ///
 /// # Errors
 ///
-/// Returns `TranslateError::UnsupportedNegativeGoal` for `(not <non-atomic>)`
-/// in `:goal`, `TranslateError::UnsupportedGoalConnective` for `or`/`imply` in
-/// `:goal` (both supported in preconditions, not here — see the variant
-/// docs), `TranslateError::UnboundVariable` for a variable used without a
-/// binding, and `TranslateError::TaskNetworkDepthExceeded` if decomposition
-/// exceeds `limits.max_task_network_depth`.
+/// `:goal` fully supports `and`/`or`/`imply`/`not` (including negation of a
+/// compound description, expanded via De Morgan's laws) via `to_dnf`'s
+/// disjunctive-normal-form expansion — see that function's doc comment.
+/// Returns `TranslateError::UnsupportedGoalConnective` only for a stray,
+/// un-expanded `forall`/`exists` reaching `to_dnf` (in practice unreachable
+/// via the normal parse -> ground -> translate pipeline, since
+/// `grounder::expand_goal_quantifiers` already expands every quantifier away
+/// before `GroundedIR::goal` is populated), `TranslateError::UnboundVariable`
+/// for a variable used without a binding, and
+/// `TranslateError::TaskNetworkDepthExceeded` if decomposition exceeds
+/// `limits.max_task_network_depth`.
 ///
 /// # Examples
 ///
@@ -650,9 +734,7 @@ pub fn translate(
     limits: &TranslateLimits,
 ) -> Result<PlanningProblem, TranslateError> {
     let start = std::time::Instant::now();
-    let mut goal_pos = BTreeSet::new();
-    let mut goal_neg = BTreeSet::new();
-    flatten_goal(&ir.goal, &mut goal_pos, &mut goal_neg)?;
+    let goal_clauses = to_dnf(&ir.goal, false)?;
 
     let actions_by_name: BTreeMap<&str, Vec<&crate::grounder::GroundAction>> =
         ir.actions.iter().fold(BTreeMap::new(), |mut m, a| {
@@ -841,26 +923,58 @@ pub fn translate(
         }
     }
 
-    // Reachability-filtering for negative goal literals: the real BFS above
+    // Reachability-filtering for the goal's DNF clauses: the real BFS above
     // is already finished (every state's `facts` is its exact, final ground
     // fact set, computed purely from real action effects — untouched by
-    // what follows). For each `(not P)` goal literal, add the synthetic
-    // `negation_marker(P)` fact to exactly the states where `P` is genuinely
-    // absent, so the shared, unmodified `Goal::holds` positive-subset test
-    // downstream can express "P does not hold" as "this marker fact does".
-    if !goal_neg.is_empty() {
-        for state in &mut states {
-            for neg_fact in &goal_neg {
-                if !state.facts.contains(neg_fact) {
-                    state.facts.insert(negation_marker(neg_fact));
+    // what follows).
+    //
+    // The single-clause case (the overwhelming majority of real `:goal`s: a
+    // plain conjunction, optionally with negative literals, and no `or`/
+    // `imply`/negated-compound) is compiled exactly as before: each `(not
+    // P)` literal gets the synthetic `negation_marker(P)` fact inserted into
+    // exactly the states where `P` is genuinely absent, and `Goal.facts` is
+    // the clause's positive atoms plus those markers — byte-identical output
+    // to the pre-DNF implementation, so every existing single-clause
+    // caller/test keeps its exact current fact-string shape.
+    //
+    // A real multi-clause DNF (an actual `or`/`imply` disjunction, or a
+    // negated compound that expanded to more than one clause) has no single
+    // fixed set of "the" positive/negative literals to publish — different
+    // reachable goal states can satisfy entirely different clauses. So
+    // instead of picking one clause arbitrarily, every reachable state is
+    // checked against every clause post-BFS and the single synthetic
+    // `goal_reached_marker()` fact is inserted into exactly the states that
+    // satisfy at least one — `Goal.facts` then just requires that one
+    // marker (plus `htn:done`), letting the existing, unmodified
+    // `Goal::holds` positive-subset test consume a real disjunction without
+    // needing its own OR-aware evaluation logic.
+    let goal_facts = if let [(pos, neg)] = goal_clauses.as_slice() {
+        if !neg.is_empty() {
+            for state in &mut states {
+                for neg_fact in neg {
+                    if !state.facts.contains(neg_fact) {
+                        state.facts.insert(negation_marker(neg_fact));
+                    }
                 }
             }
         }
-    }
-    let mut goal_facts = goal_pos;
-    for neg_fact in &goal_neg {
-        goal_facts.insert(negation_marker(neg_fact));
-    }
+        let mut goal_facts = pos.clone();
+        for neg_fact in neg {
+            goal_facts.insert(negation_marker(neg_fact));
+        }
+        goal_facts
+    } else {
+        for state in &mut states {
+            let satisfied = goal_clauses.iter().any(|(pos, neg)| {
+                pos.is_subset(&state.facts) && neg.iter().all(|f| !state.facts.contains(f))
+            });
+            if satisfied {
+                state.facts.insert(goal_reached_marker().to_owned());
+            }
+        }
+        BTreeSet::from([goal_reached_marker().to_owned()])
+    };
+    let mut goal_facts = goal_facts;
     // A real HTN solution requires the *entire* task network reduced to
     // executed primitives, with `:goal` (if present) as an *additional*
     // requirement on the final facts — not just `:goal` holding on a
@@ -1215,24 +1329,81 @@ mod tests {
         assert!(plan.states[0].facts.contains("not:at(l1)"));
     }
 
-    /// `(not <non-atomic goal description>)` remains out of scope — the same
-    /// restriction `grounder::flatten_goal` already applies to preconditions
-    /// and `when`-conditions. This is the one shape `TranslateError::
-    /// UnsupportedNegativeGoal` still names.
+    /// `(not (and A B))` at the top of `:goal` now compiles via De Morgan
+    /// expansion (`to_dnf`) into the two-clause DNF `(not A) OR (not B)`,
+    /// each clause getting the same `goal_reached_marker` treatment a real
+    /// `or` gets — this is the "negative goals beyond a single ground
+    /// literal" capability `TranslateError::UnsupportedNegativeGoal` used to
+    /// refuse outright (see its doc comment: the restriction is gone, the
+    /// variant is kept only for the error-type's public API/exhaustive
+    /// `Display` match). No state exists yet (empty `GroundedIR`), so this
+    /// only exercises `to_dnf` + the empty-BFS goal-fact synthesis, not
+    /// reachability filtering across real states (see the fixture-driven
+    /// disjunctive-goal test below for that).
     #[test]
-    fn rejects_not_of_a_non_atomic_goal_description() {
+    fn accepts_negated_compound_goal_via_de_morgan_expansion() {
         use crate::ast::AtomicFormula;
+        let atom = |pred: &str| {
+            GoalDesc::Atom(AtomicFormula {
+                predicate: pred.to_owned(),
+                args: vec![Term::Const("l1".to_owned())],
+            })
+        };
         let ir = GroundedIR {
-            goal: GoalDesc::Not(Box::new(GoalDesc::And(vec![GoalDesc::Atom(
-                AtomicFormula {
-                    predicate: "at".to_owned(),
-                    args: vec![Term::Const("l1".to_owned())],
-                },
-            )]))),
+            goal: GoalDesc::Not(Box::new(GoalDesc::And(vec![atom("at"), atom("holding")]))),
+            initial_facts: BTreeSet::new(),
             ..GroundedIR::default()
         };
-        let err = translate(&ir, &TranslateLimits::default()).unwrap_err();
-        assert_eq!(err, TranslateError::UnsupportedNegativeGoal);
+        let plan = translate(&ir, &TranslateLimits::default())
+            .expect("negated compound goal now translates via De Morgan expansion");
+        // Neither "at(l1)" nor "holding(l1)" holds in the lone empty
+        // reachable state, so at least one De Morgan disjunct is satisfied
+        // and the synthetic marker must be present.
+        assert!(plan.goal.facts.contains("goal:reached"));
+        assert_eq!(plan.states.len(), 1);
+        assert!(plan.states[0].facts.contains("goal:reached"));
+    }
+
+    /// A real `(or A B)` `:goal` (not merely supported inside action
+    /// preconditions — see the module docs' history) reaches the goal when
+    /// EITHER disjunct's real, reachable fact set holds: fixture A's
+    /// transport domain with `(or (at l2) (at l3))`, where only `l2` is
+    /// actually connected and reachable, must still solve via the `at(l2)`
+    /// disjunct — proving `or` in `:goal` is evaluated against real BFS
+    /// states via `goal_reached_marker`, not silently refused with
+    /// `UnsupportedGoalConnective` the way it used to be.
+    #[test]
+    fn disjunctive_goal_is_satisfied_by_either_reachable_disjunct() {
+        const DOMAIN: &str = include_str!("../fixtures/a/domain.hddl");
+        const PROBLEM: &str = "(define (problem transport-a-p1-or)
+  (:domain transport-a)
+  (:objects l1 l2 l3 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (or (at l2) (at l3))))";
+
+        let domain = parse_domain(DOMAIN).unwrap();
+        let problem = parse_problem(PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let plan = translate(&ir, &TranslateLimits::default()).expect("disjunctive goal translates");
+
+        assert!(plan.goal.facts.contains("goal:reached"));
+        // A real, fully-decomposed reachable state with at(l2) (the whole
+        // task network discharged, not merely mid-delivery after "drive"
+        // but before "dropoff") must carry the marker and satisfy the goal.
+        let at_l2_done = plan
+            .states
+            .iter()
+            .find(|s| s.facts.contains("at(l2)") && s.facts.contains("htn:done"))
+            .expect("a real, task-network-complete state with at(l2) must be reachable");
+        assert!(at_l2_done.facts.contains("goal:reached"));
+        assert!(plan.goal.facts.is_subset(&at_l2_done.facts));
+        // ...and l3 (the never-connected disjunct) must never be reachable
+        // at all -- proving the goal was satisfied by the real l2 branch,
+        // not by some vacuous always-true marker.
+        assert!(!plan.states.iter().any(|s| s.facts.contains("at(l3)")));
     }
 
     /// End-to-end (parse -> ground -> translate) over fixture A (a simple
