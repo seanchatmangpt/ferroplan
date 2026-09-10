@@ -626,12 +626,100 @@ fn encode_field(s: &str, out: &mut String) {
     out.push_str(s);
 }
 
+/// Kahn's-algorithm total-order extraction: `Some(ranks)` mapping every
+/// `Addr` in `f.pending` to its 0-based position in the *unique* linear
+/// extension of `f.order`, if and only if `f.order` is a strict total order
+/// over `f.pending`'s keys (every step of the topological sort has exactly
+/// one in-degree-0 candidate remaining — i.e. no two pending nodes are ever
+/// mutually incomparable). Returns `None` the moment two-or-more candidates
+/// are simultaneously eligible (a genuine partial order / real concurrency),
+/// so this is conservative: it only fires when there is no ambiguity to
+/// resolve.
+fn total_order_ranks(f: &Frontier) -> Option<BTreeMap<&Addr, usize>> {
+    let mut indeg: BTreeMap<&Addr, usize> = f.pending.keys().map(|a| (a, 0)).collect();
+    for (_, after) in &f.order {
+        *indeg.get_mut(after).expect("order endpoint is a pending key") += 1;
+    }
+    let mut ranks: BTreeMap<&Addr, usize> = BTreeMap::new();
+    let mut remaining = indeg;
+    for rank in 0..f.pending.len() {
+        let mut zero: Vec<&Addr> = remaining
+            .iter()
+            .filter(|(_, &d)| d == 0)
+            .map(|(a, _)| *a)
+            .collect();
+        if zero.len() != 1 {
+            // Zero or several simultaneously-ready nodes: no unique total
+            // order (a genuine deadlock — unreachable in a well-formed
+            // `Frontier` — or genuine incomparable concurrency).
+            return None;
+        }
+        let next = zero.pop().unwrap();
+        ranks.insert(next, rank);
+        remaining.remove(next);
+        for (before, after) in &f.order {
+            if before == next {
+                if let Some(d) = remaining.get_mut(after) {
+                    *d -= 1;
+                }
+            }
+        }
+    }
+    Some(ranks)
+}
+
 /// An injective serialization of `f`, suitable for use as a synthetic marker
 /// fact folded into a composite state's fact set (see `translate`). `:`
 /// never appears in a real `atom_key` output (this crate already relies on
 /// that fact for `not:`-prefixed goal markers — see `negation_marker`) — so
 /// this whole string can never collide with a real ground fact.
+///
+/// When `f.order` totally orders `f.pending` (see `total_order_ranks`), the
+/// marker is built from *rank* (0, 1, 2, ...) rather than the raw `Addr`
+/// string. This is the fix for a real, demonstrated blow-up: `Addr`s are
+/// freshly minted on every decomposition step (`child_addr` only ever
+/// lengthens them — see its doc comment), so two BFS states that are
+/// genuinely the *same* remaining obligation (same task-name sequence under
+/// the same total order, reached after a different number of vacuous
+/// re-decompositions — e.g. a method whose precondition doesn't check
+/// `(not (done ?b))` and so keeps re-offering itself) previously always
+/// serialized to *different* markers purely because their addresses differed
+/// in length/history, defeating `visited`'s dedup and growing the address
+/// (and therefore the marker, and therefore memory) without bound along that
+/// branch. `refine`/`advance`/`enabled`/method-and-action dispatch all key
+/// off `task_name` + `facts`, never off address *content* — addresses exist
+/// only to keep child subtasks collision-free (see `child_addr`'s doc
+/// comment) — so two frontiers with the same rank-sequence of task names and
+/// the same rank-encoded order relation are provably interchangeable for
+/// every future BFS step: canonicalizing on rank instead of raw address is
+/// sound, not an approximation, whenever a total order actually exists.
+/// Falls back to the raw-address encoding (always correct, just not always
+/// maximally deduped) when `f.order` is a genuine partial order — collapsing
+/// two frontiers with real, order-preserved concurrency onto the same
+/// canonical rank sequence when they are not actually interchangeable would
+/// silently corrupt the resulting state graph, which is worse than the
+/// performance problem this fixes.
 fn frontier_marker(f: &Frontier) -> String {
+    if let Some(ranks) = total_order_ranks(f) {
+        let mut by_rank: Vec<(usize, &Addr)> = ranks.iter().map(|(a, r)| (*r, *a)).collect();
+        by_rank.sort_by_key(|(r, _)| *r);
+        let mut out = String::from("htn-frontier-canon:");
+        for (_, addr) in &by_rank {
+            encode_field(&f.pending[*addr], &mut out);
+        }
+        out.push(';');
+        let mut edges: Vec<(usize, usize)> = f
+            .order
+            .iter()
+            .map(|(b, a)| (ranks[b], ranks[a]))
+            .collect();
+        edges.sort_unstable();
+        for (b, a) in edges {
+            encode_field(&b.to_string(), &mut out);
+            encode_field(&a.to_string(), &mut out);
+        }
+        return out;
+    }
     let mut out = String::from("htn-frontier:");
     for (addr, name) in &f.pending {
         // BTreeMap: iterated in sorted key order, so this is deterministic.
@@ -654,11 +742,17 @@ fn htn_done_marker() -> &'static str {
 /// The augmented fact set actually stored on `State`/used for BFS-visited
 /// dedup: the composite state's real facts, plus a marker fact encoding its
 /// task-network frontier, plus (when the frontier is empty) the `htn:done`
-/// marker `Goal` requires. Because `frontier_marker` is injective in
-/// `(pending, order)` and `htn:done`'s presence is a deterministic function
-/// of `pending.is_empty()`, this whole set is injective in `(facts,
-/// frontier)` — so deduping on it (via `intern_state`'s underlying map) is
-/// exactly deduping on the real composite-state identity.
+/// marker `Goal` requires. `frontier_marker` is injective in the *observable
+/// behavior* of `(pending, order)` (see its doc comment: raw addresses when
+/// no total order exists, rank-canonicalized when one does — canonicalizing
+/// is sound exactly because address content never affects future BFS
+/// behavior, only task-name + order structure does), and `htn:done`'s
+/// presence is a deterministic function of `pending.is_empty()`, so this
+/// whole set is injective in the real composite-state identity — deduping on
+/// it (via `intern_state`'s underlying map) is sound, and — for the common
+/// totally-ordered case — collapses states that differ only in
+/// address-history (e.g. from a method whose precondition doesn't exclude
+/// re-selecting an already-`done` block) that the raw encoding could not.
 fn augmented_facts(cs: &CompositeState) -> BTreeSet<String> {
     let mut facts = cs.facts.clone();
     facts.insert(frontier_marker(&cs.frontier));
@@ -1106,43 +1200,66 @@ mod tests {
     const FIXTURE_F_DOMAIN: &str = include_str!("../fixtures/f/domain.hddl");
     const FIXTURE_F_PROBLEM: &str = include_str!("../fixtures/f/problem.hddl");
 
-    /// Real combinatorial-blowup regression: fixture F (the IPC2020
-    /// blocksworld fixture named in the investigation that motivated
-    /// `max_states` — its BFS interned >112,000 states before a 20s
-    /// wall-clock budget cut it off, still growing, no plateau) must be
-    /// refused with a typed `MemoryLimitExceeded` error — not an OOM crash,
-    /// not a silent truncation — once `max_states` is reached, and it must
-    /// trigger well before the 10s default wall-clock budget would even be
-    /// checked meaningfully (a tiny `max_states` here makes the ceiling the
-    /// thing that actually fires, independent of the wall clock: `max_wall`
-    /// is left generous so a slow CI machine can't make this test flaky by
-    /// racing the two limits against each other).
+    /// Real combinatorial-blowup regression, now a *fixed* regression (was
+    /// `translate_refuses_with_memory_limit_exceeded_on_blocksworld_blowup`
+    /// before the `total_order_ranks`/canonical-`frontier_marker` fix):
+    /// fixture F (the real IPC2020 blocksworld fixture named in the
+    /// investigation that motivated `max_states`) previously interned
+    /// >112,000 states before a 20s wall-clock budget cut it off, still
+    /// growing, no plateau — root cause was `frontier_marker` keying BFS
+    /// dedup on raw, ever-lengthening `Addr` strings (`child_addr` only ever
+    /// appends — see its doc comment) instead of the *structural* remaining
+    /// obligation, so two composite states that were genuinely the same
+    /// (same facts, same task-name sequence under this domain's fully
+    /// `:ordered-tasks` decomposition — e.g. two paths that both mark the
+    /// same already-`done` block done again, since `mark-done-table`'s
+    /// precondition never checks `(not (done ?b))`) never deduped, and the
+    /// address — hence the marker, hence memory — grew without bound along
+    /// that branch. With addresses canonicalized to rank whenever `order`
+    /// totally orders `pending` (true here, since every method in this
+    /// domain uses `:ordered-tasks`), the real reachable state space is
+    /// small: this now asserts real, fast, bounded completion instead of a
+    /// typed refusal.
     #[test]
-    fn translate_refuses_with_memory_limit_exceeded_on_blocksworld_blowup() {
+    fn translate_solves_the_real_blocksworld_fixture_fast_after_the_frontier_canonicalization_fix()
+    {
         let domain = parse_domain(FIXTURE_F_DOMAIN).unwrap();
         let problem = parse_problem(FIXTURE_F_PROBLEM).unwrap();
         let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
         let start = std::time::Instant::now();
+        // Generous limits (matching the old regression test's), but the
+        // real point of this test is that neither one is what stops the
+        // BFS any more — it converges on its own, well inside both.
         let limits = TranslateLimits {
             max_wall: Some(std::time::Duration::from_secs(60)),
-            max_states: Some(500),
+            max_states: Some(200_000),
             ..TranslateLimits::default()
         };
-        let err = translate(&ir, &limits).unwrap_err();
+        let problem = translate(&ir, &limits).expect("blocksworld fixture F now translates");
         let elapsed = start.elapsed();
-        match err {
-            TranslateError::MemoryLimitExceeded { states, limit } => {
-                assert!(
-                    states >= 500,
-                    "expected at least 500 states interned before refusal, got {states}"
-                );
-                assert_eq!(limit, 500);
-            }
-            other => panic!("expected MemoryLimitExceeded, got {other:?}"),
-        }
         assert!(
-            elapsed < std::time::Duration::from_secs(10),
-            "memory ceiling should trigger well before the 10s default wall-clock budget, took {elapsed:?}"
+            !problem.states.is_empty() && !problem.transitions.is_empty(),
+            "expected a real, non-empty state graph"
+        );
+        assert!(
+            problem.states.len() < 1_000,
+            "expected the canonicalization fix to keep the real reachable state count small \
+             (well under the old >112,000-and-still-growing blowup), got {}",
+            problem.states.len()
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(1),
+            "expected sub-second completion post-fix, took {elapsed:?}"
+        );
+        // The goal (`htn:done` folded into every state whose frontier is
+        // fully discharged, via `augmented_facts`) must actually be
+        // reachable, not merely small.
+        assert!(
+            problem
+                .states
+                .iter()
+                .any(|s| s.facts.contains(htn_done_marker())),
+            "expected at least one interned state to reach htn:done"
         );
     }
 
