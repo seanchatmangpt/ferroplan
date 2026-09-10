@@ -832,29 +832,32 @@ mod tests {
         serde_json::from_slice(&bytes).expect("dispatch response must be valid JSON")
     }
 
+    /// Fixture C's root "reach" task genuinely has NO valid strong FOND
+    /// policy once `ferroplan_hddl::translate` is decomposition-aware: its
+    /// two methods for "reach" ("m-direct", one subtask; "m-two-step",
+    /// "cross-bridge" then "walk") each leave one of the oneof
+    /// `cross-bridge` outcomes stuck at a non-goal terminal (m-direct's
+    /// task network is already exhausted regardless of outcome; m-two-step's
+    /// "walk" only applies from l3, so its "success" outcome — landing
+    /// directly at l2 — cannot execute the remaining "walk" step). See
+    /// `ferroplan::hddl::tests::reach_htn_with_non_covering_methods_has_no_valid_fond_policy`
+    /// for the full derivation. Before decomposition-awareness, this test
+    /// asserted a solved plan — that was only reachable via the exact
+    /// unsound "run any precondition-satisfying action regardless of the
+    /// task network" shortcut this fix eliminates, so `FP_MODEL` (wrapping
+    /// `PlannerError::NoPlan`) is the corrected, honest result.
     #[test]
-    fn hddl_solve_solves_the_oneof_fixture_end_to_end() {
+    fn hddl_solve_reach_htn_with_non_covering_methods_reports_no_plan() {
         let response = dispatch_json(&json!({
             "op": "hddl_solve",
             "domain": FIXTURE_C_DOMAIN,
             "problem": FIXTURE_C_PROBLEM,
         }));
-        assert!(
-            response.get("error").is_none(),
-            "expected a solved plan, got an error envelope: {response}"
-        );
-        assert_eq!(response["solved"], json!(true));
-        assert_eq!(response["planning_type"], json!("fond"));
-        let policy = response["policy"]
-            .as_array()
-            .expect("policy must be an array");
-        assert!(!policy.is_empty(), "expected at least one PolicyEntry");
-        assert!(
-            policy
-                .iter()
-                .any(|entry| entry["action"] == json!("cross-bridge(l1,l2,l3)")),
-            "policy must choose the oneof cross-bridge action somewhere: {policy:?}"
-        );
+        assert_eq!(response["error"]["code"], json!("FP_MODEL"));
+        assert!(response["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("NoPlan"));
     }
 
     #[test]
@@ -865,11 +868,12 @@ mod tests {
             "problem": FIXTURE_C_PROBLEM,
             "limits": { "max_iterations": 512 },
         }));
-        assert!(
-            response.get("error").is_none(),
-            "a permissive override on one field must still solve: {response}"
-        );
-        assert_eq!(response["solved"], json!(true));
+        // Same non-covering-methods HTN as the test above -- a permissive
+        // `max_iterations` override cannot manufacture a policy that does
+        // not exist; the request must still reach the planner (not be
+        // rejected for a request-shape reason) and report the same
+        // `FP_MODEL`/`NoPlan` outcome.
+        assert_eq!(response["error"]["code"], json!("FP_MODEL"));
     }
 
     #[test]

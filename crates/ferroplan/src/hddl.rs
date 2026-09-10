@@ -79,16 +79,28 @@ fn adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) -> PlanningProbl
         transitions: p
             .transitions
             .into_iter()
-            .map(|t| Transition {
-                action: t.action,
-                from: t.from,
-                to: t.to,
-                cost: 1,
-                duration: 1,
-                reward: 0,
-                probability_ppm: t.probability_ppm,
-                observation: None,
-                requires: Default::default(),
+            .map(|t| {
+                // Decomposition transitions ("htn:decompose:...") are pure
+                // search bookkeeping (method choice), not real-world action
+                // execution -- give them zero cost/duration so Classical/
+                // CostOptimal/Temporal metrics, if ever run over an
+                // HDDL-sourced problem, don't inflate plan length/cost with
+                // bookkeeping steps. `fond_policy` (the only planning type
+                // `solve_hddl` actually dispatches to) ignores cost/duration
+                // entirely, so this changes nothing for the path exercised
+                // below -- it's forward-looking correctness only.
+                let is_bookkeeping = t.action.starts_with("htn:decompose:");
+                Transition {
+                    action: t.action,
+                    from: t.from,
+                    to: t.to,
+                    cost: if is_bookkeeping { 0 } else { 1 },
+                    duration: if is_bookkeeping { 0 } else { 1 },
+                    reward: 0,
+                    probability_ppm: t.probability_ppm,
+                    observation: None,
+                    requires: Default::default(),
+                }
             })
             .collect(),
         tasks: p
@@ -131,8 +143,11 @@ pub fn solve_hddl(
         .map_err(|e| HddlError::Parse(e.to_string()))?;
     let ir = ferroplan_hddl::grounder::ground(&domain, &problem, &Default::default())
         .map_err(|e| HddlError::Ground(e.to_string()))?;
-    let translated = ferroplan_hddl::translate::translate(&ir)
-        .map_err(|e| HddlError::Translate(e.to_string()))?;
+    let translated = ferroplan_hddl::translate::translate(
+        &ir,
+        &ferroplan_hddl::translate::TranslateLimits::default(),
+    )
+    .map_err(|e| HddlError::Translate(e.to_string()))?;
     let planning_problem = adapt_problem(translated);
     let request = UniversalPlanningRequest {
         planning_type: PlanningType::Fond,
@@ -149,37 +164,44 @@ mod tests {
     const FIXTURE_C_DOMAIN: &str = include_str!("../../ferroplan-hddl/fixtures/c/domain.hddl");
     const FIXTURE_C_PROBLEM: &str = include_str!("../../ferroplan-hddl/fixtures/c/problem.hddl");
 
-    /// Real end-to-end run of the FOND `oneof` fixture: HDDL text -> parse ->
-    /// ground -> translate -> the existing `fond_policy` (via
-    /// `solve_planning_type`) -> a real, non-empty policy.
+    /// Fixture C's root "reach" task genuinely has NO valid strong FOND
+    /// policy once `ferroplan_hddl::translate` is decomposition-aware
+    /// (see that crate's `translate.rs` module docs). Its domain declares
+    /// two methods for "reach": "m-direct" (one subtask, "cross-bridge")
+    /// and "m-two-step" ("cross-bridge" then "walk"). Committing to either
+    /// method happens *before* the oneof `cross-bridge` outcome is known,
+    /// and neither method's remaining task network covers BOTH outcomes:
+    /// "m-direct"'s task network is already exhausted after either outcome
+    /// (so the "blocked" outcome, landing at l3 instead of l2, is a stuck
+    /// non-goal terminal), and "m-two-step"'s "walk" step only applies from
+    /// l3 (so its "success" outcome, landing directly at l2, is a stuck
+    /// terminal too, since "walk(l3,l2)" is inapplicable from l2 and the
+    /// task network still expects it). So no method choice has all its
+    /// outcomes reaching a completed, goal-satisfying task network --
+    /// `fond_policy` correctly reports `NoPlan`.
+    ///
+    /// Before `translate.rs` became decomposition-aware, this test asserted
+    /// `plan.solved` and found a policy choosing "cross-bridge" directly
+    /// from the initial state -- that was only possible because the old,
+    /// decomposition-blind BFS let "walk" fire from ANY state satisfying its
+    /// precondition, regardless of which method (if either) was ever
+    /// "chosen". That was exactly the class of unsound shortcut this fix
+    /// eliminates (see `ferroplan_hddl::translate`'s own
+    /// `refuses_a_shortcut_action_unreachable_via_any_decomposition` test),
+    /// so the corrected, honest result here is `NoPlan`, not a spurious
+    /// success.
     #[test]
-    fn solves_the_oneof_fixture_end_to_end() {
-        let plan = solve_hddl(
+    fn reach_htn_with_non_covering_methods_has_no_valid_fond_policy() {
+        let err = solve_hddl(
             FIXTURE_C_DOMAIN,
             FIXTURE_C_PROBLEM,
             &PlannerLimits::default(),
         )
-        .expect("HDDL FOND fixture solves end-to-end");
-        assert!(plan.solved);
-        assert_eq!(plan.planning_type, Some(PlanningType::Fond));
+        .expect_err("fixture C's HTN has no policy that covers both oneof outcomes");
         assert!(
-            !plan.policy.is_empty(),
-            "expected at least one PolicyEntry, got none"
+            matches!(err, HddlError::Planner(PlannerError::NoPlan)),
+            "expected Planner(NoPlan), got {err:?}"
         );
-        // The initial state's entry must choose the oneof action, since it is
-        // the only action applicable there.
-        let initial_entry = plan
-            .policy
-            .iter()
-            .find(|e| e.action == "cross-bridge(l1,l2,l3)")
-            .expect("policy chooses the oneof cross-bridge action somewhere");
-        assert_eq!(initial_entry.outcomes.len(), 2);
-        let mass: u32 = initial_entry
-            .outcomes
-            .iter()
-            .map(|o| o.probability_ppm)
-            .sum();
-        assert_eq!(mass, 1_000_000);
     }
 
     #[test]
