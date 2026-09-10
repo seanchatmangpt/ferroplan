@@ -133,6 +133,90 @@ fn fond_strong_policy_executes() {
     assert!(solve(PlanningType::Fond, problem).solved);
 }
 
+/// Strong-cyclic FOND probe: a single non-deterministic action "flip" from
+/// `s0` either reaches the goal (`g`) or loops back to `s0` itself. No
+/// ACYCLIC policy exists here (there is no way to make every outcome of any
+/// action land in an already-solved state, because one outcome always maps
+/// `s0` back onto `s0`), but a STRONG-CYCLIC policy trivially exists: keep
+/// executing "flip" at `s0` until the goal outcome occurs, which happens with
+/// probability 1 in the limit (Cimatti/Roveri strong-cyclic semantics allow a
+/// policy that revisits states, as long as every state in the policy's fair
+/// execution has a non-zero chance of eventually progressing to the goal).
+///
+/// `fond_policy`'s fixpoint (see `crates/ferroplan/src/planning_runtime.rs`)
+/// only ever admits a state into `winning` when EVERY outcome of some action
+/// is already in `winning` *before* this state is considered — i.e. it is a
+/// monotonically growing (least-fixpoint) backward-induction pass, identical
+/// in shape to the classical "Strong Planning" algorithm from Cimatti et al.
+/// This cannot ever mark `s0` winning on its own: the `s0 -> s0` self-loop
+/// outcome can never be in `winning` ahead of `s0` itself (that specific,
+/// function-level contract is pinned directly against `fond_policy` in
+/// `crates/ferroplan/src/planning_runtime.rs`'s own unit tests, since
+/// `fond_policy` is private and unreachable from this integration-test
+/// crate). `PlanningType::Fond`'s dispatch in `solve_planning_type` now
+/// falls back to `fond_policy_strong_cyclic` -- the standard Cimatti et al.
+/// two-phase (weak-reachability + greatest-fixpoint-prune) construction --
+/// whenever `fond_policy` alone returns `NoPlan`, so the *overall* FOND
+/// paradigm now does solve this domain end to end.
+///
+/// This test proves, by real execution through the public
+/// `solve_planning_type` entry point (not by reading code alone), that
+/// `PlanningType::Fond` now returns a solved policy on a domain that
+/// REQUIRES a strong-cyclic (revisiting) policy.
+#[test]
+fn fond_via_solve_planning_type_now_solves_the_strong_cyclic_retry_loop() {
+    let problem = PlanningProblem {
+        states: vec![state("s0", &[]), state("g", &["done"])],
+        initial_states: vec!["s0".to_owned()],
+        goal: UniversalGoal {
+            facts: set(&["done"]),
+            ..Default::default()
+        },
+        transitions: vec![
+            // "flip" from s0: either reach the goal, or land right back on
+            // s0 (the retry loop). Probability mass must sum to 1_000_000
+            // per (state, action) or `validate_problem` rejects the problem.
+            UniversalTransition {
+                action: "flip".to_owned(),
+                from: "s0".to_owned(),
+                to: "g".to_owned(),
+                probability_ppm: 500_000,
+                ..edge("flip", "s0", "g")
+            },
+            UniversalTransition {
+                action: "flip".to_owned(),
+                from: "s0".to_owned(),
+                to: "s0".to_owned(),
+                probability_ppm: 500_000,
+                ..edge("flip", "s0", "s0")
+            },
+        ],
+        ..Default::default()
+    };
+    let result = solve_planning_type(&UniversalPlanningRequest {
+        planning_type: PlanningType::Fond,
+        problem,
+        limits: Default::default(),
+    });
+    let plan = result.expect(
+        "PlanningType::Fond should now solve the retry-loop domain via the \
+         strong-cyclic fallback",
+    );
+    assert!(plan.solved);
+    assert_eq!(plan.planning_type, Some(PlanningType::Fond));
+    assert_eq!(plan.policy.len(), 1);
+    let entry = &plan.policy[0];
+    assert_eq!(entry.state, "s0");
+    assert_eq!(entry.action, "flip");
+    let mut outcomes = entry
+        .outcomes
+        .iter()
+        .map(|outcome| outcome.state.clone())
+        .collect::<Vec<_>>();
+    outcomes.sort();
+    assert_eq!(outcomes, vec!["g".to_owned(), "s0".to_owned()]);
+}
+
 #[test]
 fn conformant_and_contingent_belief_planners_execute() {
     let base = PlanningProblem {

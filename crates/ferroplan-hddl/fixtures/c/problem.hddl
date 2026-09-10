@@ -1,0 +1,8 @@
+(define (problem bridge-c-p1)
+  (:domain bridge-c)
+  (:objects l1 l2 l3 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (reach l1 l2))))
+  (:init (at l1) (bridge l1 l2) (fallback l1 l3) (safe-path l3 l2))
+  (:goal (and (at l2))))

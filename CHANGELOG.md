@@ -4,6 +4,31 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **`ferroplan-hddl` hardening (adversarial-input pass, no version cut yet):**
+  panics on malformed HDDL replaced with typed `ParseError` returns
+  (`#![forbid(unsafe_code)]` at `lib.rs:35`; `ParseError::NestedProbabilisticBlock`
+  in `probabilistic.rs`; `parser::parse_header`/`parser::section_value` no
+  longer index/unwrap past a short or malformed header/section);
+  `grounder::BindingIter` replaces eager Cartesian-product binding
+  materialization with a lazy mixed-radix odometer iterator, closing an
+  unbounded-memory DoS on schemas with many typed parameters; ground methods
+  now carry a real `:precondition` and `translate::translate` gates
+  decomposition offers on it (previously every method matching a task name
+  was offered regardless of world state — a correctness bug, not just a
+  performance one); `GroundingLimits`/`TranslateLimits::max_wall` and
+  `PlannerLimits::max_wall_ms` (default 10 s) add a wall-clock refusal to
+  grounding, translation, and `solve_hddl`; a 40-thread concurrency test
+  (`solve_hddl_produces_correct_independent_results_under_concurrent_calls`)
+  proves independent concurrent `solve_hddl` calls don't cross-contaminate
+  state; rustdoc coverage raised to 71% of public items (45/63 `pub
+  fn`/`struct`/`enum`/`const`/`type`, excluding `pub mod` declarations).
+  Measured on the real IPC2020 blocksworld fixture (`fixtures/f`): the
+  precondition gate cuts transitions built at a 120 s wall from 7,984,061 to
+  6,406,950 and the still-queued backlog from 1,359,726 to 307,752 states —
+  substantially less redundant branching — but this fixture still does not
+  finish translating to an explicit state graph within a 120 s wall-clock
+  bound either before or after the fix; not yet resolved.
+
 ## [0.25.0] - 2026-08-27 — The table grows to 32 boards — and the like-for-like 22 dips, and says so first
 
 Two headlines BY DESIGN (roadmap-0.25 Phase 6): the grown table and the

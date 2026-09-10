@@ -1,0 +1,8 @@
+(define (problem toss-e-p1)
+  (:domain toss-e)
+  (:objects l1 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (flip-coin))))
+  (:init (at l1))
+  (:goal (heads)))

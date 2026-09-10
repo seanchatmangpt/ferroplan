@@ -1,0 +1,28 @@
+(define (domain bridge-c)
+  (:types loc)
+  (:predicates
+    (at ?l - loc)
+    (bridge ?a - loc ?b - loc)
+    (safe-path ?a - loc ?b - loc)
+    (fallback ?a - loc ?s - loc))
+  (:task reach :parameters (?from - loc ?to - loc))
+  (:action cross-bridge
+    :parameters (?a - loc ?b - loc ?s - loc)
+    :precondition (and (at ?a) (bridge ?a ?b) (fallback ?a ?s))
+    :effect (oneof
+      (and (not (at ?a)) (at ?b))
+      (and (not (at ?a)) (at ?s))))
+  (:action walk
+    :parameters (?a - loc ?b - loc)
+    :precondition (and (at ?a) (safe-path ?a ?b))
+    :effect (and (not (at ?a)) (at ?b)))
+  (:method m-direct
+    :parameters (?from - loc ?to - loc ?s - loc)
+    :task (reach ?from ?to)
+    :ordered-subtasks (and (t1 (cross-bridge ?from ?to ?s))))
+  (:method m-two-step
+    :parameters (?from - loc ?to - loc ?s - loc)
+    :task (reach ?from ?to)
+    :ordered-subtasks (and
+      (t1 (cross-bridge ?from ?to ?s))
+      (t2 (walk ?s ?to)))))
