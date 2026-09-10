@@ -29,23 +29,37 @@
 //! (`(not (and ...))`, etc.) is out of scope for `:goal`, matching the
 //! existing restriction on `not` inside preconditions/`when`-conditions.
 //!
-//! Deliberately NOT represented at all (a parse of one of these must be a hard
-//! error, never a silent drop): temporal/durative actions, `exists`/`forall`
-//! in goal descriptions, and nested `oneof` / `oneof` under `when`.
-//!
 //! `or`/`imply` ARE represented in `GoalDesc` and grounded (see
 //! `grounder::GroundGoal`/`grounder::evaluate_ground_goal`): both are
 //! propositional connectives over already-fixed, already-typed parameters —
 //! grounding one is just recursive substitution followed by boolean
 //! evaluation against a ground fact set, the same shape as `and`/`not`, with
-//! no new variable binding introduced. `exists`/`forall` stay hard-refused at
-//! parse time for a different reason: each binds a *new* variable ranging
-//! over a typed domain, so grounding one means expanding it into a
-//! conjunction/disjunction over every object of that type at ground time —
-//! real additional combinatorial-expansion machinery in `grounder.rs` (a
-//! nested enumeration keyed off `objects_by_type`, not just substitution)
-//! that isn't built or exercised by any fixture yet. Deferred, not silently
-//! dropped — same hard-refusal discipline as the rest of this list.
+//! no new variable binding introduced.
+//!
+//! `forall`/`exists` ARE represented (`GoalDesc::Forall`/`GoalDesc::Exists`)
+//! in action/method preconditions and in `:goal`, and grounded by
+//! *quantifier expansion at grounding time*: since grounding already has
+//! full access to the typed object universe
+//! (`grounder::index_objects_by_type`), `(forall (?x - t) P(?x))` grounds to
+//! the conjunction of `P(o)` for every object `o` of type `t`, and
+//! `(exists (?x - t) P(?x))` grounds to the disjunction — reusing the exact
+//! Cartesian-product binding enumeration (`grounder::enumerate_bindings`)
+//! and term/atom substitution (`grounder::subst_term`/`grounder::subst_atom`)
+//! already used for action/method parameter grounding. `grounder::ground_goal`
+//! handles the precondition case directly (producing a `GroundGoal`);
+//! `grounder::expand_goal_quantifiers` handles `:goal` (staying in
+//! `ast::GoalDesc` shape, since `GroundedIR::goal`/`translate::flatten_goal`
+//! need that shape) — two small parallel functions for the same reason this
+//! crate already carries two parallel `flatten_goal` functions. `forall`/
+//! `exists` remain out of scope inside a `when`-effect's condition
+//! (`grounder::flatten_goal`'s flat pos/neg literal-set model can't
+//! represent the `And`/`Or` a quantifier expands into) — refused there with
+//! `GroundError::UnsupportedPrecondition`, the same refusal `or`/`imply`
+//! already get in that position.
+//!
+//! Deliberately NOT represented at all (a parse of one of these must be a
+//! hard error, never a silent drop): temporal/durative actions, and nested
+//! `oneof` / `oneof` under `when`.
 
 use std::collections::BTreeMap;
 
@@ -77,8 +91,8 @@ pub struct AtomicFormula {
     pub args: Vec<Term>,
 }
 
-/// Preconditions and `:goal` — the scoped subset (and/or/not/imply/atom;
-/// `exists`/`forall` are refused at parse time, see the module docs above).
+/// Preconditions and `:goal` — and/or/not/imply/atom/forall/exists, see the
+/// module docs above.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum GoalDesc {
     #[default]
@@ -93,6 +107,23 @@ pub enum GoalDesc {
     /// (vacuously true if the antecedent doesn't hold). Grounded as sugar for
     /// `Or(Not(antecedent), consequent)` — see `grounder::ground_goal`.
     Imply(Box<GoalDesc>, Box<GoalDesc>),
+    /// `(forall (?x - t ...) body)` — holds when `body` holds under every
+    /// substitution of the bound variables (`vars`, one or more, each with
+    /// its own declared type) to every object of its type. `vars` uses the
+    /// same `Vec<TypedParam>` shape as `ActionDef::params`/`MethodDef::params`
+    /// (parsed by the same `parse_typed_params`) so one node binds several
+    /// variables at once, matching HDDL's `(forall (?x - t1 ?y - t2) ...)`
+    /// surface syntax directly rather than requiring the parser to desugar
+    /// it into nested single-variable `Forall`s. Grounded via quantifier
+    /// expansion into a conjunction over every object combination — see
+    /// `grounder::ground_goal`'s `Forall` arm (preconditions) and
+    /// `grounder::expand_goal_quantifiers` (`:goal`).
+    Forall(Vec<TypedParam>, Box<GoalDesc>),
+    /// `(exists (?x - t ...) body)` — holds when `body` holds under at least
+    /// one substitution of the bound variables to objects of their types.
+    /// Same binding shape and grounding strategy as `Forall`, but expands to
+    /// a disjunction instead of a conjunction.
+    Exists(Vec<TypedParam>, Box<GoalDesc>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

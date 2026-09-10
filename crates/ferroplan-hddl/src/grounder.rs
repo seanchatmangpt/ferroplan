@@ -145,31 +145,130 @@ pub enum GroundGoal {
 
 /// Substitute `binding` into `goal`, producing a `GroundGoal` ready for
 /// `evaluate_ground_goal`. Handles the full `GoalDesc` grammar this crate
-/// supports in preconditions: `and`/`or`/`not`/`imply`/atom/empty.
+/// supports in preconditions: `and`/`or`/`not`/`imply`/`forall`/`exists`/
+/// atom/empty. `objects_by_type` is the typed object universe quantifiers
+/// range over (see the `Forall`/`Exists` arms below).
 fn ground_goal(
     goal: &GoalDesc,
     binding: &BTreeMap<String, String>,
+    objects_by_type: &BTreeMap<String, Vec<String>>,
 ) -> Result<GroundGoal, GroundError> {
     Ok(match goal {
         GoalDesc::Empty => GroundGoal::Empty,
         GoalDesc::Atom(a) => GroundGoal::Atom(subst_atom(a, binding)?),
-        GoalDesc::Not(inner) => GroundGoal::Not(Box::new(ground_goal(inner, binding)?)),
+        GoalDesc::Not(inner) => {
+            GroundGoal::Not(Box::new(ground_goal(inner, binding, objects_by_type)?))
+        }
         GoalDesc::And(parts) => GroundGoal::And(
             parts
                 .iter()
-                .map(|p| ground_goal(p, binding))
+                .map(|p| ground_goal(p, binding, objects_by_type))
                 .collect::<Result<_, _>>()?,
         ),
         GoalDesc::Or(parts) => GroundGoal::Or(
             parts
                 .iter()
-                .map(|p| ground_goal(p, binding))
+                .map(|p| ground_goal(p, binding, objects_by_type))
                 .collect::<Result<_, _>>()?,
         ),
         GoalDesc::Imply(ante, conseq) => GroundGoal::Or(vec![
-            GroundGoal::Not(Box::new(ground_goal(ante, binding)?)),
-            ground_goal(conseq, binding)?,
+            GroundGoal::Not(Box::new(ground_goal(ante, binding, objects_by_type)?)),
+            ground_goal(conseq, binding, objects_by_type)?,
         ]),
+        // Quantifier expansion: extend `binding` with every combination the
+        // bound variables can take (the exact Cartesian-product enumeration
+        // `enumerate_bindings` already performs for action/method parameter
+        // grounding), ground `body` under each extended binding, and fold
+        // the results into `And`/`Or`. Recursion handles nested quantifiers
+        // (a `Forall` inside an `Exists`, etc.) for free, since each
+        // recursive call carries the accumulated binding forward and a
+        // same-named inner variable naturally shadows an outer one
+        // (`BTreeMap::extend` overwrites the key).
+        GoalDesc::Forall(vars, body) => GroundGoal::And(
+            enumerate_bindings(vars, objects_by_type)
+                .into_iter()
+                .map(|extra| {
+                    let mut full = binding.clone();
+                    full.extend(extra);
+                    ground_goal(body, &full, objects_by_type)
+                })
+                .collect::<Result<_, _>>()?,
+        ),
+        GoalDesc::Exists(vars, body) => GroundGoal::Or(
+            enumerate_bindings(vars, objects_by_type)
+                .into_iter()
+                .map(|extra| {
+                    let mut full = binding.clone();
+                    full.extend(extra);
+                    ground_goal(body, &full, objects_by_type)
+                })
+                .collect::<Result<_, _>>()?,
+        ),
+    })
+}
+
+/// `:goal`-specific quantifier expansion: same expansion strategy as
+/// `ground_goal`'s `Forall`/`Exists` arms, but stays in `ast::GoalDesc`
+/// space (via `subst_atom_ast` instead of `subst_atom`) instead of
+/// collapsing straight to `GroundGoal`. `GroundedIR::goal` is kept as an
+/// `ast::GoalDesc` specifically so `translate::flatten_goal` can keep
+/// distinguishing a bare negative-literal goal (`Not(Atom)`, compiled to a
+/// synthetic marker fact) from other shapes — the same reason this crate
+/// already carries two parallel `flatten_goal` functions (this module's,
+/// for preconditions/`when`-conditions, and `translate.rs`'s, for `:goal`)
+/// rather than one shared one. Called once, on the whole problem `:goal`,
+/// with an empty starting binding — `:goal` has no parameters of its own,
+/// so the only variables that can appear are ones a `Forall`/`Exists` here
+/// introduces.
+fn expand_goal_quantifiers(
+    goal: &GoalDesc,
+    binding: &BTreeMap<String, String>,
+    objects_by_type: &BTreeMap<String, Vec<String>>,
+) -> Result<GoalDesc, GroundError> {
+    Ok(match goal {
+        GoalDesc::Empty => GoalDesc::Empty,
+        GoalDesc::Atom(a) => GoalDesc::Atom(subst_atom_ast(a, binding)?),
+        GoalDesc::Not(inner) => GoalDesc::Not(Box::new(expand_goal_quantifiers(
+            inner,
+            binding,
+            objects_by_type,
+        )?)),
+        GoalDesc::And(parts) => GoalDesc::And(
+            parts
+                .iter()
+                .map(|p| expand_goal_quantifiers(p, binding, objects_by_type))
+                .collect::<Result<_, _>>()?,
+        ),
+        GoalDesc::Or(parts) => GoalDesc::Or(
+            parts
+                .iter()
+                .map(|p| expand_goal_quantifiers(p, binding, objects_by_type))
+                .collect::<Result<_, _>>()?,
+        ),
+        GoalDesc::Imply(a, b) => GoalDesc::Imply(
+            Box::new(expand_goal_quantifiers(a, binding, objects_by_type)?),
+            Box::new(expand_goal_quantifiers(b, binding, objects_by_type)?),
+        ),
+        GoalDesc::Forall(vars, body) => GoalDesc::And(
+            enumerate_bindings(vars, objects_by_type)
+                .into_iter()
+                .map(|extra| {
+                    let mut full = binding.clone();
+                    full.extend(extra);
+                    expand_goal_quantifiers(body, &full, objects_by_type)
+                })
+                .collect::<Result<_, _>>()?,
+        ),
+        GoalDesc::Exists(vars, body) => GoalDesc::Or(
+            enumerate_bindings(vars, objects_by_type)
+                .into_iter()
+                .map(|extra| {
+                    let mut full = binding.clone();
+                    full.extend(extra);
+                    expand_goal_quantifiers(body, &full, objects_by_type)
+                })
+                .collect::<Result<_, _>>()?,
+        ),
     })
 }
 
@@ -230,7 +329,14 @@ pub struct GroundMethod {
 pub struct GroundedIR {
     pub actions: Vec<GroundAction>,
     pub methods: Vec<GroundMethod>,
-    pub root_tasks: Vec<String>,
+    /// Was `root_tasks: Vec<String>`. Reuses `GroundSubtask` (id = the
+    /// original `:htn` subtask id, task_name = its ground name) — the exact
+    /// same shape `GroundMethod::subtasks` already uses, for the same reason:
+    /// `translate.rs` needs the id to build stable task-network addresses.
+    pub root_subtasks: Vec<GroundSubtask>,
+    /// Order edges among `root_subtasks`, as raw ast subtask ids (before,
+    /// after) — same convention as `GroundMethod::order`.
+    pub root_order: Vec<(String, String)>,
     pub initial_facts: BTreeSet<String>,
     pub goal: GoalDesc,
 }
@@ -345,6 +451,26 @@ fn subst_atom(
     Ok(atom_key(&atom.predicate, &args))
 }
 
+/// Like `subst_atom`, but keeps the AST shape (`Term::Const` args) instead
+/// of collapsing straight to a ground atom-key string. Used by
+/// `expand_goal_quantifiers`, which must hand back an `ast::GoalDesc` (see
+/// that function's doc comment for why `:goal` needs the AST shape rather
+/// than `GroundGoal`).
+fn subst_atom_ast(
+    atom: &AtomicFormula,
+    binding: &BTreeMap<String, String>,
+) -> Result<AtomicFormula, GroundError> {
+    let args = atom
+        .args
+        .iter()
+        .map(|t| Ok(Term::Const(subst_term(t, binding)?)))
+        .collect::<Result<Vec<_>, GroundError>>()?;
+    Ok(AtomicFormula {
+        predicate: atom.predicate.clone(),
+        args,
+    })
+}
+
 fn flatten_goal(
     goal: &GoalDesc,
     binding: &BTreeMap<String, String>,
@@ -375,6 +501,11 @@ fn flatten_goal(
         GoalDesc::Or(_) | GoalDesc::Imply(_, _) => Err(GroundError::UnsupportedPrecondition(
             "'or'/'imply' in a goal description is out of scope".to_owned(),
         )),
+        GoalDesc::Forall(_, _) | GoalDesc::Exists(_, _) => {
+            Err(GroundError::UnsupportedPrecondition(
+                "'forall'/'exists' inside a 'when'-condition is out of scope".to_owned(),
+            ))
+        }
     }
 }
 
@@ -536,7 +667,7 @@ pub fn compute_reachability(
             let still_pending: Vec<usize> = pending[i].iter().copied().collect();
             for bidx in still_pending {
                 let binding = &bindings[bidx];
-                let precondition = ground_goal(&action.precondition, binding)?;
+                let precondition = ground_goal(&action.precondition, binding, objects_by_type)?;
                 if !relaxed_satisfiable(&precondition, &facts) {
                     continue;
                 }
@@ -627,7 +758,7 @@ pub fn ground_actions(
                     limits.max_ground_actions
                 )));
             }
-            let precondition = ground_goal(&action.precondition, &binding)?;
+            let precondition = ground_goal(&action.precondition, &binding, objects_by_type)?;
             let outcomes = ground_effect(
                 &action.effect,
                 &binding,
@@ -678,7 +809,7 @@ pub fn ground_actions_reachable(
                     limits.max_ground_actions
                 )));
             }
-            let precondition = ground_goal(&action.precondition, &binding)?;
+            let precondition = ground_goal(&action.precondition, &binding, objects_by_type)?;
             let outcomes = ground_effect(
                 &action.effect,
                 &binding,
@@ -854,8 +985,16 @@ pub fn ground_initial_facts(problem: &Problem) -> Result<BTreeSet<String>, Groun
         .collect()
 }
 
-pub fn ground_root_tasks(problem: &Problem) -> Result<Vec<String>, GroundError> {
-    problem
+/// Was `ground_root_tasks`. Grounds the problem's root `:htn` task network
+/// into `(root_subtasks, root_order)`, preserving both subtask ids and the
+/// order edges among them — needed by `translate.rs` to build stable
+/// task-network addresses and restrict the BFS to actual decompositions of
+/// the root network, not just precondition-satisfying ground actions.
+#[allow(clippy::type_complexity)]
+pub fn ground_root_network(
+    problem: &Problem,
+) -> Result<(Vec<GroundSubtask>, Vec<(String, String)>), GroundError> {
+    let subtasks = problem
         .htn
         .subtasks
         .iter()
@@ -866,9 +1005,19 @@ pub fn ground_root_tasks(problem: &Problem) -> Result<Vec<String>, GroundError> 
                 .iter()
                 .map(ground_term_const)
                 .collect::<Result<Vec<_>, _>>()?;
-            Ok(atom_key(&st.task.name, &args))
+            Ok(GroundSubtask {
+                id: st.id.clone(),
+                task_name: atom_key(&st.task.name, &args),
+            })
         })
-        .collect()
+        .collect::<Result<Vec<_>, GroundError>>()?;
+    let order = problem
+        .htn
+        .order
+        .iter()
+        .map(|e| (e.before.clone(), e.after.clone()))
+        .collect();
+    Ok((subtasks, order))
 }
 
 pub fn ground(
@@ -904,13 +1053,14 @@ pub fn ground(
         let methods = ground_methods(domain, &objects_by_type, limits)?;
         (actions, methods)
     };
-    let root_tasks = ground_root_tasks(problem)?;
+    let (root_subtasks, root_order) = ground_root_network(problem)?;
     Ok(GroundedIR {
         actions,
         methods,
-        root_tasks,
+        root_subtasks,
+        root_order,
         initial_facts,
-        goal: problem.goal.clone(),
+        goal: expand_goal_quantifiers(&problem.goal, &BTreeMap::new(), &objects_by_type)?,
     })
 }
 
@@ -957,7 +1107,9 @@ mod tests {
                 .map(str::to_owned)
                 .collect()
         );
-        assert_eq!(ir.root_tasks, vec!["deliver(l1,l2)".to_owned()]);
+        assert_eq!(ir.root_subtasks.len(), 1);
+        assert_eq!(ir.root_subtasks[0].task_name, "deliver(l1,l2)");
+        assert!(ir.root_order.is_empty());
         let m = ir
             .methods
             .iter()
@@ -1299,5 +1451,123 @@ mod tests {
                 "drive(l9,l10)",
             ]
         );
+    }
+
+    // -- forall/exists quantifier expansion at grounding time ---------------
+
+    const FORALL_DOMAIN: &str = r#"(define (domain forall-d)
+      (:types loc)
+      (:predicates (visited ?l - loc))
+      (:action finish
+        :parameters ()
+        :precondition (forall (?l - loc) (visited ?l))
+        :effect (and (visited l1))))"#;
+
+    fn forall_problem(objects: &str) -> Problem {
+        let src = format!(
+            r#"(define (problem forall-p)
+              (:domain forall-d)
+              (:objects {objects})
+              (:init)
+              (:goal ())
+              (:htn :subtasks ()))"#
+        );
+        crate::parser::parse_problem(&src).expect("forall problem parses")
+    }
+
+    fn ground_finish_action(domain_src: &str, problem: &Problem) -> GroundAction {
+        let domain = parse_domain(domain_src).unwrap();
+        let ir = ground(&domain, problem, &GroundingLimits::default()).unwrap();
+        ir.actions
+            .iter()
+            .find(|a| a.name == "finish")
+            .expect("finish ground instance present")
+            .clone()
+    }
+
+    #[test]
+    fn forall_precondition_grounds_to_conjunction_over_all_objects_of_type() {
+        let problem = forall_problem("l1 l2 l3 - loc");
+        let finish = ground_finish_action(FORALL_DOMAIN, &problem);
+        match &finish.precondition {
+            GroundGoal::And(parts) => assert_eq!(parts.len(), 3),
+            other => panic!("expected an 'and' ground goal, got {other:?}"),
+        }
+        // Only 2 of 3 locations visited: the conjunction fails.
+        assert!(!action_applicable(
+            &finish,
+            &facts(&["visited(l1)", "visited(l2)"])
+        ));
+        // All 3 visited: the conjunction holds.
+        assert!(action_applicable(
+            &finish,
+            &facts(&["visited(l1)", "visited(l2)", "visited(l3)"])
+        ));
+    }
+
+    const EXISTS_DOMAIN: &str = r#"(define (domain exists-d)
+      (:types loc)
+      (:predicates (visited ?l - loc))
+      (:action finish
+        :parameters ()
+        :precondition (exists (?l - loc) (visited ?l))
+        :effect (and (visited l1))))"#;
+
+    #[test]
+    fn exists_precondition_grounds_to_disjunction_over_all_objects_of_type() {
+        let problem = forall_problem("l1 l2 l3 - loc");
+        let finish = ground_finish_action(EXISTS_DOMAIN, &problem);
+        match &finish.precondition {
+            GroundGoal::Or(parts) => assert_eq!(parts.len(), 3),
+            other => panic!("expected an 'or' ground goal, got {other:?}"),
+        }
+        // No location visited: the disjunction fails.
+        assert!(!action_applicable(&finish, &facts(&[])));
+        // Any one object satisfying the body is enough.
+        assert!(action_applicable(&finish, &facts(&["visited(l2)"])));
+    }
+
+    #[test]
+    fn forall_over_type_with_no_objects_is_vacuously_true() {
+        // Zero `loc` objects declared: `enumerate_bindings` over zero
+        // choices yields zero extended bindings, so the conjunction is
+        // `And(vec![])`, vacuously true.
+        let problem = forall_problem("");
+        let finish = ground_finish_action(FORALL_DOMAIN, &problem);
+        assert_eq!(finish.precondition, GroundGoal::And(vec![]));
+        assert!(action_applicable(&finish, &facts(&[])));
+    }
+
+    #[test]
+    fn exists_over_type_with_no_objects_is_vacuously_false() {
+        let problem = forall_problem("");
+        let finish = ground_finish_action(EXISTS_DOMAIN, &problem);
+        assert_eq!(finish.precondition, GroundGoal::Or(vec![]));
+        assert!(!action_applicable(&finish, &facts(&[])));
+    }
+
+    const NESTED_QUANTIFIER_DOMAIN: &str = r#"(define (domain nested-quantifier-d)
+      (:types loc)
+      (:predicates (p ?x - loc ?y - loc))
+      (:action finish
+        :parameters ()
+        :precondition (forall (?x - loc) (exists (?y - loc) (p ?x ?y)))
+        :effect (and (p l1 l1))))"#;
+
+    #[test]
+    fn nested_quantifiers_thread_the_extended_binding_correctly() {
+        // (forall (?x) (exists (?y) (p ?x ?y))) over {l1, l2}: satisfied
+        // when every ?x has *some* ?y with p(?x,?y) true -- ?x stays fixed
+        // per outer conjunct while ?y ranges over the inner disjunction.
+        let problem = forall_problem("l1 l2 - loc");
+        let finish = ground_finish_action(NESTED_QUANTIFIER_DOMAIN, &problem);
+        // p(l1,l2) covers x=l1; p(l2,l1) covers x=l2. Neither x has both
+        // witnesses in the same fact, but each x has at least one.
+        assert!(action_applicable(
+            &finish,
+            &facts(&["p(l1,l2)", "p(l2,l1)"])
+        ));
+        // Only x=l1 has a witness; x=l2 has none -- forall fails.
+        assert!(!action_applicable(&finish, &facts(&["p(l1,l2)"])));
     }
 }

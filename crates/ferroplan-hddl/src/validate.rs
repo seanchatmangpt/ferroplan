@@ -146,6 +146,30 @@ fn goal_desc_predicates<'a>(goal: &'a GoalDesc, out: &mut Vec<&'a str>) {
             goal_desc_predicates(a, out);
             goal_desc_predicates(b, out);
         }
+        GoalDesc::Forall(_, g) | GoalDesc::Exists(_, g) => goal_desc_predicates(g, out),
+    }
+}
+
+/// Every `Forall`/`Exists`-bound `TypedParam` found anywhere inside `goal`,
+/// so their declared types can be checked the same way predicate/task/
+/// action/method parameter types already are (`all_typed_params`).
+fn goal_desc_quantifier_params<'a>(goal: &'a GoalDesc, out: &mut Vec<&'a TypedParam>) {
+    match goal {
+        GoalDesc::Empty | GoalDesc::Atom(_) => {}
+        GoalDesc::Not(g) => goal_desc_quantifier_params(g, out),
+        GoalDesc::And(gs) | GoalDesc::Or(gs) => {
+            for g in gs {
+                goal_desc_quantifier_params(g, out);
+            }
+        }
+        GoalDesc::Imply(a, b) => {
+            goal_desc_quantifier_params(a, out);
+            goal_desc_quantifier_params(b, out);
+        }
+        GoalDesc::Forall(vars, body) | GoalDesc::Exists(vars, body) => {
+            out.extend(vars.iter());
+            goal_desc_quantifier_params(body, out);
+        }
     }
 }
 
@@ -197,6 +221,15 @@ fn check_duplicate_definitions(domain: &Domain) -> Result<(), ValidationError> {
 fn check_undefined_types(domain: &Domain) -> Result<(), ValidationError> {
     let declared = declared_type_names(domain);
     for param in all_typed_params(domain) {
+        if !declared.contains(param.type_name.as_str()) {
+            return Err(ValidationError::UndefinedType(param.type_name.clone()));
+        }
+    }
+    let mut quantifier_params = Vec::new();
+    for action in &domain.actions {
+        goal_desc_quantifier_params(&action.precondition, &mut quantifier_params);
+    }
+    for param in quantifier_params {
         if !declared.contains(param.type_name.as_str()) {
             return Err(ValidationError::UndefinedType(param.type_name.clone()));
         }
@@ -254,6 +287,14 @@ pub fn validate_problem(domain: &Domain, problem: &Problem) -> Result<(), Valida
             return Err(ValidationError::UnknownTaskOrAction(
                 subtask.task.name.clone(),
             ));
+        }
+    }
+    let declared = declared_type_names(domain);
+    let mut quantifier_params = Vec::new();
+    goal_desc_quantifier_params(&problem.goal, &mut quantifier_params);
+    for param in quantifier_params {
+        if !declared.contains(param.type_name.as_str()) {
+            return Err(ValidationError::UndefinedType(param.type_name.clone()));
         }
     }
     Ok(())
@@ -456,5 +497,50 @@ mod tests {
                 "fixture {name} domain should validate cleanly under the new checks"
             );
         }
+    }
+
+    // -- undefined type in forall/exists bound variables --------------------
+
+    const UNDEFINED_TYPE_IN_PRECONDITION_FORALL_DOMAIN: &str = r#"
+        (define (domain undefined-type-forall)
+          (:types loc)
+          (:predicates
+            (at ?l - loc)
+            (p ?x - object))
+          (:action noop
+            :parameters ()
+            :precondition (forall (?y - typo-type) (p ?y))
+            :effect ()))
+    "#;
+
+    #[test]
+    fn rejects_undefined_type_in_precondition_forall() {
+        let domain = parse_domain(UNDEFINED_TYPE_IN_PRECONDITION_FORALL_DOMAIN).unwrap();
+        let err = validate_domain(&domain).unwrap_err();
+        assert_eq!(err, ValidationError::UndefinedType("typo-type".to_owned()));
+    }
+
+    const UNDEFINED_TYPE_IN_GOAL_FORALL_DOMAIN: &str = r#"
+        (define (domain undefined-type-goal-forall)
+          (:types loc)
+          (:predicates (at ?l - loc))
+          (:action noop
+            :parameters (?l - loc)
+            :precondition ()
+            :effect (and (at ?l))))
+    "#;
+
+    #[test]
+    fn rejects_undefined_type_in_goal_forall() {
+        let domain = parse_domain(UNDEFINED_TYPE_IN_GOAL_FORALL_DOMAIN).unwrap();
+        let src = r#"(define (problem undefined-type-goal-forall-p)
+          (:domain undefined-type-goal-forall)
+          (:objects l1 - loc)
+          (:init (at l1))
+          (:goal (forall (?y - typo-type) (at ?y)))
+          (:htn :subtasks ()))"#;
+        let problem = parse_problem(src).expect("problem parses");
+        let err = validate_problem(&domain, &problem).unwrap_err();
+        assert_eq!(err, ValidationError::UndefinedType("typo-type".to_owned()));
     }
 }

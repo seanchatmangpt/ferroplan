@@ -148,18 +148,23 @@ fn fond_strong_policy_executes() {
 /// is already in `winning` *before* this state is considered — i.e. it is a
 /// monotonically growing (least-fixpoint) backward-induction pass, identical
 /// in shape to the classical "Strong Planning" algorithm from Cimatti et al.
-/// This cannot ever mark `s0` winning: the `s0 -> s0` self-loop outcome can
-/// never be in `winning` ahead of `s0` itself. A true strong-cyclic solver
-/// would instead run a greatest-fixpoint prune starting from "all states
-/// optimistic" and removing states that cannot avoid leaving the surviving
-/// set — that algorithm is absent here.
+/// This cannot ever mark `s0` winning on its own: the `s0 -> s0` self-loop
+/// outcome can never be in `winning` ahead of `s0` itself (that specific,
+/// function-level contract is pinned directly against `fond_policy` in
+/// `crates/ferroplan/src/planning_runtime.rs`'s own unit tests, since
+/// `fond_policy` is private and unreachable from this integration-test
+/// crate). `PlanningType::Fond`'s dispatch in `solve_planning_type` now
+/// falls back to `fond_policy_strong_cyclic` -- the standard Cimatti et al.
+/// two-phase (weak-reachability + greatest-fixpoint-prune) construction --
+/// whenever `fond_policy` alone returns `NoPlan`, so the *overall* FOND
+/// paradigm now does solve this domain end to end.
 ///
-/// This test proves, by real execution (not by reading code alone), that the
-/// planner returns `PlannerError::NoPlan` on a domain that REQUIRES a
-/// strong-cyclic (revisiting) policy — i.e. `fond_policy` implements only
-/// acyclic STRONG FOND planning, not STRONG-CYCLIC FOND planning.
+/// This test proves, by real execution through the public
+/// `solve_planning_type` entry point (not by reading code alone), that
+/// `PlanningType::Fond` now returns a solved policy on a domain that
+/// REQUIRES a strong-cyclic (revisiting) policy.
 #[test]
-fn fond_policy_fails_on_domain_requiring_strong_cyclic_retry_loop() {
+fn fond_via_solve_planning_type_now_solves_the_strong_cyclic_retry_loop() {
     let problem = PlanningProblem {
         states: vec![state("s0", &[]), state("g", &["done"])],
         initial_states: vec!["s0".to_owned()],
@@ -193,17 +198,23 @@ fn fond_policy_fails_on_domain_requiring_strong_cyclic_retry_loop() {
         problem,
         limits: Default::default(),
     });
-    // A strong-cyclic-capable solver would return Ok(solved) here with a
-    // policy of {s0: "flip"}. The actual native fond_policy fixpoint cannot
-    // admit s0 into `winning` because one of "flip"'s outcomes is s0 itself,
-    // so it exhausts max_iterations without classifying s0 as winning and
-    // reports NoPlan on the initial state instead.
-    assert_eq!(
-        result,
-        Err(PlannerError::NoPlan),
-        "fond_policy unexpectedly solved a domain that requires a strong-cyclic \
-         retry policy -- expected NoPlan because the fixpoint is acyclic-only, got {result:?}"
+    let plan = result.expect(
+        "PlanningType::Fond should now solve the retry-loop domain via the \
+         strong-cyclic fallback",
     );
+    assert!(plan.solved);
+    assert_eq!(plan.planning_type, Some(PlanningType::Fond));
+    assert_eq!(plan.policy.len(), 1);
+    let entry = &plan.policy[0];
+    assert_eq!(entry.state, "s0");
+    assert_eq!(entry.action, "flip");
+    let mut outcomes = entry
+        .outcomes
+        .iter()
+        .map(|outcome| outcome.state.clone())
+        .collect::<Vec<_>>();
+    outcomes.sort();
+    assert_eq!(outcomes, vec!["g".to_owned(), "s0".to_owned()]);
 }
 
 #[test]

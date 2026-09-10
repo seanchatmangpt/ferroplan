@@ -370,7 +370,25 @@ fn parse_goal(s: &Sexp) -> Result<GoalDesc, ParseError> {
                 Box::new(parse_goal(&items[2])?),
             ))
         }
-        "exists" | "forall" => Err(ParseError::UnsupportedConstruct(head.to_owned())),
+        "forall" | "exists" => {
+            if items.len() != 3 {
+                return Err(ParseError::Syntax(format!(
+                    "'{head}' takes a variable list and a body"
+                )));
+            }
+            let vars = parse_typed_params(as_list(&items[1])?)?;
+            if vars.is_empty() {
+                return Err(ParseError::Syntax(format!(
+                    "'{head}' requires at least one bound variable"
+                )));
+            }
+            let body = Box::new(parse_goal(&items[2])?);
+            if head == "forall" {
+                Ok(GoalDesc::Forall(vars, body))
+            } else {
+                Ok(GoalDesc::Exists(vars, body))
+            }
+        }
         _ => {
             let args = items[1..]
                 .iter()
@@ -486,25 +504,50 @@ fn parse_task_call(s: &Sexp) -> Result<TaskCall, ParseError> {
     Ok(TaskCall { name, args })
 }
 
-/// `(and (id1 (task args...)) (id2 (task args...)) ...)` — every subtask is
-/// explicitly labeled in this frontend's grammar.
-fn parse_labeled_subtasks(s: &Sexp) -> Result<Vec<Subtask>, ParseError> {
+/// A subtask list: `(and s1 s2 ...)`, or — real IPC2020/PANDA-dialect HDDL
+/// permits omitting the `and` wrapper when there is exactly one subtask — a
+/// single bare entry `s1` on its own (e.g. `:ordered-subtasks (pickup ?b)`).
+///
+/// Each entry `si` is either the labeled form `(id (task args...))` or a
+/// bare unlabeled task call `(task args...)`. The two are disambiguated by
+/// shape rather than by a separate marker: a labeled entry is always
+/// exactly 2 elements whose *second* element is itself a list (the nested
+/// task-call sexp); this is unambiguous because `parse_term` (used for a
+/// task call's own arguments) never accepts a list term, so a bare call's
+/// arguments are always atoms and a bare call can never accidentally take
+/// the `(atom list)` shape. Unlabeled entries get a synthetic id `t{i}`
+/// where `i` is the entry's 0-based position in this list — safe because
+/// callers only use subtask ids for positional sequential-order edges
+/// (`:ordered-subtasks`/`:ordered-tasks`) or for `:order` edges that, in
+/// practice, only ever reference explicitly-labeled entries.
+fn parse_subtasks(s: &Sexp) -> Result<Vec<Subtask>, ParseError> {
     let items = as_list(s)?;
-    if !items.is_empty() {
-        expect_atom(&items[0], "and")?;
+    if items.is_empty() {
+        return Ok(vec![]);
     }
-    let rest = if items.is_empty() { items } else { &items[1..] };
-    rest.iter()
-        .map(|entry| {
+    let entries: Vec<&Sexp> = if matches!(&items[0], Sexp::Atom(a) if a == "and") {
+        items[1..].iter().collect()
+    } else {
+        // No `(and ...)` wrapper: the whole list is the one subtask entry.
+        vec![s]
+    };
+    entries
+        .into_iter()
+        .enumerate()
+        .map(|(i, entry)| {
             let pair = as_list(entry)?;
-            if pair.len() != 2 {
-                return Err(ParseError::Syntax(
-                    "expected '(id (task args...))' subtask entry".to_owned(),
-                ));
+            if pair.len() == 2 {
+                if let Sexp::List(_) = &pair[1] {
+                    let id = as_atom(&pair[0])?.to_owned();
+                    let task = parse_task_call(&pair[1])?;
+                    return Ok(Subtask { id, task });
+                }
             }
-            let id = as_atom(&pair[0])?.to_owned();
-            let task = parse_task_call(&pair[1])?;
-            Ok(Subtask { id, task })
+            let task = parse_task_call(entry)?;
+            Ok(Subtask {
+                id: format!("t{i}"),
+                task,
+            })
         })
         .collect()
 }
@@ -537,7 +580,7 @@ fn parse_task_network(map: &BTreeMap<String, &Sexp>) -> Result<TaskNetwork, Pars
         .get(":ordered-subtasks")
         .or_else(|| map.get(":ordered-tasks"))
     {
-        let subtasks = parse_labeled_subtasks(s)?;
+        let subtasks = parse_subtasks(s)?;
         let order = subtasks
             .windows(2)
             .map(|w| OrderEdge {
@@ -548,7 +591,7 @@ fn parse_task_network(map: &BTreeMap<String, &Sexp>) -> Result<TaskNetwork, Pars
         return Ok(TaskNetwork { subtasks, order });
     }
     if let Some(s) = map.get(":subtasks").or_else(|| map.get(":tasks")) {
-        let subtasks = parse_labeled_subtasks(s)?;
+        let subtasks = parse_subtasks(s)?;
         let order = match map.get(":order").or_else(|| map.get(":ordering")) {
             Some(o) => parse_order_edges(o)?,
             None => vec![],
@@ -847,15 +890,35 @@ mod tests {
     }
 
     #[test]
-    fn rejects_forall_in_precondition() {
+    fn parses_forall_in_precondition() {
         let src = r#"(define (domain bad)
           (:predicates (p ?x - object))
           (:action a
             :parameters (?x - object)
             :precondition (forall (?y - object) (p ?y))
             :effect (and (p ?x))))"#;
+        let domain = parse_domain(src).expect("'forall' precondition parses");
+        match &domain.actions[0].precondition {
+            GoalDesc::Forall(vars, body) => {
+                assert_eq!(vars.len(), 1);
+                assert_eq!(vars[0].var, "y");
+                assert_eq!(vars[0].type_name, "object");
+                assert!(matches!(body.as_ref(), GoalDesc::Atom(a) if a.predicate == "p"));
+            }
+            other => panic!("expected a 'forall' goal description, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn forall_requires_at_least_one_bound_variable() {
+        let src = r#"(define (domain bad)
+          (:predicates (p))
+          (:action a
+            :parameters ()
+            :precondition (forall () (p))
+            :effect (and (p))))"#;
         let err = parse_domain(src).unwrap_err();
-        assert!(matches!(err, ParseError::UnsupportedConstruct(ref c) if c == "forall"));
+        assert!(matches!(err, ParseError::Syntax(_)));
     }
 
     #[test]
@@ -1025,20 +1088,29 @@ mod tests {
     }
 
     #[test]
-    fn rejects_exists_in_precondition() {
+    fn parses_exists_in_precondition() {
         let src = r#"(define (domain bad)
           (:predicates (p ?x - object))
           (:action a
             :parameters (?x - object)
             :precondition (exists (?y - object) (p ?y))
             :effect (and (p ?x))))"#;
-        let err = parse_domain(src).unwrap_err();
-        assert!(matches!(err, ParseError::UnsupportedConstruct(ref c) if c == "exists"));
+        let domain = parse_domain(src).expect("'exists' precondition parses");
+        match &domain.actions[0].precondition {
+            GoalDesc::Exists(vars, body) => {
+                assert_eq!(vars.len(), 1);
+                assert_eq!(vars[0].var, "y");
+                assert_eq!(vars[0].type_name, "object");
+                assert!(matches!(body.as_ref(), GoalDesc::Atom(a) if a.predicate == "p"));
+            }
+            other => panic!("expected an 'exists' goal description, got {other:?}"),
+        }
     }
 
     // -- fixture F: real external IPC 2020 corpus domain --------------------
 
     const FIXTURE_F_DOMAIN: &str = include_str!("../fixtures/f/domain.hddl");
+    const FIXTURE_F_PROBLEM: &str = include_str!("../fixtures/f/problem.hddl");
 
     /// Fixture F is fetched **verbatim** (byte-for-byte, via `curl`, no hand
     /// edits) from the real IPC 2020 HTN-planning benchmark corpus:
@@ -1051,37 +1123,106 @@ mod tests {
     /// HTN domain — no `oneof` — chosen because it was the one domain in
     /// that research pass with full verbatim text and a source URL.
     ///
-    /// It does NOT fit this crate's scope, but not for the reason expected
-    /// going in (the `setdone` method's `(forall (?b - BLOCK) (done ?b))`
-    /// precondition, which this crate's parser is built to hard-refuse via
-    /// `ParseError::UnsupportedConstruct` — see the `rejects_forall_in_
-    /// precondition` test above). That refusal is never reached: PANDA's own
-    /// HDDL dialect allows a bare, unlabeled task call inside
+    /// PANDA's own HDDL dialect allows a bare, unlabeled task call inside
     /// `:ordered-tasks`/`:ordered-subtasks` when no explicit ordering-by-id
-    /// is needed (e.g. this domain's very first method body,
-    /// `:ordered-tasks (and (mark_done ?b) (achieve-goals))`), whereas this
-    /// crate's grammar requires every subtask to be an explicit
-    /// `(id (task args...))` pair (`parse_labeled_subtasks`, "every subtask
-    /// is explicitly labeled in this frontend's grammar"). The bare 2-token
-    /// entry `(mark_done ?b)` is misread as such a pair (id = "mark_done",
-    /// task-sexp = the atom `?b`), and `?b` is not a list, so parsing fails
-    /// immediately with a real, correctly-typed `ParseError::Syntax` at that
-    /// exact point — a loud, precise, non-panicking rejection, not a crash
-    /// and not a wrong error, it just fires on a different construct (bare
-    /// subtask calls, a total-order PANDA-dialect convention this frontend's
-    /// stricter always-labeled-subtask grammar does not accept) than the one
-    /// anticipated. As a secondary, independently real finding: even past
-    /// that point, method-level `:precondition` (including the `forall`
-    /// above) is never read by `parse_method_def` at all — `MethodDef` has
-    /// no precondition field — so it would have been silently dropped rather
-    /// than hitting the `forall`/`exists` hard-refusal in `parse_goal`,
-    /// which only fires for action preconditions and `:goal`.
+    /// is needed — both as an entry inside an `(and ...)` list (e.g. this
+    /// domain's very first method body,
+    /// `:ordered-tasks (and (mark_done ?b) (achieve-goals))`) and, for a
+    /// single subtask, with the `(and ...)` wrapper omitted entirely (e.g.
+    /// `newMethod9`'s `:ordered-subtasks (pickup ?b)`). `parse_subtasks`
+    /// (formerly `parse_labeled_subtasks`, when every subtask had to be an
+    /// explicit `(id (task args...))` pair) now accepts both the labeled
+    /// and bare forms, synthesizing a positional id `t{i}` for each bare
+    /// entry. The `setdone` method's `(forall (?b - BLOCK) (done ?b))`
+    /// method-level `:precondition` is a separate, independently real
+    /// finding: it is never read by `parse_method_def` at all —
+    /// `MethodDef` has no precondition field — so it is silently dropped
+    /// regardless of `parse_goal`'s own `forall`/`exists` support (which
+    /// only ever runs on action preconditions and `:goal`).
     #[test]
-    fn fixture_f_real_ipc2020_blocksworld_rejects_unlabeled_subtask_call() {
-        let err = parse_domain(FIXTURE_F_DOMAIN).unwrap_err();
+    fn fixture_f_real_ipc2020_blocksworld_parses_unlabeled_subtask_calls() {
+        let domain = parse_domain(FIXTURE_F_DOMAIN).expect("fixture F domain parses");
+        assert_eq!(domain.methods.len(), 12);
+        assert_eq!(domain.actions.len(), 6);
+        assert_eq!(domain.tasks.len(), 5);
+
+        let mark_done_table = domain
+            .methods
+            .iter()
+            .find(|m| m.name == "mark-done-table")
+            .expect("mark-done-table method present");
         assert_eq!(
-            err,
-            ParseError::Syntax("expected a list, found atom '?b'".to_owned())
+            mark_done_table.network.subtasks,
+            vec![
+                Subtask {
+                    id: "t0".to_owned(),
+                    task: TaskCall {
+                        name: "mark_done".to_owned(),
+                        args: vec![Term::Var("b".to_owned())],
+                    },
+                },
+                Subtask {
+                    id: "t1".to_owned(),
+                    task: TaskCall {
+                        name: "achieve-goals".to_owned(),
+                        args: vec![],
+                    },
+                },
+            ]
+        );
+        assert_eq!(
+            mark_done_table.network.order,
+            vec![OrderEdge {
+                before: "t0".to_owned(),
+                after: "t1".to_owned(),
+            }]
+        );
+
+        // `newMethod9`: a single bare subtask with no `(and ...)` wrapper at
+        // all (`:ordered-subtasks (pickup ?b)`).
+        let new_method9 = domain
+            .methods
+            .iter()
+            .find(|m| m.name == "newMethod9")
+            .expect("newMethod9 method present");
+        assert_eq!(
+            new_method9.network.subtasks,
+            vec![Subtask {
+                id: "t0".to_owned(),
+                task: TaskCall {
+                    name: "pickup".to_owned(),
+                    args: vec![Term::Var("b".to_owned())],
+                },
+            }]
+        );
+        assert!(new_method9.network.order.is_empty());
+
+        // `setdone`: an empty `(and )` subtask list parses to zero subtasks.
+        let setdone = domain
+            .methods
+            .iter()
+            .find(|m| m.name == "setdone")
+            .expect("setdone method present");
+        assert!(setdone.network.subtasks.is_empty());
+        assert!(setdone.network.order.is_empty());
+    }
+
+    /// Fixture F's problem file (`pfile_005.hddl`, same corpus as the domain
+    /// above) also parses: its `:htn` uses the labeled form
+    /// (`(task0 (achieve-goals))`), which `parse_subtasks` still accepts.
+    #[test]
+    fn fixture_f_real_ipc2020_blocksworld_problem_parses() {
+        let problem = parse_problem(FIXTURE_F_PROBLEM).expect("fixture F problem parses");
+        assert_eq!(problem.objects.len(), 5);
+        assert_eq!(
+            problem.htn.subtasks,
+            vec![Subtask {
+                id: "task0".to_owned(),
+                task: TaskCall {
+                    name: "achieve-goals".to_owned(),
+                    args: vec![],
+                },
+            }]
         );
     }
 }

@@ -322,7 +322,18 @@ pub fn solve_planning_type(
         }
         PlanningType::Preferences => preference_plan(&request.problem, &request.limits),
         PlanningType::Probabilistic => probabilistic_policy(&request.problem, &request.limits),
-        PlanningType::Fond => fond_policy(&request.problem, &request.limits),
+        // Prefer the acyclic strong-plan fixpoint (bounded steps, no
+        // fairness assumption needed); fall back to the strong-cyclic
+        // fixpoint only when that fails, so this changes no behavior for
+        // any domain `fond_policy` already solves -- it only adds coverage
+        // for domains that structurally require a retry loop.
+        PlanningType::Fond => match fond_policy(&request.problem, &request.limits) {
+            Ok(plan) => Ok(plan),
+            Err(PlannerError::NoPlan) => {
+                fond_policy_strong_cyclic(&request.problem, &request.limits)
+            }
+            Err(other) => Err(other),
+        },
         PlanningType::Conformant => conformant_plan(&request.problem, &request.limits),
         PlanningType::Contingent => contingent_policy(&request.problem, &request.limits),
         PlanningType::Hierarchical => hierarchical_plan(&request.problem, &request.limits),
@@ -709,6 +720,127 @@ fn fond_policy(
         problem,
         choices,
         "strong FOND fixed point",
+    ))
+}
+
+/// Strong-cyclic FOND fixpoint solver (Cimatti, Pistore, Roveri, Traverso,
+/// *"Weak, Strong, and Strong Cyclic Planning via Symbolic Model Checking,"*
+/// AIJ 2003 — the standard reference algorithm). Unlike [`fond_policy`] (a
+/// least fixpoint grown from the goal outward, which can only express
+/// acyclic strong plans — a cyclic state's own successor set always
+/// contains a not-yet-`winning` member, namely itself, at the moment it
+/// would need to be admitted), this runs the standard two-phase
+/// construction:
+///
+/// - **Phase 1 (weak/OR backward reachability):** compute `weak`, the set of
+///   states from which the goal is reachable under *some* lucky run — seed
+///   at the goal states, then repeatedly admit any state with at least one
+///   outgoing edge (any action, any single outcome) landing in `weak`. This
+///   deliberately ignores that action's other outcomes.
+/// - **Phase 2 (greatest-fixpoint prune, AND-semantics, restricted to
+///   `weak`):** start optimistically at `surviving := weak`, then repeatedly
+///   remove any non-goal state with **no** action all of whose outcomes
+///   still land in `surviving`. Because `surviving` starts as the *whole*
+///   weakly-reachable set rather than empty, a self-loop outcome survives as
+///   long as its state does — this is exactly what admits retry loops that
+///   `fond_policy`'s least-fixpoint-from-empty construction cannot express.
+///
+/// Soundness/completeness of this construction for **strong-cyclic** (not
+/// strong) solutions relies on the standard fairness assumption: every
+/// non-deterministic outcome that is reachable infinitely often along an
+/// infinite execution eventually occurs. Unlike `fond_policy`, this solver
+/// does not additionally guarantee a bounded number of steps to the goal —
+/// only that the goal is reached with probability 1 in the limit under
+/// fairness. Every acyclic strong solution `fond_policy` finds is also a
+/// strong-cyclic solution (`weak` always contains `fond_policy`'s `winning`,
+/// since OR-reachability is weaker than AND-reachability, and Phase 2 never
+/// prunes a state that had an all-outcomes-covered witness), so this
+/// function is a strict superset solver relative to `fond_policy`.
+fn fond_policy_strong_cyclic(
+    problem: &PlanningProblem,
+    limits: &PlannerLimits,
+) -> Result<UniversalPlan, PlannerError> {
+    let states = state_index(problem);
+    let edges_by_from = grouped_edges(problem);
+    let groups = action_groups(problem);
+
+    // Phase 1: weak/OR backward reachability -> `weak`.
+    let mut weak = problem
+        .states
+        .iter()
+        .filter(|state| problem.goal.holds(state))
+        .map(|state| state.id.clone())
+        .collect::<BTreeSet<_>>();
+    for _ in 0..limits.max_iterations {
+        let mut changed = false;
+        for state in &problem.states {
+            if weak.contains(&state.id) || problem.unsafe_states.contains(&state.id) {
+                continue;
+            }
+            if edges_by_from
+                .get(state.id.as_str())
+                .into_iter()
+                .flatten()
+                .any(|edge| weak.contains(&edge.to))
+            {
+                weak.insert(state.id.clone());
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    // Phase 2: greatest-fixpoint prune weak -> surviving, extracting the
+    // policy as states are confirmed to have an all-outcomes-covered action.
+    let mut surviving = weak.clone();
+    let mut choices = BTreeMap::<String, String>::new();
+    for _ in 0..limits.max_iterations {
+        let mut changed = false;
+        for state in &problem.states {
+            if !surviving.contains(&state.id) || problem.goal.holds(state) {
+                continue;
+            }
+            let witness = groups.iter().find(|((from, _action), outcomes)| {
+                *from == state.id
+                    && !outcomes.is_empty()
+                    && outcomes.iter().all(|edge| surviving.contains(&edge.to))
+            });
+            match witness {
+                Some(((_, action), _)) => {
+                    choices.insert(state.id.clone(), (*action).to_owned());
+                }
+                None => {
+                    surviving.remove(&state.id);
+                    choices.remove(&state.id);
+                    changed = true;
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    if !problem
+        .initial_states
+        .iter()
+        .all(|state| surviving.contains(state))
+    {
+        return Err(PlannerError::NoPlan);
+    }
+    // Goal states need no policy entry; all other surviving states do.
+    for state in &surviving {
+        if !problem.goal.holds(states[state.as_str()]) && !choices.contains_key(state) {
+            return Err(PlannerError::NoPlan);
+        }
+    }
+
+    Ok(policy_from_choices(
+        problem,
+        choices,
+        "strong-cyclic FOND fixpoint (weak-reachability + greatest-fixpoint prune)",
     ))
 }
 
@@ -1267,4 +1399,195 @@ fn rdf_plan(
     plan.notes
         .push("RDF graph projected into bounded state space".to_owned());
     Ok(plan)
+}
+
+#[cfg(test)]
+mod tests {
+    //! Unit tests for the two private FOND fixpoint solvers. These call
+    //! `fond_policy` / `fond_policy_strong_cyclic` directly (both are
+    //! module-private, so only reachable from an in-module test, unlike
+    //! `crates/ferroplan/tests/planning_runtime.rs`'s integration tests,
+    //! which can only exercise them indirectly through the public
+    //! `solve_planning_type`).
+    use super::*;
+
+    fn edge(action: &str, from: &str, to: &str, probability_ppm: u32) -> Transition {
+        Transition {
+            action: action.to_owned(),
+            from: from.to_owned(),
+            to: to.to_owned(),
+            cost: 1,
+            duration: 1,
+            reward: 0,
+            probability_ppm,
+            observation: None,
+            requires: BTreeSet::new(),
+        }
+    }
+
+    fn state(id: &str, facts: &[&str]) -> State {
+        State {
+            id: id.to_owned(),
+            facts: facts.iter().map(|fact| (*fact).to_owned()).collect(),
+            fluents: BTreeMap::new(),
+        }
+    }
+
+    /// The committed retry-loop fixture: a single non-deterministic action
+    /// `flip` from `s0` either reaches the goal (`g`) or loops back onto
+    /// `s0` itself. No acyclic strong policy exists (the `s0 -> s0` outcome
+    /// can never be `winning` ahead of `s0` itself), but a strong-cyclic
+    /// policy trivially does (`{s0: "flip"}`).
+    fn retry_loop_problem() -> PlanningProblem {
+        PlanningProblem {
+            states: vec![state("s0", &[]), state("g", &["done"])],
+            initial_states: vec!["s0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: vec![
+                edge("flip", "s0", "g", 500_000),
+                edge("flip", "s0", "s0", 500_000),
+            ],
+            ..PlanningProblem::default()
+        }
+    }
+
+    /// Direct, function-level pin: `fond_policy` alone -- called on its own,
+    /// not through `solve_planning_type`'s fallback -- still correctly
+    /// returns `NoPlan` on a domain that structurally requires a
+    /// strong-cyclic retry policy. This is the acyclic-only fixpoint's own
+    /// contract and must not regress just because a fallback now sits in
+    /// front of it at the dispatch layer.
+    #[test]
+    fn fond_policy_alone_still_returns_no_plan_on_retry_loop() {
+        let problem = retry_loop_problem();
+        let limits = PlannerLimits::default();
+        assert_eq!(
+            fond_policy(&problem, &limits),
+            Err(PlannerError::NoPlan),
+            "fond_policy's acyclic-only fixpoint must still reject a domain \
+             that requires a retry loop when called directly"
+        );
+    }
+
+    /// The direct positive counterpart: `fond_policy_strong_cyclic` alone
+    /// solves the same fixture `fond_policy` cannot, with the exact policy
+    /// traced in the design (`{s0: "flip"}`, both outcomes preserved).
+    #[test]
+    fn fond_policy_strong_cyclic_solves_the_retry_loop_domain() {
+        let problem = retry_loop_problem();
+        let limits = PlannerLimits::default();
+        let plan = fond_policy_strong_cyclic(&problem, &limits)
+            .expect("strong-cyclic fixpoint solves the retry-loop domain");
+        assert!(plan.solved);
+        assert_eq!(plan.policy.len(), 1);
+        let entry = &plan.policy[0];
+        assert_eq!(entry.state, "s0");
+        assert_eq!(entry.action, "flip");
+        let mut outcomes = entry
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.state.clone())
+            .collect::<Vec<_>>();
+        outcomes.sort();
+        assert_eq!(outcomes, vec!["g".to_owned(), "s0".to_owned()]);
+    }
+
+    /// A slightly larger strong-cyclic fixture with two independent retry
+    /// points chained together: `s0` must retry `flip1` until it advances to
+    /// `a`, then `a` must independently retry `flip2` until it advances to
+    /// the goal `g`. Neither retry point is expressible by `fond_policy`'s
+    /// acyclic fixpoint (each has a same-state self-loop outcome), so this
+    /// exercises Phase 1/Phase 2 propagating admission across two hops, not
+    /// just a single self-loop.
+    fn two_retry_points_problem() -> PlanningProblem {
+        PlanningProblem {
+            states: vec![state("s0", &[]), state("a", &[]), state("g", &["done"])],
+            initial_states: vec!["s0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: vec![
+                edge("flip1", "s0", "a", 500_000),
+                edge("flip1", "s0", "s0", 500_000),
+                edge("flip2", "a", "g", 500_000),
+                edge("flip2", "a", "a", 500_000),
+            ],
+            ..PlanningProblem::default()
+        }
+    }
+
+    #[test]
+    fn fond_policy_strong_cyclic_solves_two_independent_retry_points() {
+        let problem = two_retry_points_problem();
+        let limits = PlannerLimits::default();
+        // Confirm the acyclic-only solver still cannot express this domain
+        // either, for the same structural reason as the single-loop case.
+        assert_eq!(
+            fond_policy(&problem, &limits),
+            Err(PlannerError::NoPlan),
+            "fond_policy must still reject the chained two-retry-point domain"
+        );
+        let plan = fond_policy_strong_cyclic(&problem, &limits)
+            .expect("strong-cyclic fixpoint solves the chained two-retry-point domain");
+        assert!(plan.solved);
+        assert_eq!(plan.policy.len(), 2);
+        let by_state = plan
+            .policy
+            .iter()
+            .map(|entry| (entry.state.as_str(), entry))
+            .collect::<BTreeMap<_, _>>();
+        let s0_entry = by_state.get("s0").expect("s0 has a policy entry");
+        assert_eq!(s0_entry.action, "flip1");
+        let mut s0_outcomes = s0_entry
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.state.clone())
+            .collect::<Vec<_>>();
+        s0_outcomes.sort();
+        assert_eq!(s0_outcomes, vec!["a".to_owned(), "s0".to_owned()]);
+        let a_entry = by_state.get("a").expect("a has a policy entry");
+        assert_eq!(a_entry.action, "flip2");
+        let mut a_outcomes = a_entry
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.state.clone())
+            .collect::<Vec<_>>();
+        a_outcomes.sort();
+        assert_eq!(a_outcomes, vec!["a".to_owned(), "g".to_owned()]);
+    }
+
+    /// End-to-end proof (within the same module, over the private
+    /// functions) that the fallback wiring in `solve_planning_type` does not
+    /// disturb a domain `fond_policy` already solves outright: the strong
+    /// (acyclic) FOND fixture used by the integration test suite must still
+    /// resolve via `fond_policy` alone, never reaching the strong-cyclic
+    /// fallback.
+    #[test]
+    fn fond_policy_still_solves_acyclic_strong_domains_directly() {
+        let problem = PlanningProblem {
+            states: vec![
+                state("s0", &[]),
+                state("g1", &["done"]),
+                state("g2", &["done"]),
+            ],
+            initial_states: vec!["s0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: vec![
+                edge("commit", "s0", "g1", 500_000),
+                edge("commit", "s0", "g2", 500_000),
+            ],
+            ..PlanningProblem::default()
+        };
+        let plan = fond_policy(&problem, &PlannerLimits::default())
+            .expect("fond_policy solves the acyclic strong domain on its own");
+        assert!(plan.solved);
+        assert_eq!(plan.notes, vec!["strong FOND fixed point".to_owned()]);
+    }
 }
