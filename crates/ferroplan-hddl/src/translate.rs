@@ -77,6 +77,21 @@ pub enum TranslateError {
         elapsed_ms: u128,
         limit_ms: u128,
     },
+    /// `TranslateLimits::max_states` was reached before the BFS converged.
+    /// Independent of, and checked at the same point as, `Timeout` (once per
+    /// state popped off the queue in `translate`'s BFS) — a real, hardware-
+    /// independent memory ceiling rather than a wall-clock proxy for one. A
+    /// machine faster than whatever `max_wall` was tuned against can still
+    /// intern an unbounded number of `State`/`Transition` structs (each
+    /// cloning a `BTreeSet<String>` of ground-fact strings) before a
+    /// wall-clock-only deadline fires; this variant refuses loudly at a
+    /// fixed state count regardless of clock speed, the same discipline
+    /// `grounder::GroundingLimits::max_ground_actions`/`max_ground_methods`
+    /// already apply to grounding.
+    MemoryLimitExceeded {
+        states: usize,
+        limit: usize,
+    },
 }
 
 impl fmt::Display for TranslateError {
@@ -101,6 +116,10 @@ impl fmt::Display for TranslateError {
                 f,
                 "translate wall-clock limit exceeded: {elapsed_ms}ms elapsed, limit {limit_ms}ms"
             ),
+            Self::MemoryLimitExceeded { states, limit } => write!(
+                f,
+                "translate memory limit exceeded: {states} states interned, limit {limit}"
+            ),
         }
     }
 }
@@ -120,6 +139,16 @@ pub struct TranslateLimits {
     /// `grounder::GroundingLimits::max_wall`) so a caller using
     /// `TranslateLimits::default()` is protected without opting in.
     pub max_wall: Option<std::time::Duration>,
+    /// Hard, count-based ceiling on the number of composite states interned
+    /// by `translate`'s BFS, checked at the same point as `max_wall` (once
+    /// per state popped off the queue) — independent of the wall clock.
+    /// Each interned `State` (plus its outgoing `Transition`s) clones a
+    /// `BTreeSet<String>` of ground-fact strings, so uncapped state growth
+    /// is uncapped memory growth; this bounds it directly by count rather
+    /// than relying on a wall-clock timeout as a memory proxy, mirroring
+    /// `grounder::GroundingLimits::max_ground_actions`/`max_ground_methods`.
+    /// `None` means unbounded; `default()` sets a real bound.
+    pub max_states: Option<usize>,
 }
 
 impl Default for TranslateLimits {
@@ -127,6 +156,7 @@ impl Default for TranslateLimits {
         Self {
             max_task_network_depth: 64,
             max_wall: Some(std::time::Duration::from_secs(10)),
+            max_states: Some(200_000),
         }
     }
 }
@@ -678,6 +708,20 @@ pub fn translate(
             );
             return Err(e);
         }
+        if let Some(limit) = limits.max_states {
+            if states.len() >= limit {
+                eprintln!(
+                    "translate: memory limit hit -- {} states interned, {} transitions built, {} states still queued",
+                    states.len(),
+                    transitions.len(),
+                    queue.len() + 1,
+                );
+                return Err(TranslateError::MemoryLimitExceeded {
+                    states: states.len(),
+                    limit,
+                });
+            }
+        }
         let addrs: Vec<String> = enabled(&cs.frontier)
             .into_iter()
             .map(str::to_owned)
@@ -942,6 +986,49 @@ mod tests {
         assert!(
             matches!(err, TranslateError::Timeout { .. }),
             "expected Timeout, got {err:?}"
+        );
+    }
+
+    const FIXTURE_F_DOMAIN: &str = include_str!("../fixtures/f/domain.hddl");
+    const FIXTURE_F_PROBLEM: &str = include_str!("../fixtures/f/problem.hddl");
+
+    /// Real combinatorial-blowup regression: fixture F (the IPC2020
+    /// blocksworld fixture named in the investigation that motivated
+    /// `max_states` — its BFS interned >112,000 states before a 20s
+    /// wall-clock budget cut it off, still growing, no plateau) must be
+    /// refused with a typed `MemoryLimitExceeded` error — not an OOM crash,
+    /// not a silent truncation — once `max_states` is reached, and it must
+    /// trigger well before the 10s default wall-clock budget would even be
+    /// checked meaningfully (a tiny `max_states` here makes the ceiling the
+    /// thing that actually fires, independent of the wall clock: `max_wall`
+    /// is left generous so a slow CI machine can't make this test flaky by
+    /// racing the two limits against each other).
+    #[test]
+    fn translate_refuses_with_memory_limit_exceeded_on_blocksworld_blowup() {
+        let domain = parse_domain(FIXTURE_F_DOMAIN).unwrap();
+        let problem = parse_problem(FIXTURE_F_PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let start = std::time::Instant::now();
+        let limits = TranslateLimits {
+            max_wall: Some(std::time::Duration::from_secs(60)),
+            max_states: Some(500),
+            ..TranslateLimits::default()
+        };
+        let err = translate(&ir, &limits).unwrap_err();
+        let elapsed = start.elapsed();
+        match err {
+            TranslateError::MemoryLimitExceeded { states, limit } => {
+                assert!(
+                    states >= 500,
+                    "expected at least 500 states interned before refusal, got {states}"
+                );
+                assert_eq!(limit, 500);
+            }
+            other => panic!("expected MemoryLimitExceeded, got {other:?}"),
+        }
+        assert!(
+            elapsed < std::time::Duration::from_secs(10),
+            "memory ceiling should trigger well before the 10s default wall-clock budget, took {elapsed:?}"
         );
     }
 
