@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use ferroplan::Plan;
+use ferroplan::{Plan, ThinkBudget};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ErrorData as McpError};
 use rmcp::{tool, tool_router};
@@ -148,6 +148,12 @@ struct ReplanInput {
     max_evaluated: usize,
     #[serde(default)]
     memory_mb: Option<usize>,
+    /// Wall budget for this replan, in milliseconds — the honest-wall
+    /// contract from `ferroplan::Session::think`. Omitted means no wall;
+    /// pair with `max_evaluated` when replay matters (a wall budget is
+    /// inherently machine-dependent).
+    #[serde(default)]
+    wall_ms: Option<u64>,
     #[serde(default)]
     reason: Option<String>,
 }
@@ -413,7 +419,7 @@ impl Ferroplan {
             }
         }
         Ok(json!({
-            "schema": "urn:chatman:ferroplan-session-state:v2",
+            "schema": "urn:chatman:ferroplan-session-state:v3",
             "session_id": input.session_id,
             "epoch": managed.epoch,
             "state_fingerprint": managed.session.state_fingerprint(),
@@ -423,6 +429,8 @@ impl Ferroplan {
             "unknown_facts": unknown_facts,
             "unknown_fluents": unknown_fluents,
             "remaining_plan_valid": current_plan_valid(&managed),
+            "world_bytes": managed.session.world_bytes(),
+            "mind_bytes": managed.session.mind_bytes(),
             "receipt_chain_head": managed.receipt_head
         }))
     }
@@ -541,14 +549,21 @@ impl Ferroplan {
         let lock = self.session_state.get(&input.session_id).await?;
         let mut managed = lock.lock().await;
         require_epoch(&managed, input.expected_epoch)?;
-        let solution = tokio::task::block_in_place(|| {
-            managed
-                .session
-                .replan_budgeted(input.max_evaluated, input.memory_mb)
-        });
+        let budget = ThinkBudget {
+            max_evaluated: Some(input.max_evaluated),
+            wall_ms: input.wall_ms,
+            memory_mb: input.memory_mb,
+        };
+        // `Session::think` (0.24 Phase 5), not the orbit-free
+        // `replan_budgeted` — a forced replan gets the same honest-wall,
+        // orbit-aware, budget-stamped contract as `session_think`: the
+        // capped-vs-proven verdict rides alongside the unchanged Solution
+        // fields, and `wall_ms` is honored instead of rejected as unknown.
+        let think = tokio::task::block_in_place(|| managed.session.think(&budget));
         managed.cursor = 0;
-        managed.last_plan = solution.plan.clone();
-        let solution_value = serde_json::to_value(&solution).map_err(|e| e.to_string())?;
+        managed.last_plan = think.solution.plan.clone();
+        let solution_value = serde_json::to_value(&think.solution).map_err(|e| e.to_string())?;
+        let verdict_value = serde_json::to_value(think.verdict).map_err(|e| e.to_string())?;
         let plan_digest = digest_plan(managed.last_plan.as_ref())?;
         let event = json!({
             "schema": "urn:chatman:ferroplan-session-event:v2",
@@ -558,16 +573,27 @@ impl Ferroplan {
             "reason": input.reason,
             "max_evaluated": input.max_evaluated,
             "memory_mb": input.memory_mb,
+            "wall_ms": input.wall_ms,
+            "capped": think.capped,
+            "verdict": verdict_value,
+            "spent_ms": think.spent_ms,
+            "spent_evals": think.spent_evals,
             "solution_digest": digest_value(&solution_value)?,
             "plan_digest": plan_digest
         });
         let receipt = chain_receipt(&mut managed, &event)?;
         Ok(json!({
-            "schema": "urn:chatman:ferroplan-session-replan:v2",
+            "schema": "urn:chatman:ferroplan-session-replan:v3",
             "session_id": input.session_id,
             "epoch": managed.epoch,
             "forced": true,
-            "solved": solution.solved,
+            "solved": think.solution.solved,
+            "plan": think.solution.plan,
+            "notes": think.solution.notes,
+            "capped": think.capped,
+            "spent_ms": think.spent_ms,
+            "spent_evals": think.spent_evals,
+            "verdict": verdict_value,
             "plan_digest": plan_digest,
             "solution": solution_value,
             "receipt": receipt

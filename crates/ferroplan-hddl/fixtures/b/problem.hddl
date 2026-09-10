@@ -1,0 +1,9 @@
+(define (problem warehouse-b-p1)
+  (:domain warehouse-b)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :subtasks (and (m1 (setup l1 l2)))
+    :order (and))
+  (:init )
+  (:goal (and (ready))))
