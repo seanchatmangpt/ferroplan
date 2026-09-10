@@ -19,6 +19,11 @@
 //!   - `plan_production` `{domain, problem, mode?, search?, max_evaluated?,
 //!     max_plan_steps?, max_output_bytes?, request_id?}` ->
 //!     `OperationEnvelope<Solution>` JSON
+//!   - `htn_plan` `{domain, problem, limits?}` -> `UniversalPlan` JSON
+//!     (`problem` is JSON text of a `PlanningProblem`, not PDDL; forces
+//!     `PlanningType::Hierarchical` via `solve_planning_type`)
+//!   - `fond_policy` `{domain, problem, limits?}` -> `UniversalPlan` JSON
+//!     (same wire shape as `htn_plan`; forces `PlanningType::Fond`)
 //!   - `readiness` `{}` -> capability manifest + fingerprint
 //!   - `version` `{}` -> `{"version": "..."}`
 //!   - `explain` `{domain, problem, plan}` (plan = a `Plan` object, not a
@@ -69,6 +74,10 @@
 use ferroplan::{
     capability_manifest, solve, solve_production, Mode, Options, ProductionLimits, Search,
 };
+use ferroplan::planning_runtime::{
+    solve_planning_type, PlannerLimits, PlanningProblem, UniversalPlanningRequest,
+};
+use ferroplan::planning_types::PlanningType;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::alloc::Layout;
@@ -279,6 +288,8 @@ fn dispatch(input: &[u8]) -> Result<Vec<u8>, String> {
     let response: Value = match op {
         "plan" => op_plan(&req)?,
         "plan_production" => op_plan_production(&req)?,
+        "htn_plan" => op_htn_plan(&req)?,
+        "fond_policy" => op_fond_policy(&req)?,
         "readiness" => op_readiness()?,
         "version" => json!({ "version": env!("CARGO_PKG_VERSION") }),
         "explain" => op_explain(&req)?,
@@ -384,6 +395,46 @@ fn op_plan_production(req: &Value) -> Result<Value, String> {
         extra.request_id.as_deref(),
     ))
     .map_err(|e| e.to_string())
+}
+
+/// `{op:"htn_plan", domain, problem[, limits?]}` -> `UniversalPlan` JSON.
+/// `domain`/`problem` are UTF-8 JSON text of a `PlanningProblem` object
+/// (same wire shape as `plan`/`plan_production`'s `domain`/`problem` fields,
+/// but decoded into the typed universal-planning model rather than PDDL
+/// text). `domain` is accepted and, if non-empty and not equal to
+/// `problem`, merged in as an additional `PlanningProblem` fragment is NOT
+/// supported here — ferroplan's universal-planning model has one combined
+/// problem document, so `domain` is ignored when present and `problem`
+/// alone is parsed as the full `PlanningProblem`. Forces
+/// `PlanningType::Hierarchical`.
+fn op_htn_plan(req: &Value) -> Result<Value, String> {
+    solve_universal(req, PlanningType::Hierarchical)
+}
+
+/// `{op:"fond_policy", domain, problem[, limits?]}` -> `UniversalPlan` JSON.
+/// Same wire shape as `op_htn_plan`; forces `PlanningType::Fond`.
+fn op_fond_policy(req: &Value) -> Result<Value, String> {
+    solve_universal(req, PlanningType::Fond)
+}
+
+fn solve_universal(req: &Value, planning_type: PlanningType) -> Result<Value, String> {
+    let problem_text = field_str(req, "problem")?;
+    bounded(problem_text, WASI_JSON_FIELD_BYTES, "problem")?;
+    let problem: PlanningProblem = serde_json::from_str(problem_text)
+        .map_err(|e| format!("problem: invalid PlanningProblem JSON: {e}"))?;
+    let limits: PlannerLimits = match req.get("limits") {
+        Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("limits: {e}"))?,
+        None => PlannerLimits::default(),
+    };
+    let request = UniversalPlanningRequest {
+        planning_type,
+        problem,
+        limits,
+    };
+    match solve_planning_type(&request) {
+        Ok(plan) => serde_json::to_value(plan).map_err(|e| e.to_string()),
+        Err(e) => Ok(err_json("FP_ADAPTER", &e.to_string())),
+    }
 }
 
 fn adapter_refusal_json(request_id: Option<&str>, message: &str) -> Value {
