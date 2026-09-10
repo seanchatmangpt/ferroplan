@@ -1,0 +1,15 @@
+(define (domain toss-e)
+  (:types loc)
+  (:predicates
+    (at ?l - loc)
+    (heads)
+    (tails))
+  (:task flip-coin :parameters ())
+  (:action toss-coin
+    :parameters ()
+    :precondition ()
+    :effect (:probabilistic 3 (and (heads)) 1 (and (tails))))
+  (:method m-flip
+    :parameters ()
+    :task (flip-coin)
+    :ordered-subtasks (and (t1 (toss-coin)))))

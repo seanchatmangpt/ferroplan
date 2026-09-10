@@ -16,6 +16,36 @@ Four framing decisions, locked by direct answers:
    numeric.** HTN (HDDL) and probabilistic (RDDL) are OUT — different
    input languages, different engines; a second front we're not
    opening.
+
+   > **Update, 2026-09-09 — HDDL superseded, RDDL still OUT.** The
+   > HDDL half of this decision no longer holds: `crates/ferroplan-hddl`
+   > (parser + grounder + translator feeding the existing `fond_policy`
+   > solver) landed this session, so HDDL input IS supported now. The
+   > original text above is left unchanged as the historical record of
+   > the 0.17 scoping decision; this note supersedes it rather than
+   > rewriting it. Honest scope of what landed:
+   >
+   > - **Supported:** totally- and partially-ordered HTN task
+   >   networks, typed parameters, `oneof` non-deterministic effects,
+   >   `when` conditional effects, probabilistic weights, `or`/`imply`
+   >   preconditions.
+   > - **NOT yet supported:** numeric fluents, temporal actions, full
+   >   `:constraints` solving, `forall`/`exists` quantification.
+   > - **Cyclic-FOND status (verified this session):** `fond_policy` is
+   >   **ACYCLIC-ONLY (strong, not strong-cyclic)**. It computes a
+   >   monotonically-growing least-fixpoint (classical backward
+   >   induction / Cimatti et al. 2003 "Strong Planning"), not the
+   >   complementary greatest-fixpoint pruning pass that Cimatti/Roveri
+   >   strong-cyclic planning requires. A domain whose only correct
+   >   policy revisits a state (e.g. a `oneof` action with a self-loop
+   >   outcome, as in the constructed
+   >   `fond_policy_fails_on_domain_requiring_strong_cyclic_retry_loop`
+   >   test in `crates/ferroplan/tests/planning_runtime.rs`) returns
+   >   `Err(PlannerError::NoPlan)` even though a strong-cyclic policy
+   >   trivially exists. A real strong-cyclic (`--strong-cyclic`) mode
+   >   remains an open, tracked gap, not a solved one.
+   >
+   > RDDL (probabilistic) remains OUT — unaffected by this update.
 2. **Ferroplan owns the abstract RPG core.** The village domain
    (rules, reference catalog, fixtures, benchmark, demo) lives here
    as a first-class domain; the game project consumes and extends it
@@ -295,6 +325,14 @@ the user publishes.
 
 - **HTN (HDDL) and probabilistic (RDDL) tracks**: rejected by direct
   decision — different languages, second front.
+
+  > **Update, 2026-09-09 — HDDL no longer deferred; RDDL still is.**
+  > HDDL landed via `crates/ferroplan-hddl` (parser/grounder/translator
+  > feeding the existing `fond_policy` solver). See the superseding
+  > note above (Framing decision 1) for the exact supported/not-yet
+  > scope and the verified ACYCLIC-ONLY (strong, not strong-cyclic)
+  > status of `fond_policy` on FOND domains reached through HDDL. RDDL
+  > (probabilistic) remains deferred, unaffected by this update.
 - **Planner-native multi-agent / cross-mind planning**: the fence
   holds; Sessions + goal contracts is the chosen mechanism.
 - The 0.15/0.16 carried list (h-surgery end-gated credit, transport

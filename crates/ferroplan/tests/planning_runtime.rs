@@ -133,6 +133,79 @@ fn fond_strong_policy_executes() {
     assert!(solve(PlanningType::Fond, problem).solved);
 }
 
+/// Strong-cyclic FOND probe: a single non-deterministic action "flip" from
+/// `s0` either reaches the goal (`g`) or loops back to `s0` itself. No
+/// ACYCLIC policy exists here (there is no way to make every outcome of any
+/// action land in an already-solved state, because one outcome always maps
+/// `s0` back onto `s0`), but a STRONG-CYCLIC policy trivially exists: keep
+/// executing "flip" at `s0` until the goal outcome occurs, which happens with
+/// probability 1 in the limit (Cimatti/Roveri strong-cyclic semantics allow a
+/// policy that revisits states, as long as every state in the policy's fair
+/// execution has a non-zero chance of eventually progressing to the goal).
+///
+/// `fond_policy`'s fixpoint (see `crates/ferroplan/src/planning_runtime.rs`)
+/// only ever admits a state into `winning` when EVERY outcome of some action
+/// is already in `winning` *before* this state is considered — i.e. it is a
+/// monotonically growing (least-fixpoint) backward-induction pass, identical
+/// in shape to the classical "Strong Planning" algorithm from Cimatti et al.
+/// This cannot ever mark `s0` winning: the `s0 -> s0` self-loop outcome can
+/// never be in `winning` ahead of `s0` itself. A true strong-cyclic solver
+/// would instead run a greatest-fixpoint prune starting from "all states
+/// optimistic" and removing states that cannot avoid leaving the surviving
+/// set — that algorithm is absent here.
+///
+/// This test proves, by real execution (not by reading code alone), that the
+/// planner returns `PlannerError::NoPlan` on a domain that REQUIRES a
+/// strong-cyclic (revisiting) policy — i.e. `fond_policy` implements only
+/// acyclic STRONG FOND planning, not STRONG-CYCLIC FOND planning.
+#[test]
+fn fond_policy_fails_on_domain_requiring_strong_cyclic_retry_loop() {
+    let problem = PlanningProblem {
+        states: vec![state("s0", &[]), state("g", &["done"])],
+        initial_states: vec!["s0".to_owned()],
+        goal: UniversalGoal {
+            facts: set(&["done"]),
+            ..Default::default()
+        },
+        transitions: vec![
+            // "flip" from s0: either reach the goal, or land right back on
+            // s0 (the retry loop). Probability mass must sum to 1_000_000
+            // per (state, action) or `validate_problem` rejects the problem.
+            UniversalTransition {
+                action: "flip".to_owned(),
+                from: "s0".to_owned(),
+                to: "g".to_owned(),
+                probability_ppm: 500_000,
+                ..edge("flip", "s0", "g")
+            },
+            UniversalTransition {
+                action: "flip".to_owned(),
+                from: "s0".to_owned(),
+                to: "s0".to_owned(),
+                probability_ppm: 500_000,
+                ..edge("flip", "s0", "s0")
+            },
+        ],
+        ..Default::default()
+    };
+    let result = solve_planning_type(&UniversalPlanningRequest {
+        planning_type: PlanningType::Fond,
+        problem,
+        limits: Default::default(),
+    });
+    // A strong-cyclic-capable solver would return Ok(solved) here with a
+    // policy of {s0: "flip"}. The actual native fond_policy fixpoint cannot
+    // admit s0 into `winning` because one of "flip"'s outcomes is s0 itself,
+    // so it exhausts max_iterations without classifying s0 as winning and
+    // reports NoPlan on the initial state instead.
+    assert_eq!(
+        result,
+        Err(PlannerError::NoPlan),
+        "fond_policy unexpectedly solved a domain that requires a strong-cyclic \
+         retry policy -- expected NoPlan because the fixpoint is acyclic-only, got {result:?}"
+    );
+}
+
 #[test]
 fn conformant_and_contingent_belief_planners_execute() {
     let base = PlanningProblem {

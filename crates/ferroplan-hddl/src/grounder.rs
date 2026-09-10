@@ -2,16 +2,34 @@
 //! substitution (including `oneof`/`when` outcome expansion), and full
 //! enumeration of ground actions and ground methods.
 //!
-//! Scope note: this pass enumerates the *full* combinatorial grounding (every
-//! typed object substitution), bounded by `GroundingLimits`, rather than
-//! pruning via delete-relaxation reachability first. That pruning is a real
-//! performance optimization the design spec calls out but is not required
-//! for correctness on the fixtures this crate targets — `translate.rs`
-//! separately does real reachability analysis (BFS from the initial state)
-//! before anything reaches the solver, so unreachable ground actions never
-//! produce transitions; they just cost one extra combinatorial-enumeration
-//! pass here. Left as a named, honest simplification rather than pretending
-//! it doesn't matter at scale.
+//! Scope note: by default (`GroundingLimits::prune_unreachable == false`,
+//! which is `GroundingLimits::default()`), this pass enumerates the *full*
+//! combinatorial grounding (every typed object substitution), bounded only by
+//! `GroundingLimits`'s counters. That is unchanged from this crate's original
+//! behavior specifically so every pre-existing caller and test — which was
+//! written against, and asserts, exact combinatorial ground-instance counts —
+//! keeps its current output byte-for-byte.
+//!
+//! When `prune_unreachable` is set, `ground` instead runs a real
+//! delete-relaxation reachability pre-pass (`compute_reachability`) before
+//! instantiating ground actions/methods: a monotone, positive-effects-only
+//! fixpoint over reachable ground facts, seeded from the initial state, that
+//! soundly *over-approximates* real reachability (ignoring delete effects and
+//! negative preconditions can only make more things look reachable, never
+//! fewer — see `relaxed_satisfiable`). `ground_actions_reachable`/
+//! `ground_methods_reachable` then skip instantiating any ground
+//! action/method whose ground name that fixpoint never marked reachable,
+//! before doing the (more expensive) precondition/effect substitution work.
+//! This is the "join-based"/delete-relaxation grounder class FastDownward and
+//! PANDA use, minus their incremental-join binding construction: bindings are
+//! still built via one full `enumerate_bindings` Cartesian product per action
+//! schema (same asymptotic enumeration cost as the unpruned path), and only
+//! the *output* ground-instance count and the downstream substitution cost
+//! shrink. `translate.rs` separately does its own real reachability analysis
+//! (BFS from the initial state) after grounding, so unreachable ground
+//! actions never produce transitions either way; this pre-pass additionally
+//! avoids paying the combinatorial-enumeration and substitution cost for them
+//! in the first place, when opted into.
 
 use crate::ast::*;
 use crate::validate;
@@ -25,6 +43,18 @@ pub enum GroundError {
     UnboundVariable(String),
     UnsupportedPrecondition(String),
     LimitExceeded(String),
+    /// A numeric fluent was declared (`(= (fluent ?params) value)` nested in
+    /// `:predicates`) or used in an `increase`/`decrease` effect. Numeric
+    /// planning is out of scope for this grounder — the fluent's name is
+    /// carried so the caller gets a precise, actionable refusal rather than a
+    /// generic failure. See `ast`'s module docs for the lex/parse-but-refuse
+    /// rationale.
+    UnsupportedNumericFluent(String),
+    /// The domain or problem declared a `:constraints` block. Full PDDL 3.0
+    /// constraint-GD semantics are out of scope for this grounder — the
+    /// constraint's modal-operator keyword (e.g. "always", "sometime-after")
+    /// is carried for a precise refusal. See `ast`'s module docs.
+    UnsupportedConstraint(String),
 }
 
 impl fmt::Display for GroundError {
@@ -35,6 +65,14 @@ impl fmt::Display for GroundError {
             Self::UnboundVariable(v) => write!(f, "unbound variable '?{v}'"),
             Self::UnsupportedPrecondition(msg) => write!(f, "unsupported construct: {msg}"),
             Self::LimitExceeded(msg) => write!(f, "grounding limit exceeded: {msg}"),
+            Self::UnsupportedNumericFluent(name) => write!(
+                f,
+                "numeric fluent '{name}' is not supported by this grounder (numeric planning is out of scope)"
+            ),
+            Self::UnsupportedConstraint(kind) => write!(
+                f,
+                "':constraints' entry '{kind}' is not supported by this grounder (constraint-GD semantics are out of scope)"
+            ),
         }
     }
 }
@@ -44,6 +82,13 @@ impl std::error::Error for GroundError {}
 pub struct GroundingLimits {
     pub max_ground_actions: usize,
     pub max_ground_methods: usize,
+    /// When `true`, `ground` runs the delete-relaxation reachability
+    /// pre-pass (`compute_reachability`) and skips instantiating any ground
+    /// action/method it proves can never fire — see the module docs.
+    /// Defaults to `false`: every pre-existing caller/test that relies on
+    /// the full combinatorial grounding keeps its exact current
+    /// ground-instance counts unless it opts in explicitly.
+    pub prune_unreachable: bool,
 }
 
 impl Default for GroundingLimits {
@@ -51,6 +96,7 @@ impl Default for GroundingLimits {
         Self {
             max_ground_actions: 10_000,
             max_ground_methods: 10_000,
+            prune_unreachable: false,
         }
     }
 }
@@ -68,13 +114,98 @@ pub struct GroundEffectBranch {
     pub add: BTreeSet<String>,
     pub del: BTreeSet<String>,
     pub conditional: Vec<GroundConditional>,
+    /// This outcome's declared weight from a `(:probabilistic ...)` effect
+    /// block (see `probabilistic::preprocess` and
+    /// `ast::ActionDef::probability_weights`), carried onto the branch during
+    /// grounding by `ground_effect`. Kept as raw source text, parsed only
+    /// where it's used (`translate::outcome_ppms`) -- the same discipline
+    /// `ast::ActionDef::probability_weights` documents. `None` for a plain
+    /// (weightless) `oneof` branch or a deterministic effect.
+    pub probability_weight: Option<String>,
+}
+
+/// A fully-ground (all terms already substituted to object names) goal
+/// formula, evaluable directly against a ground fact set via
+/// `evaluate_ground_goal`. This is the ground-time counterpart of
+/// `ast::GoalDesc` — see `ground_goal` for the substitution step that
+/// produces one from an `ast::GoalDesc` plus a variable binding.
+///
+/// `GoalDesc::Imply` has no dedicated variant here: `ground_goal` lowers
+/// `(imply a b)` to `Or(Not(a), b)` at grounding time (classical material
+/// implication — vacuously true when `a` doesn't hold), so `evaluate_ground_goal`
+/// only ever needs to know about `And`/`Or`/`Not`/`Atom`/`Empty`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GroundGoal {
+    Empty,
+    Atom(String),
+    Not(Box<GroundGoal>),
+    And(Vec<GroundGoal>),
+    Or(Vec<GroundGoal>),
+}
+
+/// Substitute `binding` into `goal`, producing a `GroundGoal` ready for
+/// `evaluate_ground_goal`. Handles the full `GoalDesc` grammar this crate
+/// supports in preconditions: `and`/`or`/`not`/`imply`/atom/empty.
+fn ground_goal(
+    goal: &GoalDesc,
+    binding: &BTreeMap<String, String>,
+) -> Result<GroundGoal, GroundError> {
+    Ok(match goal {
+        GoalDesc::Empty => GroundGoal::Empty,
+        GoalDesc::Atom(a) => GroundGoal::Atom(subst_atom(a, binding)?),
+        GoalDesc::Not(inner) => GroundGoal::Not(Box::new(ground_goal(inner, binding)?)),
+        GoalDesc::And(parts) => GroundGoal::And(
+            parts
+                .iter()
+                .map(|p| ground_goal(p, binding))
+                .collect::<Result<_, _>>()?,
+        ),
+        GoalDesc::Or(parts) => GroundGoal::Or(
+            parts
+                .iter()
+                .map(|p| ground_goal(p, binding))
+                .collect::<Result<_, _>>()?,
+        ),
+        GoalDesc::Imply(ante, conseq) => GroundGoal::Or(vec![
+            GroundGoal::Not(Box::new(ground_goal(ante, binding)?)),
+            ground_goal(conseq, binding)?,
+        ]),
+    })
+}
+
+/// Evaluate a fully-ground goal formula against a ground fact set. This is
+/// the general-purpose replacement for the old flat
+/// "pos-subset-and-no-neg-overlap" applicability check: that check is exactly
+/// `evaluate_ground_goal` on an `And`-of-`Atom`/`Not(Atom)` formula, but
+/// `Or`/`Imply` cannot be represented as a flat positive/negative literal
+/// set, so any precondition using them must be evaluated recursively instead.
+pub fn evaluate_ground_goal(goal: &GroundGoal, facts: &BTreeSet<String>) -> bool {
+    match goal {
+        GroundGoal::Empty => true,
+        GroundGoal::Atom(a) => facts.contains(a),
+        GroundGoal::Not(inner) => !evaluate_ground_goal(inner, facts),
+        GroundGoal::And(parts) => parts.iter().all(|p| evaluate_ground_goal(p, facts)),
+        GroundGoal::Or(parts) => parts.iter().any(|p| evaluate_ground_goal(p, facts)),
+    }
+}
+
+/// Whether `action` is applicable in a state with exactly `facts` true —
+/// i.e. whether its (ground, possibly `or`/`imply`-bearing) precondition
+/// holds. Thin wrapper over `evaluate_ground_goal` kept here so callers don't
+/// need to reach into `GroundAction::precondition` themselves.
+pub fn action_applicable(action: &GroundAction, facts: &BTreeSet<String>) -> bool {
+    evaluate_ground_goal(&action.precondition, facts)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GroundAction {
     pub name: String,
-    pub pos_pre: BTreeSet<String>,
-    pub neg_pre: BTreeSet<String>,
+    /// The action's precondition, fully ground and ready to evaluate via
+    /// `evaluate_ground_goal`/`action_applicable`. Replaces the old flat
+    /// `pos_pre`/`neg_pre` sets, which could only represent a pure
+    /// conjunction of literals — insufficient once `or`/`imply` are legal in
+    /// a precondition (see `ast::GoalDesc`).
+    pub precondition: GroundGoal,
     /// Exactly one of these branches occurs when the action is applied.
     /// Length 1 for a deterministic action, >1 when the source effect was a
     /// top-level `oneof`.
@@ -241,6 +372,9 @@ fn flatten_goal(
             }
             Ok(())
         }
+        GoalDesc::Or(_) | GoalDesc::Imply(_, _) => Err(GroundError::UnsupportedPrecondition(
+            "'or'/'imply' in a goal description is out of scope".to_owned(),
+        )),
     }
 }
 
@@ -287,6 +421,9 @@ fn collect_effect(
         Effect::Oneof(_) => Err(GroundError::UnsupportedPrecondition(
             "'oneof' is only permitted at the top of an action's effect".to_owned(),
         )),
+        Effect::Increase(fluent, _) | Effect::Decrease(fluent, _) => Err(
+            GroundError::UnsupportedNumericFluent(fluent.predicate.clone()),
+        ),
     }
 }
 
@@ -299,17 +436,158 @@ fn ground_effect_branch(
     Ok(branch)
 }
 
+/// `weights`, when present, is the declaring action's
+/// `probability_weights` -- one raw-text weight per top-level `oneof`
+/// branch, in declaration order (see `ast::ActionDef::probability_weights`).
+/// Ignored for a non-`oneof` effect (a deterministic effect has exactly one
+/// outcome and no weight to carry).
 fn ground_effect(
     effect: &Effect,
     binding: &BTreeMap<String, String>,
+    weights: Option<&[String]>,
 ) -> Result<Vec<GroundEffectBranch>, GroundError> {
     match effect {
         Effect::Oneof(branches) => branches
             .iter()
-            .map(|b| ground_effect_branch(b, binding))
+            .enumerate()
+            .map(|(i, b)| {
+                let mut branch = ground_effect_branch(b, binding)?;
+                branch.probability_weight = weights.and_then(|w| w.get(i)).cloned();
+                Ok(branch)
+            })
             .collect(),
         other => Ok(vec![ground_effect_branch(other, binding)?]),
     }
+}
+
+/// Whether a fully-ground precondition is possibly satisfiable under the
+/// delete relaxation: positive atoms must be in `facts`; `not` (and, by
+/// extension, `imply`'s lowered `Or(Not(_), _)`) is treated as *always*
+/// satisfiable rather than checked against `facts`. This is the standard
+/// delete-relaxation move (ignore delete effects) extended permissively to
+/// negative preconditions too: `facts` only ever grows in
+/// `compute_reachability`'s fixpoint, so there is no sound way to falsify a
+/// negative literal against it without also tracking closed-world absence —
+/// treating `not` as always-true keeps this check *sound* (it can under-prune
+/// by treating something as reachable when it isn't, but can never
+/// over-prune a genuinely reachable action) at the cost of some pruning
+/// precision on domains that lean on negative preconditions.
+fn relaxed_satisfiable(goal: &GroundGoal, facts: &BTreeSet<String>) -> bool {
+    match goal {
+        GroundGoal::Empty => true,
+        GroundGoal::Atom(a) => facts.contains(a),
+        GroundGoal::Not(_) => true,
+        GroundGoal::And(parts) => parts.iter().all(|p| relaxed_satisfiable(p, facts)),
+        GroundGoal::Or(parts) => parts.iter().any(|p| relaxed_satisfiable(p, facts)),
+    }
+}
+
+/// Result of the delete-relaxation reachability pre-pass (`compute_reachability`):
+/// the monotone set of ground facts optimistically reachable from the initial
+/// state, and the exact set of ground action names (`GroundAction::name`
+/// strings) whose precondition became `relaxed_satisfiable` at some point
+/// during that fixpoint. Sound as an over-approximation of real reachability:
+/// every fact/action reachable in the real, non-relaxed transition system is
+/// also reachable here, so filtering on `reachable_actions` never discards a
+/// genuinely-reachable ground action.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ReachabilityInfo {
+    pub facts: BTreeSet<String>,
+    pub reachable_actions: BTreeSet<String>,
+}
+
+/// Run the delete-relaxation reachability fixpoint over `domain`'s actions:
+/// starting from `initial_facts`, repeatedly find action bindings whose
+/// ground precondition is `relaxed_satisfiable` against the facts discovered
+/// so far, union in *all* of their possible add-effects (every `oneof`
+/// outcome, and every conditional branch's `add` set unconditionally — both
+/// permissive choices that only ever enlarge the relaxed-reachable set,
+/// preserving soundness), and repeat until nothing new is discovered.
+///
+/// Each action schema's binding list is built once up front via
+/// `enumerate_bindings` (the same Cartesian-product cost `ground_actions`
+/// pays) rather than rebuilt every fixpoint round; only the applicability
+/// check re-runs per round, against a set of not-yet-proven-reachable
+/// bindings that shrinks monotonically. This is a plain fixpoint, not a
+/// join-based/incremental grounder — it does not itself avoid the
+/// combinatorial binding enumeration, only the cost of substituting and
+/// storing a full `GroundAction` for instances later proven unreachable.
+pub fn compute_reachability(
+    domain: &Domain,
+    objects_by_type: &BTreeMap<String, Vec<String>>,
+    initial_facts: &BTreeSet<String>,
+) -> Result<ReachabilityInfo, GroundError> {
+    let per_action_bindings: Vec<(&ActionDef, Vec<BTreeMap<String, String>>)> = domain
+        .actions
+        .iter()
+        .map(|a| (a, enumerate_bindings(&a.params, objects_by_type)))
+        .collect();
+
+    let mut facts = initial_facts.clone();
+    let mut reachable_actions: BTreeSet<String> = BTreeSet::new();
+    let mut pending: Vec<BTreeSet<usize>> = per_action_bindings
+        .iter()
+        .map(|(_, bindings)| (0..bindings.len()).collect())
+        .collect();
+
+    loop {
+        let mut changed = false;
+        for (i, (action, bindings)) in per_action_bindings.iter().enumerate() {
+            let still_pending: Vec<usize> = pending[i].iter().copied().collect();
+            for bidx in still_pending {
+                let binding = &bindings[bidx];
+                let precondition = ground_goal(&action.precondition, binding)?;
+                if !relaxed_satisfiable(&precondition, &facts) {
+                    continue;
+                }
+                pending[i].remove(&bidx);
+                let args = action
+                    .params
+                    .iter()
+                    .map(|p| binding[&p.var].clone())
+                    .collect::<Vec<_>>();
+                reachable_actions.insert(atom_key(&action.name, &args));
+                for outcome in ground_effect(
+                    &action.effect,
+                    binding,
+                    action.probability_weights.as_deref(),
+                )? {
+                    for a in outcome.add {
+                        if facts.insert(a) {
+                            changed = true;
+                        }
+                    }
+                    for cond in outcome.conditional {
+                        for a in cond.add {
+                            if facts.insert(a) {
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    Ok(ReachabilityInfo {
+        facts,
+        reachable_actions,
+    })
+}
+
+/// The declared task name a ground task-instance name (e.g. `"drive(l1,l2)"`)
+/// was built from — everything before the first `(`, or the whole string for
+/// a zero-arity task. Used to tell whether a `GroundSubtask` names a
+/// primitive task (matches a domain action's declared name) or a compound one
+/// (decomposed further by other methods).
+fn task_base_name(ground_task_name: &str) -> &str {
+    ground_task_name
+        .split('(')
+        .next()
+        .unwrap_or(ground_task_name)
 }
 
 fn enumerate_bindings(
@@ -349,10 +627,12 @@ pub fn ground_actions(
                     limits.max_ground_actions
                 )));
             }
-            let mut pos_pre = BTreeSet::new();
-            let mut neg_pre = BTreeSet::new();
-            flatten_goal(&action.precondition, &binding, &mut pos_pre, &mut neg_pre)?;
-            let outcomes = ground_effect(&action.effect, &binding)?;
+            let precondition = ground_goal(&action.precondition, &binding)?;
+            let outcomes = ground_effect(
+                &action.effect,
+                &binding,
+                action.probability_weights.as_deref(),
+            )?;
             let args = action
                 .params
                 .iter()
@@ -360,8 +640,53 @@ pub fn ground_actions(
                 .collect::<Vec<_>>();
             out.push(GroundAction {
                 name: atom_key(&action.name, &args),
-                pos_pre,
-                neg_pre,
+                precondition,
+                outcomes,
+            });
+        }
+    }
+    Ok(out)
+}
+
+/// Like `ground_actions`, but for each binding first computes only the cheap
+/// ground name (a plain parameter substitution — no precondition/effect
+/// traversal) and skips the rest of the instantiation entirely when that name
+/// is not in `reachability.reachable_actions`. Sound: `reachable_actions` is
+/// an over-approximation of real reachability (see `compute_reachability`),
+/// so this never drops an action that could actually occur.
+pub fn ground_actions_reachable(
+    domain: &Domain,
+    objects_by_type: &BTreeMap<String, Vec<String>>,
+    limits: &GroundingLimits,
+    reachability: &ReachabilityInfo,
+) -> Result<Vec<GroundAction>, GroundError> {
+    let mut out = Vec::new();
+    for action in &domain.actions {
+        for binding in enumerate_bindings(&action.params, objects_by_type) {
+            let args = action
+                .params
+                .iter()
+                .map(|p| binding[&p.var].clone())
+                .collect::<Vec<_>>();
+            let name = atom_key(&action.name, &args);
+            if !reachability.reachable_actions.contains(&name) {
+                continue;
+            }
+            if out.len() >= limits.max_ground_actions {
+                return Err(GroundError::LimitExceeded(format!(
+                    "max_ground_actions ({}) exceeded",
+                    limits.max_ground_actions
+                )));
+            }
+            let precondition = ground_goal(&action.precondition, &binding)?;
+            let outcomes = ground_effect(
+                &action.effect,
+                &binding,
+                action.probability_weights.as_deref(),
+            )?;
+            out.push(GroundAction {
+                name,
+                precondition,
                 outcomes,
             });
         }
@@ -428,6 +753,85 @@ pub fn ground_methods(
     Ok(out)
 }
 
+/// Like `ground_methods`, but skips a ground method instance whenever one of
+/// its own ground subtasks names a *primitive* task (its base name matches a
+/// domain action's declared name) that `reachability.reachable_actions`
+/// proved can never fire. Compound subtasks (base name matches no action) are
+/// never used to prune — this crate does not propagate reachability through
+/// the compound-task/method decomposition graph, so a method is only pruned
+/// on positive proof about one of its own primitive subtasks, never on an
+/// unverified guess about a nested method chain several levels down. That
+/// makes this sound in the same sense `ground_actions_reachable` is: it only
+/// ever removes a ground method already proven unusable, never a possibly-
+/// usable one.
+pub fn ground_methods_reachable(
+    domain: &Domain,
+    objects_by_type: &BTreeMap<String, Vec<String>>,
+    limits: &GroundingLimits,
+    reachability: &ReachabilityInfo,
+) -> Result<Vec<GroundMethod>, GroundError> {
+    let action_names: BTreeSet<&str> = domain.actions.iter().map(|a| a.name.as_str()).collect();
+    let mut out = Vec::new();
+    for method in &domain.methods {
+        for binding in enumerate_bindings(&method.params, objects_by_type) {
+            let task_args = method
+                .task
+                .args
+                .iter()
+                .map(|t| subst_term(t, &binding))
+                .collect::<Result<Vec<_>, _>>()?;
+            let subtasks = method
+                .network
+                .subtasks
+                .iter()
+                .map(|st| {
+                    let args = st
+                        .task
+                        .args
+                        .iter()
+                        .map(|t| subst_term(t, &binding))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Ok(GroundSubtask {
+                        id: st.id.clone(),
+                        task_name: atom_key(&st.task.name, &args),
+                    })
+                })
+                .collect::<Result<Vec<_>, GroundError>>()?;
+            let has_unreachable_primitive_subtask = subtasks.iter().any(|st| {
+                action_names.contains(task_base_name(&st.task_name))
+                    && !reachability.reachable_actions.contains(&st.task_name)
+            });
+            if has_unreachable_primitive_subtask {
+                continue;
+            }
+            if out.len() >= limits.max_ground_methods {
+                return Err(GroundError::LimitExceeded(format!(
+                    "max_ground_methods ({}) exceeded",
+                    limits.max_ground_methods
+                )));
+            }
+            let order = method
+                .network
+                .order
+                .iter()
+                .map(|e| (e.before.clone(), e.after.clone()))
+                .collect();
+            let args = method
+                .params
+                .iter()
+                .map(|p| binding[&p.var].clone())
+                .collect::<Vec<_>>();
+            out.push(GroundMethod {
+                name: atom_key(&method.name, &args),
+                task_name: atom_key(&method.task.name, &task_args),
+                subtasks,
+                order,
+            });
+        }
+    }
+    Ok(out)
+}
+
 fn ground_term_const(term: &Term) -> Result<String, GroundError> {
     match term {
         Term::Const(c) => Ok(c.clone()),
@@ -472,13 +876,34 @@ pub fn ground(
     problem: &Problem,
     limits: &GroundingLimits,
 ) -> Result<GroundedIR, GroundError> {
+    // Loud, precise refusal for constructs this pass lexes/parses but does
+    // not (yet) ground — see the `ast` module docs. Checked before anything
+    // else so a numeric-fluent or `:constraints` domain never falls through
+    // to a confusing downstream failure.
+    if let Some(f) = domain.numeric_fluents.first() {
+        return Err(GroundError::UnsupportedNumericFluent(f.name.clone()));
+    }
+    if let Some(c) = domain.constraints.first() {
+        return Err(GroundError::UnsupportedConstraint(c.kind.clone()));
+    }
+    if let Some(c) = problem.constraints.first() {
+        return Err(GroundError::UnsupportedConstraint(c.kind.clone()));
+    }
     validate::validate_domain(domain).map_err(GroundError::Validation)?;
     validate::validate_problem(domain, problem).map_err(GroundError::Validation)?;
     let closure = build_type_closure(domain)?;
     let objects_by_type = index_objects_by_type(domain, problem, &closure);
-    let actions = ground_actions(domain, &objects_by_type, limits)?;
-    let methods = ground_methods(domain, &objects_by_type, limits)?;
     let initial_facts = ground_initial_facts(problem)?;
+    let (actions, methods) = if limits.prune_unreachable {
+        let reachability = compute_reachability(domain, &objects_by_type, &initial_facts)?;
+        let actions = ground_actions_reachable(domain, &objects_by_type, limits, &reachability)?;
+        let methods = ground_methods_reachable(domain, &objects_by_type, limits, &reachability)?;
+        (actions, methods)
+    } else {
+        let actions = ground_actions(domain, &objects_by_type, limits)?;
+        let methods = ground_methods(domain, &objects_by_type, limits)?;
+        (actions, methods)
+    };
     let root_tasks = ground_root_tasks(problem)?;
     Ok(GroundedIR {
         actions,
@@ -498,6 +923,23 @@ mod tests {
     const FIXTURE_A_PROBLEM: &str = include_str!("../fixtures/a/problem.hddl");
     const FIXTURE_C_DOMAIN: &str = include_str!("../fixtures/c/domain.hddl");
     const FIXTURE_C_PROBLEM: &str = include_str!("../fixtures/c/problem.hddl");
+    const FIXTURE_E_DOMAIN: &str = include_str!("../fixtures/e/domain.hddl");
+    const FIXTURE_E_PROBLEM: &str = include_str!("../fixtures/e/problem.hddl");
+
+    #[test]
+    fn probabilistic_effect_weights_are_ground_onto_outcomes() {
+        let domain = parse_domain(FIXTURE_E_DOMAIN).unwrap();
+        let problem = parse_problem(FIXTURE_E_PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let action = ir
+            .actions
+            .iter()
+            .find(|a| a.name == "toss-coin")
+            .expect("toss-coin ground instance present");
+        assert_eq!(action.outcomes.len(), 2);
+        assert_eq!(action.outcomes[0].probability_weight.as_deref(), Some("3"));
+        assert_eq!(action.outcomes[1].probability_weight.as_deref(), Some("1"));
+    }
 
     #[test]
     fn fixture_a_grounds_expected_counts() {
@@ -545,6 +987,194 @@ mod tests {
         assert!(blocked.del.contains("at(l1)"));
     }
 
+    const FIXTURE_D_DOMAIN: &str = include_str!("../fixtures/d/domain.hddl");
+    const FIXTURE_D_PROBLEM: &str = include_str!("../fixtures/d/problem.hddl");
+
+    /// Ground fixture D (an `or`/`imply` precondition domain) once and hand
+    /// back its two single-object ground actions, keyed by name, for the
+    /// applicability tests below.
+    fn ground_fixture_d() -> (GroundAction, GroundAction) {
+        let domain = parse_domain(FIXTURE_D_DOMAIN).unwrap();
+        let problem = parse_problem(FIXTURE_D_PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let enter = ir
+            .actions
+            .iter()
+            .find(|a| a.name == "enter(l1)")
+            .expect("enter(l1) ground instance present")
+            .clone();
+        let signal = ir
+            .actions
+            .iter()
+            .find(|a| a.name == "signal(l1)")
+            .expect("signal(l1) ground instance present")
+            .clone();
+        (enter, signal)
+    }
+
+    fn facts(names: &[&str]) -> BTreeSet<String> {
+        names.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn fixture_d_grounds_or_precondition_into_a_ground_goal() {
+        let (enter, _signal) = ground_fixture_d();
+        // (and (at ?l) (or (open ?l) (unlocked ?l))) grounded with ?l = l1.
+        match &enter.precondition {
+            GroundGoal::And(parts) => {
+                assert_eq!(parts.len(), 2);
+                assert!(matches!(&parts[0], GroundGoal::Atom(a) if a == "at(l1)"));
+                match &parts[1] {
+                    GroundGoal::Or(branches) => {
+                        assert_eq!(branches.len(), 2);
+                        assert!(matches!(&branches[0], GroundGoal::Atom(a) if a == "open(l1)"));
+                        assert!(matches!(&branches[1], GroundGoal::Atom(a) if a == "unlocked(l1)"));
+                    }
+                    other => panic!("expected the 'or' sub-formula, got {other:?}"),
+                }
+            }
+            other => panic!("expected an 'and' ground goal, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn or_precondition_is_applicable_when_either_disjunct_holds() {
+        let (enter, _signal) = ground_fixture_d();
+        // Neither `open(l1)` nor `unlocked(l1)` holds: the `or` fails, so
+        // `enter` is not applicable even though `at(l1)` holds.
+        assert!(!action_applicable(&enter, &facts(&["at(l1)"])));
+        // `open(l1)` alone satisfies the `or`.
+        assert!(action_applicable(&enter, &facts(&["at(l1)", "open(l1)"])));
+        // `unlocked(l1)` alone also satisfies the `or`.
+        assert!(action_applicable(
+            &enter,
+            &facts(&["at(l1)", "unlocked(l1)"])
+        ));
+        // Both satisfy it a fortiori.
+        assert!(action_applicable(
+            &enter,
+            &facts(&["at(l1)", "open(l1)", "unlocked(l1)"])
+        ));
+        // Missing `at(l1)` entirely: not applicable regardless of the `or`.
+        assert!(!action_applicable(
+            &enter,
+            &facts(&["open(l1)", "unlocked(l1)"])
+        ));
+    }
+
+    #[test]
+    fn imply_precondition_is_vacuously_true_when_antecedent_is_false() {
+        let (_enter, signal) = ground_fixture_d();
+        // (imply (open ?l) (unlocked ?l)): `open(l1)` false makes the
+        // implication vacuously true, so `signal` is applicable on `at(l1)`
+        // alone, with neither `open` nor `unlocked` present.
+        assert!(action_applicable(&signal, &facts(&["at(l1)"])));
+    }
+
+    #[test]
+    fn imply_precondition_is_false_when_antecedent_holds_and_consequent_does_not() {
+        let (_enter, signal) = ground_fixture_d();
+        // `open(l1)` true, `unlocked(l1)` false: the implication is violated.
+        assert!(!action_applicable(&signal, &facts(&["at(l1)", "open(l1)"])));
+    }
+
+    #[test]
+    fn imply_precondition_holds_when_both_antecedent_and_consequent_hold() {
+        let (_enter, signal) = ground_fixture_d();
+        assert!(action_applicable(
+            &signal,
+            &facts(&["at(l1)", "open(l1)", "unlocked(l1)"])
+        ));
+    }
+
+    #[test]
+    fn imply_precondition_holds_when_only_consequent_holds() {
+        let (_enter, signal) = ground_fixture_d();
+        // `open(l1)` false, `unlocked(l1)` true: antecedent false is already
+        // sufficient (vacuous truth), consequent being true too changes
+        // nothing — still applicable.
+        assert!(action_applicable(
+            &signal,
+            &facts(&["at(l1)", "unlocked(l1)"])
+        ));
+    }
+
+    const NUMERIC_FLUENT_DOMAIN: &str = r#"(define (domain numeric-fluent-d)
+      (:types vehicle)
+      (:predicates
+        (idle ?v - vehicle)
+        (= (fuel-level ?v - vehicle) 0))
+      (:action wait
+        :parameters (?v - vehicle)
+        :precondition (idle ?v)
+        :effect (and (idle ?v))))"#;
+
+    const CONSTRAINTS_DOMAIN: &str = r#"(define (domain constraints-d)
+      (:types loc)
+      (:predicates (at ?l - loc))
+      (:constraints (and (always (at ?l))))
+      (:action noop
+        :parameters (?l - loc)
+        :precondition ()
+        :effect (and (at ?l))))"#;
+
+    const INCREASE_EFFECT_DOMAIN: &str = r#"(define (domain increase-effect-d)
+      (:types vehicle)
+      (:predicates (idle ?v - vehicle))
+      (:action refuel
+        :parameters (?v - vehicle)
+        :precondition (idle ?v)
+        :effect (and (increase (fuel-level ?v) 10))))"#;
+
+    fn minimal_problem_with_object(domain_name: &str, type_name: &str) -> Problem {
+        let src = format!(
+            r#"(define (problem p)
+              (:domain {domain_name})
+              (:objects o1 - {type_name})
+              (:init)
+              (:goal ())
+              (:htn :subtasks ()))"#
+        );
+        crate::parser::parse_problem(&src).expect("minimal problem parses")
+    }
+
+    #[test]
+    fn refuses_numeric_fluent_declaration_with_typed_error() {
+        let domain = parse_domain(NUMERIC_FLUENT_DOMAIN).unwrap();
+        let problem = minimal_problem_with_object("numeric-fluent-d", "vehicle");
+        let err = ground(&domain, &problem, &GroundingLimits::default()).unwrap_err();
+        assert!(
+            matches!(err, GroundError::UnsupportedNumericFluent(ref n) if n == "fuel-level"),
+            "expected UnsupportedNumericFluent(\"fuel-level\"), got {err:?}"
+        );
+    }
+
+    #[test]
+    fn refuses_constraints_block_with_typed_error() {
+        let domain = parse_domain(CONSTRAINTS_DOMAIN).unwrap();
+        let problem = minimal_problem_with_object("constraints-d", "loc");
+        let err = ground(&domain, &problem, &GroundingLimits::default()).unwrap_err();
+        assert!(
+            matches!(err, GroundError::UnsupportedConstraint(ref k) if k == "always"),
+            "expected UnsupportedConstraint(\"always\"), got {err:?}"
+        );
+    }
+
+    #[test]
+    fn refuses_increase_effect_with_typed_error_even_without_fluent_declaration() {
+        // No `(= (fuel-level ...) ...)` declaration anywhere in this domain —
+        // the refusal must still fire from the effect-grounding path
+        // (`collect_effect`), not just the `domain.numeric_fluents` fast path.
+        let domain = parse_domain(INCREASE_EFFECT_DOMAIN).unwrap();
+        assert!(domain.numeric_fluents.is_empty());
+        let problem = minimal_problem_with_object("increase-effect-d", "vehicle");
+        let err = ground(&domain, &problem, &GroundingLimits::default()).unwrap_err();
+        assert!(
+            matches!(err, GroundError::UnsupportedNumericFluent(ref n) if n == "fuel-level"),
+            "expected UnsupportedNumericFluent(\"fuel-level\"), got {err:?}"
+        );
+    }
+
     #[test]
     fn grounding_limits_are_enforced() {
         let domain = parse_domain(FIXTURE_A_DOMAIN).unwrap();
@@ -554,8 +1184,120 @@ mod tests {
         let tight = GroundingLimits {
             max_ground_actions: 1,
             max_ground_methods: 10_000,
+            prune_unreachable: false,
         };
         let err = ground_actions(&domain, &objects_by_type, &tight).unwrap_err();
         assert!(matches!(err, GroundError::LimitExceeded(_)));
+    }
+
+    #[test]
+    fn default_grounding_limits_do_not_prune() {
+        // `prune_unreachable` must default to `false` so every existing
+        // caller/test that asserts exact combinatorial counts is unaffected.
+        assert!(!GroundingLimits::default().prune_unreachable);
+    }
+
+    #[test]
+    fn reachability_pruning_drops_the_unreachable_drive_pairs_on_fixture_a() {
+        // Fixture A has 2 locations (l1, l2), so the unpruned "drive"
+        // schema's Cartesian product is all 2*2 = 4 ordered pairs, but only
+        // `connected(l1,l2)` is ever a fact (static; no action adds
+        // `connected`), and only `at(l1)` holds initially — so `drive(l1,l2)`
+        // is the only ground instance that can ever fire.
+        let domain = parse_domain(FIXTURE_A_DOMAIN).unwrap();
+        let problem = parse_problem(FIXTURE_A_PROBLEM).unwrap();
+
+        let naive = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let drive_naive = naive
+            .actions
+            .iter()
+            .filter(|a| a.name.starts_with("drive("))
+            .count();
+        assert_eq!(drive_naive, 4);
+
+        let pruned_limits = GroundingLimits {
+            prune_unreachable: true,
+            ..GroundingLimits::default()
+        };
+        let pruned = ground(&domain, &problem, &pruned_limits).unwrap();
+        let drive_pruned: Vec<&str> = pruned
+            .actions
+            .iter()
+            .filter(|a| a.name.starts_with("drive("))
+            .map(|a| a.name.as_str())
+            .collect();
+        assert_eq!(drive_pruned, vec!["drive(l1,l2)"]);
+        // pickup/dropoff are single-parameter over the same 2 objects and
+        // both reachable (pickup(l1) from `at(l1)`, dropoff(l2) once
+        // `drive(l1,l2)` makes `at(l2)` reachable), so only the quadratic
+        // "drive" schema shrinks here — the overall action count still drops.
+        assert!(pruned.actions.len() < naive.actions.len());
+    }
+
+    const CHAIN_DOMAIN: &str = r#"(define (domain chain-d)
+      (:types loc)
+      (:predicates
+        (at ?l - loc)
+        (connected ?a - loc ?b - loc))
+      (:action drive
+        :parameters (?a - loc ?b - loc)
+        :precondition (and (at ?a) (connected ?a ?b))
+        :effect (and (not (at ?a)) (at ?b))))"#;
+
+    const CHAIN_PROBLEM: &str = r#"(define (problem chain-p)
+      (:domain chain-d)
+      (:objects l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 - loc)
+      (:init
+        (at l1)
+        (connected l1 l2) (connected l2 l3) (connected l3 l4) (connected l4 l5)
+        (connected l5 l6) (connected l6 l7) (connected l7 l8) (connected l8 l9)
+        (connected l9 l10))
+      (:goal ())
+      (:htn :subtasks ()))"#;
+
+    /// Synthetic domain sized (per the requesting task) at 8-10 objects
+    /// across a couple of types worth of structure: 10 `loc` objects and a
+    /// single binary-arity action (`drive`) whose only static-fact
+    /// precondition (`connected ?a ?b`) holds for just 9 of the 10*10 = 100
+    /// ordered pairs the naive Cartesian product enumerates. Real numbers:
+    /// naive combinatorial count = 100, delete-relaxation-pruned count = 9 —
+    /// exactly the chain edges reachable by repeatedly driving from `l1`.
+    #[test]
+    fn reachability_pruning_shrinks_ground_action_count_on_a_sparse_chain_domain() {
+        let domain = parse_domain(CHAIN_DOMAIN).unwrap();
+        let problem = parse_problem(CHAIN_PROBLEM).unwrap();
+
+        let naive = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        assert_eq!(naive.actions.len(), 10 * 10, "naive combinatorial count");
+
+        let pruned_limits = GroundingLimits {
+            prune_unreachable: true,
+            ..GroundingLimits::default()
+        };
+        let pruned = ground(&domain, &problem, &pruned_limits).unwrap();
+        assert_eq!(pruned.actions.len(), 9, "pruned reachable count");
+        assert!(
+            pruned.actions.len() < naive.actions.len(),
+            "pruned ({}) must be smaller than naive ({})",
+            pruned.actions.len(),
+            naive.actions.len()
+        );
+
+        let mut pruned_names: Vec<&str> = pruned.actions.iter().map(|a| a.name.as_str()).collect();
+        pruned_names.sort();
+        assert_eq!(
+            pruned_names,
+            vec![
+                "drive(l1,l2)",
+                "drive(l2,l3)",
+                "drive(l3,l4)",
+                "drive(l4,l5)",
+                "drive(l5,l6)",
+                "drive(l6,l7)",
+                "drive(l7,l8)",
+                "drive(l8,l9)",
+                "drive(l9,l10)",
+            ]
+        );
     }
 }

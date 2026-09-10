@@ -104,6 +104,30 @@ fn read_top(src: &str) -> Result<Sexp, ParseError> {
     Ok(sexp)
 }
 
+/// Canonical re-serialization of an `Sexp`, used to preserve `:constraints`
+/// entries verbatim (as `ConstraintDef::raw`) without needing a full nested
+/// constraint-GD grammar in the AST.
+fn sexp_to_string(s: &Sexp) -> String {
+    match s {
+        Sexp::Atom(a) => a.clone(),
+        Sexp::List(items) => {
+            let inner = items
+                .iter()
+                .map(sexp_to_string)
+                .collect::<Vec<_>>()
+                .join(" ");
+            format!("({inner})")
+        }
+    }
+}
+
+/// Whether an atom lexes as a (possibly signed, possibly fractional) numeral,
+/// per PDDL/HDDL numeric-literal syntax — used to tell a plain numeral value
+/// apart from a fluent-reference term.
+fn is_numeral(atom: &str) -> bool {
+    !atom.is_empty() && atom.parse::<f64>().is_ok()
+}
+
 fn as_atom(s: &Sexp) -> Result<&str, ParseError> {
     match s {
         Sexp::Atom(a) => Ok(a.as_str()),
@@ -186,12 +210,14 @@ fn parse_typed_params(items: &[Sexp]) -> Result<Vec<TypedParam>, ParseError> {
 
 fn parse_types(items: &[Sexp]) -> Result<TypeDef, ParseError> {
     let mut parent = BTreeMap::new();
+    let mut declared = Vec::new();
     for (child, ty) in parse_typed_group(items)? {
+        declared.push(child.clone());
         if ty != "object" {
             parent.insert(child, ty);
         }
     }
-    Ok(TypeDef { parent })
+    Ok(TypeDef { parent, declared })
 }
 
 fn parse_term(s: &Sexp) -> Result<Term, ParseError> {
@@ -215,19 +241,95 @@ fn parse_atomic(s: &Sexp) -> Result<AtomicFormula, ParseError> {
     Ok(AtomicFormula { predicate, args })
 }
 
-fn parse_predicates(items: &[Sexp]) -> Result<Vec<PredicateDef>, ParseError> {
-    items
-        .iter()
-        .map(|s| {
-            let list = as_list(s)?;
-            let name = as_atom(list.first().ok_or_else(|| {
+/// A numeric-fluent value: either a bare numeral (kept as source text) or a
+/// reference to another fluent, `(fluent-name ?args...)`.
+fn parse_numeric_value(s: &Sexp) -> Result<NumericValue, ParseError> {
+    match s {
+        Sexp::Atom(a) if is_numeral(a) => Ok(NumericValue::Number(a.clone())),
+        Sexp::Atom(a) => Err(ParseError::Syntax(format!(
+            "expected a numeral or a fluent reference, found '{a}'"
+        ))),
+        Sexp::List(_) => Ok(NumericValue::Fluent(parse_atomic(s)?)),
+    }
+}
+
+/// `(= (fluent-name ?params...) value)`, as found nested inside `:predicates`.
+fn parse_numeric_fluent_decl(items: &[Sexp]) -> Result<NumericFluentDecl, ParseError> {
+    if items.len() != 3 {
+        return Err(ParseError::Syntax(
+            "expected '(= (fluent-name ?params...) value)'".to_owned(),
+        ));
+    }
+    let sig = as_list(&items[1])?;
+    let name = as_atom(sig.first().ok_or_else(|| {
+        ParseError::Syntax("expected a fluent name in numeric fluent declaration".to_owned())
+    })?)?
+    .to_owned();
+    let params = parse_typed_params(&sig[1..])?;
+    let value = parse_numeric_value(&items[2])?;
+    Ok(NumericFluentDecl {
+        name,
+        params,
+        value,
+    })
+}
+
+/// `:predicates` entries are either an ordinary predicate declaration
+/// (`(name ?params...)`) or a numeric-fluent function declaration
+/// (`(= (name ?params...) value)`) — the two are split apart here rather
+/// than requiring a separate `:functions` section, matching real-world HDDL
+/// files that declare numeric fluents this way.
+fn parse_predicates(
+    items: &[Sexp],
+) -> Result<(Vec<PredicateDef>, Vec<NumericFluentDecl>), ParseError> {
+    let mut predicates = Vec::new();
+    let mut numeric_fluents = Vec::new();
+    for s in items {
+        let list = as_list(s)?;
+        let head =
+            as_atom(list.first().ok_or_else(|| {
                 ParseError::Syntax("expected a predicate declaration".to_owned())
-            })?)?
-            .to_owned();
-            let params = parse_typed_params(&list[1..])?;
-            Ok(PredicateDef { name, params })
-        })
-        .collect()
+            })?)?;
+        if head == "=" {
+            numeric_fluents.push(parse_numeric_fluent_decl(list)?);
+            continue;
+        }
+        let params = parse_typed_params(&list[1..])?;
+        predicates.push(PredicateDef {
+            name: head.to_owned(),
+            params,
+        });
+    }
+    Ok((predicates, numeric_fluents))
+}
+
+/// A single `:constraints` entry, e.g. `(always (connected ?a ?b))`. `kind`
+/// is the modal-operator keyword; the whole sexp is also preserved verbatim
+/// in `raw` — see `ConstraintDef`'s docs for why nothing deeper is parsed.
+fn parse_constraint_entry(s: &Sexp) -> Result<ConstraintDef, ParseError> {
+    let items = as_list(s)?;
+    let kind = as_atom(
+        items
+            .first()
+            .ok_or_else(|| ParseError::Syntax("expected a constraint entry".to_owned()))?,
+    )?
+    .to_owned();
+    Ok(ConstraintDef {
+        kind,
+        raw: sexp_to_string(s),
+    })
+}
+
+/// A `:constraints` section body: `(and c1 c2 ...)` flattens into one
+/// `ConstraintDef` per conjunct; anything else is a single constraint entry.
+fn parse_constraints(s: &Sexp) -> Result<Vec<ConstraintDef>, ParseError> {
+    let items = as_list(s)?;
+    if !items.is_empty() {
+        if let Ok("and") = as_atom(&items[0]) {
+            return items[1..].iter().map(parse_constraint_entry).collect();
+        }
+    }
+    Ok(vec![parse_constraint_entry(s)?])
 }
 
 fn parse_goal(s: &Sexp) -> Result<GoalDesc, ParseError> {
@@ -251,9 +353,24 @@ fn parse_goal(s: &Sexp) -> Result<GoalDesc, ParseError> {
             }
             Ok(GoalDesc::Not(Box::new(parse_goal(&items[1])?)))
         }
-        "or" | "imply" | "exists" | "forall" => {
-            Err(ParseError::UnsupportedConstruct(head.to_owned()))
+        "or" => Ok(GoalDesc::Or(
+            items[1..]
+                .iter()
+                .map(parse_goal)
+                .collect::<Result<_, _>>()?,
+        )),
+        "imply" => {
+            if items.len() != 3 {
+                return Err(ParseError::Syntax(
+                    "'imply' takes exactly two arguments".to_owned(),
+                ));
+            }
+            Ok(GoalDesc::Imply(
+                Box::new(parse_goal(&items[1])?),
+                Box::new(parse_goal(&items[2])?),
+            ))
         }
+        "exists" | "forall" => Err(ParseError::UnsupportedConstruct(head.to_owned())),
         _ => {
             let args = items[1..]
                 .iter()
@@ -314,6 +431,20 @@ fn parse_effect(s: &Sexp, allow_oneof: bool) -> Result<Effect, ParseError> {
                 .map(|e| parse_effect(e, false))
                 .collect::<Result<_, _>>()?;
             Ok(Effect::Oneof(branches))
+        }
+        "increase" | "decrease" => {
+            if items.len() != 3 {
+                return Err(ParseError::Syntax(format!(
+                    "'{head}' takes a fluent term and a value"
+                )));
+            }
+            let fluent = parse_atomic(&items[1])?;
+            let value = parse_numeric_value(&items[2])?;
+            if head == "increase" {
+                Ok(Effect::Increase(fluent, value))
+            } else {
+                Ok(Effect::Decrease(fluent, value))
+            }
         }
         _ => Ok(Effect::Literal(Literal::Pos(parse_atomic(s)?))),
     }
@@ -465,6 +596,12 @@ fn parse_action_def(rest: &[Sexp]) -> Result<ActionDef, ParseError> {
         params,
         precondition,
         effect,
+        // No `crate::probabilistic::preprocess` rewrite pass exists yet to
+        // populate this from a `(:probabilistic ...)` block — see the field's
+        // doc comment in `ast.rs`. `None` is the documented default for a
+        // plain/deterministic effect and is what every current parse path
+        // (this is the only `ActionDef` construction site) produces.
+        probability_weights: None,
     })
 }
 
@@ -498,7 +635,15 @@ fn parse_htn(rest: &[Sexp]) -> Result<TaskNetwork, ParseError> {
 }
 
 pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
-    let top = read_top(src)?;
+    // Pure text preprocessing pass, run before real tokenizing: rewrites any
+    // koala-planner-style `(:probabilistic w1 e1 w2 e2 ...)` effect block
+    // into a standard `(oneof e1 e2 ...)` block, handing back the declared
+    // weights keyed by enclosing action name (see `probabilistic::preprocess`
+    // for why the map is keyed that way). Everything below this line parses
+    // `cleaned` exactly as before -- `:probabilistic` never reaches the
+    // tokenizer/recursive-descent grammar at all.
+    let (cleaned, weight_map) = crate::probabilistic::preprocess(src);
+    let top = read_top(&cleaned)?;
     let items = as_list(&top)?;
     if items.is_empty() {
         return Err(ParseError::Syntax("empty 'define' form".to_owned()));
@@ -526,11 +671,16 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
             ":requirements" => {}
             ":types" => domain.types = parse_types(&sec[1..])?,
             ":constants" => domain.constants = parse_typed_objects(&sec[1..])?,
-            ":predicates" => domain.predicates = parse_predicates(&sec[1..])?,
+            ":predicates" => {
+                let (predicates, numeric_fluents) = parse_predicates(&sec[1..])?;
+                domain.predicates = predicates;
+                domain.numeric_fluents = numeric_fluents;
+            }
             ":task" => domain.tasks.push(parse_task_def(&sec[1..])?),
             ":action" => domain.actions.push(parse_action_def(&sec[1..])?),
             ":method" => domain.methods.push(parse_method_def(&sec[1..])?),
-            ":constraints" | ":functions" => {
+            ":constraints" => domain.constraints = parse_constraints(&sec[1])?,
+            ":functions" => {
                 return Err(ParseError::UnsupportedConstruct(keyword.to_owned()));
             }
             other => {
@@ -540,6 +690,16 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
             }
         }
     }
+
+    // Attach each action's declared `:probabilistic` weights (extracted by
+    // the preprocessing pass above, before this action's effect was even a
+    // `oneof` yet) now that the action itself exists as a real `ActionDef`.
+    for action in &mut domain.actions {
+        if let Some(weights) = weight_map.get(&action.name) {
+            action.probability_weights = Some(weights.clone());
+        }
+    }
+
     Ok(domain)
 }
 
@@ -579,7 +739,7 @@ pub fn parse_problem(src: &str) -> Result<Problem, ParseError> {
             }
             ":goal" => problem.goal = parse_goal(&sec[1])?,
             ":htn" => problem.htn = parse_htn(&sec[1..])?,
-            ":constraints" => return Err(ParseError::UnsupportedConstruct(keyword.to_owned())),
+            ":constraints" => problem.constraints = parse_constraints(&sec[1])?,
             other => {
                 return Err(ParseError::Syntax(format!(
                     "unknown problem section '{other}'"
@@ -598,6 +758,25 @@ mod tests {
     const FIXTURE_A_PROBLEM: &str = include_str!("../fixtures/a/problem.hddl");
     const FIXTURE_B_DOMAIN: &str = include_str!("../fixtures/b/domain.hddl");
     const FIXTURE_C_DOMAIN: &str = include_str!("../fixtures/c/domain.hddl");
+    const FIXTURE_E_DOMAIN: &str = include_str!("../fixtures/e/domain.hddl");
+
+    #[test]
+    fn fixture_e_probabilistic_effect_rewrites_to_oneof_with_weights() {
+        let domain = parse_domain(FIXTURE_E_DOMAIN).expect("fixture E domain parses");
+        let action = domain
+            .actions
+            .iter()
+            .find(|a| a.name == "toss-coin")
+            .expect("toss-coin action present");
+        match &action.effect {
+            Effect::Oneof(branches) => assert_eq!(branches.len(), 2),
+            other => panic!("expected a oneof effect, got {other:?}"),
+        }
+        assert_eq!(
+            action.probability_weights,
+            Some(vec!["3".to_owned(), "1".to_owned()])
+        );
+    }
 
     #[test]
     fn fixture_a_domain_structure() {
@@ -689,5 +868,220 @@ mod tests {
             :effect (oneof (and (p)) (oneof (and (q)) (and (p))))))"#;
         let err = parse_domain(src).unwrap_err();
         assert!(matches!(err, ParseError::MalformedOneof(_)));
+    }
+
+    const NUMERIC_DOMAIN: &str = r#"(define (domain numeric-d)
+      (:types loc vehicle)
+      (:predicates
+        (at ?l - loc)
+        (= (fuel-level ?v - vehicle) 0))
+      (:constraints
+        (and
+          (always (at ?l))
+          (sometime (at ?l))))
+      (:action refuel
+        :parameters (?v - vehicle)
+        :precondition ()
+        :effect (and
+          (increase (fuel-level ?v) 10)
+          (decrease (fuel-level ?v) 1))))"#;
+
+    #[test]
+    fn lexes_and_parses_numeric_fluent_declaration() {
+        let domain = parse_domain(NUMERIC_DOMAIN).expect("numeric-fluent domain parses");
+        assert_eq!(domain.predicates.len(), 1);
+        assert_eq!(domain.predicates[0].name, "at");
+        assert_eq!(domain.numeric_fluents.len(), 1);
+        let fluent = &domain.numeric_fluents[0];
+        assert_eq!(fluent.name, "fuel-level");
+        assert_eq!(fluent.params.len(), 1);
+        assert_eq!(fluent.params[0].var, "v");
+        assert_eq!(fluent.params[0].type_name, "vehicle");
+        assert_eq!(fluent.value, NumericValue::Number("0".to_owned()));
+    }
+
+    #[test]
+    fn lexes_and_parses_domain_constraints_block() {
+        let domain = parse_domain(NUMERIC_DOMAIN).expect("constraints domain parses");
+        assert_eq!(domain.constraints.len(), 2);
+        assert_eq!(domain.constraints[0].kind, "always");
+        assert_eq!(domain.constraints[1].kind, "sometime");
+        assert!(domain.constraints[0].raw.contains("at ?l"));
+    }
+
+    #[test]
+    fn lexes_and_parses_problem_constraints_block() {
+        let src = r#"(define (problem p)
+          (:domain d)
+          (:objects a b - object)
+          (:init (p a))
+          (:goal (p a))
+          (:constraints (and (always (p a)) (sometime-after (p a) (p b)))))"#;
+        let problem = parse_problem(src).expect("problem with :constraints parses");
+        assert_eq!(problem.constraints.len(), 2);
+        assert_eq!(problem.constraints[0].kind, "always");
+        assert_eq!(problem.constraints[1].kind, "sometime-after");
+    }
+
+    #[test]
+    fn lexes_and_parses_increase_and_decrease_effects() {
+        let domain = parse_domain(NUMERIC_DOMAIN).expect("increase/decrease domain parses");
+        let action = domain
+            .actions
+            .iter()
+            .find(|a| a.name == "refuel")
+            .expect("refuel action present");
+        match &action.effect {
+            Effect::And(effects) => {
+                assert_eq!(effects.len(), 2);
+                match &effects[0] {
+                    Effect::Increase(fluent, value) => {
+                        assert_eq!(fluent.predicate, "fuel-level");
+                        assert_eq!(*value, NumericValue::Number("10".to_owned()));
+                    }
+                    other => panic!("expected an 'increase' effect, got {other:?}"),
+                }
+                match &effects[1] {
+                    Effect::Decrease(fluent, value) => {
+                        assert_eq!(fluent.predicate, "fuel-level");
+                        assert_eq!(*value, NumericValue::Number("1".to_owned()));
+                    }
+                    other => panic!("expected a 'decrease' effect, got {other:?}"),
+                }
+            }
+            other => panic!("expected an 'and' effect, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn increase_value_may_reference_another_fluent() {
+        let src = r#"(define (domain d)
+          (:predicates (= (a) 0) (= (b) 0))
+          (:action bump
+            :parameters ()
+            :precondition ()
+            :effect (and (increase (a) (b)))))"#;
+        let domain = parse_domain(src).expect("fluent-valued increase parses");
+        let action = &domain.actions[0];
+        match &action.effect {
+            Effect::And(effects) => match &effects[0] {
+                Effect::Increase(fluent, NumericValue::Fluent(value_fluent)) => {
+                    assert_eq!(fluent.predicate, "a");
+                    assert_eq!(value_fluent.predicate, "b");
+                }
+                other => panic!("expected an increase-by-fluent effect, got {other:?}"),
+            },
+            other => panic!("expected an 'and' effect, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_or_precondition() {
+        let src = r#"(define (domain d)
+          (:predicates (p) (q))
+          (:action a
+            :parameters ()
+            :precondition (or (p) (q))
+            :effect (and (p))))"#;
+        let domain = parse_domain(src).expect("'or' precondition parses");
+        match &domain.actions[0].precondition {
+            GoalDesc::Or(branches) => {
+                assert_eq!(branches.len(), 2);
+                assert!(matches!(&branches[0], GoalDesc::Atom(a) if a.predicate == "p"));
+                assert!(matches!(&branches[1], GoalDesc::Atom(a) if a.predicate == "q"));
+            }
+            other => panic!("expected an 'or' goal description, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_imply_precondition() {
+        let src = r#"(define (domain d)
+          (:predicates (p) (q))
+          (:action a
+            :parameters ()
+            :precondition (imply (p) (q))
+            :effect (and (q))))"#;
+        let domain = parse_domain(src).expect("'imply' precondition parses");
+        match &domain.actions[0].precondition {
+            GoalDesc::Imply(ante, conseq) => {
+                assert!(matches!(ante.as_ref(), GoalDesc::Atom(a) if a.predicate == "p"));
+                assert!(matches!(conseq.as_ref(), GoalDesc::Atom(a) if a.predicate == "q"));
+            }
+            other => panic!("expected an 'imply' goal description, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn imply_requires_exactly_two_arguments() {
+        let src = r#"(define (domain d)
+          (:predicates (p))
+          (:action a
+            :parameters ()
+            :precondition (imply (p))
+            :effect (and (p))))"#;
+        let err = parse_domain(src).unwrap_err();
+        assert!(matches!(err, ParseError::Syntax(_)));
+    }
+
+    #[test]
+    fn rejects_exists_in_precondition() {
+        let src = r#"(define (domain bad)
+          (:predicates (p ?x - object))
+          (:action a
+            :parameters (?x - object)
+            :precondition (exists (?y - object) (p ?y))
+            :effect (and (p ?x))))"#;
+        let err = parse_domain(src).unwrap_err();
+        assert!(matches!(err, ParseError::UnsupportedConstruct(ref c) if c == "exists"));
+    }
+
+    // -- fixture F: real external IPC 2020 corpus domain --------------------
+
+    const FIXTURE_F_DOMAIN: &str = include_str!("../fixtures/f/domain.hddl");
+
+    /// Fixture F is fetched **verbatim** (byte-for-byte, via `curl`, no hand
+    /// edits) from the real IPC 2020 HTN-planning benchmark corpus:
+    /// `panda-planner-dev/ipc2020-domains`, `total-order/Blocksworld-HPDDL/`
+    /// (`domain.hddl` + `pfile_005.hddl`) — see `fixtures/f/domain.hddl`'s
+    /// and `fixtures/f/problem.hddl`'s content for the exact text; source
+    /// URLs:
+    /// `https://raw.githubusercontent.com/panda-planner-dev/ipc2020-domains/master/total-order/Blocksworld-HPDDL/domain.hddl`
+    /// and `.../pfile_005.hddl`. This is a classical (non-FOND) total-order
+    /// HTN domain — no `oneof` — chosen because it was the one domain in
+    /// that research pass with full verbatim text and a source URL.
+    ///
+    /// It does NOT fit this crate's scope, but not for the reason expected
+    /// going in (the `setdone` method's `(forall (?b - BLOCK) (done ?b))`
+    /// precondition, which this crate's parser is built to hard-refuse via
+    /// `ParseError::UnsupportedConstruct` — see the `rejects_forall_in_
+    /// precondition` test above). That refusal is never reached: PANDA's own
+    /// HDDL dialect allows a bare, unlabeled task call inside
+    /// `:ordered-tasks`/`:ordered-subtasks` when no explicit ordering-by-id
+    /// is needed (e.g. this domain's very first method body,
+    /// `:ordered-tasks (and (mark_done ?b) (achieve-goals))`), whereas this
+    /// crate's grammar requires every subtask to be an explicit
+    /// `(id (task args...))` pair (`parse_labeled_subtasks`, "every subtask
+    /// is explicitly labeled in this frontend's grammar"). The bare 2-token
+    /// entry `(mark_done ?b)` is misread as such a pair (id = "mark_done",
+    /// task-sexp = the atom `?b`), and `?b` is not a list, so parsing fails
+    /// immediately with a real, correctly-typed `ParseError::Syntax` at that
+    /// exact point — a loud, precise, non-panicking rejection, not a crash
+    /// and not a wrong error, it just fires on a different construct (bare
+    /// subtask calls, a total-order PANDA-dialect convention this frontend's
+    /// stricter always-labeled-subtask grammar does not accept) than the one
+    /// anticipated. As a secondary, independently real finding: even past
+    /// that point, method-level `:precondition` (including the `forall`
+    /// above) is never read by `parse_method_def` at all — `MethodDef` has
+    /// no precondition field — so it would have been silently dropped rather
+    /// than hitting the `forall`/`exists` hard-refusal in `parse_goal`,
+    /// which only fires for action preconditions and `:goal`.
+    #[test]
+    fn fixture_f_real_ipc2020_blocksworld_rejects_unlabeled_subtask_call() {
+        let err = parse_domain(FIXTURE_F_DOMAIN).unwrap_err();
+        assert_eq!(
+            err,
+            ParseError::Syntax("expected a list, found atom '?b'".to_owned())
+        );
     }
 }
