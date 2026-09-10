@@ -34,6 +34,7 @@ use std::ops::Not;
 
 const PROBABILITY_SCALE: u32 = 1_000_000;
 
+/// An error produced by `translate`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TranslateError {
     /// `(not <non-atomic goal description>)` — e.g. `(not (and ...))`.
@@ -65,6 +66,17 @@ pub enum TranslateError {
         addr: String,
         limit: usize,
     },
+    /// `TranslateLimits::max_wall` elapsed before the BFS finished. Loud
+    /// wall-clock refusal, same discipline as `TaskNetworkDepthExceeded` and
+    /// `grounder::GroundError::Timeout` — protects against a domain whose
+    /// reachable composite-state space is enormous in *breadth* (many
+    /// distinct fact combinations at a shallow, within-limit task-network
+    /// depth) rather than in *depth*, which `max_task_network_depth` alone
+    /// does not bound.
+    Timeout {
+        elapsed_ms: u128,
+        limit_ms: u128,
+    },
 }
 
 impl fmt::Display for TranslateError {
@@ -82,6 +94,13 @@ impl fmt::Display for TranslateError {
                 f,
                 "task-network address '{addr}' exceeded max_task_network_depth ({limit})"
             ),
+            Self::Timeout {
+                elapsed_ms,
+                limit_ms,
+            } => write!(
+                f,
+                "translate wall-clock limit exceeded: {elapsed_ms}ms elapsed, limit {limit_ms}ms"
+            ),
         }
     }
 }
@@ -95,14 +114,43 @@ impl std::error::Error for TranslateError {}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TranslateLimits {
     pub max_task_network_depth: usize,
+    /// Wall-clock budget for the whole BFS in `translate`, checked once per
+    /// state popped off the queue (see `check_wall_deadline`). `None` means
+    /// unbounded; `default()` sets a real bound (mirrors
+    /// `grounder::GroundingLimits::max_wall`) so a caller using
+    /// `TranslateLimits::default()` is protected without opting in.
+    pub max_wall: Option<std::time::Duration>,
 }
 
 impl Default for TranslateLimits {
     fn default() -> Self {
         Self {
             max_task_network_depth: 64,
+            max_wall: Some(std::time::Duration::from_secs(10)),
         }
     }
+}
+
+/// Checked once per state popped off `translate`'s BFS queue. See
+/// `grounder::check_wall_deadline`, which this mirrors (that function is
+/// private to the `grounder` module, so this crate carries its own copy
+/// rather than exporting one — cheap enough, and each module's `Limits`
+/// type/`Error::Timeout` variant differ, so there's no shared trait to hang
+/// a single implementation off without adding one just for this).
+fn check_wall_deadline(
+    start: std::time::Instant,
+    limits: &TranslateLimits,
+) -> Result<(), TranslateError> {
+    if let Some(max_wall) = limits.max_wall {
+        let elapsed = start.elapsed();
+        if elapsed > max_wall {
+            return Err(TranslateError::Timeout {
+                elapsed_ms: elapsed.as_millis(),
+                limit_ms: max_wall.as_millis(),
+            });
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -511,10 +559,67 @@ fn augmented_facts(cs: &CompositeState) -> BTreeSet<String> {
     facts
 }
 
+/// Translate a `GroundedIR` into a flat FOND `PlanningProblem`: a real
+/// breadth-first enumeration of the reachable composite (ground-fact-set,
+/// task-network-frontier) state space, restricted to states reachable via an
+/// actual decomposition of the root `:htn` network (see the module docs for
+/// why this is HTN-decomposition-aware rather than a flat "try every
+/// applicable ground action" BFS).
+///
+/// Each non-deterministic action's `oneof` outcomes are split into
+/// probability-weighted transitions (`Transition::probability_ppm`, parts per
+/// million so they sum to `1_000_000` per source action) — proportionally to
+/// `GroundEffectBranch::probability_weight` when declared, evenly otherwise.
+/// Method-choice and execution-order branch points are encoded as ordinary
+/// `Transition`s (`"htn:decompose:..."` / `"htn:exec:..."`); task-network
+/// completion is folded into `State.facts` as a synthetic `"htn:done"` fact
+/// and required by `Goal.facts` — this is what lets an existing, unmodified
+/// all-outcomes-winning FOND policy solver consume the result directly.
+///
+/// # Errors
+///
+/// Returns `TranslateError::UnsupportedNegativeGoal` for `(not <non-atomic>)`
+/// in `:goal`, `TranslateError::UnsupportedGoalConnective` for `or`/`imply` in
+/// `:goal` (both supported in preconditions, not here — see the variant
+/// docs), `TranslateError::UnboundVariable` for a variable used without a
+/// binding, and `TranslateError::TaskNetworkDepthExceeded` if decomposition
+/// exceeds `limits.max_task_network_depth`.
+///
+/// # Examples
+///
+/// ```
+/// use ferroplan_hddl::grounder::{ground, GroundingLimits};
+/// use ferroplan_hddl::parser::{parse_domain, parse_problem};
+/// use ferroplan_hddl::translate::{translate, TranslateLimits};
+///
+/// let domain = parse_domain(r#"
+///     (define (domain doors)
+///       (:predicates (open ?d))
+///       (:action open-door
+///         :parameters (?d)
+///         :precondition ()
+///         :effect (open ?d)))
+/// "#).unwrap();
+/// let problem = parse_problem(r#"
+///     (define (problem doors-p1)
+///       (:domain doors)
+///       (:objects d1)
+///       (:init)
+///       (:goal (open d1))
+///       (:htn :ordered-subtasks (open-door d1)))
+/// "#).unwrap();
+///
+/// let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+/// let problem = translate(&ir, &TranslateLimits::default())
+///     .expect("grounded IR translates cleanly");
+/// assert!(!problem.states.is_empty());
+/// assert!(!problem.transitions.is_empty());
+/// ```
 pub fn translate(
     ir: &GroundedIR,
     limits: &TranslateLimits,
 ) -> Result<PlanningProblem, TranslateError> {
+    let start = std::time::Instant::now();
     let mut goal_pos = BTreeSet::new();
     let mut goal_neg = BTreeSet::new();
     flatten_goal(&ir.goal, &mut goal_pos, &mut goal_neg)?;
@@ -559,6 +664,20 @@ pub fn translate(
         VecDeque::from([(initial_cs, initial_id.clone())]);
 
     while let Some((cs, from_id)) = queue.pop_front() {
+        if let Err(e) = check_wall_deadline(start, limits) {
+            // Diagnostic-only: a wall-clock timeout otherwise discards all
+            // BFS progress with no visibility into how far it actually got.
+            // Real counts here (not a description of them) are what let a
+            // caller distinguish "close, just needs a bigger budget" from
+            // "still exploding combinatorially" post-fix.
+            eprintln!(
+                "translate: wall-clock limit hit -- {} states interned, {} transitions built, {} states still queued",
+                states.len(),
+                transitions.len(),
+                queue.len() + 1,
+            );
+            return Err(e);
+        }
         let addrs: Vec<String> = enabled(&cs.frontier)
             .into_iter()
             .map(str::to_owned)
@@ -572,6 +691,19 @@ pub fn translate(
             // ground-action names as alternatives from the same state).
             if let Some(methods) = methods_by_task.get(task_name.as_str()) {
                 for m in methods {
+                    // Method-precondition gating: a method whose ground
+                    // `:precondition` doesn't hold in the current fact set is
+                    // never offered as a decomposition branch — mirrors the
+                    // `evaluate_ground_goal` check the execution-move loop
+                    // below already applies to `GroundAction::precondition`.
+                    // Without this, every method matching `task_name` was
+                    // offered regardless of world state, which is exactly the
+                    // unconstrained method-choice branching that made the
+                    // real IPC2020 blocksworld fixture (fixtures/f) blow up
+                    // combinatorially instead of solving.
+                    if !evaluate_ground_goal(&m.precondition, &cs.facts) {
+                        continue;
+                    }
                     for st in &m.subtasks {
                         let child = child_addr(&addr, &st.id);
                         let depth = depth_of(&child);
@@ -749,10 +881,69 @@ mod tests {
     use crate::grounder::{ground, GroundingLimits};
     use crate::parser::{parse_domain, parse_problem};
 
+    const FIXTURE_A_DOMAIN: &str = include_str!("../fixtures/a/domain.hddl");
+    const FIXTURE_A_PROBLEM: &str = include_str!("../fixtures/a/problem.hddl");
     const FIXTURE_C_DOMAIN: &str = include_str!("../fixtures/c/domain.hddl");
     const FIXTURE_C_PROBLEM: &str = include_str!("../fixtures/c/problem.hddl");
     const FIXTURE_E_DOMAIN: &str = include_str!("../fixtures/e/domain.hddl");
     const FIXTURE_E_PROBLEM: &str = include_str!("../fixtures/e/problem.hddl");
+
+    /// Deterministic (backdated `start`, not a real slow operation) check
+    /// that `check_wall_deadline` fires once elapsed exceeds `max_wall`.
+    /// Mirrors `grounder::tests::check_wall_deadline_times_out_once_elapsed_exceeds_max_wall`.
+    #[test]
+    fn check_wall_deadline_times_out_once_elapsed_exceeds_max_wall() {
+        let limits = TranslateLimits {
+            max_wall: Some(std::time::Duration::from_millis(10)),
+            ..TranslateLimits::default()
+        };
+        let backdated_start = std::time::Instant::now() - std::time::Duration::from_millis(50);
+        let err = check_wall_deadline(backdated_start, &limits).unwrap_err();
+        match err {
+            TranslateError::Timeout {
+                elapsed_ms,
+                limit_ms,
+            } => {
+                assert!(
+                    elapsed_ms >= 50,
+                    "expected >=50ms elapsed, got {elapsed_ms}"
+                );
+                assert_eq!(limit_ms, 10);
+            }
+            other => panic!("expected Timeout, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn check_wall_deadline_never_fires_when_max_wall_is_none() {
+        let limits = TranslateLimits {
+            max_wall: None,
+            ..TranslateLimits::default()
+        };
+        let ancient_start = std::time::Instant::now() - std::time::Duration::from_secs(3600);
+        assert!(check_wall_deadline(ancient_start, &limits).is_ok());
+    }
+
+    /// End-to-end confirmation that `translate()` itself surfaces the
+    /// timeout: fixture A's BFS pops at least the initial state off the
+    /// queue before finding no more work, and `check_wall_deadline` is
+    /// called on every pop, so a zero `max_wall` reliably refuses on the
+    /// very first iteration regardless of machine speed.
+    #[test]
+    fn translate_refuses_with_timeout_when_max_wall_is_zero() {
+        let domain = parse_domain(FIXTURE_A_DOMAIN).unwrap();
+        let problem = parse_problem(FIXTURE_A_PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let limits = TranslateLimits {
+            max_wall: Some(std::time::Duration::from_nanos(0)),
+            ..TranslateLimits::default()
+        };
+        let err = translate(&ir, &limits).unwrap_err();
+        assert!(
+            matches!(err, TranslateError::Timeout { .. }),
+            "expected Timeout, got {err:?}"
+        );
+    }
 
     /// End-to-end parse -> ground -> translate over fixture E's
     /// `(:probabilistic 3 (and (heads)) 1 (and (tails)))` effect. `toss-coin`
@@ -1071,6 +1262,104 @@ mod tests {
             !plan.states.iter().any(|s| s.facts.contains("cheated")),
             "the goal fact 'cheated' must never become reachable through the \
              excluded shortcut action"
+        );
+    }
+
+    /// Method-precondition gating. Two methods (`use-a`, `use-b`) both
+    /// decompose the same task (`run`), with mutually-exclusive
+    /// preconditions (`(ready)` vs `(not (ready))`) over the same initial
+    /// fact. Before the fix, `translate` offered every ground method whose
+    /// `task_name` matched a pending task regardless of world state — both
+    /// `use-a` and `use-b` would be offered as decomposition branches from
+    /// the initial state, and `mark-b`/`done-b` would become reachable even
+    /// though `(ready)` holds initially and `use-b`'s precondition
+    /// `(not (ready))` does not. Grounding itself must NOT filter on the
+    /// precondition (methods are grounded once, statically, before any
+    /// fact-set exists to check against) — both ground methods must still
+    /// appear in `ir.methods`; only `translate`'s per-state BFS, which does
+    /// have a real fact set to evaluate against, may exclude one.
+    #[test]
+    fn method_precondition_gates_which_decomposition_is_offered() {
+        const DOMAIN: &str = "(define (domain method-precond-g)
+  (:predicates (ready) (done-a) (done-b))
+  (:task run :parameters ())
+  (:method use-a
+    :parameters ()
+    :task (run)
+    :precondition (ready)
+    :ordered-subtasks (mark-a))
+  (:method use-b
+    :parameters ()
+    :task (run)
+    :precondition (not (ready))
+    :ordered-subtasks (mark-b))
+  (:action mark-a
+    :effect (done-a))
+  (:action mark-b
+    :effect (done-b)))";
+        const PROBLEM: &str = "(define (problem method-precond-g-p1)
+  (:domain method-precond-g)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (run))))
+  (:init (ready))
+  (:goal (and (done-a))))";
+
+        let domain = parse_domain(DOMAIN).unwrap();
+        let problem = parse_problem(PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+
+        // Both ground methods must exist post-grounding: grounding is
+        // static and has no fact set to evaluate a precondition against, so
+        // it must never itself prune on world state.
+        assert!(
+            ir.methods.iter().any(|m| m.name == "use-a"),
+            "use-a must still be a real ground method after grounding"
+        );
+        assert!(
+            ir.methods.iter().any(|m| m.name == "use-b"),
+            "use-b must still be a real ground method after grounding \
+             (grounding is world-state-blind by construction)"
+        );
+
+        let plan = translate(&ir, &TranslateLimits::default())
+            .expect("method-precondition fixture translates");
+
+        // `use-b`'s precondition `(not (ready))` never holds from the
+        // initial state onward (nothing in this domain ever retracts
+        // `ready`), so `use-b` must never be offered as a decomposition
+        // transition, and `mark-b`/`done-b` must never become reachable.
+        assert!(
+            plan.transitions
+                .iter()
+                .all(|t| !t.action.contains(":use-b")),
+            "use-b's precondition never holds, so it must never appear as a \
+             decomposition transition: {:?}",
+            plan.transitions
+                .iter()
+                .map(|t| &t.action)
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            !plan.states.iter().any(|s| s.facts.contains("done-b")),
+            "done-b must never become reachable: only use-b's excluded \
+             subtask (mark-b) could ever produce it"
+        );
+
+        // `use-a`'s precondition `(ready)` holds from the initial state, so
+        // it must be offered, and the real goal (`done-a`) must be reached.
+        assert!(
+            plan.transitions.iter().any(|t| t.action.contains(":use-a")),
+            "use-a's precondition holds, so it must appear as a decomposition \
+             transition"
+        );
+        assert!(
+            plan.states
+                .iter()
+                .any(|s| plan.goal.facts.is_subset(&s.facts)),
+            "a real goal-satisfying state (done-a reached via use-a/mark-a) \
+             must be reachable"
         );
     }
 }

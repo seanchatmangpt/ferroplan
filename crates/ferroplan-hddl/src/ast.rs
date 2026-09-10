@@ -67,27 +67,44 @@ pub type Name = String;
 /// Parameter/task variable name, WITHOUT the leading `?`.
 pub type VarName = String;
 
+/// A term inside a predicate/task argument list: either a bound variable
+/// (`?x`, stored without the leading `?` — see `VarName`) or a ground
+/// constant/object name.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
+    /// A parameter/task variable reference, e.g. `?x`.
     Var(VarName),
+    /// A ground object/constant name, e.g. `loc1`.
     Const(Name),
 }
 
+/// One `?var - type` entry in a typed parameter list (action/method params,
+/// predicate/task-def params, or a `forall`/`exists` binder).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypedParam {
+    /// Variable name, without the leading `?`.
     pub var: VarName,
+    /// Declared type name (must resolve against `:types`, or be `object`).
     pub type_name: Name,
 }
 
+/// One `name - type` entry in a `:constants` or `:objects` list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypedObject {
+    /// The constant/object's name.
     pub name: Name,
+    /// Its declared type name.
     pub type_name: Name,
 }
 
+/// A predicate applied to a term list, e.g. `(at ?x l1)` — used both as a
+/// schema-level literal (with `Term::Var` arguments) and, after grounding,
+/// with `Term::Const` arguments only.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AtomicFormula {
+    /// The predicate name.
     pub predicate: Name,
+    /// Its argument terms, in declared order.
     pub args: Vec<Term>,
 }
 
@@ -126,9 +143,13 @@ pub enum GoalDesc {
     Exists(Vec<TypedParam>, Box<GoalDesc>),
 }
 
+/// A ground or schema-level literal: a possibly-negated atomic formula, used
+/// in flattened preconditions/effects/goals (e.g. `grounder::GroundGoal`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal {
+    /// `(pred args...)` — holds when the atom is true.
     Pos(AtomicFormula),
+    /// `(not (pred args...))` — holds when the atom is false.
     Neg(AtomicFormula),
 }
 
@@ -142,11 +163,20 @@ pub enum NumericValue {
     Fluent(AtomicFormula),
 }
 
+/// An action's `:effect`: a conjunction of literal changes, conditional
+/// (`when`) sub-effects, and/or non-deterministic (`oneof`) outcome branches.
+/// See the module docs above for exact scope (numeric `increase`/`decrease`
+/// are parsed but never grounded).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
+    /// No effect at all (an empty `:effect` body).
     Empty,
+    /// A single positive or negative literal change.
     Literal(Literal),
+    /// `(and e1 e2 ...)` — all sub-effects apply.
     And(Vec<Effect>),
+    /// `(when cond effect)` — `effect` applies only if `cond` holds in the
+    /// state the action is applied to.
     When(GoalDesc, Box<Effect>),
     /// Exactly one of these sub-effects occurs at execution time — grounding
     /// turns each branch into one non-deterministic outcome of the action.
@@ -177,9 +207,12 @@ pub struct TypeDef {
     pub declared: Vec<Name>,
 }
 
+/// One `(pred-name ?p1 - t1 ...)` entry in a domain's `:predicates` block.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PredicateDef {
+    /// The predicate's name.
     pub name: Name,
+    /// Its typed parameter list.
     pub params: Vec<TypedParam>,
 }
 
@@ -211,11 +244,16 @@ pub struct ConstraintDef {
     pub raw: String,
 }
 
+/// A parsed `:action` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActionDef {
+    /// The action's name.
     pub name: Name,
+    /// Its typed parameter list.
     pub params: Vec<TypedParam>,
+    /// Its `:precondition`.
     pub precondition: GoalDesc,
+    /// Its `:effect`.
     pub effect: Effect,
     /// Weights declared by a `(:probabilistic w1 e1 w2 e2 ...)` effect block
     /// that `crate::probabilistic::preprocess` rewrote into this action's
@@ -229,21 +267,35 @@ pub struct ActionDef {
     pub probability_weights: Option<Vec<String>>,
 }
 
+/// A declared abstract `:task` (name + typed parameter list, no body — its
+/// implementations are the `MethodDef`s whose `task.name` matches).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaskDef {
+    /// The task's name.
     pub name: Name,
+    /// Its typed parameter list.
     pub params: Vec<TypedParam>,
 }
 
+/// An invocation of a task or action by name with argument terms, e.g. inside
+/// a method's task-network subtask or a method's own `:task` header.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaskCall {
+    /// The task or action name being invoked.
     pub name: Name,
+    /// Argument terms (variables or constants), matching the callee's
+    /// parameter arity.
     pub args: Vec<Term>,
 }
 
+/// One subtask entry in a `TaskNetwork`: a locally-unique id (used by
+/// `OrderEdge`s to express ordering constraints) paired with the task/action
+/// it invokes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Subtask {
+    /// The subtask's id, unique within its enclosing `TaskNetwork`.
     pub id: Name,
+    /// The task or action call this subtask performs.
     pub task: TaskCall,
 }
 
@@ -254,45 +306,86 @@ pub struct OrderEdge {
     pub after: Name,
 }
 
+/// A (possibly partially-ordered) subtask network: the body of a method or a
+/// problem's `:htn`. Subtasks with no `OrderEdge` between them may execute in
+/// any relative order; a fully-ordered network has one edge per adjacent pair.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TaskNetwork {
+    /// The subtasks in this network, each with its own locally-unique id.
     pub subtasks: Vec<Subtask>,
+    /// Strict "before must precede after" ordering constraints between
+    /// subtask ids declared above.
     pub order: Vec<OrderEdge>,
 }
 
+/// A parsed `:method` declaration: how to decompose a task call into a
+/// subtask network.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MethodDef {
+    /// The method's name.
     pub name: Name,
+    /// Its typed parameter list.
     pub params: Vec<TypedParam>,
+    /// The task call this method decomposes (must match a declared
+    /// `TaskDef`'s name and arity).
     pub task: TaskCall,
+    /// The method's applicability condition — HDDL's `:method`-level
+    /// `:precondition` (the `:method-preconditions` requirement construct;
+    /// real in the wild, see `fixtures/f/domain.hddl`'s `setdone` method's
+    /// `(forall (?b - BLOCK) (done ?b))`). `GoalDesc::Empty` (this type's
+    /// `Default`, matching `ActionDef::precondition`'s convention when no
+    /// `:precondition` key is present) for a method with no declared
+    /// precondition — `evaluate_ground_goal(&GroundGoal::Empty, _)` always
+    /// holds, so an unconditional method decomposes exactly as it did before
+    /// this field existed. See `grounder::GroundMethod::precondition` for the
+    /// grounded form actually checked by `translate::translate`.
+    pub precondition: GoalDesc,
+    /// The subtask network this method decomposes `task` into.
     pub network: TaskNetwork,
 }
 
+/// A fully parsed HDDL domain — the output of `parser::parse_domain`, and one
+/// of the two inputs to `grounder::ground`.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Domain {
+    /// The domain's name, from `(domain <name>)`.
     pub name: Name,
+    /// The `:types` hierarchy.
     pub types: TypeDef,
+    /// The `:constants` block, if declared.
     pub constants: Vec<TypedObject>,
+    /// The `:predicates` block.
     pub predicates: Vec<PredicateDef>,
     /// Numeric-fluent function declarations found nested inside
     /// `:predicates` — see `NumericFluentDecl`. Always empty for a domain
     /// that doesn't use numeric fluents.
     pub numeric_fluents: Vec<NumericFluentDecl>,
+    /// Declared abstract `:task`s.
     pub tasks: Vec<TaskDef>,
+    /// Declared `:action`s.
     pub actions: Vec<ActionDef>,
+    /// Declared `:method`s.
     pub methods: Vec<MethodDef>,
     /// `:constraints` block entries, if the domain declares one. Always
     /// empty for a domain with no `:constraints` section.
     pub constraints: Vec<ConstraintDef>,
 }
 
+/// A fully parsed HDDL problem — the output of `parser::parse_problem`, and
+/// the other input to `grounder::ground`.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Problem {
+    /// The problem's name, from `(problem <name>)`.
     pub name: Name,
+    /// The `(:domain <name>)` this problem targets.
     pub domain_name: Name,
+    /// The `:objects` block.
     pub objects: Vec<TypedObject>,
+    /// The `:init` block: ground facts true in the initial state.
     pub init: Vec<AtomicFormula>,
+    /// The `:goal` condition.
     pub goal: GoalDesc,
+    /// The initial `:htn` task network to decompose.
     pub htn: TaskNetwork,
     /// `:constraints` block entries, if the problem declares one. Always
     /// empty for a problem with no `:constraints` section.

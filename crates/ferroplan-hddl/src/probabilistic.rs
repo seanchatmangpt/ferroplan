@@ -24,6 +24,7 @@
 //! nested `oneof`), so there is at most one functional weight list per
 //! action to track.
 
+use crate::parser::ParseError;
 use std::collections::BTreeMap;
 
 /// Find the index (into `chars`) of the closing paren matching the opening
@@ -145,7 +146,40 @@ fn find_action_name(chars: &[char], pos: usize) -> Option<String> {
 /// left completely untouched, so the real tokenizer/parser reports it as an
 /// ordinary syntax error at the correct location instead of this pass
 /// silently mis-rewriting it.
-pub fn preprocess(src: &str) -> (String, BTreeMap<String, Vec<String>>) {
+///
+/// Returns `Err(ParseError::NestedProbabilisticBlock(..))` when two found
+/// blocks' `(open, close)` ranges overlap -- which for this scan only
+/// happens when one `:probabilistic` block is textually nested inside
+/// another's captured effect text. The replacement scheme below assumes
+/// non-overlapping ranges (each splice only ever shifts *earlier* offsets,
+/// per the "apply right-to-left" comment); splicing a nested block's own
+/// range first would shrink `out` out from under its parent's stale `close`
+/// index, so overlap is refused here as a clean, typed error instead of
+/// reaching that `Vec::splice` panic. Nesting a `:probabilistic`/`oneof`
+/// block inside another is out of scope regardless (see
+/// `grounder::collect_effect`'s refusal of a nested `oneof`), so this is not
+/// a real feature loss.
+/// # Examples
+///
+/// ```
+/// use ferroplan_hddl::probabilistic::preprocess;
+///
+/// let src = r#"
+///     (:action toss-coin
+///       :parameters ()
+///       :precondition ()
+///       :effect (:probabilistic 3 (heads) 1 (tails)))
+/// "#;
+///
+/// let (cleaned, weights) = preprocess(src).expect("well-formed :probabilistic block");
+/// assert!(cleaned.contains("(oneof (heads) (tails))"));
+/// assert!(!cleaned.contains(":probabilistic"));
+/// assert_eq!(
+///     weights.get("toss-coin"),
+///     Some(&vec!["3".to_owned(), "1".to_owned()])
+/// );
+/// ```
+pub fn preprocess(src: &str) -> Result<(String, BTreeMap<String, Vec<String>>), ParseError> {
     let chars: Vec<char> = src.chars().collect();
     let needle: Vec<char> = ":probabilistic".chars().collect();
 
@@ -187,14 +221,31 @@ pub fn preprocess(src: &str) -> (String, BTreeMap<String, Vec<String>>) {
         replacements.push((open, close, format!("(oneof {})", effects.join(" "))));
     }
 
+    // Reject overlapping ranges before ever calling `splice` -- see the
+    // doc comment above for why an overlap here would otherwise panic.
+    for i in 0..replacements.len() {
+        for j in (i + 1)..replacements.len() {
+            let (a_open, a_close, _) = &replacements[i];
+            let (b_open, b_close, _) = &replacements[j];
+            if *a_open <= *b_close && *b_open <= *a_close {
+                return Err(ParseError::NestedProbabilisticBlock(
+                    "':probabilistic' blocks may not be nested inside one another".to_owned(),
+                ));
+            }
+        }
+    }
+
     // Apply right-to-left so earlier character offsets stay valid as later
-    // (leftward) replacements are spliced in.
+    // (leftward) replacements are spliced in. Safe now that overlap has
+    // been ruled out above: non-overlapping ranges splice independently
+    // regardless of order, and right-to-left keeps every not-yet-applied
+    // range's offsets pointing at still-original text.
     replacements.sort_by_key(|r| std::cmp::Reverse(r.0));
     let mut out: Vec<char> = chars;
     for (open, close, replacement) in replacements {
         out.splice(open..=close, replacement.chars());
     }
-    (out.into_iter().collect(), weight_map)
+    Ok((out.into_iter().collect(), weight_map))
 }
 
 /// Whether `src` contains a `:probabilistic` effect block at all -- a cheap
@@ -211,7 +262,7 @@ mod tests {
     #[test]
     fn rewrites_probabilistic_block_to_oneof_and_extracts_weights() {
         let src = "(define (domain d)\n  (:action toss\n    :parameters ()\n    :precondition ()\n    :effect (:probabilistic 0.8 (on) 0.2 (off))))";
-        let (cleaned, weights) = preprocess(src);
+        let (cleaned, weights) = preprocess(src).expect("well-formed input preprocesses cleanly");
         assert!(!cleaned.contains(":probabilistic"));
         assert!(cleaned.contains("(oneof (on) (off))"));
         assert_eq!(
@@ -223,7 +274,7 @@ mod tests {
     #[test]
     fn handles_three_way_probabilistic_split_with_compound_effects() {
         let src = "(:action a :effect (:probabilistic 1 (and (p) (q)) 2 (not (p)) 1 (r)))";
-        let (cleaned, weights) = preprocess(src);
+        let (cleaned, weights) = preprocess(src).expect("well-formed input preprocesses cleanly");
         assert_eq!(
             cleaned,
             "(:action a :effect (oneof (and (p) (q)) (not (p)) (r)))"
@@ -237,7 +288,7 @@ mod tests {
     #[test]
     fn leaves_plain_oneof_untouched() {
         let src = "(:effect (oneof (p) (q)))";
-        let (cleaned, weights) = preprocess(src);
+        let (cleaned, weights) = preprocess(src).expect("well-formed input preprocesses cleanly");
         assert_eq!(cleaned, src);
         assert!(weights.is_empty());
     }
@@ -245,7 +296,7 @@ mod tests {
     #[test]
     fn probabilistic_block_outside_any_action_is_rewritten_with_no_weight_entry() {
         let src = "(:probabilistic 1 (p) 1 (q))";
-        let (cleaned, weights) = preprocess(src);
+        let (cleaned, weights) = preprocess(src).expect("well-formed input preprocesses cleanly");
         assert_eq!(cleaned, "(oneof (p) (q))");
         assert!(weights.is_empty());
     }
@@ -253,7 +304,8 @@ mod tests {
     #[test]
     fn malformed_block_missing_a_weight_is_left_untouched() {
         let src = "(:action a :effect (:probabilistic (p) 1 (q)))";
-        let (cleaned, weights) = preprocess(src);
+        let (cleaned, weights) =
+            preprocess(src).expect("malformed block is left untouched, not refused");
         assert_eq!(cleaned, src);
         assert!(weights.is_empty());
     }
@@ -262,5 +314,43 @@ mod tests {
     fn has_probabilistic_detects_the_keyword() {
         assert!(has_probabilistic("(:effect (:probabilistic 1 (p) 1 (q)))"));
         assert!(!has_probabilistic("(:effect (oneof (p) (q)))"));
+    }
+
+    /// Adversarial regression for the nested-`:probabilistic`-block panic:
+    /// before the overlap check was added, `preprocess` computed each
+    /// block's `(open, close)` range independently, then spliced
+    /// right-to-left assuming those ranges never overlap. A nested block's
+    /// range is a strict subset of its parent's, so splicing the inner
+    /// range first shrank the working buffer out from under the parent's
+    /// stale `close` index, and `Vec::splice` panicked with "range end
+    /// index out of range for slice". This requires no valid
+    /// domain/problem/action structure at all -- just two nested
+    /// `:probabilistic` keywords in raw text -- and used to fire before
+    /// tokenizing even started. `catch_unwind` proves no panic; the `Err`
+    /// assertion proves it is refused as a clean, typed error instead.
+    #[test]
+    fn adversarial_nested_probabilistic_block_returns_err_not_panic() {
+        let src = "(:probabilistic w1 (:probabilistic w2 (p) w3 (q)) w4 (r))";
+        let result = std::panic::catch_unwind(|| preprocess(src));
+        let result = result.expect("preprocess must not panic on nested :probabilistic blocks");
+        assert!(matches!(
+            result,
+            Err(ParseError::NestedProbabilisticBlock(_))
+        ));
+    }
+
+    /// Same adversarial input, but exercised through the full
+    /// `parser::parse_domain` entry point (the actual untrusted-HDDL-text
+    /// path), to prove the fix holds end to end and not just at the
+    /// `preprocess` unit boundary.
+    #[test]
+    fn adversarial_nested_probabilistic_block_via_parse_domain_returns_err_not_panic() {
+        let src = "(define (domain d)\n  (:action a\n    :parameters ()\n    :precondition ()\n    :effect (:probabilistic w1 (:probabilistic w2 (p) w3 (q)) w4 (r))))";
+        let result = std::panic::catch_unwind(|| crate::parser::parse_domain(src));
+        let result = result.expect("parse_domain must not panic on nested :probabilistic blocks");
+        assert!(matches!(
+            result,
+            Err(ParseError::NestedProbabilisticBlock(_))
+        ));
     }
 }

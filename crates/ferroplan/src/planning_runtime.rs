@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 use std::fmt;
+use std::time::Instant;
 
 const PROBABILITY_SCALE: u64 = 1_000_000;
 
@@ -174,6 +175,20 @@ pub struct PlannerLimits {
     pub max_states: usize,
     #[serde(default = "default_iterations")]
     pub max_iterations: usize,
+    /// Wall-clock budget in milliseconds for one `solve_planning_type` call.
+    /// `0` means unbounded (matches every pre-existing caller/test's current
+    /// behavior if it explicitly constructs `PlannerLimits { .. }` with this
+    /// left at its bare-integer default); `default()` sets a real bound so a
+    /// caller using `PlannerLimits::default()` is protected without opting
+    /// in. Plain `u64` milliseconds rather than `Option<Duration>` (unlike
+    /// `ferroplan_hddl::{GroundingLimits, TranslateLimits}::max_wall`)
+    /// specifically to match this struct's own existing convention — every
+    /// other field here is a bare, always-serializable integer, and
+    /// `PlannerLimits` round-trips through `serde_json` (see
+    /// `UniversalPlanningRequest`), where `Option<Duration>` is an
+    /// unnecessary complication a plain `u64` sidesteps entirely.
+    #[serde(default = "default_wall_ms")]
+    pub max_wall_ms: u64,
 }
 
 fn default_depth() -> usize {
@@ -185,6 +200,9 @@ fn default_states() -> usize {
 fn default_iterations() -> usize {
     512
 }
+fn default_wall_ms() -> u64 {
+    10_000
+}
 
 impl Default for PlannerLimits {
     fn default() -> Self {
@@ -192,8 +210,28 @@ impl Default for PlannerLimits {
             max_depth: default_depth(),
             max_states: default_states(),
             max_iterations: default_iterations(),
+            max_wall_ms: default_wall_ms(),
         }
     }
+}
+
+/// Checked once per outer-loop iteration by the fixpoint solvers that can
+/// otherwise only be bounded by `max_iterations` (`fond_policy`,
+/// `fond_policy_strong_cyclic`) — see `PlannerError::Timeout`'s doc comment
+/// for why a wall-clock bound is needed in addition to an iteration count
+/// (a single iteration's cost scales with the problem's state/action count,
+/// which `max_iterations` alone does not bound).
+fn check_wall_deadline(start: Instant, limits: &PlannerLimits) -> Result<(), PlannerError> {
+    if limits.max_wall_ms > 0 {
+        let elapsed = start.elapsed();
+        if elapsed.as_millis() as u64 > limits.max_wall_ms {
+            return Err(PlannerError::Timeout {
+                elapsed_ms: elapsed.as_millis(),
+                limit_ms: u128::from(limits.max_wall_ms),
+            });
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -298,6 +336,18 @@ pub enum PlannerError {
     },
     InvalidRdfProjection {
         reason: String,
+    },
+    /// `PlannerLimits::max_wall_ms` elapsed before the solver finished. A
+    /// wall-clock companion to `ResourceBound`: `max_iterations`/`max_states`
+    /// bound the *count* of loop rounds/states a solver visits, but a single
+    /// round's cost scales with the problem size (number of states/actions),
+    /// so a large-but-within-count-limits problem can still run for an
+    /// unbounded amount of real time — see `fond_policy`'s and
+    /// `fond_policy_strong_cyclic`'s call sites of `check_wall_deadline` for
+    /// the two fixpoint loops this actually protects today.
+    Timeout {
+        elapsed_ms: u128,
+        limit_ms: u128,
     },
 }
 
@@ -672,6 +722,7 @@ fn fond_policy(
     problem: &PlanningProblem,
     limits: &PlannerLimits,
 ) -> Result<UniversalPlan, PlannerError> {
+    let start = Instant::now();
     let states = state_index(problem);
     let groups = action_groups(problem);
     let mut winning = problem
@@ -682,6 +733,7 @@ fn fond_policy(
         .collect::<BTreeSet<_>>();
     let mut choices = BTreeMap::<String, String>::new();
     for _ in 0..limits.max_iterations {
+        check_wall_deadline(start, limits)?;
         let mut changed = false;
         for state in &problem.states {
             if winning.contains(&state.id) || problem.unsafe_states.contains(&state.id) {
@@ -760,6 +812,7 @@ fn fond_policy_strong_cyclic(
     problem: &PlanningProblem,
     limits: &PlannerLimits,
 ) -> Result<UniversalPlan, PlannerError> {
+    let start = Instant::now();
     let states = state_index(problem);
     let edges_by_from = grouped_edges(problem);
     let groups = action_groups(problem);
@@ -772,6 +825,7 @@ fn fond_policy_strong_cyclic(
         .map(|state| state.id.clone())
         .collect::<BTreeSet<_>>();
     for _ in 0..limits.max_iterations {
+        check_wall_deadline(start, limits)?;
         let mut changed = false;
         for state in &problem.states {
             if weak.contains(&state.id) || problem.unsafe_states.contains(&state.id) {
@@ -797,6 +851,7 @@ fn fond_policy_strong_cyclic(
     let mut surviving = weak.clone();
     let mut choices = BTreeMap::<String, String>::new();
     for _ in 0..limits.max_iterations {
+        check_wall_deadline(start, limits)?;
         let mut changed = false;
         for state in &problem.states {
             if !surviving.contains(&state.id) || problem.goal.holds(state) {
@@ -1432,6 +1487,55 @@ mod tests {
             fluents: BTreeMap::new(),
         }
     }
+
+    /// Deterministic (backdated `start`, not a real slow operation) check
+    /// that `check_wall_deadline` fires once elapsed exceeds `max_wall_ms`.
+    /// Mirrors the same-named test in `ferroplan_hddl::grounder`/`::translate`.
+    #[test]
+    fn check_wall_deadline_times_out_once_elapsed_exceeds_max_wall_ms() {
+        let limits = PlannerLimits {
+            max_wall_ms: 10,
+            ..PlannerLimits::default()
+        };
+        let backdated_start = Instant::now() - std::time::Duration::from_millis(50);
+        let err = check_wall_deadline(backdated_start, &limits).unwrap_err();
+        match err {
+            PlannerError::Timeout {
+                elapsed_ms,
+                limit_ms,
+            } => {
+                assert!(
+                    elapsed_ms >= 50,
+                    "expected >=50ms elapsed, got {elapsed_ms}"
+                );
+                assert_eq!(limit_ms, 10);
+            }
+            other => panic!("expected Timeout, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn check_wall_deadline_never_fires_when_max_wall_ms_is_zero() {
+        let limits = PlannerLimits {
+            max_wall_ms: 0,
+            ..PlannerLimits::default()
+        };
+        let ancient_start = Instant::now() - std::time::Duration::from_secs(3600);
+        assert!(check_wall_deadline(ancient_start, &limits).is_ok());
+    }
+
+    // `fond_policy`'s own loop calls `check_wall_deadline` with a real
+    // `Instant::now()` at entry (not a backdated one, unlike the direct
+    // unit tests above) — an end-to-end timing-based assertion on that
+    // would be flaky (this fixture's fixpoint gives up after its first
+    // non-converging round regardless, in well under a millisecond, so a
+    // tiny `max_wall_ms` would almost never actually race it). The
+    // deterministic tests above already prove the exact mechanism
+    // `fond_policy`/`fond_policy_strong_cyclic` call; this comment records
+    // that omission as a deliberate scope boundary, not an oversight —
+    // see `~/.claude/rules/testing-chicago-style.md` on preferring a real,
+    // deterministic check over a timing-dependent one when both are
+    // available.
 
     /// The committed retry-loop fixture: a single non-deterministic action
     /// `flip` from `s0` either reaches the goal (`g`) or loops back onto

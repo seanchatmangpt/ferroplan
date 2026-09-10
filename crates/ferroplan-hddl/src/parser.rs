@@ -5,11 +5,24 @@ use crate::ast::*;
 use std::collections::BTreeMap;
 use std::fmt;
 
+/// An error produced by `parse_domain`/`parse_problem`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseError {
+    /// A malformed s-expression or an unexpected/missing token — the message
+    /// carries a human-readable description of what was expected.
     Syntax(String),
+    /// A syntactically well-formed construct this crate deliberately does not
+    /// parse (see `ast`'s module docs for scope), e.g. `:functions`.
     UnsupportedConstruct(String),
+    /// A `(oneof ...)` effect block with a shape this parser can't handle
+    /// (e.g. nested under another `oneof`/`when` in a way outside scope).
     MalformedOneof(String),
+    /// A `(:probabilistic ...)` block was found textually nested inside
+    /// another `:probabilistic` block's captured effect text — refused by
+    /// `probabilistic::preprocess` before it ever reaches this parser's
+    /// tokenizer (see that function's doc comment for why nesting can't be
+    /// rewritten safely).
+    NestedProbabilisticBlock(String),
 }
 
 impl fmt::Display for ParseError {
@@ -18,6 +31,9 @@ impl fmt::Display for ParseError {
             Self::Syntax(msg) => write!(f, "syntax error: {msg}"),
             Self::UnsupportedConstruct(what) => write!(f, "unsupported construct: {what}"),
             Self::MalformedOneof(msg) => write!(f, "malformed oneof: {msg}"),
+            Self::NestedProbabilisticBlock(msg) => {
+                write!(f, "nested ':probabilistic' block: {msg}")
+            }
         }
     }
 }
@@ -154,6 +170,37 @@ fn expect_atom(s: &Sexp, expected: &str) -> Result<(), ParseError> {
         )));
     }
     Ok(())
+}
+
+/// Parse a `(<kind> <name>)` header list (the `(domain ...)`/`(problem ...)`
+/// second top-level form of a `define`), returning `<name>`.
+///
+/// Checks `header.len() >= 2` up front rather than indexing `header[0]`/
+/// `header[1]` directly: a truncated header (`(domain)` with no name, or an
+/// entirely empty `()`) is a plausible malformed/truncated-input shape, not
+/// an exotic one, and used to panic here with an out-of-bounds index before
+/// this check existed.
+fn parse_header(header: &[Sexp], kind: &str) -> Result<String, ParseError> {
+    if header.len() < 2 {
+        return Err(ParseError::Syntax(format!(
+            "'({kind} <name>)' header is missing its name (found {} element(s))",
+            header.len()
+        )));
+    }
+    expect_atom(&header[0], kind)?;
+    Ok(as_atom(&header[1])?.to_owned())
+}
+
+/// The value token/list following a section keyword, e.g. the `(open d1)` in
+/// `(:goal (open d1))`. Sections whose value is a single required form
+/// (`:domain`, `:goal`, `:constraints`) index `sec[1]` directly rather than
+/// slicing `sec[1..]` (unlike `:types`/`:predicates`/etc., which take zero or
+/// more values and degrade gracefully to an empty slice) — going through
+/// this helper instead of a bare `sec[1]` turns a bare `(:goal)` with no
+/// value into a normal `ParseError` instead of an out-of-bounds panic.
+fn section_value<'a>(sec: &'a [Sexp], keyword: &str) -> Result<&'a Sexp, ParseError> {
+    sec.get(1)
+        .ok_or_else(|| ParseError::Syntax(format!("section '{keyword}' is missing its value")))
 }
 
 /// A flat run of `name name ... - type` groups, as used by `:types`,
@@ -663,11 +710,16 @@ fn parse_method_def(rest: &[Sexp]) -> Result<MethodDef, ParseError> {
         .get(":task")
         .ok_or_else(|| ParseError::Syntax("method is missing ':task'".to_owned()))?;
     let task = parse_task_call(task_sexp)?;
+    let precondition = match map.get(":precondition") {
+        Some(s) => parse_goal(s)?,
+        None => GoalDesc::Empty,
+    };
     let network = parse_task_network(&map)?;
     Ok(MethodDef {
         name,
         params,
         task,
+        precondition,
         network,
     })
 }
@@ -677,6 +729,44 @@ fn parse_htn(rest: &[Sexp]) -> Result<TaskNetwork, ParseError> {
     parse_task_network(&map)
 }
 
+/// Parse a full `(define (domain ...) ...)` HDDL text into an `ast::Domain`.
+///
+/// Runs `probabilistic::preprocess` first (rewriting any koala-planner-style
+/// `:probabilistic` effect blocks into `oneof`), then tokenizes and
+/// recursive-descent parses `:types`, `:constants`, `:predicates`, `:task`,
+/// `:action`, `:method`, and `:constraints` sections. `:requirements` is
+/// accepted and ignored; `:functions` is a syntactically recognized but
+/// unsupported construct (see `ast`'s module docs for the full scope
+/// boundary — parsing succeeds for the constructs it lexes, with unsupported
+/// *semantics* refused later by `grounder::ground`).
+///
+/// # Errors
+///
+/// Returns `ParseError::Syntax` for a malformed s-expression, a missing
+/// `(domain <name>)` header, or an unknown domain section keyword;
+/// `ParseError::UnsupportedConstruct` for `:functions`; and
+/// `ParseError::MalformedOneof` for a `oneof` effect block this parser can't
+/// interpret.
+///
+/// # Examples
+///
+/// ```
+/// use ferroplan_hddl::parser::parse_domain;
+///
+/// let src = r#"
+///     (define (domain doors)
+///       (:predicates (open ?d))
+///       (:action open-door
+///         :parameters (?d)
+///         :precondition ()
+///         :effect (open ?d)))
+/// "#;
+///
+/// let domain = parse_domain(src).expect("valid HDDL domain");
+/// assert_eq!(domain.name, "doors");
+/// assert_eq!(domain.actions.len(), 1);
+/// assert_eq!(domain.actions[0].name, "open-door");
+/// ```
 pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
     // Pure text preprocessing pass, run before real tokenizing: rewrites any
     // koala-planner-style `(:probabilistic w1 e1 w2 e2 ...)` effect block
@@ -685,7 +775,7 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
     // for why the map is keyed that way). Everything below this line parses
     // `cleaned` exactly as before -- `:probabilistic` never reaches the
     // tokenizer/recursive-descent grammar at all.
-    let (cleaned, weight_map) = crate::probabilistic::preprocess(src);
+    let (cleaned, weight_map) = crate::probabilistic::preprocess(src)?;
     let top = read_top(&cleaned)?;
     let items = as_list(&top)?;
     if items.is_empty() {
@@ -697,8 +787,7 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
             .get(1)
             .ok_or_else(|| ParseError::Syntax("missing '(domain name)' header".to_owned()))?,
     )?;
-    expect_atom(&header[0], "domain")?;
-    let name = as_atom(&header[1])?.to_owned();
+    let name = parse_header(header, "domain")?;
 
     let mut domain = Domain {
         name,
@@ -722,7 +811,9 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
             ":task" => domain.tasks.push(parse_task_def(&sec[1..])?),
             ":action" => domain.actions.push(parse_action_def(&sec[1..])?),
             ":method" => domain.methods.push(parse_method_def(&sec[1..])?),
-            ":constraints" => domain.constraints = parse_constraints(&sec[1])?,
+            ":constraints" => {
+                domain.constraints = parse_constraints(section_value(sec, ":constraints")?)?
+            }
             ":functions" => {
                 return Err(ParseError::UnsupportedConstruct(keyword.to_owned()));
             }
@@ -746,6 +837,46 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
     Ok(domain)
 }
 
+/// Parse a full `(define (problem ...) ...)` HDDL text into an `ast::Problem`.
+///
+/// Parses `(:domain <name>)`, `:objects`, `:init`, `:goal`, `:htn`, and
+/// `:constraints` sections. Does not itself check that `domain_name` matches
+/// any particular `Domain`, or that referenced objects/tasks are declared —
+/// those cross-checks are `validate::validate_problem`'s job, run by
+/// `grounder::ground` before grounding.
+///
+/// # Errors
+///
+/// Returns `ParseError::Syntax` for a malformed s-expression, a missing
+/// `(problem <name>)` header, or an unknown problem section keyword.
+///
+/// # Examples
+///
+/// ```
+/// use ferroplan_hddl::parser::{parse_domain, parse_problem};
+///
+/// let domain_src = r#"
+///     (define (domain doors)
+///       (:predicates (open ?d))
+///       (:action open-door
+///         :parameters (?d)
+///         :precondition ()
+///         :effect (open ?d)))
+/// "#;
+/// let problem_src = r#"
+///     (define (problem doors-p1)
+///       (:domain doors)
+///       (:objects d1)
+///       (:init)
+///       (:goal (open d1))
+///       (:htn :ordered-subtasks (open-door d1)))
+/// "#;
+///
+/// let _domain = parse_domain(domain_src).expect("valid HDDL domain");
+/// let problem = parse_problem(problem_src).expect("valid HDDL problem");
+/// assert_eq!(problem.domain_name, "doors");
+/// assert_eq!(problem.objects.len(), 1);
+/// ```
 pub fn parse_problem(src: &str) -> Result<Problem, ParseError> {
     let top = read_top(src)?;
     let items = as_list(&top)?;
@@ -758,8 +889,7 @@ pub fn parse_problem(src: &str) -> Result<Problem, ParseError> {
             .get(1)
             .ok_or_else(|| ParseError::Syntax("missing '(problem name)' header".to_owned()))?,
     )?;
-    expect_atom(&header[0], "problem")?;
-    let name = as_atom(&header[1])?.to_owned();
+    let name = parse_header(header, "problem")?;
 
     let mut problem = Problem {
         name,
@@ -772,7 +902,7 @@ pub fn parse_problem(src: &str) -> Result<Problem, ParseError> {
                 .ok_or_else(|| ParseError::Syntax("empty problem section".to_owned()))?,
         )?;
         match keyword {
-            ":domain" => problem.domain_name = as_atom(&sec[1])?.to_owned(),
+            ":domain" => problem.domain_name = as_atom(section_value(sec, ":domain")?)?.to_owned(),
             ":objects" => problem.objects = parse_typed_objects(&sec[1..])?,
             ":init" => {
                 problem.init = sec[1..]
@@ -780,9 +910,11 @@ pub fn parse_problem(src: &str) -> Result<Problem, ParseError> {
                     .map(parse_atomic)
                     .collect::<Result<_, _>>()?;
             }
-            ":goal" => problem.goal = parse_goal(&sec[1])?,
+            ":goal" => problem.goal = parse_goal(section_value(sec, ":goal")?)?,
             ":htn" => problem.htn = parse_htn(&sec[1..])?,
-            ":constraints" => problem.constraints = parse_constraints(&sec[1])?,
+            ":constraints" => {
+                problem.constraints = parse_constraints(section_value(sec, ":constraints")?)?
+            }
             other => {
                 return Err(ParseError::Syntax(format!(
                     "unknown problem section '{other}'"
@@ -1134,11 +1266,15 @@ mod tests {
     /// explicit `(id (task args...))` pair) now accepts both the labeled
     /// and bare forms, synthesizing a positional id `t{i}` for each bare
     /// entry. The `setdone` method's `(forall (?b - BLOCK) (done ?b))`
-    /// method-level `:precondition` is a separate, independently real
-    /// finding: it is never read by `parse_method_def` at all —
-    /// `MethodDef` has no precondition field — so it is silently dropped
-    /// regardless of `parse_goal`'s own `forall`/`exists` support (which
-    /// only ever runs on action preconditions and `:goal`).
+    /// method-level `:precondition` — and every other method's own real
+    /// `:precondition` clause in this domain (`mark-done-table`,
+    /// `pickup-ready-block`, `unstack-block`, `release-stack`, ...) — is now
+    /// read by `parse_method_def` into `MethodDef::precondition` and checked
+    /// against the world state by `translate::translate` before a method is
+    /// ever offered as a decomposition branch; see the assertion on
+    /// `setdone.precondition` below and
+    /// `translate::tests::method_precondition_gates_which_decomposition_is_offered`
+    /// for the behavioral proof.
     #[test]
     fn fixture_f_real_ipc2020_blocksworld_parses_unlabeled_subtask_calls() {
         let domain = parse_domain(FIXTURE_F_DOMAIN).expect("fixture F domain parses");
@@ -1205,6 +1341,34 @@ mod tests {
             .expect("setdone method present");
         assert!(setdone.network.subtasks.is_empty());
         assert!(setdone.network.order.is_empty());
+
+        // `setdone`'s method-level `:precondition (forall (?b - BLOCK)
+        // (done ?b))` must now parse into a real `Forall` node, not be
+        // silently dropped.
+        match &setdone.precondition {
+            GoalDesc::Forall(vars, body) => {
+                assert_eq!(vars.len(), 1);
+                assert_eq!(vars[0].var, "b");
+                assert_eq!(vars[0].type_name, "BLOCK");
+                assert!(matches!(body.as_ref(), GoalDesc::Atom(a) if a.predicate == "done"));
+            }
+            other => {
+                panic!("expected setdone's precondition to parse as a 'forall', got {other:?}")
+            }
+        }
+
+        // A method with a plain conjunctive `:precondition` (no quantifier)
+        // parses into the expected `And` shape too.
+        let mark_done_table_precond = &mark_done_table.precondition;
+        assert!(
+            matches!(mark_done_table_precond, GoalDesc::And(parts) if parts.len() == 2),
+            "expected mark-done-table's precondition to parse as a 2-way 'and', got {mark_done_table_precond:?}"
+        );
+
+        // `newMethod9` declares no `:precondition` at all — must default to
+        // `GoalDesc::Empty` (vacuously true), matching `ActionDef`'s
+        // no-`:precondition` convention.
+        assert_eq!(new_method9.precondition, GoalDesc::Empty);
     }
 
     /// Fixture F's problem file (`pfile_005.hddl`, same corpus as the domain
@@ -1224,5 +1388,88 @@ mod tests {
                 },
             }]
         );
+    }
+
+    // -----------------------------------------------------------------
+    // Adversarial regressions for the header/section-value panic risks
+    // found by the panic-safety audit. Each of these constructed a
+    // genuinely malformed/truncated HDDL text that used to index past the
+    // end of a short `header`/`sec` slice (`header[0]`/`header[1]`/
+    // `sec[1]`) instead of returning a typed `ParseError`. `catch_unwind`
+    // proves no panic; the `Err` assertion proves it's refused cleanly.
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn adversarial_domain_header_missing_name_returns_err_not_panic() {
+        // `(domain)` has only one element (`domain`), so the old code's
+        // `as_atom(&header[1])` indexed past the end of a 1-element slice.
+        let src = "(define (domain) (:types))";
+        let result = std::panic::catch_unwind(|| parse_domain(src));
+        let result = result.expect("parse_domain must not panic on a truncated domain header");
+        assert!(matches!(result, Err(ParseError::Syntax(_))));
+    }
+
+    #[test]
+    fn adversarial_domain_header_empty_returns_err_not_panic() {
+        // `()` has zero elements, so even the old code's
+        // `expect_atom(&header[0], "domain")` indexed past the end of an
+        // empty slice, one step earlier than the missing-name case above.
+        let src = "(define () (:types))";
+        let result = std::panic::catch_unwind(|| parse_domain(src));
+        let result = result.expect("parse_domain must not panic on an empty domain header");
+        assert!(matches!(result, Err(ParseError::Syntax(_))));
+    }
+
+    #[test]
+    fn adversarial_problem_header_missing_name_returns_err_not_panic() {
+        let src = "(define (problem) (:objects))";
+        let result = std::panic::catch_unwind(|| parse_problem(src));
+        let result = result.expect("parse_problem must not panic on a truncated problem header");
+        assert!(matches!(result, Err(ParseError::Syntax(_))));
+    }
+
+    #[test]
+    fn adversarial_problem_header_empty_returns_err_not_panic() {
+        let src = "(define () (:objects))";
+        let result = std::panic::catch_unwind(|| parse_problem(src));
+        let result = result.expect("parse_problem must not panic on an empty problem header");
+        assert!(matches!(result, Err(ParseError::Syntax(_))));
+    }
+
+    #[test]
+    fn adversarial_domain_constraints_section_missing_value_returns_err_not_panic() {
+        // A bare `(:constraints)` with no argument used to hit `sec[1]`
+        // directly (unlike `:types`/`:predicates`/etc., which slice
+        // `sec[1..]` and degrade gracefully to empty).
+        let src = "(define (domain d) (:predicates (p)) (:constraints))";
+        let result = std::panic::catch_unwind(|| parse_domain(src));
+        let result =
+            result.expect("parse_domain must not panic on a valueless :constraints section");
+        assert!(matches!(result, Err(ParseError::Syntax(_))));
+    }
+
+    #[test]
+    fn adversarial_problem_domain_section_missing_value_returns_err_not_panic() {
+        let src = "(define (problem p) (:domain))";
+        let result = std::panic::catch_unwind(|| parse_problem(src));
+        let result = result.expect("parse_problem must not panic on a valueless :domain section");
+        assert!(matches!(result, Err(ParseError::Syntax(_))));
+    }
+
+    #[test]
+    fn adversarial_problem_goal_section_missing_value_returns_err_not_panic() {
+        let src = "(define (problem p) (:domain d) (:goal))";
+        let result = std::panic::catch_unwind(|| parse_problem(src));
+        let result = result.expect("parse_problem must not panic on a valueless :goal section");
+        assert!(matches!(result, Err(ParseError::Syntax(_))));
+    }
+
+    #[test]
+    fn adversarial_problem_constraints_section_missing_value_returns_err_not_panic() {
+        let src = "(define (problem p) (:domain d) (:constraints))";
+        let result = std::panic::catch_unwind(|| parse_problem(src));
+        let result =
+            result.expect("parse_problem must not panic on a valueless :constraints section");
+        assert!(matches!(result, Err(ParseError::Syntax(_))));
     }
 }

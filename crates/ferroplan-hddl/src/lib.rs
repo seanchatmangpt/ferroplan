@@ -28,6 +28,12 @@
 //! `planning_runtime::PlanningProblem` before handing it to the existing FOND
 //! solver.
 
+// No legitimate `unsafe` usage anywhere in this crate (verified: zero hits
+// for `unsafe` across `src/*.rs`) -- this crate parses/grounds/translates
+// untrusted HDDL text, so forbid it at the lint level rather than merely
+// discouraging it.
+#![forbid(unsafe_code)]
+
 pub mod ast;
 pub mod grounder;
 pub mod parser;

@@ -35,13 +35,27 @@ use crate::ast::*;
 use crate::validate;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::time::{Duration, Instant};
 
+/// An error produced by `ground`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GroundError {
+    /// The domain/problem failed `validate::validate_domain`/
+    /// `validate::validate_problem` — those checks run first, before any
+    /// grounding work.
     Validation(validate::ValidationError),
+    /// The `:types` hierarchy contains a cycle involving the named type,
+    /// detected while computing `build_type_closure`.
     TypeCycle(String),
+    /// A variable was referenced (in a term, goal, or effect) that was never
+    /// bound by the enclosing action/method parameter list or quantifier.
     UnboundVariable(String),
+    /// A precondition/goal construct this grounder can't ground in its
+    /// current position — e.g. `or`/`imply`/quantifiers nested inside a
+    /// `when`-effect condition (see `ast`'s module docs for exact scope).
     UnsupportedPrecondition(String),
+    /// `GroundingLimits::max_ground_actions`/`max_ground_methods` was
+    /// exceeded — a loud refusal rather than a silently truncated result.
     LimitExceeded(String),
     /// A numeric fluent was declared (`(= (fluent ?params) value)` nested in
     /// `:predicates`) or used in an `increase`/`decrease` effect. Numeric
@@ -55,6 +69,23 @@ pub enum GroundError {
     /// constraint's modal-operator keyword (e.g. "always", "sometime-after")
     /// is carried for a precise refusal. See `ast`'s module docs.
     UnsupportedConstraint(String),
+    /// `GroundingLimits::max_wall` elapsed before grounding finished. A
+    /// loud, precise wall-clock refusal — same "loud refusal, not silent
+    /// truncation" discipline as `LimitExceeded` — for the case a
+    /// pathological (but not obviously too-large-by-count) domain makes
+    /// grounding itself run long: e.g. many cheap-looking action schemas
+    /// each individually under `max_ground_actions`/`max_ground_methods`
+    /// but expensive to substitute in aggregate, or (before
+    /// `prune_unreachable` pruning helps) a slow `compute_reachability`
+    /// fixpoint over a large fact universe. Each grounding phase
+    /// (`ground_actions`/`ground_actions_reachable`/`ground_methods`/
+    /// `ground_methods_reachable`/`compute_reachability`) checks this
+    /// independently against its own start time, so `ground`'s total wall
+    /// time in the worst case (the `prune_unreachable` path, which runs
+    /// three of those phases in sequence) is bounded by roughly
+    /// `3 * max_wall`, not by one shared budget across the whole call —
+    /// still a hard, finite bound, just not an exact one.
+    Timeout { elapsed_ms: u128, limit_ms: u128 },
 }
 
 impl fmt::Display for GroundError {
@@ -73,6 +104,13 @@ impl fmt::Display for GroundError {
                 f,
                 "':constraints' entry '{kind}' is not supported by this grounder (constraint-GD semantics are out of scope)"
             ),
+            Self::Timeout {
+                elapsed_ms,
+                limit_ms,
+            } => write!(
+                f,
+                "grounding wall-clock limit exceeded: {elapsed_ms}ms elapsed, limit {limit_ms}ms"
+            ),
         }
     }
 }
@@ -89,6 +127,17 @@ pub struct GroundingLimits {
     /// the full combinatorial grounding keeps its exact current
     /// ground-instance counts unless it opts in explicitly.
     pub prune_unreachable: bool,
+    /// Wall-clock budget for a single grounding phase
+    /// (`ground_actions`/`ground_actions_reachable`/`ground_methods`/
+    /// `ground_methods_reachable`/`compute_reachability`), each of which
+    /// checks it independently against its own start time (see
+    /// `GroundError::Timeout`'s doc comment for why the bound on `ground`'s
+    /// *total* wall time is a multiple of this, not exactly this).
+    /// `None` means unbounded, matching every pre-existing caller/test's
+    /// current (unbounded) behavior; `default()` sets a real bound so a
+    /// caller that just uses `GroundingLimits::default()` is protected
+    /// without having to opt in.
+    pub max_wall: Option<Duration>,
 }
 
 impl Default for GroundingLimits {
@@ -97,8 +146,26 @@ impl Default for GroundingLimits {
             max_ground_actions: 10_000,
             max_ground_methods: 10_000,
             prune_unreachable: false,
+            max_wall: Some(Duration::from_secs(10)),
         }
     }
+}
+
+/// Checked by every grounding-phase loop below (see each function's own
+/// `start` binding) once per outer-loop iteration. Cheap: `Instant::now()`
+/// is a single syscall/vDSO read, negligible next to the substitution work
+/// already happening per binding/round.
+fn check_wall_deadline(start: Instant, limits: &GroundingLimits) -> Result<(), GroundError> {
+    if let Some(max_wall) = limits.max_wall {
+        let elapsed = start.elapsed();
+        if elapsed > max_wall {
+            return Err(GroundError::Timeout {
+                elapsed_ms: elapsed.as_millis(),
+                limit_ms: max_wall.as_millis(),
+            });
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -321,6 +388,14 @@ pub struct GroundSubtask {
 pub struct GroundMethod {
     pub name: String,
     pub task_name: String,
+    /// The method's ground applicability condition, from
+    /// `ast::MethodDef::precondition`, ready to evaluate directly via
+    /// `evaluate_ground_goal`. `GroundGoal::Empty` (always holds) for a
+    /// method with no declared `:precondition`. `translate::translate` checks
+    /// this before offering the method as a decomposition branch, the same
+    /// way it already checks `GroundAction::precondition` before offering an
+    /// execution move.
+    pub precondition: GroundGoal,
     pub subtasks: Vec<GroundSubtask>,
     pub order: Vec<(String, String)>,
 }
@@ -647,7 +722,9 @@ pub fn compute_reachability(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     initial_facts: &BTreeSet<String>,
+    limits: &GroundingLimits,
 ) -> Result<ReachabilityInfo, GroundError> {
+    let start = Instant::now();
     let per_action_bindings: Vec<(&ActionDef, Vec<BTreeMap<String, String>>)> = domain
         .actions
         .iter()
@@ -666,6 +743,7 @@ pub fn compute_reachability(
         for (i, (action, bindings)) in per_action_bindings.iter().enumerate() {
             let still_pending: Vec<usize> = pending[i].iter().copied().collect();
             for bidx in still_pending {
+                check_wall_deadline(start, limits)?;
                 let binding = &bindings[bidx];
                 let precondition = ground_goal(&action.precondition, binding, objects_by_type)?;
                 if !relaxed_satisfiable(&precondition, &facts) {
@@ -721,27 +799,119 @@ fn task_base_name(ground_task_name: &str) -> &str {
         .unwrap_or(ground_task_name)
 }
 
+/// Lazy Cartesian-product binding generator for a parameter list against a
+/// typed object universe. Produces exactly the same bindings, in exactly the
+/// same order, that eagerly building the full product up front would (see
+/// `enumerate_bindings`, which is now a thin `.collect()` over this) — but
+/// one binding at a time, using O(#params) working memory and O(#params) time
+/// per `next()` call, rather than materializing all M^N combinations before
+/// a caller sees the first one.
+///
+/// This is the fix for the DoS vector documented at this module's top: a
+/// caller enforcing a `GroundingLimits` counter (`ground_actions`,
+/// `ground_actions_reachable`, `ground_methods`, `ground_methods_reachable`)
+/// can check the counter after each `next()` and `return` as soon as it's
+/// exceeded, so the total cost of a rejected high-arity schema is bounded by
+/// the limit, never by the schema's full (possibly astronomical) Cartesian
+/// product size.
+///
+/// Ordering: bindings are produced with the *last* parameter varying
+/// fastest — a plain mixed-radix odometer over `choices`, incrementing from
+/// the least-significant (last) position and carrying left on overflow. This
+/// matches the original nested-loop construction (`for b in bindings { for c
+/// in choices { ... } }`, outer loop over already-built prefixes, inner loop
+/// over the newest parameter's choices) exactly, so switching to this lazy
+/// form changes no existing test's expected ground order or count.
+struct BindingIter {
+    vars: Vec<String>,
+    choices: Vec<Vec<String>>,
+    idx: Vec<usize>,
+    /// Zero-param schema: exactly one binding (the empty map) exists.
+    /// `Some(false)` before it's been yielded, `Some(true)` after. `None`
+    /// when `vars` is non-empty, where this field is unused.
+    zero_param_yielded: Option<bool>,
+    exhausted: bool,
+}
+
+impl BindingIter {
+    fn new(params: &[TypedParam], objects_by_type: &BTreeMap<String, Vec<String>>) -> Self {
+        let vars: Vec<String> = params.iter().map(|p| p.var.clone()).collect();
+        let choices: Vec<Vec<String>> = params
+            .iter()
+            .map(|p| {
+                objects_by_type
+                    .get(&p.type_name)
+                    .cloned()
+                    .unwrap_or_default()
+            })
+            .collect();
+        // A non-empty param list with any zero-choice param has an empty
+        // product (matches the original: once `choices` is empty for one
+        // param, every subsequent `next` stays `vec![]`).
+        let exhausted = !vars.is_empty() && choices.iter().any(|c| c.is_empty());
+        let idx = vec![0; vars.len()];
+        let zero_param_yielded = if vars.is_empty() { Some(false) } else { None };
+        Self {
+            vars,
+            choices,
+            idx,
+            zero_param_yielded,
+            exhausted,
+        }
+    }
+}
+
+impl Iterator for BindingIter {
+    type Item = BTreeMap<String, String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(yielded) = self.zero_param_yielded {
+            if yielded {
+                return None;
+            }
+            self.zero_param_yielded = Some(true);
+            return Some(BTreeMap::new());
+        }
+        if self.exhausted {
+            return None;
+        }
+        let mut binding = BTreeMap::new();
+        for i in 0..self.vars.len() {
+            binding.insert(self.vars[i].clone(), self.choices[i][self.idx[i]].clone());
+        }
+        // Advance the odometer from the least-significant (last) position,
+        // carrying left on overflow.
+        let mut pos = self.vars.len() - 1;
+        loop {
+            self.idx[pos] += 1;
+            if self.idx[pos] < self.choices[pos].len() {
+                break;
+            }
+            self.idx[pos] = 0;
+            if pos == 0 {
+                self.exhausted = true;
+                break;
+            }
+            pos -= 1;
+        }
+        Some(binding)
+    }
+}
+
+/// Eager convenience wrapper over `BindingIter` for call sites that either
+/// need the full list at once (quantifier expansion, which folds every
+/// extension into one `And`/`Or`) or need random access into it by index
+/// (`compute_reachability`'s pending-binding-set bookkeeping) — neither has a
+/// `GroundingLimits` counter to check incrementally against, so eager
+/// materialization is what they already need. Grounding call sites that
+/// *do* have a counter to enforce (`ground_actions` et al.) use `BindingIter`
+/// directly instead, specifically so they never pay for this materialization
+/// — see `BindingIter`'s doc comment.
 fn enumerate_bindings(
     params: &[TypedParam],
     objects_by_type: &BTreeMap<String, Vec<String>>,
 ) -> Vec<BTreeMap<String, String>> {
-    let mut bindings = vec![BTreeMap::new()];
-    for p in params {
-        let choices = objects_by_type
-            .get(&p.type_name)
-            .cloned()
-            .unwrap_or_default();
-        let mut next = Vec::with_capacity(bindings.len() * choices.len().max(1));
-        for b in &bindings {
-            for c in &choices {
-                let mut nb = b.clone();
-                nb.insert(p.var.clone(), c.clone());
-                next.push(nb);
-            }
-        }
-        bindings = next;
-    }
-    bindings
+    BindingIter::new(params, objects_by_type).collect()
 }
 
 pub fn ground_actions(
@@ -749,9 +919,16 @@ pub fn ground_actions(
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
 ) -> Result<Vec<GroundAction>, GroundError> {
+    let start = Instant::now();
     let mut out = Vec::new();
     for action in &domain.actions {
-        for binding in enumerate_bindings(&action.params, objects_by_type) {
+        // `BindingIter` directly, not `enumerate_bindings` — see its doc
+        // comment: this lets the `max_ground_actions` check below run after
+        // every single binding, so a high-arity/high-object schema is
+        // rejected after producing only `max_ground_actions + 1` bindings,
+        // never the full (possibly astronomical) Cartesian product.
+        for binding in BindingIter::new(&action.params, objects_by_type) {
+            check_wall_deadline(start, limits)?;
             if out.len() >= limits.max_ground_actions {
                 return Err(GroundError::LimitExceeded(format!(
                     "max_ground_actions ({}) exceeded",
@@ -791,9 +968,14 @@ pub fn ground_actions_reachable(
     limits: &GroundingLimits,
     reachability: &ReachabilityInfo,
 ) -> Result<Vec<GroundAction>, GroundError> {
+    let start = Instant::now();
     let mut out = Vec::new();
     for action in &domain.actions {
-        for binding in enumerate_bindings(&action.params, objects_by_type) {
+        // `BindingIter` directly (see `ground_actions`'s comment on the same
+        // pattern) so the limit check below never waits on a fully
+        // materialized Cartesian product.
+        for binding in BindingIter::new(&action.params, objects_by_type) {
+            check_wall_deadline(start, limits)?;
             let args = action
                 .params
                 .iter()
@@ -830,9 +1012,14 @@ pub fn ground_methods(
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
 ) -> Result<Vec<GroundMethod>, GroundError> {
+    let start = Instant::now();
     let mut out = Vec::new();
     for method in &domain.methods {
-        for binding in enumerate_bindings(&method.params, objects_by_type) {
+        // `BindingIter` directly (see `ground_actions`'s comment on the same
+        // pattern) so the `max_ground_methods` check never waits on a fully
+        // materialized Cartesian product.
+        for binding in BindingIter::new(&method.params, objects_by_type) {
+            check_wall_deadline(start, limits)?;
             if out.len() >= limits.max_ground_methods {
                 return Err(GroundError::LimitExceeded(format!(
                     "max_ground_methods ({}) exceeded",
@@ -868,6 +1055,7 @@ pub fn ground_methods(
                 .iter()
                 .map(|e| (e.before.clone(), e.after.clone()))
                 .collect();
+            let precondition = ground_goal(&method.precondition, &binding, objects_by_type)?;
             let args = method
                 .params
                 .iter()
@@ -876,6 +1064,7 @@ pub fn ground_methods(
             out.push(GroundMethod {
                 name: atom_key(&method.name, &args),
                 task_name: atom_key(&method.task.name, &task_args),
+                precondition,
                 subtasks,
                 order,
             });
@@ -901,10 +1090,15 @@ pub fn ground_methods_reachable(
     limits: &GroundingLimits,
     reachability: &ReachabilityInfo,
 ) -> Result<Vec<GroundMethod>, GroundError> {
+    let start = Instant::now();
     let action_names: BTreeSet<&str> = domain.actions.iter().map(|a| a.name.as_str()).collect();
     let mut out = Vec::new();
     for method in &domain.methods {
-        for binding in enumerate_bindings(&method.params, objects_by_type) {
+        // `BindingIter` directly (see `ground_actions`'s comment on the same
+        // pattern) so the `max_ground_methods` check never waits on a fully
+        // materialized Cartesian product.
+        for binding in BindingIter::new(&method.params, objects_by_type) {
+            check_wall_deadline(start, limits)?;
             let task_args = method
                 .task
                 .args
@@ -947,6 +1141,7 @@ pub fn ground_methods_reachable(
                 .iter()
                 .map(|e| (e.before.clone(), e.after.clone()))
                 .collect();
+            let precondition = ground_goal(&method.precondition, &binding, objects_by_type)?;
             let args = method
                 .params
                 .iter()
@@ -955,6 +1150,7 @@ pub fn ground_methods_reachable(
             out.push(GroundMethod {
                 name: atom_key(&method.name, &args),
                 task_name: atom_key(&method.task.name, &task_args),
+                precondition,
                 subtasks,
                 order,
             });
@@ -1020,6 +1216,58 @@ pub fn ground_root_network(
     Ok((subtasks, order))
 }
 
+/// Ground a parsed `Domain`+`Problem` pair into a `GroundedIR`: every
+/// combination of typed objects substituted into every action/method
+/// (subject to `limits`), the initial state as ground fact strings, and the
+/// problem's `:goal` with any quantifiers expanded.
+///
+/// Runs `validate::validate_domain`/`validate::validate_problem` first, then
+/// refuses (before any actual grounding work) any domain/problem using a
+/// numeric fluent or a `:constraints` block — both are lexed/parsed by this
+/// crate but are out of scope to ground (see `ast`'s module docs). When
+/// `limits.prune_unreachable` is set, a delete-relaxation reachability
+/// pre-pass (`compute_reachability`) is used to skip instantiating ground
+/// actions/methods that can never fire; otherwise every typed-object
+/// combination is enumerated (bounded by `limits.max_ground_actions`/
+/// `max_ground_methods`) — see the module docs for the full comparison.
+///
+/// # Errors
+///
+/// Returns `GroundError::Validation` if pre-grounding validation fails,
+/// `GroundError::UnsupportedNumericFluent`/`UnsupportedConstraint` for an
+/// out-of-scope construct, `GroundError::LimitExceeded` if grounding would
+/// exceed `limits`, `GroundError::UnboundVariable` for a variable used
+/// without a binding, and `GroundError::TypeCycle` for a cyclic `:types`
+/// hierarchy.
+///
+/// # Examples
+///
+/// ```
+/// use ferroplan_hddl::grounder::{ground, GroundingLimits};
+/// use ferroplan_hddl::parser::{parse_domain, parse_problem};
+///
+/// let domain = parse_domain(r#"
+///     (define (domain doors)
+///       (:predicates (open ?d))
+///       (:action open-door
+///         :parameters (?d)
+///         :precondition ()
+///         :effect (open ?d)))
+/// "#).unwrap();
+/// let problem = parse_problem(r#"
+///     (define (problem doors-p1)
+///       (:domain doors)
+///       (:objects d1)
+///       (:init)
+///       (:goal (open d1))
+///       (:htn :ordered-subtasks (open-door d1)))
+/// "#).unwrap();
+///
+/// let ir = ground(&domain, &problem, &GroundingLimits::default())
+///     .expect("domain and problem ground cleanly");
+/// assert_eq!(ir.actions.len(), 1);
+/// assert_eq!(ir.actions[0].name, "open-door(d1)");
+/// ```
 pub fn ground(
     domain: &Domain,
     problem: &Problem,
@@ -1044,7 +1292,7 @@ pub fn ground(
     let objects_by_type = index_objects_by_type(domain, problem, &closure);
     let initial_facts = ground_initial_facts(problem)?;
     let (actions, methods) = if limits.prune_unreachable {
-        let reachability = compute_reachability(domain, &objects_by_type, &initial_facts)?;
+        let reachability = compute_reachability(domain, &objects_by_type, &initial_facts, limits)?;
         let actions = ground_actions_reachable(domain, &objects_by_type, limits, &reachability)?;
         let methods = ground_methods_reachable(domain, &objects_by_type, limits, &reachability)?;
         (actions, methods)
@@ -1075,6 +1323,75 @@ mod tests {
     const FIXTURE_C_PROBLEM: &str = include_str!("../fixtures/c/problem.hddl");
     const FIXTURE_E_DOMAIN: &str = include_str!("../fixtures/e/domain.hddl");
     const FIXTURE_E_PROBLEM: &str = include_str!("../fixtures/e/problem.hddl");
+
+    /// Deterministic (no reliance on real elapsed wall time from a slow
+    /// operation): backdates `start` by a fixed offset larger than the
+    /// configured `max_wall`, so `check_wall_deadline` must observe
+    /// `elapsed > max_wall` on every run regardless of machine speed.
+    #[test]
+    fn check_wall_deadline_times_out_once_elapsed_exceeds_max_wall() {
+        let limits = GroundingLimits {
+            max_wall: Some(Duration::from_millis(10)),
+            ..GroundingLimits::default()
+        };
+        let backdated_start = Instant::now() - Duration::from_millis(50);
+        let err = check_wall_deadline(backdated_start, &limits).unwrap_err();
+        match err {
+            GroundError::Timeout {
+                elapsed_ms,
+                limit_ms,
+            } => {
+                assert!(
+                    elapsed_ms >= 50,
+                    "expected >=50ms elapsed, got {elapsed_ms}"
+                );
+                assert_eq!(limit_ms, 10);
+            }
+            other => panic!("expected Timeout, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn check_wall_deadline_is_ok_within_budget() {
+        let limits = GroundingLimits {
+            max_wall: Some(Duration::from_secs(10)),
+            ..GroundingLimits::default()
+        };
+        assert!(check_wall_deadline(Instant::now(), &limits).is_ok());
+    }
+
+    #[test]
+    fn check_wall_deadline_never_fires_when_max_wall_is_none() {
+        let limits = GroundingLimits {
+            max_wall: None,
+            ..GroundingLimits::default()
+        };
+        let ancient_start = Instant::now() - Duration::from_secs(3600);
+        assert!(check_wall_deadline(ancient_start, &limits).is_ok());
+    }
+
+    /// End-to-end confirmation that `ground()` itself surfaces the timeout
+    /// (not just the private helper): a `max_wall` of zero duration means
+    /// the very first `check_wall_deadline` call inside `ground_actions`
+    /// (its `start` is `Instant::now()` taken at entry, and any nonzero time
+    /// passes before the first binding's check) is already "elapsed", so
+    /// fixture A -- which has real, non-empty ground work to do -- reliably
+    /// refuses with `GroundError::Timeout` on every run, not just a rare
+    /// slow one.
+    #[test]
+    fn ground_refuses_with_timeout_when_max_wall_is_zero() {
+        let domain = parse_domain(FIXTURE_A_DOMAIN).unwrap();
+        let problem = parse_problem(FIXTURE_A_PROBLEM).unwrap();
+        let limits = GroundingLimits {
+            max_wall: Some(Duration::from_nanos(0)),
+            ..GroundingLimits::default()
+        };
+        let err = ground(&domain, &problem, &limits).unwrap_err();
+        assert!(
+            matches!(err, GroundError::Timeout { .. }),
+            "expected Timeout, got {err:?}"
+        );
+    }
 
     #[test]
     fn probabilistic_effect_weights_are_ground_onto_outcomes() {
@@ -1337,9 +1654,150 @@ mod tests {
             max_ground_actions: 1,
             max_ground_methods: 10_000,
             prune_unreachable: false,
+            ..GroundingLimits::default()
         };
         let err = ground_actions(&domain, &objects_by_type, &tight).unwrap_err();
         assert!(matches!(err, GroundError::LimitExceeded(_)));
+    }
+
+    /// Regression test for the DoS vector documented at the top of this
+    /// module: a single action/method schema with high parameter arity over
+    /// a type with many objects has a Cartesian product (`M^N`) that can be
+    /// astronomically larger than any reasonable `GroundingLimits` counter.
+    /// 10 parameters over 50 objects of the same type is 50^10 (~9.8e15)
+    /// bindings -- if `ground_actions`/`enumerate_bindings` ever
+    /// materialized that full product (or even a sizable prefix of it far
+    /// beyond the limit) before checking `max_ground_actions`, this test
+    /// would hang or exhaust memory well past the 1-second budget below,
+    /// instead of returning almost immediately. With the fix
+    /// (`BindingIter` enumerating lazily, one binding per `next()`, checked
+    /// against the limit every iteration), only `max_ground_actions + 1`
+    /// bindings are ever built before the limit trips.
+    fn high_arity_schema_domain_and_problem(
+        domain_keyword: &str,
+        num_objects: usize,
+    ) -> (Domain, Problem) {
+        let objects = (1..=num_objects)
+            .map(|i| format!("o{i}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let params = (1..=10)
+            .map(|i| format!("?v{i} - t"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let domain_src = match domain_keyword {
+            "action" => format!(
+                r#"(define (domain high-arity-action-d)
+                  (:types t)
+                  (:predicates (p ?a - t))
+                  (:action noop
+                    :parameters ({params})
+                    :precondition ()
+                    :effect (and (p ?v1))))"#
+            ),
+            "method" => format!(
+                r#"(define (domain high-arity-method-d)
+                  (:types t)
+                  (:predicates (p ?a - t))
+                  (:task do-it :parameters (?v1 - t))
+                  (:method m-high-arity
+                    :parameters ({params})
+                    :task (do-it ?v1)
+                    :subtasks ()))"#
+            ),
+            other => panic!("unexpected domain_keyword {other}"),
+        };
+        let domain_name = if domain_keyword == "action" {
+            "high-arity-action-d"
+        } else {
+            "high-arity-method-d"
+        };
+        let problem_src = format!(
+            r#"(define (problem high-arity-p)
+              (:domain {domain_name})
+              (:objects {objects} - t)
+              (:init)
+              (:goal ())
+              (:htn :subtasks ()))"#
+        );
+        let domain = parse_domain(&domain_src).expect("high-arity domain parses");
+        let problem = parse_problem(&problem_src).expect("high-arity problem parses");
+        (domain, problem)
+    }
+
+    #[test]
+    fn ground_actions_short_circuits_on_a_high_arity_schema_instead_of_materializing_the_full_product(
+    ) {
+        // 10 params x 50 objects/type = 50^10 (~9.8e15) naive bindings.
+        let (domain, problem) = high_arity_schema_domain_and_problem("action", 50);
+        let closure = build_type_closure(&domain).unwrap();
+        let objects_by_type = index_objects_by_type(&domain, &problem, &closure);
+        let tight = GroundingLimits {
+            max_ground_actions: 5,
+            max_ground_methods: 10_000,
+            prune_unreachable: false,
+            ..GroundingLimits::default()
+        };
+
+        let start = std::time::Instant::now();
+        let err = ground_actions(&domain, &objects_by_type, &tight).unwrap_err();
+        let elapsed = start.elapsed();
+
+        assert!(matches!(err, GroundError::LimitExceeded(_)));
+        assert!(
+            elapsed < std::time::Duration::from_secs(1),
+            "ground_actions took {elapsed:?} -- the full Cartesian product must \
+             have been (at least partially) materialized before the limit check; \
+             expected the limit to trip after only a handful of bindings"
+        );
+    }
+
+    #[test]
+    fn ground_methods_short_circuits_on_a_high_arity_schema_instead_of_materializing_the_full_product(
+    ) {
+        // Same shape as the action test above, but for `ground_methods`.
+        let (domain, problem) = high_arity_schema_domain_and_problem("method", 50);
+        let closure = build_type_closure(&domain).unwrap();
+        let objects_by_type = index_objects_by_type(&domain, &problem, &closure);
+        let tight = GroundingLimits {
+            max_ground_actions: 10_000,
+            max_ground_methods: 5,
+            prune_unreachable: false,
+            ..GroundingLimits::default()
+        };
+
+        let start = std::time::Instant::now();
+        let err = ground_methods(&domain, &objects_by_type, &tight).unwrap_err();
+        let elapsed = start.elapsed();
+
+        assert!(matches!(err, GroundError::LimitExceeded(_)));
+        assert!(
+            elapsed < std::time::Duration::from_secs(1),
+            "ground_methods took {elapsed:?} -- the full Cartesian product must \
+             have been (at least partially) materialized before the limit check; \
+             expected the limit to trip after only a handful of bindings"
+        );
+    }
+
+    #[test]
+    fn binding_iter_matches_eager_enumeration_order_and_count() {
+        // Direct check that the lazy `BindingIter` odometer produces exactly
+        // the same bindings, in exactly the same order, that the original
+        // eager nested-loop `enumerate_bindings` did -- the property this
+        // whole fix depends on for byte-identical existing-test output.
+        let domain = parse_domain(FIXTURE_A_DOMAIN).unwrap();
+        let problem = parse_problem(FIXTURE_A_PROBLEM).unwrap();
+        let closure = build_type_closure(&domain).unwrap();
+        let objects_by_type = index_objects_by_type(&domain, &problem, &closure);
+        let drive = domain
+            .actions
+            .iter()
+            .find(|a| a.name == "drive")
+            .expect("drive action present");
+        let via_iter: Vec<_> = BindingIter::new(&drive.params, &objects_by_type).collect();
+        let via_eager = enumerate_bindings(&drive.params, &objects_by_type);
+        assert_eq!(via_iter, via_eager);
+        assert_eq!(via_iter.len(), 4); // 2 locations, 2 params -> 2*2
     }
 
     #[test]

@@ -17,10 +17,15 @@ use crate::ast::{Domain, Effect, GoalDesc, Literal, Problem, TypedParam};
 use std::collections::BTreeSet;
 use std::fmt;
 
+/// Which kind of name was found declared more than once — see
+/// `ValidationError::DuplicateDefinition`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DuplicateKind {
+    /// A task name (`:task`).
     Task,
+    /// A predicate name (`:predicates`).
     Predicate,
+    /// A type name (`:types`).
     Type,
 }
 
@@ -35,12 +40,20 @@ impl fmt::Display for DuplicateKind {
     }
 }
 
+/// An error produced by `validate_domain`/`validate_problem`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidationError {
+    /// A method's `:task`, or a subtask's task call, names something that is
+    /// neither a declared `:task` nor a declared `:action`.
     UnknownTaskOrAction(String),
+    /// A method's own task call passes a different number of arguments than
+    /// the referenced task declares parameters.
     ArityMismatch {
+        /// The task name involved.
         task: String,
+        /// The number of parameters the task declares.
         expected: usize,
+        /// The number of arguments the method's task call actually passed.
         found: usize,
     },
     /// A predicate name appears in an action's `:precondition` or `:effect`
@@ -51,10 +64,7 @@ pub enum ValidationError {
     /// the domain's `:types` block, and is not the built-in `object` type.
     UndefinedType(String),
     /// The same task, predicate, or type name is declared more than once.
-    DuplicateDefinition {
-        kind: DuplicateKind,
-        name: String,
-    },
+    DuplicateDefinition { kind: DuplicateKind, name: String },
 }
 
 impl fmt::Display for ValidationError {
@@ -252,6 +262,34 @@ fn check_undefined_predicates(domain: &Domain) -> Result<(), ValidationError> {
     Ok(())
 }
 
+/// Run all domain-level static checks (see the module docs for the exact
+/// list): duplicate task/predicate/type names, undefined types, undefined
+/// predicates, and — for every declared method — that its task call resolves
+/// to a declared task/action with matching arity and that every subtask in
+/// its network resolves to a declared task or action.
+///
+/// # Errors
+///
+/// Returns the first `ValidationError` found; see the enum's variants for
+/// exactly which conditions are checked.
+///
+/// # Examples
+///
+/// ```
+/// use ferroplan_hddl::parser::parse_domain;
+/// use ferroplan_hddl::validate::validate_domain;
+///
+/// let domain = parse_domain(r#"
+///     (define (domain doors)
+///       (:predicates (open ?d))
+///       (:action open-door
+///         :parameters (?d)
+///         :precondition ()
+///         :effect (open ?d)))
+/// "#).unwrap();
+///
+/// assert!(validate_domain(&domain).is_ok());
+/// ```
 pub fn validate_domain(domain: &Domain) -> Result<(), ValidationError> {
     check_duplicate_definitions(domain)?;
     check_undefined_types(domain)?;
@@ -281,6 +319,42 @@ pub fn validate_domain(domain: &Domain) -> Result<(), ValidationError> {
     Ok(())
 }
 
+/// Run problem-level static checks against `domain`: every subtask in the
+/// problem's root `:htn` network resolves to a declared task or action, and
+/// every type referenced by a `forall`/`exists` quantifier in `:goal` was
+/// declared in `:types`.
+///
+/// # Errors
+///
+/// Returns `ValidationError::UnknownTaskOrAction` for an unresolvable root
+/// subtask, or `ValidationError::UndefinedType` for an undeclared quantifier
+/// type.
+///
+/// # Examples
+///
+/// ```
+/// use ferroplan_hddl::parser::{parse_domain, parse_problem};
+/// use ferroplan_hddl::validate::validate_problem;
+///
+/// let domain = parse_domain(r#"
+///     (define (domain doors)
+///       (:predicates (open ?d))
+///       (:action open-door
+///         :parameters (?d)
+///         :precondition ()
+///         :effect (open ?d)))
+/// "#).unwrap();
+/// let problem = parse_problem(r#"
+///     (define (problem doors-p1)
+///       (:domain doors)
+///       (:objects d1)
+///       (:init)
+///       (:goal (open d1))
+///       (:htn :ordered-subtasks (open-door d1)))
+/// "#).unwrap();
+///
+/// assert!(validate_problem(&domain, &problem).is_ok());
+/// ```
 pub fn validate_problem(domain: &Domain, problem: &Problem) -> Result<(), ValidationError> {
     for subtask in &problem.htn.subtasks {
         if !is_known_task_or_action(domain, &subtask.task.name) {
