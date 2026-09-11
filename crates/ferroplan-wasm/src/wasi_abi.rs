@@ -509,6 +509,17 @@ fn hddl_error_json(e: &HddlError) -> Value {
             &format!("HDDL translation error: {msg}"),
         ),
         HddlError::Planner(pe) => err_json("FP_MODEL", &format!("planner error: {pe}")),
+        HddlError::Timeout {
+            elapsed_ms,
+            limit_ms,
+        } => err_json(
+            "FP_TIMEOUT",
+            &format!("HDDL solve timed out after {elapsed_ms}ms (limit {limit_ms}ms)"),
+        ),
+        HddlError::WorkerPanicked(msg) => err_json(
+            "FP_WORKER_PANICKED",
+            &format!("HDDL solve worker panicked: {msg}"),
+        ),
     }
 }
 
