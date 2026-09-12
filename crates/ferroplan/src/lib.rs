@@ -79,6 +79,7 @@ pub mod pddl3;
 pub mod plan;
 pub mod planning_runtime;
 pub mod planning_types;
+pub mod policy_validation;
 pub mod portfolio;
 pub mod ppddl;
 // The compatibility wrapper still contains one retained diagnostic constant.
@@ -127,6 +128,9 @@ pub use planning_runtime::{
 pub use planning_types::{
     route_planning_request, PlanningCapability, PlanningRail, PlanningRequest, PlanningRoute,
     PlanningRouteError, PlanningType,
+};
+pub use policy_validation::{
+    validate_fond_policy, PolicyGuarantee, PolicyIssue, PolicyValidationReport,
 };
 pub use ppddl::{
     parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability,
