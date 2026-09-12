@@ -74,6 +74,7 @@ pub mod types;
 pub mod constraints;
 pub mod costs;
 pub mod espc;
+pub mod operator_compiler;
 pub mod partition;
 pub mod pddl3;
 pub mod plan;
@@ -117,6 +118,9 @@ pub use eve::{
     MAX_PRIMARY_ACTIVATORS,
 };
 pub use hddl::{solve_hddl, HddlError};
+pub use operator_compiler::{
+    compile_operator, CompiledOperator, OperatorCompileError, OperatorEffects, OperatorSpec,
+};
 pub use planner::{run_ff, run_planner};
 pub use planning_runtime::{
     solve_planning_type, Agent, Goal as UniversalGoal, Method as PlanningMethod, PlanStep,
