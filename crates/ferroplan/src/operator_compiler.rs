@@ -45,8 +45,14 @@ pub enum OperatorCompileError {
     EmptyName,
     ConflictingEffect(String),
     NoApplicableState,
-    MissingTargetState { from: String, facts: BTreeSet<String> },
-    AmbiguousTargetState { from: String, candidates: Vec<String> },
+    MissingTargetState {
+        from: String,
+        facts: BTreeSet<String>,
+    },
+    AmbiguousTargetState {
+        from: String,
+        candidates: Vec<String>,
+    },
 }
 
 impl fmt::Display for OperatorCompileError {
