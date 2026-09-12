@@ -484,10 +484,24 @@ fn op_hddl_solve(req: &Value) -> Result<Value, String> {
         ProductionLimits::default().max_problem_bytes,
         "problem",
     )?;
-    let limits: PlannerLimits = match req.get("limits") {
+    let mut limits: PlannerLimits = match req.get("limits") {
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("limits: {e}"))?,
         None => PlannerLimits::default(),
     };
+    // `solve_hddl`'s wall-clock watchdog (`max_wall_ms != 0`, the
+    // `PlannerLimits::default()` case) spawns a real `std::thread` to race
+    // against the timeout -- see `crates/ferroplan/src/hddl.rs`. WASI
+    // preview1 (this crate's `wasm32-wasip1` target) has no OS threads:
+    // `std::thread::spawn` there aborts the whole guest instance with an
+    // `unreachable` trap instead of returning an `Err`, so every
+    // `hddl_solve` call would panic before this function's own
+    // `Ok(err_json)`-not-`Err` contract (see this fn's own doc comment) ever
+    // had a chance to apply. Force the synchronous, non-threaded
+    // `solve_hddl_inner` path (`max_wall_ms == 0`) at this ABI boundary --
+    // the caller's own `limits` object (if any) is otherwise honored
+    // unchanged, and a hung parse is still bounded on the BEAM side by this
+    // op's own wasmex call timeout.
+    limits.max_wall_ms = 0;
     match solve_hddl(domain, problem, &limits) {
         Ok(plan) => serde_json::to_value(plan).map_err(|e| e.to_string()),
         Err(e) => Ok(hddl_error_json(&e)),
