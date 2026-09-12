@@ -1,0 +1,36 @@
+name: Temporary Rustfmt Recovery
+
+on:
+  push:
+    branches:
+      - fix/hddl-wasi-error-closure
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
+        with:
+          toolchain: 1.97.1
+          components: rustfmt
+      - name: Manufacture rustfmt projection
+        run: cargo fmt --all
+      - name: Verify formatter fixed point
+        run: cargo fmt --all -- --check
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rustfmt-recovery-${{ github.sha }}
+          path: |
+            crates/ferroplan-hddl/src/parser.rs
+            crates/ferroplan-hddl/src/translate.rs
+            crates/ferroplan-wasm/src/wasi_abi.rs
+          if-no-files-found: error
+          retention-days: 1
