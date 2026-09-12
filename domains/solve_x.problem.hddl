@@ -1,0 +1,7 @@
+(define (problem solve-x-p1)
+  (:domain solve-x)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (phase-preserve))
+  (:goal (and (solved))))
