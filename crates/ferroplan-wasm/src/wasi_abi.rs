@@ -32,8 +32,10 @@
 //!     `max_iterations`; any/all omitted fields fall back to their own
 //!     defaults). Errors distinguish the failing pipeline stage:
 //!     `FP_PARSE` (malformed HDDL), `FP_HDDL_GROUND` (grounding failed),
-//!     `FP_HDDL_TRANSLATE` (ground IR -> planning-runtime IR failed), or
-//!     `FP_MODEL` (the FOND solver itself rejected the translated problem).
+//!     `FP_HDDL_TRANSLATE` (ground IR -> planning-runtime IR failed),
+//!     `FP_MODEL` (the FOND solver itself rejected the translated problem),
+//!     `FP_HDDL_TIMEOUT` (bounded HDDL solving exceeded its limit), or
+//!     `FP_HDDL_WORKER_PANIC` (a bounded worker terminated unexpectedly).
 //!   - `readiness` `{}` -> capability manifest + fingerprint
 //!   - `version` `{}` -> `{"version": "..."}`
 //!   - `explain` `{domain, problem, plan}` (plan = a `Plan` object, not a
@@ -509,9 +511,9 @@ fn op_hddl_solve(req: &Value) -> Result<Value, String> {
 }
 
 /// Map each `HddlError` variant to its own distinguishable error code —
-/// which pipeline stage failed (parse/ground/translate) is diagnostic
-/// information a caller needs, not something to collapse into one generic
-/// message.
+/// which pipeline stage failed (parse/ground/translate/planner/timeout/worker)
+/// is diagnostic information a caller needs, not something to collapse into
+/// one generic message.
 fn hddl_error_json(e: &HddlError) -> Value {
     match e {
         HddlError::Parse(msg) => err_json("FP_PARSE", &format!("HDDL parse error: {msg}")),
@@ -527,12 +529,12 @@ fn hddl_error_json(e: &HddlError) -> Value {
             elapsed_ms,
             limit_ms,
         } => err_json(
-            "FP_TIMEOUT",
+            "FP_HDDL_TIMEOUT",
             &format!("HDDL solve timed out after {elapsed_ms}ms (limit {limit_ms}ms)"),
         ),
         HddlError::WorkerPanicked(msg) => err_json(
-            "FP_WORKER_PANICKED",
-            &format!("HDDL solve worker panicked: {msg}"),
+            "FP_HDDL_WORKER_PANIC",
+            &format!("HDDL worker panicked: {msg}"),
         ),
     }
 }
@@ -962,6 +964,26 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("HDDL parse error"));
+    }
+
+    #[test]
+    fn hddl_error_timeout_and_worker_panic_are_distinguishable() {
+        let timeout = hddl_error_json(&HddlError::Timeout {
+            elapsed_ms: 101,
+            limit_ms: 100,
+        });
+        assert_eq!(timeout["error"]["code"], json!("FP_HDDL_TIMEOUT"));
+        assert!(timeout["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("101ms"));
+
+        let worker = hddl_error_json(&HddlError::WorkerPanicked("worker-7".to_string()));
+        assert_eq!(worker["error"]["code"], json!("FP_HDDL_WORKER_PANIC"));
+        assert!(worker["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("worker-7"));
     }
 
     #[test]

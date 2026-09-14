@@ -74,11 +74,13 @@ pub mod types;
 pub mod constraints;
 pub mod costs;
 pub mod espc;
+pub mod operator_compiler;
 pub mod partition;
 pub mod pddl3;
 pub mod plan;
 pub mod planning_runtime;
 pub mod planning_types;
+pub mod policy_validation;
 pub mod portfolio;
 pub mod ppddl;
 // The compatibility wrapper still contains one retained diagnostic constant.
@@ -116,6 +118,9 @@ pub use eve::{
     MAX_PRIMARY_ACTIVATORS,
 };
 pub use hddl::{solve_hddl, HddlError};
+pub use operator_compiler::{
+    compile_operator, CompiledOperator, OperatorCompileError, OperatorEffects, OperatorSpec,
+};
 pub use planner::{run_ff, run_planner};
 pub use planning_runtime::{
     solve_planning_type, Agent, Goal as UniversalGoal, Method as PlanningMethod, PlanStep,
@@ -127,6 +132,9 @@ pub use planning_runtime::{
 pub use planning_types::{
     route_planning_request, PlanningCapability, PlanningRail, PlanningRequest, PlanningRoute,
     PlanningRouteError, PlanningType,
+};
+pub use policy_validation::{
+    validate_fond_policy, PolicyGuarantee, PolicyIssue, PolicyValidationReport,
 };
 pub use ppddl::{
     parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability,
