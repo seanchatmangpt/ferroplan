@@ -143,6 +143,7 @@ fn ferroplan_status(result: &Result<UniversalPlan, HddlError>) -> &'static str {
         Err(HddlError::Timeout { .. }) => "TIMEOUT",
         Err(HddlError::WorkerPanicked(_)) => "WORKER_PANICKED",
         Err(HddlError::Planner(_)) => "PLANNER_ERROR",
+        Err(HddlError::RootTaskMismatch { .. }) => "ROOT_TASK_MISMATCH",
     }
 }
 
