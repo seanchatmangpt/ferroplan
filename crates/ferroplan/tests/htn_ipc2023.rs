@@ -172,6 +172,9 @@ fn classify(err: &HddlError) -> Outcome {
         HddlError::WorkerPanicked(msg) => panic!(
             "CONTRACT VIOLATION: solve_hddl worker thread panicked: {msg}"
         ),
+        HddlError::RootTaskMismatch { .. } => Outcome::Gap {
+            phase: "plan",
+        },
     }
 }
 
