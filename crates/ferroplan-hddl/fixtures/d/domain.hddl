@@ -1,0 +1,19 @@
+(define (domain gate-d)
+  (:types loc)
+  (:predicates
+    (at ?l - loc)
+    (open ?l - loc)
+    (unlocked ?l - loc))
+  (:task pass :parameters (?l - loc))
+  (:action enter
+    :parameters (?l - loc)
+    :precondition (and (at ?l) (or (open ?l) (unlocked ?l)))
+    :effect (and (open ?l)))
+  (:action signal
+    :parameters (?l - loc)
+    :precondition (and (at ?l) (imply (open ?l) (unlocked ?l)))
+    :effect (and (unlocked ?l)))
+  (:method m-pass
+    :parameters (?l - loc)
+    :task (pass ?l)
+    :ordered-subtasks (and (t1 (enter ?l)))))

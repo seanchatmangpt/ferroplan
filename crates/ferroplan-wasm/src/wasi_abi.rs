@@ -19,6 +19,21 @@
 //!   - `plan_production` `{domain, problem, mode?, search?, max_evaluated?,
 //!     max_plan_steps?, max_output_bytes?, request_id?}` ->
 //!     `OperationEnvelope<Solution>` JSON
+//!   - `htn_plan` `{domain, problem, limits?}` -> `UniversalPlan` JSON
+//!     (`problem` is JSON text of a `PlanningProblem`, not PDDL; forces
+//!     `PlanningType::Hierarchical` via `solve_planning_type`)
+//!   - `fond_policy` `{domain, problem, limits?}` -> `UniversalPlan` JSON
+//!     (same wire shape as `htn_plan`; forces `PlanningType::Fond`)
+//!   - `hddl_solve` `{domain, problem, limits?}` -> `UniversalPlan` JSON.
+//!     `domain`/`problem` are HDDL source text (not classical PDDL); parsed,
+//!     grounded, and translated by `ferroplan_hddl`, then solved by the
+//!     existing FOND solver (`ferroplan::solve_hddl`). `limits` is an
+//!     optional partial `PlannerLimits` object (`max_depth`, `max_states`,
+//!     `max_iterations`; any/all omitted fields fall back to their own
+//!     defaults). Errors distinguish the failing pipeline stage:
+//!     `FP_PARSE` (malformed HDDL), `FP_HDDL_GROUND` (grounding failed),
+//!     `FP_HDDL_TRANSLATE` (ground IR -> planning-runtime IR failed), or
+//!     `FP_MODEL` (the FOND solver itself rejected the translated problem).
 //!   - `readiness` `{}` -> capability manifest + fingerprint
 //!   - `version` `{}` -> `{"version": "..."}`
 //!   - `explain` `{domain, problem, plan}` (plan = a `Plan` object, not a
@@ -67,8 +82,11 @@
 //! `fp_dealloc(out_ptr, out_len)` after reading.
 
 use ferroplan::{
-    capability_manifest, solve, solve_production, Mode, Options, ProductionLimits, Search,
+    capability_manifest, solve, solve_hddl, solve_production, HddlError, Mode, Options,
+    PlannerLimits, ProductionLimits, Search,
 };
+use ferroplan::planning_runtime::{solve_planning_type, PlanningProblem, UniversalPlanningRequest};
+use ferroplan::planning_types::PlanningType;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::alloc::Layout;
@@ -279,6 +297,9 @@ fn dispatch(input: &[u8]) -> Result<Vec<u8>, String> {
     let response: Value = match op {
         "plan" => op_plan(&req)?,
         "plan_production" => op_plan_production(&req)?,
+        "htn_plan" => op_htn_plan(&req)?,
+        "fond_policy" => op_fond_policy(&req)?,
+        "hddl_solve" => op_hddl_solve(&req)?,
         "readiness" => op_readiness()?,
         "version" => json!({ "version": env!("CARGO_PKG_VERSION") }),
         "explain" => op_explain(&req)?,
@@ -386,6 +407,46 @@ fn op_plan_production(req: &Value) -> Result<Value, String> {
     .map_err(|e| e.to_string())
 }
 
+/// `{op:"htn_plan", domain, problem[, limits?]}` -> `UniversalPlan` JSON.
+/// `domain`/`problem` are UTF-8 JSON text of a `PlanningProblem` object
+/// (same wire shape as `plan`/`plan_production`'s `domain`/`problem` fields,
+/// but decoded into the typed universal-planning model rather than PDDL
+/// text). `domain` is accepted and, if non-empty and not equal to
+/// `problem`, merged in as an additional `PlanningProblem` fragment is NOT
+/// supported here — ferroplan's universal-planning model has one combined
+/// problem document, so `domain` is ignored when present and `problem`
+/// alone is parsed as the full `PlanningProblem`. Forces
+/// `PlanningType::Hierarchical`.
+fn op_htn_plan(req: &Value) -> Result<Value, String> {
+    solve_universal(req, PlanningType::Hierarchical)
+}
+
+/// `{op:"fond_policy", domain, problem[, limits?]}` -> `UniversalPlan` JSON.
+/// Same wire shape as `op_htn_plan`; forces `PlanningType::Fond`.
+fn op_fond_policy(req: &Value) -> Result<Value, String> {
+    solve_universal(req, PlanningType::Fond)
+}
+
+fn solve_universal(req: &Value, planning_type: PlanningType) -> Result<Value, String> {
+    let problem_text = field_str(req, "problem")?;
+    bounded(problem_text, WASI_JSON_FIELD_BYTES, "problem")?;
+    let problem: PlanningProblem = serde_json::from_str(problem_text)
+        .map_err(|e| format!("problem: invalid PlanningProblem JSON: {e}"))?;
+    let limits: PlannerLimits = match req.get("limits") {
+        Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("limits: {e}"))?,
+        None => PlannerLimits::default(),
+    };
+    let request = UniversalPlanningRequest {
+        planning_type,
+        problem,
+        limits,
+    };
+    match solve_planning_type(&request) {
+        Ok(plan) => serde_json::to_value(plan).map_err(|e| e.to_string()),
+        Err(e) => Ok(err_json("FP_ADAPTER", &e.to_string())),
+    }
+}
+
 fn adapter_refusal_json(request_id: Option<&str>, message: &str) -> Value {
     json!({
         "schema_version": "ferroplan.operation.v1",
@@ -402,6 +463,53 @@ fn adapter_refusal_json(request_id: Option<&str>, message: &str) -> Value {
             "retryable": false
         }
     })
+}
+
+/// `hddl_solve`: HDDL domain+problem text -> `UniversalPlan` JSON, via
+/// `ferroplan::solve_hddl` (parse -> ground -> translate, all
+/// `ferroplan_hddl`, then the existing FOND solver). Same success/error
+/// envelope shape as `op_plan`: `Ok(plan_json)` on success, `Ok(err_json)`
+/// (not a `dispatch`-level `Err`) on a domain-level failure, so a malformed
+/// HDDL document is a normal response, not an adapter fault.
+fn op_hddl_solve(req: &Value) -> Result<Value, String> {
+    let domain = field_str(req, "domain")?;
+    let problem = field_str(req, "problem")?;
+    bounded(
+        domain,
+        ProductionLimits::default().max_domain_bytes,
+        "domain",
+    )?;
+    bounded(
+        problem,
+        ProductionLimits::default().max_problem_bytes,
+        "problem",
+    )?;
+    let limits: PlannerLimits = match req.get("limits") {
+        Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("limits: {e}"))?,
+        None => PlannerLimits::default(),
+    };
+    match solve_hddl(domain, problem, &limits) {
+        Ok(plan) => serde_json::to_value(plan).map_err(|e| e.to_string()),
+        Err(e) => Ok(hddl_error_json(&e)),
+    }
+}
+
+/// Map each `HddlError` variant to its own distinguishable error code —
+/// which pipeline stage failed (parse/ground/translate) is diagnostic
+/// information a caller needs, not something to collapse into one generic
+/// message.
+fn hddl_error_json(e: &HddlError) -> Value {
+    match e {
+        HddlError::Parse(msg) => err_json("FP_PARSE", &format!("HDDL parse error: {msg}")),
+        HddlError::Ground(msg) => {
+            err_json("FP_HDDL_GROUND", &format!("HDDL grounding error: {msg}"))
+        }
+        HddlError::Translate(msg) => err_json(
+            "FP_HDDL_TRANSLATE",
+            &format!("HDDL translation error: {msg}"),
+        ),
+        HddlError::Planner(pe) => err_json("FP_MODEL", &format!("planner error: {pe}")),
+    }
 }
 
 fn op_readiness() -> Result<Value, String> {
@@ -754,4 +862,93 @@ fn op_session_mind_bytes(req: &Value) -> Result<Value, String> {
     let handle = field_u64(req, "handle")?;
     let bytes = with_session(handle, |s| s.inner.mind_bytes())?;
     Ok(json!({ "bytes": bytes }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Same fixture `ferroplan::hddl::solve_hddl`'s own end-to-end test uses
+    // (crates/ferroplan/src/hddl.rs) — the FOND `oneof` domain. Going
+    // through `dispatch` (not calling `op_hddl_solve` directly) exercises
+    // the real wire path: JSON bytes in, JSON bytes out, exactly as a
+    // beam4pm host would call `fp_call`.
+    const FIXTURE_C_DOMAIN: &str = include_str!("../../ferroplan-hddl/fixtures/c/domain.hddl");
+    const FIXTURE_C_PROBLEM: &str = include_str!("../../ferroplan-hddl/fixtures/c/problem.hddl");
+
+    fn dispatch_json(req: &Value) -> Value {
+        let bytes = dispatch(&serde_json::to_vec(req).unwrap()).expect("dispatch must not Err");
+        serde_json::from_slice(&bytes).expect("dispatch response must be valid JSON")
+    }
+
+    /// Fixture C's root "reach" task genuinely has NO valid strong FOND
+    /// policy once `ferroplan_hddl::translate` is decomposition-aware: its
+    /// two methods for "reach" ("m-direct", one subtask; "m-two-step",
+    /// "cross-bridge" then "walk") each leave one of the oneof
+    /// `cross-bridge` outcomes stuck at a non-goal terminal (m-direct's
+    /// task network is already exhausted regardless of outcome; m-two-step's
+    /// "walk" only applies from l3, so its "success" outcome — landing
+    /// directly at l2 — cannot execute the remaining "walk" step). See
+    /// `ferroplan::hddl::tests::reach_htn_with_non_covering_methods_has_no_valid_fond_policy`
+    /// for the full derivation. Before decomposition-awareness, this test
+    /// asserted a solved plan — that was only reachable via the exact
+    /// unsound "run any precondition-satisfying action regardless of the
+    /// task network" shortcut this fix eliminates, so `FP_MODEL` (wrapping
+    /// `PlannerError::NoPlan`) is the corrected, honest result.
+    #[test]
+    fn hddl_solve_reach_htn_with_non_covering_methods_reports_no_plan() {
+        let response = dispatch_json(&json!({
+            "op": "hddl_solve",
+            "domain": FIXTURE_C_DOMAIN,
+            "problem": FIXTURE_C_PROBLEM,
+        }));
+        assert_eq!(response["error"]["code"], json!("FP_MODEL"));
+        assert!(response["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("NoPlan"));
+    }
+
+    #[test]
+    fn hddl_solve_respects_a_partial_limits_override() {
+        let response = dispatch_json(&json!({
+            "op": "hddl_solve",
+            "domain": FIXTURE_C_DOMAIN,
+            "problem": FIXTURE_C_PROBLEM,
+            "limits": { "max_iterations": 512 },
+        }));
+        // Same non-covering-methods HTN as the test above -- a permissive
+        // `max_iterations` override cannot manufacture a policy that does
+        // not exist; the request must still reach the planner (not be
+        // rejected for a request-shape reason) and report the same
+        // `FP_MODEL`/`NoPlan` outcome.
+        assert_eq!(response["error"]["code"], json!("FP_MODEL"));
+    }
+
+    #[test]
+    fn hddl_solve_reports_a_distinguishable_parse_error() {
+        let response = dispatch_json(&json!({
+            "op": "hddl_solve",
+            "domain": "(define (domain broken",
+            "problem": FIXTURE_C_PROBLEM,
+        }));
+        assert_eq!(response["error"]["code"], json!("FP_PARSE"));
+        assert!(response["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("HDDL parse error"));
+    }
+
+    #[test]
+    fn hddl_solve_missing_domain_field_is_a_dispatch_error_not_a_panic() {
+        let bytes = dispatch(
+            &serde_json::to_vec(&json!({ "op": "hddl_solve", "problem": FIXTURE_C_PROBLEM }))
+                .unwrap(),
+        );
+        let err = bytes.unwrap_err();
+        assert!(
+            err.contains("domain"),
+            "error should name the missing field: {err}"
+        );
+    }
 }

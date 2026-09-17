@@ -1,0 +1,24 @@
+[package]
+name = "ferroplan-hddl"
+description = "HDDL (Hierarchical Domain Definition Language) front-end for ferroplan — parses typed HDDL domain/problem text with oneof non-deterministic effects, grounds it, and translates it into a ground planning IR that ferroplan's runtime adapts into a PlanningProblem for the existing FOND solver to run over"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords = ["hddl", "htn", "planning", "fond", "parser"]
+categories = ["science", "parser-implementations"]
+
+# Dependency direction is one-way: `ferroplan` depends on `ferroplan-hddl` (see
+# crates/ferroplan/src/hddl.rs), not the other way around — a `ferroplan-hddl ->
+# ferroplan` edge would make that a cycle, which cargo refuses outright. So this
+# crate defines its own small ground-IR types in `translate.rs` (State/Goal/
+# Transition/Task/Method) structurally mirroring `ferroplan::planning_runtime`'s
+# types rather than importing them; the adapter that maps one shape onto the
+# other lives on the `ferroplan` side. Zero external dependencies, same
+# absorption discipline as `ferroplan-sat`.
+[dependencies]
+
+[dev-dependencies]

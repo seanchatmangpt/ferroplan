@@ -133,6 +133,178 @@ fn fond_strong_policy_executes() {
     assert!(solve(PlanningType::Fond, problem).solved);
 }
 
+/// Strong-cyclic FOND probe: a single non-deterministic action "flip" from
+/// `s0` either reaches the goal (`g`) or loops back to `s0` itself. No
+/// ACYCLIC policy exists here (there is no way to make every outcome of any
+/// action land in an already-solved state, because one outcome always maps
+/// `s0` back onto `s0`), but a STRONG-CYCLIC policy trivially exists: keep
+/// executing "flip" at `s0` until the goal outcome occurs, which happens with
+/// probability 1 in the limit (Cimatti/Roveri strong-cyclic semantics allow a
+/// policy that revisits states, as long as every state in the policy's fair
+/// execution has a non-zero chance of eventually progressing to the goal).
+///
+/// `fond_policy`'s fixpoint (see `crates/ferroplan/src/planning_runtime.rs`)
+/// only ever admits a state into `winning` when EVERY outcome of some action
+/// is already in `winning` *before* this state is considered — i.e. it is a
+/// monotonically growing (least-fixpoint) backward-induction pass, identical
+/// in shape to the classical "Strong Planning" algorithm from Cimatti et al.
+/// This cannot ever mark `s0` winning on its own: the `s0 -> s0` self-loop
+/// outcome can never be in `winning` ahead of `s0` itself (that specific,
+/// function-level contract is pinned directly against `fond_policy` in
+/// `crates/ferroplan/src/planning_runtime.rs`'s own unit tests, since
+/// `fond_policy` is private and unreachable from this integration-test
+/// crate). `PlanningType::Fond`'s dispatch in `solve_planning_type` now
+/// falls back to `fond_policy_strong_cyclic` -- the standard Cimatti et al.
+/// two-phase (weak-reachability + greatest-fixpoint-prune) construction --
+/// whenever `fond_policy` alone returns `NoPlan`, so the *overall* FOND
+/// paradigm now does solve this domain end to end.
+///
+/// This test proves, by real execution through the public
+/// `solve_planning_type` entry point (not by reading code alone), that
+/// `PlanningType::Fond` now returns a solved policy on a domain that
+/// REQUIRES a strong-cyclic (revisiting) policy.
+#[test]
+fn fond_via_solve_planning_type_now_solves_the_strong_cyclic_retry_loop() {
+    let problem = PlanningProblem {
+        states: vec![state("s0", &[]), state("g", &["done"])],
+        initial_states: vec!["s0".to_owned()],
+        goal: UniversalGoal {
+            facts: set(&["done"]),
+            ..Default::default()
+        },
+        transitions: vec![
+            // "flip" from s0: either reach the goal, or land right back on
+            // s0 (the retry loop). Under the strict mass rule (still kept
+            // for Probabilistic and the deterministic types) this must sum
+            // to 1_000_000; `PlanningType::Fond` is mass-blind and only
+            // range-checks individual edges now.
+            UniversalTransition {
+                action: "flip".to_owned(),
+                from: "s0".to_owned(),
+                to: "g".to_owned(),
+                probability_ppm: 500_000,
+                ..edge("flip", "s0", "g")
+            },
+            UniversalTransition {
+                action: "flip".to_owned(),
+                from: "s0".to_owned(),
+                to: "s0".to_owned(),
+                probability_ppm: 500_000,
+                ..edge("flip", "s0", "s0")
+            },
+        ],
+        ..Default::default()
+    };
+    let result = solve_planning_type(&UniversalPlanningRequest {
+        planning_type: PlanningType::Fond,
+        problem,
+        limits: Default::default(),
+    });
+    let plan = result.expect(
+        "PlanningType::Fond should now solve the retry-loop domain via the \
+         strong-cyclic fallback",
+    );
+    assert!(plan.solved);
+    assert_eq!(plan.planning_type, Some(PlanningType::Fond));
+    assert_eq!(plan.policy.len(), 1);
+    let entry = &plan.policy[0];
+    assert_eq!(entry.state, "s0");
+    assert_eq!(entry.action, "flip");
+    let mut outcomes = entry
+        .outcomes
+        .iter()
+        .map(|outcome| outcome.state.clone())
+        .collect::<Vec<_>>();
+    outcomes.sort();
+    assert_eq!(outcomes, vec!["g".to_owned(), "s0".to_owned()]);
+}
+
+/// The FOND/conformant/contingent solvers never read outcome probability
+/// mass (their fixpoints are pure AND/OR reachability over the edge
+/// topology), so `validate_problem` only range-checks individual edges for
+/// these types instead of demanding a normalized 1_000_000 sum per
+/// (state, action) group. A two-outcome nondeterministic action written
+/// 1M/1M — valid nondeterminism, invalid as a probability distribution —
+/// must therefore solve for every mass-blind planning type.
+#[test]
+fn mass_blind_planners_accept_unnormalized_outcome_masses() {
+    let make = || PlanningProblem {
+        states: vec![
+            state("s0", &[]),
+            state("g1", &["done"]),
+            state("g2", &["done"]),
+        ],
+        initial_states: vec!["s0".to_owned()],
+        goal: UniversalGoal {
+            facts: set(&["done"]),
+            ..Default::default()
+        },
+        transitions: vec![
+            // The `edge` helper already emits 1_000_000; spelled out here to
+            // make the (formerly mass-invalid) encoding under test explicit.
+            UniversalTransition {
+                probability_ppm: 1_000_000,
+                ..edge("commit", "s0", "g1")
+            },
+            UniversalTransition {
+                probability_ppm: 1_000_000,
+                ..edge("commit", "s0", "g2")
+            },
+        ],
+        ..Default::default()
+    };
+    for kind in [
+        PlanningType::Fond,
+        PlanningType::Conformant,
+        PlanningType::Contingent,
+    ] {
+        assert!(
+            solve(kind, make()).solved,
+            "{kind} must accept a 1M/1M two-outcome action"
+        );
+    }
+}
+
+/// `PlanningType::Probabilistic` keeps the strict rule — each (state, action)
+/// group's masses must sum to 1_000_000 — because value iteration literally
+/// divides by the scale, so an unnormalized 900_000 group would silently
+/// distort the policy. A mass deficit is still rejected with
+/// `InvalidProbabilityMass` carrying the offending sum.
+#[test]
+fn probabilistic_still_rejects_a_mass_deficit() {
+    let mut problem = chain_problem();
+    problem.transitions = vec![
+        UniversalTransition {
+            probability_ppm: 700_000,
+            ..edge("try", "s0", "g")
+        },
+        UniversalTransition {
+            probability_ppm: 200_000,
+            ..edge("try", "s0", "s0")
+        },
+    ];
+    assert_eq!(
+        solve_planning_type(&UniversalPlanningRequest {
+            planning_type: PlanningType::Probabilistic,
+            problem,
+            limits: Default::default(),
+        }),
+        Err(PlannerError::InvalidProbabilityMass {
+            state: "s0".to_owned(),
+            action: "try".to_owned(),
+            mass: 900_000,
+        })
+    );
+}
+
+/// The deterministic rails keep their existing validation untouched: the
+/// plain single-outcome encoding (one edge per group at 1_000_000) still
+/// solves exactly as before.
+#[test]
+fn deterministic_single_outcome_mass_rule_is_unchanged() {
+    assert!(solve(PlanningType::Classical, chain_problem()).solved);
+}
+
 #[test]
 fn conformant_and_contingent_belief_planners_execute() {
     let base = PlanningProblem {
@@ -193,6 +365,165 @@ fn hierarchical_and_resolution_adaptive_planners_execute() {
         let result = solve(kind, hierarchy_problem());
         assert_eq!(result.decomposition, ["inspect-repo", "run-tests"]);
     }
+}
+
+/// Compound task with no primitive action (`requires` unused by the
+/// hierarchical planner; kept empty in these fixtures).
+fn htn_task(id: &str, primitive_action: Option<&str>) -> PlanningTask {
+    PlanningTask {
+        id: id.to_owned(),
+        primitive_action: primitive_action.map(|action| action.to_owned()),
+        requires: BTreeSet::new(),
+    }
+}
+
+fn htn_method(id: &str, task: &str, subtasks: &[&str]) -> PlanningMethod {
+    PlanningMethod {
+        id: id.to_owned(),
+        task: task.to_owned(),
+        subtasks: subtasks.iter().map(|subtask| (*subtask).to_owned()).collect(),
+    }
+}
+
+fn solve_hierarchical_error(problem: PlanningProblem) -> PlannerError {
+    solve_planning_type(&UniversalPlanningRequest {
+        planning_type: PlanningType::Hierarchical,
+        problem,
+        limits: Default::default(),
+    })
+    .unwrap_err()
+}
+
+/// (a) Two-method counterexample: the FIRST declared method of "top" leads
+/// to a dead-end compound task with no method of its own; the second method
+/// decomposes to a primitive.  The planner must backtrack past the dead end
+/// and return m-second's decomposition (pre-backtracking this returned
+/// `NoMethod { task: "dead-end" }`).
+#[test]
+fn hierarchical_backtracks_past_dead_end_first_method_to_second_method() {
+    let problem = PlanningProblem {
+        tasks: vec![
+            htn_task("top", None),
+            htn_task("dead-end", None),
+            htn_task("act", Some("act-primitive")),
+        ],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![
+            htn_method("m-first", "top", &["dead-end"]),
+            htn_method("m-second", "top", &["act"]),
+        ],
+        ..Default::default()
+    };
+    let result = solve(PlanningType::Hierarchical, problem);
+    assert!(result.solved);
+    assert_eq!(result.decomposition, ["act-primitive"]);
+    // Honesty marker: `solved` means structurally decomposed, not
+    // state-level goal satisfaction (this planner has no state semantics).
+    assert!(result
+        .notes
+        .iter()
+        .any(|note| note.contains("method backtracking")
+            && note.contains("no state semantics")));
+}
+
+/// (b) Three-level hierarchy requiring backtracking at TWO distinct choice
+/// points: level 1 ("top": m-top-first leads to mid-a, whose only method
+/// dead-ends) and level 2 ("mid-b": its first method references a task id
+/// that does not exist at all, `UnknownTask`).  Only the third choice,
+/// m-mid-b-second, reaches the primitive.
+#[test]
+fn hierarchical_backtracks_twice_across_three_levels() {
+    let problem = PlanningProblem {
+        tasks: vec![
+            htn_task("top", None),
+            htn_task("mid-a", None),
+            htn_task("mid-b", None),
+            htn_task("dead-end", None),
+            htn_task("leaf", Some("leaf-action")),
+        ],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![
+            htn_method("m-top-first", "top", &["mid-a"]),
+            htn_method("m-top-second", "top", &["mid-b"]),
+            htn_method("m-mid-a", "mid-a", &["dead-end"]),
+            htn_method("m-mid-b-first", "mid-b", &["ghost"]),
+            htn_method("m-mid-b-second", "mid-b", &["leaf"]),
+        ],
+        ..Default::default()
+    };
+    let result = solve(PlanningType::Hierarchical, problem);
+    assert!(result.solved);
+    assert_eq!(result.decomposition, ["leaf-action"]);
+}
+
+/// (c) When EVERY method of the root fails, `NoMethod` is still returned.
+/// The documented consolidation choice pins the error to the LAST method
+/// tried (declaration order), so the task named is the second dead end.
+#[test]
+fn hierarchical_returns_no_method_when_every_method_fails() {
+    let problem = PlanningProblem {
+        tasks: vec![
+            htn_task("top", None),
+            htn_task("dead-end-one", None),
+            htn_task("dead-end-two", None),
+        ],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![
+            htn_method("m-first", "top", &["dead-end-one"]),
+            htn_method("m-second", "top", &["dead-end-two"]),
+        ],
+        ..Default::default()
+    };
+    assert_eq!(
+        solve_hierarchical_error(problem),
+        PlannerError::NoMethod {
+            task: "dead-end-two".to_owned()
+        }
+    );
+}
+
+/// (d) A method whose subtasks recurse back into the task currently being
+/// expanded trips the per-path cycle detector — but that failure is specific
+/// to that method, not to the task: the planner must backtrack to the next
+/// cycle-free method instead of aborting the whole expansion.
+#[test]
+fn hierarchical_cycle_via_one_method_backtracks_to_the_next() {
+    let problem = PlanningProblem {
+        tasks: vec![
+            htn_task("top", None),
+            htn_task("loop", None),
+            htn_task("act", Some("act-primitive")),
+        ],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![
+            htn_method("m-top-cyclic", "top", &["loop", "act"]),
+            htn_method("m-top-acyclic", "top", &["act"]),
+            htn_method("m-loop", "loop", &["top"]),
+        ],
+        ..Default::default()
+    };
+    let result = solve(PlanningType::Hierarchical, problem);
+    assert!(result.solved);
+    assert_eq!(result.decomposition, ["act-primitive"]);
+}
+
+/// Cycle detection itself is still sound: a compound task whose ONLY method
+/// recurses into itself still reports `HierarchyCycle` (backtracking found
+/// no alternative method).
+#[test]
+fn hierarchical_pure_self_cycle_still_reports_hierarchy_cycle() {
+    let problem = PlanningProblem {
+        tasks: vec![htn_task("top", None)],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![htn_method("m-top", "top", &["top"])],
+        ..Default::default()
+    };
+    assert_eq!(
+        solve_hierarchical_error(problem),
+        PlannerError::HierarchyCycle {
+            task: "top".to_owned()
+        }
+    );
 }
 
 #[test]

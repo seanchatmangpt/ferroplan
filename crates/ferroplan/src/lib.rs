@@ -52,6 +52,7 @@ pub mod derived;
 pub mod features;
 pub mod ground;
 pub mod hash;
+pub mod hddl;
 pub mod heuristic;
 pub mod introspect;
 pub mod invariants;
@@ -114,6 +115,7 @@ pub use eve::{
     PlanningRegime, PpddlPolicyRequest, PpddlSurface, SplitDirective, TruexContinuation,
     MAX_PRIMARY_ACTIVATORS,
 };
+pub use hddl::{solve_hddl, HddlError};
 pub use planner::{run_ff, run_planner};
 pub use planning_runtime::{
     solve_planning_type, Agent, Goal as UniversalGoal, Method as PlanningMethod, PlanStep,

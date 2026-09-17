@@ -1,0 +1,33 @@
+(define (domain warehouse-b)
+  (:types loc)
+  (:predicates
+    (open ?l - loc)
+    (checked ?l - loc)
+    (ready))
+  (:task setup :parameters (?a - loc ?b - loc))
+  (:action open-gate
+    :parameters (?l - loc)
+    :precondition (and)
+    :effect (and (open ?l)))
+  (:action check-gate
+    :parameters (?l - loc)
+    :precondition (open ?l)
+    :effect (and (checked ?l)))
+  (:action finish-setup
+    :parameters (?a - loc ?b - loc)
+    :precondition (and (checked ?a) (checked ?b))
+    :effect (and (ready)))
+  (:method m-setup
+    :parameters (?a - loc ?b - loc)
+    :task (setup ?a ?b)
+    :subtasks (and
+      (t1 (open-gate ?a))
+      (t2 (open-gate ?b))
+      (t3 (check-gate ?a))
+      (t4 (check-gate ?b))
+      (t5 (finish-setup ?a ?b)))
+    :order (and
+      (t1 t3)
+      (t2 t4)
+      (t3 t5)
+      (t4 t5))))

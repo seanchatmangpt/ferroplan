@@ -1,0 +1,8 @@
+(define (problem transport-a-p1)
+  (:domain transport-a)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (and (at l2))))
