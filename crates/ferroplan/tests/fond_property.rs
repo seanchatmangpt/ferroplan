@@ -727,12 +727,12 @@ fn fond_solver_matches_independent_policy_enumeration() {
 /// `surviving`, and goal-reachability within the surviving region is never
 /// checked. The solver reports a policy that provably never reaches the goal.
 ///
-/// `#[ignore]`d per ticket fond-htn-15: src/ is frozen; this is a finding for
-/// the coordinator. Run explicitly with `cargo test -p ferroplan --test
-/// fond_property -- --ignored`. It fails (prints ACTUAL) while the bug lives
-/// and passes once fixed.
+/// FIXED (fix/fond-sc-goalreach): Phase 3's committable goal-reachability
+/// prune removes `s0` from the surviving region, so the solver now returns
+/// `Err(PlannerError::NoPlan)` and this regression guard runs on every CI
+/// pass. Kept under the FOUND_BUG_* spelling mandated by ticket
+/// fond-htn-15 so the lineage stays greppable.
 #[test]
-#[ignore = "FOUND BUG 1: fond_policy_strong_cyclic returns a goal-unreachable self-loop policy as solved"]
 // The FOUND_BUG_* spelling is mandated by ticket fond-htn-15; keep it.
 #[allow(non_snake_case)]
 fn fond_property_FOUND_BUG_1_strong_cyclic_accepts_goal_unreachable_self_loop() {
