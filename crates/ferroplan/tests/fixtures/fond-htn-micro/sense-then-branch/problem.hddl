@@ -1,0 +1,6 @@
+;; hand-authored, satellite-pattern (ticket fond-htn-12)
+(define (problem sense-branch-p1)
+  (:domain sense-branch)
+  (:htn :ordered-subtasks (and (r1 (mission))))
+  (:init)
+  (:goal (and (scanned))))

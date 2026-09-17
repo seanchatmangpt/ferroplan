@@ -1,0 +1,6 @@
+;; hand-authored, childsnack-pattern (ticket fond-htn-12)
+(define (problem tray-dirty-p1)
+  (:domain tray-dirty)
+  (:htn :ordered-subtasks (and (r1 (meal))))
+  (:init (clean))
+  (:goal (and (served))))

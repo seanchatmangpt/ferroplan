@@ -1,0 +1,6 @@
+;; hand-authored, double-deadend-oneof pattern (ticket fond-htn-12)
+(define (problem deadend-doors-p1)
+  (:domain deadend-doors)
+  (:htn :ordered-subtasks (and (r1 (get-in))))
+  (:init (at-door))
+  (:goal (and (inside))))

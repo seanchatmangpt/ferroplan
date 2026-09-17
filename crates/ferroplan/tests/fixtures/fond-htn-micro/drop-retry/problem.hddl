@@ -1,0 +1,7 @@
+;; hand-authored, transport-pattern (ticket fond-htn-12)
+(define (problem drop-retry-p1)
+  (:domain drop-retry)
+  (:objects d1 - loc)
+  (:htn :ordered-subtasks (and (g1 (deliver d1))))
+  (:init (at d1) (holding))
+  (:goal (and (done))))

@@ -1,0 +1,6 @@
+;; hand-authored, deterministic-baseline (ticket fond-htn-12)
+(define (problem plain-chain-p1)
+  (:domain plain-chain)
+  (:htn :ordered-subtasks (and (r1 (travel))))
+  (:init (at-a))
+  (:goal (and (at-d))))
