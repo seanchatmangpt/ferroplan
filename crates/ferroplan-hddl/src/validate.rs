@@ -125,7 +125,12 @@ fn declared_type_names(domain: &Domain) -> BTreeSet<&str> {
 }
 
 fn declared_predicate_names(domain: &Domain) -> BTreeSet<&str> {
-    domain.predicates.iter().map(|p| p.name.as_str()).collect()
+    let mut names: BTreeSet<&str> = domain.predicates.iter().map(|p| p.name.as_str()).collect();
+    // `=` is the PDDL/HDDL built-in term-equality predicate: universally
+    // available without a `:predicates` declaration (used bare in real
+    // domains, e.g. koala-planner/domains' Snake and Satellite).
+    names.insert("=");
+    names
 }
 
 /// Every typed parameter list in the domain that can carry a type reference:
@@ -422,6 +427,30 @@ mod tests {
             err,
             ValidationError::UndefinedPredicate("holding".to_owned())
         );
+    }
+
+    // `=` is the PDDL/HDDL built-in term-equality predicate: real domains
+    // (koala-planner/domains' Snake, e.g. `(= ?snakepos ?goalpos)`) use it
+    // bare in preconditions/effects without ever declaring it in
+    // `:predicates`, since it's a language built-in, not a domain-defined
+    // predicate. Before this fix, `declared_predicate_names` had no
+    // built-in-`=` special case, so any domain using it this way was
+    // wrongly rejected as `UndefinedPredicate("=")`.
+    const BUILTIN_EQUALITY_PREDICATE_DOMAIN: &str = r#"
+        (define (domain builtin-equality)
+          (:types loc)
+          (:predicates
+            (at ?l - loc))
+          (:action move
+            :parameters (?from ?to - loc)
+            :precondition (and (at ?from) (not (= ?from ?to)))
+            :effect (and (not (at ?from)) (at ?to))))
+    "#;
+
+    #[test]
+    fn accepts_bare_builtin_equality_predicate_without_declaration() {
+        let domain = parse_domain(BUILTIN_EQUALITY_PREDICATE_DOMAIN).unwrap();
+        assert!(validate_domain(&domain).is_ok());
     }
 
     const DEFINED_PREDICATE_DOMAIN: &str = r#"
