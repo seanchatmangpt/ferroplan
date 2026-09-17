@@ -372,7 +372,7 @@ impl std::error::Error for PlannerError {}
 pub fn solve_planning_type(
     request: &UniversalPlanningRequest,
 ) -> Result<UniversalPlan, PlannerError> {
-    validate_problem(&request.problem)?;
+    validate_problem(&request.problem, request.planning_type)?;
     let mut plan = match request.planning_type {
         PlanningType::Classical => shortest_path(&request.problem, Metric::Steps, &request.limits),
         PlanningType::CostOptimal => shortest_path(&request.problem, Metric::Cost, &request.limits),
@@ -411,7 +411,10 @@ pub fn solve_planning_type(
     Ok(plan)
 }
 
-fn validate_problem(problem: &PlanningProblem) -> Result<(), PlannerError> {
+fn validate_problem(
+    problem: &PlanningProblem,
+    planning_type: PlanningType,
+) -> Result<(), PlannerError> {
     if problem.initial_states.is_empty()
         && !matches!(problem.tasks.as_slice(), [_, ..])
         && problem.rdf.is_empty()
@@ -439,6 +442,32 @@ fn validate_problem(problem: &PlanningProblem) -> Result<(), PlannerError> {
             }
         }
     }
+    if matches!(
+        planning_type,
+        PlanningType::Fond | PlanningType::Conformant | PlanningType::Contingent
+    ) {
+        // The FOND/conformant/contingent solvers never read outcome masses —
+        // their fixpoints are pure AND/OR reachability over edge topology —
+        // so demanding a normalized 1_000_000 sum per (state, action) group
+        // rejected valid encodings (e.g. a 1M/1M two-outcome
+        // nondeterministic action) without buying any soundness. These types
+        // are only mass-RANGE-checked: every individual edge stays within
+        // 0..=1_000_000, and every (from, action) group that exists is
+        // non-empty by construction (groups are built from present edges).
+        for edge in &problem.transitions {
+            if u64::from(edge.probability_ppm) > PROBABILITY_SCALE {
+                return Err(PlannerError::InvalidProbabilityMass {
+                    state: edge.from.clone(),
+                    action: edge.action.clone(),
+                    mass: u64::from(edge.probability_ppm),
+                });
+            }
+        }
+        return Ok(());
+    }
+    // Every other type (Probabilistic — whose value iteration divides by the
+    // scale — and the deterministic rails) keeps the strict rule: each
+    // (state, action) group's masses must sum to exactly 1_000_000.
     let mut masses = BTreeMap::<(&str, &str), u64>::new();
     for edge in &problem.transitions {
         *masses.entry((&edge.from, &edge.action)).or_default() += u64::from(edge.probability_ppm);
@@ -974,6 +1003,21 @@ fn conformant_plan(
     Err(PlannerError::NoPlan)
 }
 
+/// Memo entry for [`contingent_policy`]'s belief search. A `Solved` policy is
+/// depth-independent — the policy for a belief does not depend on the path
+/// that reached it — and is reused verbatim. A *failure*, though, is only
+/// ever witnessed at a particular remaining budget: `max_depth` can cut the
+/// search off before it finds a plan that exists, so `Failed` records the
+/// depth the failed search ran at and is reused only for re-encounters at
+/// that depth or deeper. A shallower re-encounter (more remaining budget)
+/// re-searches instead of trusting the stale failure, which is what keeps a
+/// deep dead end from being misread as permanent unsolvability (a false
+/// `NoPlan`).
+enum ContingentMemo {
+    Solved(Vec<PolicyEntry>),
+    Failed { at_depth: usize },
+}
+
 fn contingent_policy(
     problem: &PlanningProblem,
     limits: &PlannerLimits,
@@ -985,7 +1029,7 @@ fn contingent_policy(
         .iter()
         .cloned()
         .collect::<BTreeSet<_>>();
-    let mut memo = BTreeMap::<BTreeSet<String>, Option<Vec<PolicyEntry>>>::new();
+    let mut memo = BTreeMap::<BTreeSet<String>, ContingentMemo>::new();
     fn solve_belief(
         belief: &BTreeSet<String>,
         depth: usize,
@@ -993,7 +1037,7 @@ fn contingent_policy(
         states: &BTreeMap<&str, &State>,
         groups: &BTreeMap<(&str, &str), Vec<&Transition>>,
         limits: &PlannerLimits,
-        memo: &mut BTreeMap<BTreeSet<String>, Option<Vec<PolicyEntry>>>,
+        memo: &mut BTreeMap<BTreeSet<String>, ContingentMemo>,
     ) -> Option<Vec<PolicyEntry>> {
         if belief
             .iter()
@@ -1004,10 +1048,19 @@ fn contingent_policy(
         if depth >= limits.max_depth || memo.len() >= limits.max_states {
             return None;
         }
-        if let Some(cached) = memo.get(belief) {
-            return cached.clone();
+        match memo.get(belief) {
+            Some(ContingentMemo::Solved(policy)) => return Some(policy.clone()),
+            // A cached failure only covers re-encounters with this little
+            // remaining budget or less (`at_depth <= depth`); a shallower
+            // re-encounter has more budget and re-searches below.
+            Some(ContingentMemo::Failed { at_depth }) if *at_depth <= depth => {
+                return None;
+            }
+            _ => {}
         }
-        memo.insert(belief.clone(), None);
+        // Pre-seed the depth-stamped failure so a belief recurring inside
+        // its own subtree terminates on the cache hit above.
+        memo.insert(belief.clone(), ContingentMemo::Failed { at_depth: depth });
         let actions = groups
             .keys()
             .filter(|(state, _)| belief.contains(*state))
@@ -1062,7 +1115,7 @@ fn contingent_policy(
                         })
                         .collect(),
                 });
-                memo.insert(belief.clone(), Some(combined.clone()));
+                memo.insert(belief.clone(), ContingentMemo::Solved(combined.clone()));
                 return Some(combined);
             }
         }
@@ -1519,7 +1572,7 @@ fn rdf_plan(
     projected.states = unique.into_values().collect();
     projected.initial_states.sort();
     projected.initial_states.dedup();
-    validate_problem(&projected)?;
+    validate_problem(&projected, PlanningType::RdfDerived)?;
     let mut plan = shortest_path(&projected, Metric::Cost, limits)?;
     plan.notes
         .push("RDF graph projected into bounded state space".to_owned());
@@ -1763,5 +1816,62 @@ mod tests {
             .expect("fond_policy solves the acyclic strong domain on its own");
         assert!(plan.solved);
         assert_eq!(plan.notes, vec!["strong FOND fixed point".to_owned()]);
+    }
+
+    /// A belief first explored deep fails for want of `max_depth` budget, not
+    /// because it is unsolvable: belief `{m}` is two actions (`finish`,
+    /// `land`) from the goal, but on the `detour` branch it is first reached
+    /// at depth `max_depth - 1`, where no room for those two steps remains.
+    /// The memo must not promote that depth-caused failure to a permanent
+    /// verdict: when `direct` later re-reaches `{m}` at depth 1 — three
+    /// levels of budget left — the re-search finds `finish` -> `land` and
+    /// the problem solves. With the old depth-free negative memo this
+    /// fixture returned `NoPlan` (the shallow re-encounter hit the stale
+    /// `None` and every action at `s0` failed).
+    #[test]
+    fn contingent_policy_re_searches_a_belief_first_failed_by_depth_budget() {
+        let problem = PlanningProblem {
+            states: vec![
+                state("s0", &[]),
+                state("x", &[]),
+                state("y", &[]),
+                state("m", &[]),
+                state("m2", &[]),
+                state("g", &["done"]),
+            ],
+            initial_states: vec!["s0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: vec![
+                // "detour" sorts before "direct", so the deep encounter of
+                // {m} (s0 -> x -> y -> m, depths 1..3) is explored first and
+                // the shallow one (s0 -> m at depth 1) only afterwards —
+                // exactly the encounter order that used to poison the memo.
+                edge("detour", "s0", "x", PROBABILITY_SCALE as u32),
+                edge("chain", "x", "y", PROBABILITY_SCALE as u32),
+                edge("chain", "y", "m", PROBABILITY_SCALE as u32),
+                edge("direct", "s0", "m", PROBABILITY_SCALE as u32),
+                edge("finish", "m", "m2", PROBABILITY_SCALE as u32),
+                edge("land", "m2", "g", PROBABILITY_SCALE as u32),
+            ],
+            ..PlanningProblem::default()
+        };
+        let limits = PlannerLimits {
+            max_depth: 4,
+            ..PlannerLimits::default()
+        };
+        let plan = contingent_policy(&problem, &limits).expect(
+            "the shallow re-encounter of {{m}} must re-search, not reuse the \
+             deep depth-caused failure",
+        );
+        assert!(plan.solved);
+        // The policy is the shallow branch: m2 --land--> g, m --finish--> m2,
+        // s0 --direct--> m (children precede their parent in `combined`).
+        let last = plan.policy.last().expect("s0 carries the root action");
+        assert_eq!(last.state, "s0");
+        assert_eq!(last.action, "direct");
+        assert_eq!(plan.policy.len(), 3);
     }
 }
