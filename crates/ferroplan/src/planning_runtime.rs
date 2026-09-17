@@ -840,6 +840,13 @@ fn fond_policy(
 ///   weakly-reachable set rather than empty, a self-loop outcome survives as
 ///   long as its state does — this is exactly what admits retry loops that
 ///   `fond_policy`'s least-fixpoint-from-empty construction cannot express.
+/// - **Phase 3 (committable goal-reachability, alternating with the Phase 2
+///   prune):** Phase 2 alone over-keeps: a state whose only closed action is
+///   a self-loop survives without any way to reach the goal. Phase 3 keeps
+///   only states that reach a goal along edges whose action commits ALL its
+///   outcomes into the region (retry loops qualify; pure loops do not),
+///   then re-runs the Phase 2 prune since a removed state may have been
+///   another state's witness. The alternation runs to a joint fixpoint.
 ///
 /// Soundness/completeness of this construction for **strong-cyclic** (not
 /// strong) solutions relies on the standard fairness assumption: every
@@ -955,6 +962,98 @@ fn fond_policy_strong_cyclic(
         if !changed {
             break;
         }
+    }
+
+    // Phase 3 (committable goal-reachability, alternating with the witness
+    // prune): Phase 2's greatest fixpoint keeps any state whose chosen
+    // action stays inside `surviving` — including a state whose ONLY such
+    // action is a self-loop that can never reach the goal (the property
+    // wave's FOUND_BUG_1: 79/320 random instances solved with a goal-
+    // unreachable loop policy). A closed policy over that region reaches
+    // the goal under NO outcome resolution, which is not a strong-cyclic
+    // solution. Strong-cyclic solvability additionally requires every
+    // surviving state to reach a goal along COMMITTABLE edges — an edge
+    // s -> y counts only when some action of s takes ALL its outcomes
+    // into the region (so the controller can commit to it) and at least
+    // one outcome lands closer to a goal. Prune states without such a
+    // path, drop their choices, and re-run the witness prune: a removed
+    // state may have been another state's all-outcomes witness. The two
+    // sweeps alternate to a joint fixpoint; each outer iteration removes
+    // at least one state, bounded by the same `states + 1` failsafe.
+    let mut phase3_rounds = 0_usize;
+    loop {
+        check_wall_deadline(start, limits)?;
+        phase3_rounds += 1;
+        if phase3_rounds > failsafe_rounds {
+            return Err(PlannerError::Timeout {
+                elapsed_ms: start.elapsed().as_millis(),
+                limit_ms: u128::from(limits.max_wall_ms),
+            });
+        }
+
+        // (a) witness prune to fixpoint over the current `surviving`.
+        loop {
+            check_wall_deadline(start, limits)?;
+            let mut changed = false;
+            for state in &problem.states {
+                if !surviving.contains(&state.id) || problem.goal.holds(state) {
+                    continue;
+                }
+                let witness = groups.iter().find(|((from, _action), outcomes)| {
+                    *from == state.id
+                        && !outcomes.is_empty()
+                        && outcomes.iter().all(|edge| surviving.contains(&edge.to))
+                });
+                match witness {
+                    Some(((_, action), _)) => {
+                        choices.insert(state.id.clone(), (*action).to_owned());
+                    }
+                    None => {
+                        surviving.remove(&state.id);
+                        choices.remove(&state.id);
+                        changed = true;
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+
+        // (b) committable backward reachability from the goal states:
+        // grow `reach` with any surviving state having a committed action
+        // (all outcomes inside `surviving`) that touches `reach`.
+        let mut reach = surviving
+            .iter()
+            .filter(|id| problem.goal.holds(states[id.as_str()]))
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        loop {
+            let mut changed = false;
+            for state in &problem.states {
+                if reach.contains(&state.id) || !surviving.contains(&state.id) {
+                    continue;
+                }
+                let advances = groups.iter().any(|((from, _action), outcomes)| {
+                    *from == state.id
+                        && !outcomes.is_empty()
+                        && outcomes.iter().all(|edge| surviving.contains(&edge.to))
+                        && outcomes.iter().any(|edge| reach.contains(&edge.to))
+                });
+                if advances {
+                    reach.insert(state.id.clone());
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        if reach.len() == surviving.len() {
+            break;
+        }
+        surviving = reach;
+        choices.retain(|state, _| surviving.contains(state));
     }
 
     if !problem
@@ -2073,5 +2172,105 @@ mod tests {
             assert_eq!(entry.outcomes.len(), 1);
             assert_eq!(entry.outcomes[0].state, expected_to);
         }
+    }
+
+    /// The property wave's FOUND_BUG_1 reproducer (property ticket
+    /// `fond_property_FOUND_BUG_1_*`): `a0` is a pure self-loop, `a1` either
+    /// reaches the goal or the UNSAFE state `u`. Phase 2 alone kept `s0`
+    /// alive via the closed-but-goal-unreachable `a0` loop and returned a
+    /// bogus `solved` policy. Phase 3 must prune `s0` (`a1` is not
+    /// committable — it can leave the region — and `a0` never advances
+    /// toward the goal), yielding `Err(NoPlan)`.
+    #[test]
+    fn fond_policy_strong_cyclic_rejects_goal_unreachable_self_loop_with_unsafe_branch() {
+        let problem = PlanningProblem {
+            states: vec![
+                state("s0", &[]),
+                state("g", &["done"]),
+                state("u", &[]),
+            ],
+            initial_states: vec!["s0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: vec![
+                edge("a0", "s0", "s0", 1_000_000),
+                edge("a1", "s0", "g", 500_000),
+                edge("a1", "s0", "u", 500_000),
+            ],
+            unsafe_states: BTreeSet::from(["u".to_owned()]),
+            ..PlanningProblem::default()
+        };
+        assert_eq!(
+            fond_policy_strong_cyclic(&problem, &PlannerLimits::default()),
+            Err(PlannerError::NoPlan),
+            "the only closed action is a goal-unreachable self-loop; the \
+             unsafe branch makes a1 uncommittable, so no strong-cyclic \
+             policy exists"
+        );
+    }
+
+    /// Same shape without any unsafe state: `a1` reaches the goal or the
+    /// dead non-goal `z` (no outgoing edges, pruned by Phase 2). `a0`
+    /// remains a closed self-loop — Phase 3 must still refuse it.
+    #[test]
+    fn fond_policy_strong_cyclic_rejects_goal_unreachable_self_loop_with_dead_branch() {
+        let problem = PlanningProblem {
+            states: vec![
+                state("s0", &[]),
+                state("g", &["done"]),
+                state("z", &[]),
+            ],
+            initial_states: vec!["s0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: vec![
+                edge("a0", "s0", "s0", 1_000_000),
+                edge("a1", "s0", "g", 500_000),
+                edge("a1", "s0", "z", 500_000),
+            ],
+            ..PlanningProblem::default()
+        };
+        assert_eq!(
+            fond_policy_strong_cyclic(&problem, &PlannerLimits::default()),
+            Err(PlannerError::NoPlan),
+            "a closed self-loop that can never reach the goal is not a \
+             strong-cyclic solution, even when every state is safe"
+        );
+    }
+
+    /// The prune must not over-fire: a retry loop that ALSO carries a
+    /// useless self-loop action still solves, and the policy commits to the
+    /// advancing action (flip sorts before loop, so it is the recorded
+    /// witness), never to the useless loop.
+    #[test]
+    fn fond_policy_strong_cyclic_prefers_the_advancing_action_over_a_useless_loop() {
+        let problem = PlanningProblem {
+            states: vec![state("s0", &[]), state("g", &["done"])],
+            initial_states: vec!["s0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: vec![
+                edge("flip", "s0", "g", 500_000),
+                edge("flip", "s0", "s0", 500_000),
+                edge("loop", "s0", "s0", 1_000_000),
+            ],
+            ..PlanningProblem::default()
+        };
+        let plan = fond_policy_strong_cyclic(&problem, &PlannerLimits::default())
+            .expect("the flip retry loop is strong-cyclic solvable");
+        assert!(plan.solved);
+        assert_eq!(plan.policy.len(), 1);
+        assert_eq!(plan.policy[0].state, "s0");
+        assert_eq!(
+            plan.policy[0].action, "flip",
+            "the policy must commit to the goal-advancing action, not the \
+             useless self-loop"
+        );
     }
 }
