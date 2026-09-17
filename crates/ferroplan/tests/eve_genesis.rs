@@ -1,7 +1,7 @@
 use ferroplan::{
-    Activator, CapabilityTarget, Eve, EveError, EveHandoff, EveRequest, EveStage, GenesisWorld,
-    HddlSurface, HumanPurpose, ManufactureTarget, PlanningRegime, PpddlSurface,
-    MAX_PRIMARY_ACTIVATORS,
+    hddl::solve_hddl_from_eve, planning_runtime::PlannerLimits, Activator, CapabilityTarget, Eve,
+    EveError, EveHandoff, EveRequest, EveStage, GenesisWorld, HddlSurface, HumanPurpose,
+    ManufactureTarget, PlanningRegime, PpddlSurface, MAX_PRIMARY_ACTIVATORS,
 };
 
 fn request(ppddl: bool) -> EveRequest {
@@ -261,4 +261,95 @@ fn refusal_round_trips_as_structured_json() {
     let encoded = serde_json::to_string(&refusal).unwrap();
     let decoded: EveError = serde_json::from_str(&encoded).unwrap();
     assert_eq!(refusal, decoded);
+}
+
+// ---- Eve `DecomposeHddl` bridge (`ferroplan::hddl::solve_hddl_from_eve`) ----
+//
+// The minimal solvable world demanded by fond-htn-10: 1 compound task
+// (do-thing) -> 1 method (m-do-thing) -> 1 primitive (act). Hand-authored
+// here for this ticket; not copied from any external corpus. Both planning
+// regimes must solve the *HDDL half*; the PPDDL half of a Probabilistic
+// handoff is explicitly out of scope for the bridge (it belongs to the
+// GovernUncertaintyPpddl stage / ppddl pipeline) and is therefore asserted
+// NOT to affect the HDDL result rather than half-run.
+
+fn hddl_micro_request(ppddl: bool) -> EveRequest {
+    EveRequest {
+        purpose: HumanPurpose {
+            statement: "Do the one thing".to_string(),
+            desired_consequence: "done holds".to_string(),
+            actor: None,
+            activators: vec![],
+        },
+        genesis: GenesisWorld {
+            ontology_rdf: "@prefix fp: <urn:ferroplan:> .".to_string(),
+            construct_query: "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+            hddl: HddlSurface {
+                domain: r#"(define (domain eve-micro)
+  (:predicates (done))
+  (:task do-thing)
+  (:action act
+    :parameters ()
+    :precondition (and)
+    :effect (and (done)))
+  (:method m-do-thing
+    :task (do-thing)
+    :ordered-subtasks (and (t1 (act)))))"#
+                    .to_string(),
+                // No `:htn` section: the Eve root task is what supplies the
+                // root network (the bridge's splice path).
+                problem: r#"(define (problem eve-micro-p1)
+  (:domain eve-micro)
+  (:init)
+  (:goal (and (done))))"#
+                    .to_string(),
+                root_task: "(do-thing)".to_string(),
+            },
+            ppddl: ppddl.then(|| PpddlSurface {
+                domain: "(define (domain eve-micro-uncertain))".to_string(),
+                problem: "(define (problem eve-micro-uncertain-p1))".to_string(),
+            }),
+        },
+        manufacture: ManufactureTarget {
+            name: "do-thing.part".to_string(),
+            template: "ggen://truex/part".to_string(),
+            artifact_kind: ".part.wasm".to_string(),
+            output: "target/parts/do-thing.part.wasm".to_string(),
+        },
+        capability: CapabilityTarget {
+            capability: "do-thing".to_string(),
+            route: "powl://do-thing/v1".to_string(),
+            authority_scopes: vec![],
+        },
+    }
+}
+
+#[test]
+fn solve_hddl_from_eve_solves_a_deterministic_regime_micro_domain() {
+    let handoff = Eve::enter(hddl_micro_request(false)).expect("valid deterministic handoff");
+    assert_eq!(handoff.planning_regime, PlanningRegime::Deterministic);
+    assert!(handoff.stages.contains(&EveStage::DecomposeHddl));
+
+    let plan = solve_hddl_from_eve(&handoff, &PlannerLimits::default())
+        .expect("micro 1-task/1-method/1-action HTN must solve");
+    assert!(plan.solved);
+    assert!(!plan.policy.is_empty());
+}
+
+#[test]
+fn solve_hddl_from_eve_solves_a_probabilistic_regime_micro_domain_hddl_half() {
+    let handoff = Eve::enter(hddl_micro_request(true)).expect("valid probabilistic handoff");
+    assert_eq!(handoff.planning_regime, PlanningRegime::Probabilistic);
+    assert!(
+        handoff.ppddl.is_some(),
+        "regime fixture must carry a PPDDL half"
+    );
+
+    // The HDDL half solves identically under the Probabilistic regime; the
+    // PPDDL half is deliberately NOT consumed here (out of scope for the
+    // DecomposeHddl consumer — see solve_hddl_from_eve's doc comment).
+    let plan = solve_hddl_from_eve(&handoff, &PlannerLimits::default())
+        .expect("HDDL half of a probabilistic handoff must solve");
+    assert!(plan.solved);
+    assert!(!plan.policy.is_empty());
 }
