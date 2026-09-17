@@ -174,8 +174,10 @@ fn fond_via_solve_planning_type_now_solves_the_strong_cyclic_retry_loop() {
         },
         transitions: vec![
             // "flip" from s0: either reach the goal, or land right back on
-            // s0 (the retry loop). Probability mass must sum to 1_000_000
-            // per (state, action) or `validate_problem` rejects the problem.
+            // s0 (the retry loop). Under the strict mass rule (still kept
+            // for Probabilistic and the deterministic types) this must sum
+            // to 1_000_000; `PlanningType::Fond` is mass-blind and only
+            // range-checks individual edges now.
             UniversalTransition {
                 action: "flip".to_owned(),
                 from: "s0".to_owned(),
@@ -215,6 +217,92 @@ fn fond_via_solve_planning_type_now_solves_the_strong_cyclic_retry_loop() {
         .collect::<Vec<_>>();
     outcomes.sort();
     assert_eq!(outcomes, vec!["g".to_owned(), "s0".to_owned()]);
+}
+
+/// The FOND/conformant/contingent solvers never read outcome probability
+/// mass (their fixpoints are pure AND/OR reachability over the edge
+/// topology), so `validate_problem` only range-checks individual edges for
+/// these types instead of demanding a normalized 1_000_000 sum per
+/// (state, action) group. A two-outcome nondeterministic action written
+/// 1M/1M — valid nondeterminism, invalid as a probability distribution —
+/// must therefore solve for every mass-blind planning type.
+#[test]
+fn mass_blind_planners_accept_unnormalized_outcome_masses() {
+    let make = || PlanningProblem {
+        states: vec![
+            state("s0", &[]),
+            state("g1", &["done"]),
+            state("g2", &["done"]),
+        ],
+        initial_states: vec!["s0".to_owned()],
+        goal: UniversalGoal {
+            facts: set(&["done"]),
+            ..Default::default()
+        },
+        transitions: vec![
+            // The `edge` helper already emits 1_000_000; spelled out here to
+            // make the (formerly mass-invalid) encoding under test explicit.
+            UniversalTransition {
+                probability_ppm: 1_000_000,
+                ..edge("commit", "s0", "g1")
+            },
+            UniversalTransition {
+                probability_ppm: 1_000_000,
+                ..edge("commit", "s0", "g2")
+            },
+        ],
+        ..Default::default()
+    };
+    for kind in [
+        PlanningType::Fond,
+        PlanningType::Conformant,
+        PlanningType::Contingent,
+    ] {
+        assert!(
+            solve(kind, make()).solved,
+            "{kind} must accept a 1M/1M two-outcome action"
+        );
+    }
+}
+
+/// `PlanningType::Probabilistic` keeps the strict rule — each (state, action)
+/// group's masses must sum to 1_000_000 — because value iteration literally
+/// divides by the scale, so an unnormalized 900_000 group would silently
+/// distort the policy. A mass deficit is still rejected with
+/// `InvalidProbabilityMass` carrying the offending sum.
+#[test]
+fn probabilistic_still_rejects_a_mass_deficit() {
+    let mut problem = chain_problem();
+    problem.transitions = vec![
+        UniversalTransition {
+            probability_ppm: 700_000,
+            ..edge("try", "s0", "g")
+        },
+        UniversalTransition {
+            probability_ppm: 200_000,
+            ..edge("try", "s0", "s0")
+        },
+    ];
+    assert_eq!(
+        solve_planning_type(&UniversalPlanningRequest {
+            planning_type: PlanningType::Probabilistic,
+            problem,
+            limits: Default::default(),
+        }),
+        Err(PlannerError::InvalidProbabilityMass {
+            state: "s0".to_owned(),
+            action: "try".to_owned(),
+            mass: 900_000,
+        })
+    );
+}
+
+/// The deterministic rails keep their existing validation untouched: the
+/// plain single-outcome encoding (one edge per group at 1_000_000) still
+/// solves exactly as before.
+#[test]
+fn deterministic_single_outcome_mass_rule_is_unchanged() {
+    assert!(solve(PlanningType::Classical, chain_problem()).solved);
 }
 
 #[test]

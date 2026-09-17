@@ -362,7 +362,7 @@ impl std::error::Error for PlannerError {}
 pub fn solve_planning_type(
     request: &UniversalPlanningRequest,
 ) -> Result<UniversalPlan, PlannerError> {
-    validate_problem(&request.problem)?;
+    validate_problem(&request.problem, request.planning_type)?;
     let mut plan = match request.planning_type {
         PlanningType::Classical => shortest_path(&request.problem, Metric::Steps, &request.limits),
         PlanningType::CostOptimal => shortest_path(&request.problem, Metric::Cost, &request.limits),
@@ -401,7 +401,10 @@ pub fn solve_planning_type(
     Ok(plan)
 }
 
-fn validate_problem(problem: &PlanningProblem) -> Result<(), PlannerError> {
+fn validate_problem(
+    problem: &PlanningProblem,
+    planning_type: PlanningType,
+) -> Result<(), PlannerError> {
     if problem.initial_states.is_empty()
         && !matches!(problem.tasks.as_slice(), [_, ..])
         && problem.rdf.is_empty()
@@ -429,6 +432,32 @@ fn validate_problem(problem: &PlanningProblem) -> Result<(), PlannerError> {
             }
         }
     }
+    if matches!(
+        planning_type,
+        PlanningType::Fond | PlanningType::Conformant | PlanningType::Contingent
+    ) {
+        // The FOND/conformant/contingent solvers never read outcome masses —
+        // their fixpoints are pure AND/OR reachability over edge topology —
+        // so demanding a normalized 1_000_000 sum per (state, action) group
+        // rejected valid encodings (e.g. a 1M/1M two-outcome
+        // nondeterministic action) without buying any soundness. These types
+        // are only mass-RANGE-checked: every individual edge stays within
+        // 0..=1_000_000, and every (from, action) group that exists is
+        // non-empty by construction (groups are built from present edges).
+        for edge in &problem.transitions {
+            if u64::from(edge.probability_ppm) > PROBABILITY_SCALE {
+                return Err(PlannerError::InvalidProbabilityMass {
+                    state: edge.from.clone(),
+                    action: edge.action.clone(),
+                    mass: u64::from(edge.probability_ppm),
+                });
+            }
+        }
+        return Ok(());
+    }
+    // Every other type (Probabilistic — whose value iteration divides by the
+    // scale — and the deterministic rails) keeps the strict rule: each
+    // (state, action) group's masses must sum to exactly 1_000_000.
     let mut masses = BTreeMap::<(&str, &str), u64>::new();
     for edge in &problem.transitions {
         *masses.entry((&edge.from, &edge.action)).or_default() += u64::from(edge.probability_ppm);
@@ -1473,7 +1502,7 @@ fn rdf_plan(
     projected.states = unique.into_values().collect();
     projected.initial_states.sort();
     projected.initial_states.dedup();
-    validate_problem(&projected)?;
+    validate_problem(&projected, PlanningType::RdfDerived)?;
     let mut plan = shortest_path(&projected, Metric::Cost, limits)?;
     plan.notes
         .push("RDF graph projected into bounded state space".to_owned());
