@@ -14,6 +14,24 @@
 //! not "the emitted action sequence reaches the goal from the initial state"
 //! (that guarantee belongs to the state-searching planners).  Every plan
 //! returned by [`hierarchical_plan`] carries a note stating exactly this.
+//!
+//! # Bound policy
+//!
+//! Loops computing a *structural fixpoint* — [`fond_policy`]'s least
+//! fixpoint and [`fond_policy_strong_cyclic`]'s reachability/prune phases —
+//! are bounded by their own mathematics, not by caller-set caps: every
+//! changing round admits or prunes at least one state, so each converges
+//! within `problem.states.len() + 1` rounds, and a `states + 1` round
+//! failsafe surfaces any breach of that argument as
+//! `Err(PlannerError::Timeout)` rather than a silently truncated, possibly
+//! stale, policy. For those loops `PlannerLimits::max_iterations` is
+//! advisory: it no longer gates them (a caller-set cap below the fixpoint's
+//! convergence need used to reject solvable domains with a bogus `NoPlan`).
+//! Structural *search* bounds stay hard: [`conformant_plan`]'s belief BFS
+//! and [`contingent_policy`]'s AND-OR search explore a space whose size is
+//! defined by `PlannerLimits::max_depth`/`max_states`, so those caps remain
+//! load-bearing limits there, and `PlannerLimits::max_wall_ms` bounds real
+//! time everywhere.
 
 use crate::planning_types::PlanningType;
 use serde::{Deserialize, Serialize};
@@ -183,6 +201,11 @@ pub struct PlannerLimits {
     pub max_depth: usize,
     #[serde(default = "default_states")]
     pub max_states: usize,
+    /// Round cap for the one loop still iteration-gated:
+    /// `probabilistic_policy`'s value iteration. The FOND fixpoint loops
+    /// (`fond_policy`, `fond_policy_strong_cyclic`) are bounded by their own
+    /// `states + 1` round failsafes instead — see the module-level bound
+    /// policy — so this cap is advisory for those.
     #[serde(default = "default_iterations")]
     pub max_iterations: usize,
     /// Wall-clock budget in milliseconds for one `solve_planning_type` call.
@@ -226,9 +249,9 @@ impl Default for PlannerLimits {
 }
 
 /// Checked once per outer-loop iteration by the fixpoint solvers whose
-/// round cost scales with the problem's state/action count (`fond_policy`,
-/// bounded by `max_iterations`; `fond_policy_strong_cyclic`, bounded by its
-/// `states + 1` round failsafe) — see `PlannerError::Timeout`'s doc comment
+/// round cost scales with the problem's state/action count (`fond_policy`
+/// and `fond_policy_strong_cyclic`, each bounded by its own `states + 1`
+/// round failsafe) — see `PlannerError::Timeout`'s doc comment
 /// for why a wall-clock bound is needed in addition to a round count
 /// (a single round's cost scales with the problem's state/action count,
 /// which neither round bound alone bounds).
@@ -348,12 +371,18 @@ pub enum PlannerError {
     InvalidRdfProjection {
         reason: String,
     },
-    /// `PlannerLimits::max_wall_ms` elapsed before the solver finished. A
-    /// wall-clock companion to `ResourceBound`: `max_iterations`/`max_states`
-    /// bound the *count* of loop rounds/states a solver visits, but a single
+    /// The solver's time budget was exhausted before it finished: either
+    /// `PlannerLimits::max_wall_ms` elapsed at a `check_wall_deadline` call,
+    /// or a fixpoint loop's `states + 1` round failsafe fired (unreachable
+    /// while the solver's termination argument holds; `limit_ms` echoes the
+    /// configured wall budget, `0` when unbounded, because this payload is
+    /// wall-shaped). A wall-clock companion to the structural bounds: the
+    /// fixpoint loops' round counts are bounded by their own mathematics
+    /// (every changing round admits or prunes at least one state) and the
+    /// belief searches' spaces by `max_depth`/`max_states`, but a single
     /// round's cost scales with the problem size (number of states/actions),
-    /// so a large-but-within-count-limits problem can still run for an
-    /// unbounded amount of real time — see `fond_policy`'s and
+    /// so a large-but-within-bounds problem can still run for an unbounded
+    /// amount of real time — see `fond_policy`'s and
     /// `fond_policy_strong_cyclic`'s call sites of `check_wall_deadline` for
     /// the two fixpoint loops this actually protects today.
     Timeout {
@@ -772,8 +801,34 @@ fn fond_policy(
         .map(|state| state.id.clone())
         .collect::<BTreeSet<_>>();
     let mut choices = BTreeMap::<String, String>::new();
-    for _ in 0..limits.max_iterations {
+    // This least-fixpoint loop is bounded by its own mathematical
+    // termination argument, NOT by `PlannerLimits::max_iterations`:
+    // `winning` only ever grows, and every round that changes anything
+    // admits at least one state into it, so the loop converges within
+    // `problem.states.len()` changing rounds plus one confirming round.
+    // `max_iterations` used to gate this loop; a caller-set cap below the
+    // fixpoint's convergence need truncated the backward admission
+    // mid-flight and rejected solvable domains with a bogus `NoPlan` — the
+    // same defect class the strong-cyclic loops' hardening fixed. The
+    // `states + 1` failsafe is unreachable by the argument above; if it
+    // ever fires that is an internal invariant violation and must surface
+    // as `Err(Timeout)` rather than a silently truncated (possibly stale)
+    // policy — `limit_ms` echoes the configured wall budget (`0` when
+    // unbounded) because the `Timeout` payload is wall-shaped, but the
+    // bound that fired is the round failsafe. `check_wall_deadline` still
+    // runs every round, so wall-clock deadline semantics (`Timeout`
+    // propagation) are unchanged.
+    let failsafe_rounds = problem.states.len() + 1;
+    let mut rounds = 0_usize;
+    loop {
         check_wall_deadline(start, limits)?;
+        rounds += 1;
+        if rounds > failsafe_rounds {
+            return Err(PlannerError::Timeout {
+                elapsed_ms: start.elapsed().as_millis(),
+                limit_ms: u128::from(limits.max_wall_ms),
+            });
+        }
         let mut changed = false;
         for state in &problem.states {
             if winning.contains(&state.id) || problem.unsafe_states.contains(&state.id) {
@@ -1102,6 +1157,20 @@ fn fond_policy_strong_cyclic(
     ))
 }
 
+/// Conformant (sequential) planning over belief states, breadth-first.
+///
+/// Bounds audit (ticket fond-htn-25): this search has NO iteration gate —
+/// `PlannerLimits::max_iterations` never applied here, so no failsafe
+/// rework is needed. Termination is structural: a belief is enqueued only
+/// when freshly inserted into `seen`, `seen` is bounded by the finite
+/// belief space (and capped via `max_states`), and expansions are dropped
+/// once `max_depth` plan length is reached. `max_depth`/`max_states` are
+/// therefore load-bearing structural limits — they define how much of the
+/// (exponentially large) belief space is explored — and are kept as-is.
+/// Unlike a truncated fixpoint, cutting this search short cannot return a
+/// stale or wrong policy: the only observable is an honest `NoPlan`,
+/// meaning "no plan within the requested envelope", which is the
+/// documented contract of a bounded search.
 fn conformant_plan(
     problem: &PlanningProblem,
     limits: &PlannerLimits,
@@ -2099,6 +2168,24 @@ mod tests {
         );
     }
 
+    /// The same wave-1 4-state dead-sink reproducer, pinned against
+    /// `fond_policy` itself: `x`'s only action `b` can land in the dead-end
+    /// `z`, so `x` is never admissible into the least fixpoint and the
+    /// solver's true answer is `NoPlan`. The failsafe rework (this loop no
+    /// longer gated by `max_iterations`) must not change that verdict —
+    /// the `NoPlan` now provably comes from the converged fixpoint, never
+    /// from a truncated round.
+    #[test]
+    fn fond_policy_still_rejects_the_dead_sink_reproducer() {
+        let problem = dead_sink_reproducer_problem();
+        assert_eq!(
+            fond_policy(&problem, &PlannerLimits::default()),
+            Err(PlannerError::NoPlan),
+            "the acyclic-strong least fixpoint must still reject a domain \
+             whose only forward action risks an unrecoverable dead end"
+        );
+    }
+
     /// A chain of `CHAIN_LEN` non-goal states `c0 -> c1 -> ... -> g`, one
     /// deterministic action per hop, laid out in the state vector in chain
     /// order so Phase 1's backward admission propagates exactly one hop per
@@ -2174,6 +2261,83 @@ mod tests {
         }
     }
 
+    /// Mirror of the strong-cyclic 12-hop chain fixture against
+    /// `fond_policy`'s own least fixpoint: `c0 -> c1 -> ... -> g`, one
+    /// deterministic action per hop, states laid out in chain order so each
+    /// backward-admission round propagates exactly one hop. Full
+    /// convergence needs `CHAIN_LEN` changing rounds plus one confirming
+    /// round — far more than the `max_iterations: 1` passed here. Pre-fix,
+    /// that cap truncated the admission after its first round (only the
+    /// last chain state admitted), so the initial state could never enter
+    /// `winning` and a solvable domain was rejected with a bogus `NoPlan`.
+    /// Post-fix, `max_iterations` no longer gates the loop — it runs
+    /// `while changed` under the `states + 1` round failsafe (never
+    /// reached: each changing round admits at least one state) — so the
+    /// chain must still be solved completely.
+    #[test]
+    fn fond_policy_converges_past_max_iterations_on_a_chain() {
+        const CHAIN_LEN: usize = 12;
+        let ids = (0..CHAIN_LEN)
+            .map(|index| format!("c{index}"))
+            .collect::<Vec<_>>();
+        let problem = PlanningProblem {
+            states: ids
+                .iter()
+                .map(|id| state(id, &[]))
+                .chain(std::iter::once(state("g", &["done"])))
+                .collect(),
+            initial_states: vec!["c0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: (0..CHAIN_LEN)
+                .map(|index| {
+                    let to = if index + 1 < CHAIN_LEN {
+                        format!("c{}", index + 1)
+                    } else {
+                        "g".to_owned()
+                    };
+                    edge(&format!("step_{index}"), &ids[index], &to, 1_000_000)
+                })
+                .collect(),
+            ..PlanningProblem::default()
+        };
+        let limits = PlannerLimits {
+            max_iterations: 1,
+            ..PlannerLimits::default()
+        };
+        let plan = fond_policy(&problem, &limits).expect(
+            "the chain fixpoint needs one round per hop, so solving it under \
+             max_iterations: 1 proves the cap no longer gates fond_policy's \
+             least fixpoint",
+        );
+        assert!(plan.solved);
+        assert_eq!(plan.policy.len(), CHAIN_LEN);
+        let by_state = plan
+            .policy
+            .iter()
+            .map(|entry| (entry.state.as_str(), entry))
+            .collect::<BTreeMap<_, _>>();
+        for (index, id) in ids.iter().enumerate() {
+            let entry = by_state
+                .get(id.as_str())
+                .expect("every chain state gets a policy entry");
+            assert_eq!(
+                entry.action,
+                format!("step_{index}"),
+                "state {id} must choose its own chain action"
+            );
+            let expected_to = if index + 1 < CHAIN_LEN {
+                format!("c{}", index + 1)
+            } else {
+                "g".to_owned()
+            };
+            assert_eq!(entry.outcomes.len(), 1);
+            assert_eq!(entry.outcomes[0].state, expected_to);
+        }
+    }
+
     /// The property wave's FOUND_BUG_1 reproducer (property ticket
     /// `fond_property_FOUND_BUG_1_*`): `a0` is a pure self-loop, `a1` either
     /// reaches the goal or the UNSAFE state `u`. Phase 2 alone kept `s0`
@@ -2184,11 +2348,7 @@ mod tests {
     #[test]
     fn fond_policy_strong_cyclic_rejects_goal_unreachable_self_loop_with_unsafe_branch() {
         let problem = PlanningProblem {
-            states: vec![
-                state("s0", &[]),
-                state("g", &["done"]),
-                state("u", &[]),
-            ],
+            states: vec![state("s0", &[]), state("g", &["done"]), state("u", &[])],
             initial_states: vec!["s0".to_owned()],
             goal: Goal {
                 facts: BTreeSet::from(["done".to_owned()]),
@@ -2217,11 +2377,7 @@ mod tests {
     #[test]
     fn fond_policy_strong_cyclic_rejects_goal_unreachable_self_loop_with_dead_branch() {
         let problem = PlanningProblem {
-            states: vec![
-                state("s0", &[]),
-                state("g", &["done"]),
-                state("z", &[]),
-            ],
+            states: vec![state("s0", &[]), state("g", &["done"]), state("z", &[])],
             initial_states: vec!["s0".to_owned()],
             goal: Goal {
                 facts: BTreeSet::from(["done".to_owned()]),
