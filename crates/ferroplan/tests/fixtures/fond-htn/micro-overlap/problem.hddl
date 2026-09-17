@@ -1,0 +1,7 @@
+; hand-authored, Childsnack-pattern: micro overlap problem
+(define (problem micro-overlap-p1)
+  (:domain micro-overlap)
+  (:objects alice - child snack - sandwich)
+  (:init (hungry alice) (fresh snack))
+  (:goal (served alice))
+  (:htn :subtasks (and (task0 (serve alice snack)))))

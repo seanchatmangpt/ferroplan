@@ -1,0 +1,19 @@
+; hand-authored, Transport-pattern: micro drop-retry, oneof success/empty-branch
+(define (domain micro-drop)
+  (:requirements :typing :negative-preconditions :hierarchy)
+  (:types package location)
+  (:constants depot dropzone - location)
+  (:predicates (at ?p - package ?l - location) (in-truck ?p - package))
+  (:task deliver :parameters (?p - package ?l - location))
+  (:action load :parameters (?p - package)
+    :precondition (at ?p depot)
+    :effect (and (not (at ?p depot)) (in-truck ?p)))
+  (:action drop :parameters (?p - package ?l - location)
+    :precondition (in-truck ?p)
+    :effect (oneof
+      (and (not (in-truck ?p)) (at ?p ?l))
+      (and)))
+  (:method m-deliver
+    :parameters (?p - package ?l - location)
+    :task (deliver ?p ?l)
+    :ordered-subtasks (and (t1 (load ?p)) (t2 (drop ?p ?l)))))

@@ -1,0 +1,7 @@
+; hand-authored, Satellite-pattern: micro sensing problem
+(define (problem micro-sense-p1)
+  (:domain micro-sense)
+  (:objects sat - satellite moon - direction thermo - mode)
+  (:init (calibrated sat))
+  (:goal (have-image moon thermo))
+  (:htn :subtasks (and (task0 (ensure-image sat moon thermo)))))

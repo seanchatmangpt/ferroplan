@@ -1,0 +1,121 @@
+{
+  "generated_utc": "2026-09-17T21:47:53Z/2026-09-17T22:10:00Z",
+  "oracle": "koala-planner (pandaPI) external test oracle, run from /tmp/fond-review/Planner",
+  "protocol": "bash /tmp/fond-oracle/oracle-run.sh <domain> <problem> --mode flexible --heur ff --timeout 180 (flock-serialized); every NOSOLUTION cross-checked with --mode fixed-ld; verdicts are harvested facts, never assertions; ferroplan outcomes observed live via solve_hddl(PlannerLimits::default())",
+  "status_vocabulary": "statuses: SOLVED | NOSOLUTION | ERROR | TIMEOUT | PARSE_ERROR; ferroplan-side parse failures recorded as {\"ferroplan\": \"parse-gap\", \"reason\": \"<verbatim error>\"}; ferroplan ground/translate limit failures recorded as \"error\" with the verbatim reason (wall-clock elapsed_ms varies run to run — assert classification, not the reason string)",
+  "runs": [
+    {
+      "id": "micro-drop-retry",
+      "kind": "in-repo",
+      "domain": "micro-drop-retry/domain.hddl",
+      "problem": "micro-drop-retry/problem.hddl",
+      "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.306, "run": "/tmp/fond-oracle/runs/20260917T214753Z-domain-problem-27522"},
+      "ferroplan": "NOSOLUTION",
+      "divergence": "semantic",
+      "agreement": false,
+      "note": "koala flexible re-decomposes after the empty-branch drop outcome; ferroplan at base d2faf4d advances the task frontier past drop on both outcomes, so the empty branch lands in a terminal state with :goal unsatisfied -> typed NoPlan. Owned by frozen branch fix/oneof-koala-semantics (tip 4d40f99, NOT merged into this base)"
+    },
+    {
+      "id": "micro-overlap",
+      "kind": "in-repo",
+      "domain": "micro-overlap/domain.hddl",
+      "problem": "micro-overlap/problem.hddl",
+      "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.288, "run": "/tmp/fond-oracle/runs/20260917T214755Z-domain-problem-31580"},
+      "ferroplan": "SOLVED",
+      "divergence": null,
+      "agreement": true,
+      "note": "overlapping method branches (both applicable when hungry+fresh); both sides pick the goal-reaching decomposition"
+    },
+    {
+      "id": "micro-recurse",
+      "kind": "in-repo",
+      "domain": "micro-recurse/domain.hddl",
+      "problem": "micro-recurse/problem.hddl",
+      "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.212, "run": "/tmp/fond-oracle/runs/20260917T214757Z-domain-problem-31678"},
+      "ferroplan": "NOSOLUTION",
+      "divergence": "semantic",
+      "agreement": false,
+      "note": "ferroplan gap: positive '=' term-equality in a method :precondition never evaluates true. Base d2faf4d only exempted '=' from the validator (check_undefined_predicates); grounder.rs evaluate_ground_goal (Atom -> facts.contains) has no '=' case, so the ground atom for (= ?s ?goal) is never in facts, m-arrived is never offered, every travel dead-ends -> typed NoPlan. '(not (= ...))' is vacuously true by the same token. koala evaluates '=' and solves"
+    },
+    {
+      "id": "micro-sense",
+      "kind": "in-repo",
+      "domain": "micro-sense/domain.hddl",
+      "problem": "micro-sense/problem.hddl",
+      "oracle": {"status": "NOSOLUTION", "mode": "flexible", "wall_s": 0.199, "run": "/tmp/fond-oracle/runs/07906e8c3be8ee2840129ded91080b77795b3378133d0c6c368828f0e6b38ed5", "cross_check": {"mode": "fixed-ld", "status": "NOSOLUTION", "wall_s": 0.187, "run": "/tmp/fond-oracle/runs/e268f876d0c3626cbb0e320a6ed97b1e875bd3e6c691c2d4a113cd4676c9abad"}},
+      "ferroplan": "SOLVED",
+      "divergence": "semantic",
+      "agreement": false,
+      "note": "koala computes strong (acyclic) plans and refuses the calibrate/retry loop; ferroplan fond_policy computes strong-cyclic winning sets, so the fair retry loop is SOLVED and outcome-closed. Both verdicts sound under their own semantics. First harvest of the bare-not-precondition variant crashed the koala grounder (panic 'no entry found for key' at src/domain_description/htn_domain/task_defs.rs:30:17, run 20260917T214758Z-domain-problem-31753); fixture dialect updated to (and (not ...)) which koala accepts"
+    },
+    {
+      "id": "koala-Transport",
+      "kind": "external",
+      "domain_path": "/tmp/fond-review/domains/Transport/domain.hddl",
+      "problem_path": "/tmp/fond-review/domains/Transport/pfile01.hddl",
+      "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.321, "run": "/tmp/fond-oracle/runs/20260917T214800Z-domain-pfile01-31823"},
+      "ferroplan": "error",
+      "reason": "solve_hddl wall-clock limit exceeded: 10000ms elapsed, limit 10000ms",
+      "divergence": "resource-limit",
+      "agreement": false,
+      "note": "solve_hddl's translate state-space BFS exceeds PlannerLimits::default() max_wall_ms=10000 before any verdict; the semantic question (re-decomposition, cf. micro-drop-retry) is unreachable at default limits"
+    },
+    {
+      "id": "koala-Childsnack",
+      "kind": "external",
+      "domain_path": "/tmp/fond-review/domains/Childsnack/domain.hddl",
+      "problem_path": "/tmp/fond-review/domains/Childsnack/p01.hddl",
+      "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 21.861, "run": "/tmp/fond-oracle/runs/20260917T214802Z-domain-p01-31946"},
+      "ferroplan": "error",
+      "reason": "solve_hddl wall-clock limit exceeded: 10005ms elapsed, limit 10000ms",
+      "divergence": "resource-limit",
+      "agreement": false,
+      "note": "same default-limit wall-clock timeout during translate; koala needed 21.9s itself"
+    },
+    {
+      "id": "koala-Snake",
+      "kind": "external",
+      "domain_path": "/tmp/fond-review/domains/Snake/domain.hddl",
+      "problem_path": "/tmp/fond-review/domains/Snake/pb01.snake.hddl",
+      "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.444, "run": "/tmp/fond-oracle/runs/20260917T215151Z-domain-pb01.snake-34425"},
+      "ferroplan": "error",
+      "reason": "HDDL grounding error: grounding limit exceeded: max_ground_methods (10000) exceeded",
+      "divergence": "resource-limit",
+      "agreement": false,
+      "note": "default GroundingLimits max_ground_methods=10000 exceeded (9x9 grid x move/move-long parameterizations); parse itself succeeds (bare ':htn :subtasks (hunt)', forall, '=' all parse)"
+    },
+    {
+      "id": "koala-Satellite",
+      "kind": "external",
+      "domain_path": "/tmp/fond-review/domains/Satellite/domain.hddl",
+      "problem_path": "/tmp/fond-review/domains/Satellite/1obs-1sat-1mod.hddl",
+      "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.233, "run": "/tmp/fond-oracle/runs/20260917T215214Z-domain-1obs-1sat-1mod-38838"},
+      "ferroplan": "SOLVED",
+      "divergence": null,
+      "agreement": true,
+      "note": "method-level :constraints is accepted-but-ignored by ferroplan (keyed_map consumes any :keyword; parse_method_def/parse_htn read only :parameters/:task/:precondition/network keys) and ignoring it does not change this instance's verdict; oneof with bare atoms (is_moving ?d)/(is_stationary ?d)"
+    },
+    {
+      "id": "koala-Depots",
+      "kind": "external",
+      "domain_path": "/tmp/fond-review/domains/Depots/domain.hddl",
+      "problem_path": "/tmp/fond-review/domains/Depots/p01.hddl",
+      "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.523, "run": "/tmp/fond-oracle/runs/20260917T215218Z-domain-p01-39550"},
+      "ferroplan": "SOLVED",
+      "divergence": null,
+      "agreement": true,
+      "note": "drop oneof success/(supervisor_needed): do_put_on's alternative methods keep the (supervisor_needed) branch's network satisfiable, so no dead-terminal divergence here; :goal alongside :htn in the problem file"
+    },
+    {
+      "id": "koala-Rover",
+      "kind": "external",
+      "domain_path": "/tmp/fond-review/domains/Rover/domain.hddl",
+      "problem_path": "/tmp/fond-review/domains/Rover/pfile01.hddl",
+      "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.579, "run": "/tmp/fond-oracle/runs/20260917T215220Z-domain-pfile01-39694"},
+      "ferroplan": "SOLVED",
+      "divergence": null,
+      "agreement": true,
+      "note": "take_image oneof (have_image)/(cannot_have_image): the cannot branch still admits a completing decomposition, so both sides solve; ':htn' uses the ':tasks' network key with empty ':ordering ()' and ':constraints ()'"
+    }
+  ]
+}
