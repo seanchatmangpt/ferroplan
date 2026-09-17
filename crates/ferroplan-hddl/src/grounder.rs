@@ -1595,14 +1595,14 @@ mod tests {
         :precondition (idle ?v)
         :effect (and (increase (fuel-level ?v) 10))))"#;
 
-    fn minimal_problem_with_object(domain_name: &str, type_name: &str) -> Problem {
+    fn minimal_problem_with_object(domain_name: &str, type_name: &str, root_action: &str) -> Problem {
         let src = format!(
             r#"(define (problem p)
               (:domain {domain_name})
               (:objects o1 - {type_name})
               (:init)
               (:goal ())
-              (:htn :subtasks ()))"#
+              (:htn :subtasks (and (r1 ({root_action} o1)))))"#
         );
         crate::parser::parse_problem(&src).expect("minimal problem parses")
     }
@@ -1610,7 +1610,7 @@ mod tests {
     #[test]
     fn refuses_numeric_fluent_declaration_with_typed_error() {
         let domain = parse_domain(NUMERIC_FLUENT_DOMAIN).unwrap();
-        let problem = minimal_problem_with_object("numeric-fluent-d", "vehicle");
+        let problem = minimal_problem_with_object("numeric-fluent-d", "vehicle", "wait");
         let err = ground(&domain, &problem, &GroundingLimits::default()).unwrap_err();
         assert!(
             matches!(err, GroundError::UnsupportedNumericFluent(ref n) if n == "fuel-level"),
@@ -1621,7 +1621,7 @@ mod tests {
     #[test]
     fn refuses_constraints_block_with_typed_error() {
         let domain = parse_domain(CONSTRAINTS_DOMAIN).unwrap();
-        let problem = minimal_problem_with_object("constraints-d", "loc");
+        let problem = minimal_problem_with_object("constraints-d", "loc", "noop");
         let err = ground(&domain, &problem, &GroundingLimits::default()).unwrap_err();
         assert!(
             matches!(err, GroundError::UnsupportedConstraint(ref k) if k == "always"),
@@ -1636,7 +1636,7 @@ mod tests {
         // (`collect_effect`), not just the `domain.numeric_fluents` fast path.
         let domain = parse_domain(INCREASE_EFFECT_DOMAIN).unwrap();
         assert!(domain.numeric_fluents.is_empty());
-        let problem = minimal_problem_with_object("increase-effect-d", "vehicle");
+        let problem = minimal_problem_with_object("increase-effect-d", "vehicle", "refuel");
         let err = ground(&domain, &problem, &GroundingLimits::default()).unwrap_err();
         assert!(
             matches!(err, GroundError::UnsupportedNumericFluent(ref n) if n == "fuel-level"),
@@ -1863,7 +1863,7 @@ mod tests {
         (connected l5 l6) (connected l6 l7) (connected l7 l8) (connected l8 l9)
         (connected l9 l10))
       (:goal ())
-      (:htn :subtasks ()))"#;
+      (:htn :ordered-subtasks (and (r1 (drive l1 l2)))))"#;
 
     /// Synthetic domain sized (per the requesting task) at 8-10 objects
     /// across a couple of types worth of structure: 10 `loc` objects and a
@@ -1928,7 +1928,7 @@ mod tests {
               (:objects {objects})
               (:init)
               (:goal ())
-              (:htn :subtasks ()))"#
+              (:htn :subtasks (and (r1 (finish)))))"#
         );
         crate::parser::parse_problem(&src).expect("forall problem parses")
     }

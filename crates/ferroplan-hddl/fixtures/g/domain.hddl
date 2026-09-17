@@ -1,0 +1,47 @@
+;; Hand-authored transport-style FOND-HTN fixture for ferroplan's validation
+;; tests — modeled on the HDDL "Transport" family as a concept, written from
+;; scratch for this repo (not copied from any planner or domain repository).
+(define (domain transport-g)
+  (:requirements :typing :negative-preconditions :hierarchy :method-preconditions)
+  (:types
+    package - locatable
+    vehicle - locatable
+    location - object)
+  (:constants hub - location)
+  (:predicates
+    (at ?o - locatable ?l - location)
+    (connected ?from - location ?to - location)
+    (carrying ?v - vehicle ?p - package)
+    (delivered ?p - package))
+  (:task deliver :parameters (?p - package ?l - location))
+  (:task get-to :parameters (?v - vehicle ?l - location))
+  (:action drive
+    :parameters (?v - vehicle ?from - location ?to - location)
+    :precondition (and (at ?v ?from) (connected ?from ?to))
+    :effect (oneof
+      (and (not (at ?v ?from)) (at ?v ?to))
+      (and (at ?v ?from))))
+  (:action pick-up
+    :parameters (?v - vehicle ?p - package ?l - location)
+    :precondition (and (at ?v ?l) (at ?p ?l))
+    :effect (and (not (at ?p ?l)) (carrying ?v ?p)))
+  (:action drop
+    :parameters (?v - vehicle ?p - package ?l - location)
+    :precondition (and (at ?v ?l) (carrying ?v ?p))
+    :effect (and
+      (not (carrying ?v ?p))
+      (at ?p ?l)
+      (when (not (= ?l hub)) (delivered ?p))))
+  (:method m-drive
+    :parameters (?v - vehicle ?from - location ?to - location)
+    :task (get-to ?v ?to)
+    :subtasks (and (t1 (drive ?v ?from ?to))))
+  (:method m-deliver
+    :parameters (?p - package ?l - location ?v - vehicle)
+    :task (deliver ?p ?l)
+    :precondition (at ?v hub)
+    :subtasks (and
+      (t1 (pick-up ?v ?p hub))
+      (t2 (drive ?v hub ?l))
+      (t3 (drop ?v ?p ?l)))
+    :ordering (and (< t1 t2) (< t2 t3))))

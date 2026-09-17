@@ -1,0 +1,11 @@
+;; Hand-authored to match fixtures/g/domain.hddl (see that file's header note).
+(define (problem transport-g-p1)
+  (:domain transport-g)
+  (:objects truck1 - vehicle parcel1 - package depot - location)
+  (:init
+    (at truck1 hub)
+    (at parcel1 hub)
+    (connected hub depot))
+  (:goal (and (delivered parcel1)))
+  (:htn
+    :ordered-subtasks (and (root (deliver parcel1 depot)))))
