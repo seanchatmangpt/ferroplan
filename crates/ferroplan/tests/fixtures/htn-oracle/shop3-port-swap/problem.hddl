@@ -1,0 +1,14 @@
+; HAND-PORT (SHOP3 -> HDDL).
+; Source: github.com/shop-planner/shop3, shop3/examples/toy/basic-example.lisp
+;         (defproblem problem1 basic-example ((have banjo)) ((swap banjo kiwi)))
+;         commit ce53f9b651acde8c44dc21eddb1a1c5b97f10536.
+; Expected: SOLVES. Unique plan: (drop banjo) (pickup kiwi).
+(define (problem swap-p1)
+  (:domain swap)
+  (:objects banjo kiwi - item)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and
+      (swap banjo kiwi)))
+  (:init
+    (have banjo)))

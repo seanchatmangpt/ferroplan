@@ -1,0 +1,44 @@
+; HAND-PORT (SHOP3 -> HDDL), not a verbatim copy.
+; Source: github.com/shop-planner/shop3, file shop3/examples/toy/basic-example.lisp
+;         commit ce53f9b651acde8c44dc21eddb1a1c5b97f10536 (2026-07-23), MPL-1.1/GPL-2.0/LGPL-2.1.
+; Port map:
+;   (:operator (!pickup ?a) () () ((have ?a)))           -> :action pickup, adds (have ?a)
+;   (:operator (!drop ?a) ((have ?a)) ((have ?a)) ())    -> :action drop, deletes (have ?a)
+;   (:method (swap ?x ?y) ((have ?x)) ((!drop ?x) (!pickup ?y))
+;            ((have ?y)) ((!drop ?y) (!pickup ?x)))       -> two :method cases with
+;                                                           :precondition + :ordered-subtasks
+; SHOP3's implicit first-literal method precondition becomes the HDDL :precondition.
+; Untracked variables, numeric expressions and :invoke/:sort-by features are not used here.
+(define (domain swap)
+  (:requirements :typing :hierarchy)
+  (:types item)
+  (:predicates
+    (have ?a - item))
+
+  (:task swap :parameters (?x ?y - item))
+
+  (:action pickup
+    :parameters (?a - item)
+    :precondition (and)
+    :effect (have ?a))
+
+  (:action drop
+    :parameters (?a - item)
+    :precondition (have ?a)
+    :effect (not (have ?a)))
+
+  (:method swap-have-first
+    :parameters (?x ?y - item)
+    :task (swap ?x ?y)
+    :precondition (have ?x)
+    :ordered-subtasks (and
+      (drop ?x)
+      (pickup ?y)))
+
+  (:method swap-have-second
+    :parameters (?x ?y - item)
+    :task (swap ?x ?y)
+    :precondition (have ?y)
+    :ordered-subtasks (and
+      (drop ?y)
+      (pickup ?x))))

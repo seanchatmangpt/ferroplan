@@ -1,0 +1,17 @@
+; HAND-PORT (SHOP3 -> HDDL).
+; Source: github.com/shop-planner/shop3, shop3/examples/toy/optimize-example.lisp
+;         (defproblem p-200-credit loan ((have-credit-card 1001)) ((get-money 200 1001))),
+;         commit ce53f9b651acde8c44dc21eddb1a1c5b97f10536.
+; Lisp numbers 200/1001 are reified as objects amt200/account (typed HDDL).
+; Expected: SOLVES. Plan:
+;   (borrow-credit-card amt200 acct1) (pay-credit-card-interest amt200 acct1)
+(define (problem loan-credit-p1)
+  (:domain loan)
+  (:objects amt200 - amount
+            acct1 - account)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and
+      (get-money amt200 acct1)))
+  (:init
+    (have-credit-card acct1)))

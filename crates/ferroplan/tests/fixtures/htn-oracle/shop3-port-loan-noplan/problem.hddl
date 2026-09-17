@@ -1,0 +1,18 @@
+; HAND-PORT (SHOP3 -> HDDL), NoPlan variant.
+; Domain file is identical to ../shop3-port-loan-credit/domain.hddl (same port).
+; Source: github.com/shop-planner/shop3, shop3/examples/toy/optimize-example.lisp
+;         (defproblem p-200-nil loan () ((get-money 200 1001))),
+;         commit ce53f9b651acde8c44dc21eddb1a1c5b97f10536.
+; Expected: honest NoPlan. Neither get-money method precondition holds
+; (no credit card, no house), so no decomposition exists. SHOP3 fails on the
+; original identically. A planner MUST return "no plan" cleanly -- not panic,
+; not crash the parser.
+(define (problem loan-noplan-p1)
+  (:domain loan)
+  (:objects amt200 - amount
+            acct1 - account)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and
+      (get-money amt200 acct1)))
+  (:init))
