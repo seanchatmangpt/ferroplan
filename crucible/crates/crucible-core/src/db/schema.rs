@@ -19,7 +19,7 @@
 use rusqlite::Connection;
 
 /// The schema version this binary writes.
-pub const USER_VERSION: i32 = 1;
+pub const USER_VERSION: i32 = 8;
 
 /// Refusing to open, with the numbers a human needs to know which binary to run.
 #[derive(Debug, thiserror::Error)]
@@ -412,6 +412,105 @@ PRAGMA user_version = 1;
 COMMIT;
 "#;
 
+/// v2 (crucible R2, Phase 0.a): which instrument produced `run.cpu_ms`.
+/// NULL on every row written before this column existed -- those were
+/// polled `pidrusage` readings in Mach units divided as nanoseconds (41.67x
+/// low on Apple Silicon) and are NOT rescaled, because the poll's undercount
+/// on short runs is not recoverable. The referee treats NULL as CPU-unknown.
+/// `'wait4'` is the only value the runner writes.
+const V2: &str = r#"
+BEGIN;
+ALTER TABLE run ADD COLUMN cpu_instrument TEXT
+  CHECK (cpu_instrument IS NULL OR cpu_instrument IN ('wait4'));
+PRAGMA user_version = 2;
+COMMIT;
+"#;
+
+/// v3 (crucible R2, Phase 1): the referee's verdict lives ON the row.
+/// `banked` is what the resume reads back; `verdict` says why
+/// (`sched::referee::Verdict::as_str`). Backfill: a row the R1 runner wrote
+/// banks if it was clean OR solved -- the R2 rule applied to rows with no
+/// trustworthy CPU reading -- so the 0.26 database, migrated, owes exactly
+/// its contended timeouts and not its contended solves.
+const V3: &str = r#"
+BEGIN;
+ALTER TABLE run ADD COLUMN banked INTEGER NOT NULL DEFAULT 0 CHECK (banked IN (0,1));
+ALTER TABLE run ADD COLUMN verdict TEXT;
+UPDATE run SET
+  banked  = CASE WHEN state = 'done' AND (solved = 1 OR timing_quality = 'clean') THEN 1 ELSE 0 END,
+  verdict = CASE WHEN state <> 'done'            THEN NULL
+                 WHEN solved = 1                 THEN 'solved'
+                 WHEN timing_quality = 'clean'   THEN 'window'
+                 WHEN timing_quality = 'dirty'   THEN 'cpu-unknown'
+                 ELSE 'uncovered' END;
+PRAGMA user_version = 3;
+COMMIT;
+"#;
+
+/// v4 (crucible R2, Phase 1): the canary's clock factor rides on the
+/// sample it was most recently measured at, so a run's window can be asked
+/// "how fast was the box while this ran?" with the same query shape as the
+/// competitor line. NULL before the first canary run of a sweep.
+const V4: &str = r#"
+BEGIN;
+ALTER TABLE sample ADD COLUMN canary_factor REAL;
+PRAGMA user_version = 4;
+COMMIT;
+"#;
+
+/// v5 (crucible R2, Phase 1): the kernel's memory-pressure level on every
+/// sample, beside the swap stock it replaces as the throttle's signal.
+const V5: &str = r#"
+BEGIN;
+ALTER TABLE sample ADD COLUMN mem_pressure INTEGER;
+PRAGMA user_version = 5;
+COMMIT;
+"#;
+
+/// v6 (crucible R2, Phase 1): every canary run, so the baseline is the
+/// FASTEST this box has ever run the instance -- not the fastest of five
+/// at whatever moment the sweep happened to start. A baseline taken on a
+/// slow morning is lenient all day; one taken over the box's history is
+/// not. Per box by construction: the database is per box.
+const V6: &str = r#"
+BEGIN;
+CREATE TABLE canary (
+  id     INTEGER PRIMARY KEY,
+  at     REAL NOT NULL,
+  label  TEXT NOT NULL,                     -- "variant/instance"
+  secs   REAL NOT NULL,                     -- effective wall of the solve
+  solo   INTEGER NOT NULL DEFAULT 1         -- 1 = our own planner was paused
+);
+CREATE INDEX canary_label_idx ON canary(label, secs);
+PRAGMA user_version = 6;
+COMMIT;
+"#;
+
+/// v7 (crucible R2, the packed scheduler): how many of OUR OWN planners
+/// ran beside this one. NULL on every row before it; 0 is solo. A row with
+/// neighbours carries dirty timing and, unsolved, the `packed` verdict.
+const V7: &str = r#"
+BEGIN;
+ALTER TABLE run ADD COLUMN neighbours INTEGER;
+PRAGMA user_version = 7;
+COMMIT;
+"#;
+
+/// v8: whether the run was ever in the background scheduling band.
+///
+/// The 0.27 cut sweep banked 5,519 rows measured there before anyone
+/// noticed: Darwin's background band confines a process to the efficiency
+/// cores, `rho` reads the share of a slow core rather than a slow core, and
+/// a 4.5 s instance banks as a 60 s timeout at rho 0.956. NULL on every row
+/// written before this column existed -- those rows cannot be trusted for
+/// an unsolved verdict and are re-opened rather than re-judged.
+const V8: &str = r#"
+BEGIN;
+ALTER TABLE run ADD COLUMN demoted INTEGER;
+PRAGMA user_version = 8;
+COMMIT;
+"#;
+
 /// Bring `conn` up to [`USER_VERSION`], or refuse to touch it.
 pub fn migrate(conn: &Connection) -> Result<(), MigrateError> {
     let found: i32 = conn
@@ -427,6 +526,34 @@ pub fn migrate(conn: &Connection) -> Result<(), MigrateError> {
         conn.execute_batch(V1)
             .map_err(|source| MigrateError::Sql { version: 1, source })?;
     }
+    if found < 2 {
+        conn.execute_batch(V2)
+            .map_err(|source| MigrateError::Sql { version: 2, source })?;
+    }
+    if found < 3 {
+        conn.execute_batch(V3)
+            .map_err(|source| MigrateError::Sql { version: 3, source })?;
+    }
+    if found < 4 {
+        conn.execute_batch(V4)
+            .map_err(|source| MigrateError::Sql { version: 4, source })?;
+    }
+    if found < 5 {
+        conn.execute_batch(V5)
+            .map_err(|source| MigrateError::Sql { version: 5, source })?;
+    }
+    if found < 6 {
+        conn.execute_batch(V6)
+            .map_err(|source| MigrateError::Sql { version: 6, source })?;
+    }
+    if found < 7 {
+        conn.execute_batch(V7)
+            .map_err(|source| MigrateError::Sql { version: 7, source })?;
+    }
+    if found < 8 {
+        conn.execute_batch(V8)
+            .map_err(|source| MigrateError::Sql { version: 8, source })?;
+    }
     Ok(())
 }
 
@@ -439,6 +566,85 @@ mod tests {
         c.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         migrate(&c).unwrap();
         c
+    }
+
+    fn has_column(c: &Connection, table: &str, col: &str) -> bool {
+        let mut st = c.prepare(&format!("PRAGMA table_info({table})")).unwrap();
+        let names: Vec<String> = st
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .map(|n| n.unwrap())
+            .collect();
+        names.iter().any(|n| n == col)
+    }
+
+    /// The v3 backfill is the R2 rule applied to R1 rows: solves bank,
+    /// clean unsolved rows keep their R1 verdict, dirty unsolved rows are
+    /// owed as CPU-unknown. This is what the 0.26 database will say on its
+    /// first R2 start.
+    #[test]
+    fn v3_backfills_banked_from_the_r1_verdicts() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(V1).unwrap();
+        c.execute_batch(V2).unwrap();
+        c.execute_batch(
+            "INSERT INTO engine (id, ver) VALUES (1, 'ff 0.26.0');
+             INSERT INTO variant (id, ipc, name) VALUES (1, 'ipc-2014', 'v');
+             INSERT INTO instance (id, variant_id, label, label_is_int, sort_key) VALUES
+               (1,1,'1',1,'1'), (2,1,'2',1,'2'), (3,1,'3',1,'3'), (4,1,'4',1,'4'), (5,1,'5',1,'5');
+             INSERT INTO board (id, name, budget_secs, mode, jobs, threads, env, args, threads_json)
+               VALUES (1, 'b', 60, 'auto', 1, '1', '{}', '[]', '\"1\"');
+             INSERT INTO run (board_id, instance_id, engine_id, attempt, state, timing_quality, solved) VALUES
+               (1,1,1,1,'done','dirty',1),
+               (1,2,1,1,'done','clean',0),
+               (1,3,1,1,'done','dirty',0),
+               (1,4,1,1,'done','unknown',0),
+               (1,5,1,1,'abandoned','unknown',0);",
+        )
+        .unwrap();
+        migrate(&c).unwrap();
+        let mut st = c
+            .prepare("SELECT instance_id, banked, verdict FROM run ORDER BY instance_id")
+            .unwrap();
+        let got: Vec<(i64, i64, Option<String>)> = st
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                (1, 1, Some("solved".into())),
+                (2, 1, Some("window".into())),
+                (3, 0, Some("cpu-unknown".into())),
+                (4, 0, Some("uncovered".into())),
+                (5, 0, None),
+            ]
+        );
+    }
+
+    /// A v1 database (every one on this box before R2) gains the column
+    /// with its rows NULL, and a fresh database gets it too. The 0.26 sweep's
+    /// database is the one this ladder is actually for.
+    #[test]
+    fn v2_adds_cpu_instrument_to_a_v1_database() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(V1).unwrap();
+        assert!(!has_column(&c, "run", "cpu_instrument"));
+        migrate(&c).unwrap();
+        assert!(has_column(&c, "run", "cpu_instrument"));
+        let v: i32 = c
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, USER_VERSION);
+        assert!(has_column(&fresh(), "run", "cpu_instrument"));
+        assert!(has_column(&fresh(), "run", "banked"));
+        assert!(has_column(&fresh(), "run", "verdict"));
+        assert!(has_column(&fresh(), "sample", "canary_factor"));
+        assert!(has_column(&fresh(), "sample", "mem_pressure"));
+        assert!(has_column(&fresh(), "canary", "secs"));
+        assert!(has_column(&fresh(), "run", "neighbours"));
+        assert!(has_column(&fresh(), "run", "demoted"));
     }
 
     /// A second migrate must be a no-op. The ladder is what a restart runs

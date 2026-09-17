@@ -284,3 +284,201 @@ fn demotion_does_not_disturb_a_running_child() {
     assert!(out.killed.is_none());
     assert_eq!(out.exit_code, Some(0));
 }
+
+/// THE CPU CLOCK, the R2 instrument. Two children, one that spins and one
+/// that sleeps, and the ratio of CPU to effective wall must say which is
+/// which. The R1 runner could not have passed this: it polled `pidrusage`
+/// every 250 ms and read Mach units as nanoseconds, so a spinning child
+/// reported ~2% of its wall as CPU and a 200 ms child reported nothing.
+#[test]
+fn cpu_time_comes_from_wait4_and_tracks_the_effective_clock() {
+    // 2 s of spinning: the supervisor reaps on its tick, so the effective
+    // clock can read up to a tick long, and the fixture has to be long enough
+    // that the tick cannot decide the verdict.
+    let out = Case::new()
+        .set("FAKEFF_BURN_MS", "2000")
+        .run(no_ctl())
+        .unwrap();
+    assert_eq!(out.cpu_instrument, exec::CPU_INSTRUMENT);
+    // A factor of two still pins the units (the bug read 41x low); the
+    // floor is loose because a packed sweep may be sharing the box.
+    assert!(
+        (900..=2300).contains(&out.cpu_ms),
+        "2 s spin recorded {} ms of CPU",
+        out.cpu_ms
+    );
+    // The CEILING is the invariant worth pinning: a single-threaded child
+    // can never use more CPU than it had wall. The floor is not asserted
+    // -- this suite runs on a box that may be sweeping ten planners wide,
+    // and a starved spinner is exactly what the referee is built to
+    // notice, not a test failure.
+    let rho = out.cpu_ms as f64 / out.effective.as_millis().max(1) as f64;
+    assert!(
+        rho <= 1.05,
+        "spinning child: rho {rho:.3} (cpu {} ms over {} ms effective)",
+        out.cpu_ms,
+        out.effective.as_millis()
+    );
+
+    let out = Case::new()
+        .set("FAKEFF_SLEEP_MS", "600")
+        .run(no_ctl())
+        .unwrap();
+    let rho = out.cpu_ms as f64 / out.effective.as_millis().max(1) as f64;
+    assert!(
+        rho < 0.20,
+        "sleeping child: rho {rho:.3} (cpu {} ms over {} ms effective)",
+        out.cpu_ms,
+        out.effective.as_millis()
+    );
+}
+
+/// A short run is exactly the case the poll missed. 120 ms of spinning must
+/// still come back as ~120 ms of CPU, not as the last tick's stale reading.
+#[test]
+fn a_short_spinning_child_is_not_undercounted() {
+    let out = Case::new()
+        .set("FAKEFF_BURN_MS", "120")
+        .run(no_ctl())
+        .unwrap();
+    assert!(
+        out.cpu_ms >= 90,
+        "120 ms spin recorded only {} ms of CPU",
+        out.cpu_ms
+    );
+}
+
+/// THE ORPHAN. Stopping crucible with SIGTERM used to leave its planner
+/// running under pid 1 (the 0.26 sweep did exactly that). Now an interrupt
+/// cancels the child the way an operator Cancel does -- SIGTERM, then the
+/// grace period, then SIGKILL, all to the group -- and the run comes back
+/// marked cancelled with the child reaped.
+///
+/// The flag is process-global, so this test runs its body in a child
+/// process of the test binary -- setting it in-process would cancel every
+/// sibling test's planner too.
+#[test]
+fn an_interrupt_cancels_and_reaps_the_child() {
+    let exe = std::env::current_exe().unwrap();
+    let out = std::process::Command::new(exe)
+        .args(["--ignored", "--exact", "interrupt_body", "--test-threads=1"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "inner test failed:\n{}\n{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+#[ignore = "the body of an_interrupt_cancels_and_reaps_the_child; runs in its own process"]
+fn interrupt_body() {
+    exec::set_interrupted(false);
+    let (_tx, rx) = mpsc::channel();
+    let h = std::thread::spawn(move || {
+        Case::new()
+            .set("FAKEFF_SLEEP_MS", "20000")
+            .timeout_ms(60_000)
+            .run(rx)
+    });
+    std::thread::sleep(Duration::from_millis(600));
+    let t0 = Instant::now();
+    exec::set_interrupted(true);
+    let out = h.join().unwrap().unwrap();
+    exec::set_interrupted(false);
+    assert_eq!(out.killed, Some(exec::Killed::Cancelled));
+    assert!(
+        t0.elapsed() < Duration::from_secs(8),
+        "cancelled within the grace period, not at the 20 s sleep: {:?}",
+        t0.elapsed()
+    );
+    // Reaped: signalling the pid must fail with ESRCH, not reach a zombie or
+    // an orphan.
+    // SAFETY: kill(2) with signal 0 only checks for existence.
+    let rc = unsafe { libc::kill(out.pid, 0) };
+    assert_ne!(rc, 0, "the child is still there");
+}
+
+/// THE SIGNAL PATH ITSELF, which nothing exercised until 0.28.
+///
+/// `an_interrupt_cancels_and_reaps_the_child` proves what happens once the
+/// flag is set, but it sets the flag by calling `set_interrupted` -- so
+/// `install_interrupt_handler` and the signal-to-flag wiring were never
+/// tested at all. A handler registered for the wrong signal, or not
+/// registered, would have passed every test in this file.
+///
+/// SIGHUP is why it matters now. Its default action terminates, and every
+/// sweep since 0.27 runs detached -- `nohup`, or a launchd agent -- which is
+/// exactly the shape that gets HUP'd when a terminal closes or a session
+/// ends. Before 0.28 that killed the supervisor without the cancel path and
+/// orphaned the planner under pid 1: the 0.26 defect by another route.
+///
+/// Each signal gets its own child process, because the flag is global and
+/// latching.
+#[test]
+fn a_real_signal_sets_the_interrupt_flag() {
+    for sig in ["SIGINT", "SIGTERM", "SIGHUP"] {
+        let ready = std::env::temp_dir().join(format!(
+            "crucible-signal-ready-{}-{sig}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&ready);
+
+        let exe = std::env::current_exe().unwrap();
+        let mut child = std::process::Command::new(&exe)
+            .args(["--ignored", "--exact", "signal_body", "--test-threads=1"])
+            .env("CRUCIBLE_SIGNAL_READY", &ready)
+            .spawn()
+            .unwrap();
+
+        // Wait for the child to say the handler is installed. Sending before
+        // that would test the DEFAULT disposition, which is the bug.
+        let start = std::time::Instant::now();
+        while !ready.exists() {
+            assert!(
+                start.elapsed() < Duration::from_secs(20),
+                "{sig}: child never signalled readiness"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+
+        let n = match sig {
+            "SIGINT" => libc::SIGINT,
+            "SIGTERM" => libc::SIGTERM,
+            _ => libc::SIGHUP,
+        };
+        // SAFETY: signalling a child of this process by pid.
+        unsafe {
+            libc::kill(child.id() as i32, n);
+        }
+
+        let out = child.wait().unwrap();
+        assert!(
+            out.success(),
+            "{sig}: the handler did not set the flag -- exit {:?}. Before 0.28 \
+             SIGHUP failed here by terminating the process outright, which is \
+             an exit code, not a flag.",
+            out.code()
+        );
+        let _ = std::fs::remove_file(&ready);
+    }
+}
+
+#[test]
+#[ignore = "driven by a_real_signal_sets_the_interrupt_flag"]
+fn signal_body() {
+    exec::install_interrupt_handler();
+    let ready = std::env::var("CRUCIBLE_SIGNAL_READY").expect("readiness path");
+    std::fs::write(&ready, b"ready").unwrap();
+
+    let start = std::time::Instant::now();
+    while start.elapsed() < Duration::from_secs(15) {
+        if exec::interrupted() {
+            return; // exit 0: the signal reached the flag
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    panic!("the signal never set the flag");
+}

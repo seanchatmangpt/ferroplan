@@ -40,15 +40,15 @@
 use anyhow::Context;
 use crucible_core::corpus;
 use crucible_core::db::{self, Db, Reader};
-use crucible_core::exec::{orphan, Ctl};
+use crucible_core::exec::{self, orphan, Ctl};
 use crucible_core::monitor::{self, Level, Sample, Throttle};
 use crucible_core::platform::{self, Pid, Platform};
-use crucible_core::sched::{self, Attempt, BoardState, Event, LoopConfig, Next, Runner};
+use crucible_core::sched::{self, referee, Attempt, BoardState, Event, LoopConfig, Next, Runner};
 use crucible_core::sweep::{BoardCfg, Engine as SweepEngine};
 use crucible_publish::manifest::{BoardSpec, Manifest};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// One board's work: its spec, its instances, and which of them still owe a
@@ -57,14 +57,16 @@ pub(crate) struct Board {
     spec: BoardSpec,
     position: usize,
     instances: Vec<(String, String, corpus::Instance)>,
-    /// Instance keys that have banked a CLEAN row. A dirty row is written and
-    /// kept, but does not remove the instance from the owed set.
+    /// Instance keys whose latest row BANKED under the referee
+    /// (`sched::referee`): a solve, or an unsolved row the process was not
+    /// starved on. An owed row is written and kept, but does not remove the
+    /// instance from the owed set.
     ///
     /// Keyed by the row's full address -- `ipc`, variant, label -- and never by
     /// the label alone. A multi-variant board carries instance "1" in every
     /// variant, and a set keyed on labels would count them once and never
     /// reach zero.
-    clean: std::collections::BTreeSet<String>,
+    banked: std::collections::BTreeSet<String>,
     /// Every row measured, keyed so a later clean measurement SUPERSEDES an
     /// earlier dirty one. Nothing is ever dropped -- a dirty row is the record
     /// that the instance was attempted and what the box was doing.
@@ -82,8 +84,699 @@ pub(crate) struct Board {
 
 impl Board {
     fn remaining(&self) -> usize {
-        self.instances.len() - self.clean.len()
+        self.instances.len() - self.banked.len()
     }
+}
+
+/// The packed scheduler's knobs, from `[scheduler]`.
+#[derive(Debug, Clone, Copy)]
+pub struct Pack {
+    pub width: usize,
+    /// The width while the operator is at the box by day.
+    pub width_day: usize,
+    pub user_active_secs: f64,
+    pub narrow_width: usize,
+    pub max_frac: f64,
+    pub narrow_max_frac: f64,
+    pub mem_reserve_bytes: u64,
+    /// The reserve to hold back once the operator is away (0.28).
+    pub mem_reserve_idle_bytes: u64,
+    pub rss_headroom: f64,
+}
+
+impl Pack {
+    pub fn from_config(c: &crate::config::Scheduler) -> Pack {
+        let logical = platform::host().topology().logical.max(1) as usize;
+        Pack {
+            width: if c.pack_width == 0 {
+                logical
+            } else {
+                (c.pack_width as usize).max(1)
+            },
+            width_day: (c.pack_width_day as usize).max(1),
+            user_active_secs: c.user_active_secs as f64,
+            narrow_width: (c.pack_narrow_width as usize).max(1),
+            max_frac: c.pack_max_frac,
+            narrow_max_frac: c.pack_narrow_max_frac,
+            mem_reserve_bytes: (c.mem_reserve_gb.max(0.0) * (1u64 << 30) as f64) as u64,
+            mem_reserve_idle_bytes: (c.mem_reserve_idle_gb.max(0.0) * (1u64 << 30) as f64) as u64,
+            rss_headroom: c.rss_headroom.max(1.0),
+        }
+    }
+
+    /// Everything solo: the R1 shape, for tests and for `--quiet-only`.
+    pub fn solo() -> Pack {
+        Pack {
+            width: 1,
+            width_day: 1,
+            user_active_secs: 0.0,
+            narrow_width: 1,
+            max_frac: 0.0,
+            narrow_max_frac: 0.0,
+            mem_reserve_bytes: 0,
+            mem_reserve_idle_bytes: 0,
+            rss_headroom: 1.0,
+        }
+    }
+}
+
+#[derive(Default)]
+struct PassStats {
+    banked: usize,
+    ran: usize,
+    all_dirty: bool,
+    tally: std::collections::BTreeMap<&'static str, usize>,
+}
+
+impl PassStats {
+    fn default() -> Self {
+        PassStats {
+            banked: 0,
+            ran: 0,
+            all_dirty: true,
+            tally: Default::default(),
+        }
+    }
+}
+
+/// One instance's measurement and verdict, back from a worker.
+struct Done {
+    i: usize,
+    key: String,
+    row: crucible_publish::RawRow,
+    banked: bool,
+    verdict: Option<&'static str>,
+    box_fault: bool,
+    /// Unsolved beside neighbours: try again with fewer.
+    cascade: bool,
+    cancelled: bool,
+    /// The engine binary itself could not be run (0.28). Ends the pass like
+    /// a cancellation -- no row, no verdict -- but is reported as a failure
+    /// rather than an operator's choice.
+    engine_gone: Option<String>,
+    solved: bool,
+    rejected: bool,
+    secs: Option<f64>,
+    rho: Option<f64>,
+}
+
+/// What a worker needs to run one instance: owned or shared, nothing that
+/// borrows the runner, so the runner can apply results while workers run.
+struct RunCtx {
+    engine: SweepEngine,
+    cfg: BoardCfg,
+    plan_dir: PathBuf,
+    val: Option<PathBuf>,
+    instances: Arc<Vec<(String, String, corpus::Instance)>>,
+    shared: Arc<Shared>,
+    progress: Option<ProgressHandle>,
+    rule: referee::Rule,
+    quiet_only: bool,
+    admit_below_full: bool,
+    board_idx: usize,
+    db: Option<RunDb>,
+    /// Instances the predecessor solved (`variant/label`).
+    prior_solved: std::collections::BTreeSet<String>,
+}
+
+struct RunDb {
+    writer: db::WriterHandle,
+    path: PathBuf,
+    engine: db::EngineKey,
+    engine_facts: db::EngineFacts,
+    board: db::BoardKey,
+    facts: db::BoardFacts,
+    ids: (i64, i64),
+    interval: f64,
+}
+
+impl<'a> SweepRunner<'a> {
+    /// Wide / narrow / solo, from what the predecessor (the promoted raw)
+    /// said and what this sweep has already seen. `threads > 1` is always
+    /// solo; so is anything this sweep already measured unsolved.
+    fn classify(
+        &self,
+        idx: usize,
+        cfg: &BoardCfg,
+        todo: &[usize],
+    ) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
+        let b = &self.boards[idx];
+        let prior = prior_rows(&self.repo, &b.spec.raw);
+        let budget = cfg.timeout_secs as f64;
+        let (mut wide, mut narrow, mut solo) = (Vec::new(), Vec::new(), Vec::new());
+        for &i in todo {
+            let (ipc, variant, inst) = &b.instances[i];
+            let key = instance_key(ipc, variant, &inst.label);
+            let seen_miss = b.rows.get(&key).is_some_and(|r| !r.solved);
+            let class = if cfg.threads > 1 || seen_miss || self.pack.width <= 1 {
+                2
+            } else {
+                match prior.get(&format!("{variant}/{}", inst.label)) {
+                    Some((true, Some(secs))) if *secs <= self.pack.max_frac * budget => 0,
+                    Some((true, Some(secs))) if *secs <= self.pack.narrow_max_frac * budget => 1,
+                    _ => 2,
+                }
+            };
+            match class {
+                0 => wide.push(i),
+                1 => narrow.push(i),
+                _ => solo.push(i),
+            }
+        }
+        (wide, narrow, solo)
+    }
+
+    /// What each instance is expected to take in memory: its prior peak RSS
+    /// on this box with headroom, or the board's cap where nothing is known.
+    /// The workers draw these from one byte budget (the box after the
+    /// reserve), so a memory-hungry instance throttles itself and not the
+    /// whole batch -- sizing a batch by its worst member ran
+    /// ipc5-metric-time 3-wide on ten cores.
+    fn expected_bytes(&self, idx: usize, cfg: &BoardCfg, items: &[usize]) -> Vec<(usize, u64)> {
+        let cap = (cfg.mem_gb * (1u64 << 30) as f64) as u64;
+        items
+            .iter()
+            .map(|&i| {
+                let (_, variant, inst) = &self.boards[idx].instances[i];
+                let prior = self
+                    .db
+                    .as_ref()
+                    .and_then(|d| d.reader.prior_peak_rss(variant, &inst.label).ok().flatten())
+                    .map(|r| (r as f64 * self.pack.rss_headroom) as u64)
+                    .unwrap_or(cap);
+                (i, prior.max(64 << 20))
+            })
+            .collect()
+    }
+
+    /// The bytes this batch may draw on, recomputed per batch so it tracks the
+    /// operator the way width already does (0.28).
+    ///
+    /// `demote_ok` is maintained every sample as `idle < user_active_secs` --
+    /// it is named for its consequence, but what it MEANS is "someone is at
+    /// this keyboard". While that holds, hold back the full reserve: the
+    /// desktop, the browser and whatever else the operator is doing have to
+    /// fit beside us. Once it goes false, take the box.
+    ///
+    /// Never all of it. See `mem_reserve_idle_gb`.
+    fn mem_budget(&self) -> u64 {
+        // `demote_ok` is maintained every sample as `idle < user_active_secs`.
+        // It is named for its consequence; what it MEANS is "someone is at
+        // this keyboard".
+        policy_mem_budget(
+            self.plat.topology().mem_bytes,
+            self.shared.demote_ok(),
+            &self.pack,
+        )
+    }
+
+    /// Run `items` `width` at a time and apply every result as it lands.
+    /// Returns the instances that missed beside neighbours, for the next
+    /// rung of the cascade. A stop leaves the rest owed.
+    fn run_batch(
+        &mut self,
+        idx: usize,
+        cfg: &BoardCfg,
+        plan_dir: &Path,
+        items: Vec<(usize, u64)>,
+        width: usize,
+        stats: &mut PassStats,
+    ) -> Vec<usize> {
+        let mut cascade = Vec::new();
+        if items.is_empty() || self.stop || exec::interrupted() {
+            self.stop |= exec::interrupted();
+            return cascade;
+        }
+        let ctx = RunCtx {
+            engine: self.engine.clone(),
+            cfg: cfg.clone(),
+            plan_dir: plan_dir.to_path_buf(),
+            val: self.val.clone(),
+            instances: Arc::new(self.boards[idx].instances.clone()),
+            shared: Arc::clone(&self.shared),
+            progress: self.progress.clone(),
+            rule: self.rule,
+            quiet_only: self.quiet_only,
+            admit_below_full: self.admit_below_full,
+            board_idx: idx,
+            prior_solved: prior_rows(&self.repo, &self.boards[idx].spec.raw)
+                .into_iter()
+                .filter(|(_, (solved, _))| *solved)
+                .map(|(k, _)| k)
+                .collect(),
+            db: self.db.as_ref().map(|d| RunDb {
+                writer: d.db.writer().clone(),
+                path: d.db.path().to_path_buf(),
+                engine: d.engine.clone(),
+                engine_facts: d.engine_facts.clone(),
+                board: self.boards[idx].key.clone(),
+                facts: self.boards[idx].facts.clone(),
+                ids: self.boards[idx]
+                    .ids
+                    .expect("a board with a database has resolved ids"),
+                interval: d.interval,
+            }),
+        };
+        let width = width.clamp(1, items.len());
+        let budget = self.mem_budget();
+        let queue = Mutex::new(std::collections::VecDeque::from(items));
+        let in_use = Mutex::new(0u64);
+        let stop = AtomicBool::new(false);
+        let crowd = Crowd::new(width);
+        std::thread::scope(|sc| {
+            let (tx, rx) = mpsc::channel::<Done>();
+            for w in 0..width {
+                let tx = tx.clone();
+                let (ctx, queue, stop, in_use, crowd) = (&ctx, &queue, &stop, &in_use, &crowd);
+                sc.spawn(move || {
+                    let plat = platform::host();
+                    let reader = ctx.db.as_ref().and_then(|d| Reader::open(&d.path).ok());
+                    loop {
+                        if stop.load(Ordering::Relaxed) || exec::interrupted() {
+                            break;
+                        }
+                        // The width policy: worker `w` runs only while the
+                        // watcher allows at least `w + 1` planners. Worker 0
+                        // waits only for SUSPENDED (admission below).
+                        if w > 0 && w >= ctx.shared.width() {
+                            std::thread::sleep(Duration::from_secs(1));
+                            continue;
+                        }
+                        let Some((i, bytes)) = queue.lock().unwrap().pop_front() else {
+                            break;
+                        };
+                        // The byte budget: wait until this instance fits
+                        // beside what is running. An instance larger than
+                        // the whole budget runs alone.
+                        loop {
+                            {
+                                let mut used = in_use.lock().unwrap();
+                                if *used == 0 || *used + bytes <= budget {
+                                    *used += bytes;
+                                    break;
+                                }
+                            }
+                            if exec::interrupted() || stop.load(Ordering::Relaxed) {
+                                break;
+                            }
+                            std::thread::sleep(Duration::from_millis(200));
+                        }
+                        // Admission (R2.2): SUSPENDED always waits; POLITE
+                        // starts the run demoted unless FULL was asked for.
+                        loop {
+                            let level = ctx.shared.level();
+                            let wait = level == Level::Suspended
+                                || (level != Level::Full
+                                    && (ctx.quiet_only || !ctx.admit_below_full));
+                            if !wait || exec::interrupted() || stop.load(Ordering::Relaxed) {
+                                break;
+                            }
+                            std::thread::sleep(Duration::from_secs(5));
+                        }
+                        if exec::interrupted() || stop.load(Ordering::Relaxed) {
+                            // Back on the queue is pointless: the pass ends.
+                            break;
+                        }
+                        if exec::interrupted() || stop.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        // The canary is reading the box: do not spawn into it.
+                        while ctx.shared.held() {
+                            std::thread::sleep(Duration::from_millis(100));
+                        }
+                        let d = run_one(ctx, w, i, crowd, &plat, reader.as_ref());
+                        *in_use.lock().unwrap() -= bytes;
+                        // A vanished engine ends the pass exactly as a
+                        // cancellation does -- every worker stops, and the
+                        // in-flight row is not written. What differs is what
+                        // the CALLER is told afterwards.
+                        let halt = d.cancelled || d.engine_gone.is_some();
+                        let _ = tx.send(d);
+                        if halt {
+                            stop.store(true, Ordering::Relaxed);
+                            break;
+                        }
+                    }
+                });
+            }
+            drop(tx);
+            for d in rx {
+                if let Some(why) = d.engine_gone {
+                    // First reason wins: later workers report the same
+                    // missing binary, and the first one has the cleanest
+                    // errno.
+                    if self.engine_gone.is_none() {
+                        self.engine_gone = Some(why);
+                    }
+                    self.stop = true;
+                    continue;
+                }
+                if d.cancelled {
+                    self.stop = true;
+                    continue;
+                }
+                if d.cascade {
+                    cascade.push(d.i);
+                }
+                self.apply(idx, d, stats);
+            }
+        });
+        cascade
+    }
+
+    /// One result into the runner's state: the row, the banked set, the
+    /// pass statistics and the dashboard cell.
+    fn apply(&mut self, idx: usize, d: Done, stats: &mut PassStats) {
+        stats.ran += 1;
+        if let Some(v) = d.verdict {
+            *stats.tally.entry(v).or_default() += 1;
+        }
+        if !d.banked && !d.box_fault {
+            stats.all_dirty = false;
+        }
+        let (banked, solved, rejected, secs, rho, verdict) =
+            (d.banked, d.solved, d.rejected, d.secs, d.rho, d.verdict);
+        self.progress_cell(idx, d.i, |c| {
+            use crate::tui::app::Cell;
+            c.this_solved = Some(solved);
+            c.this_secs = secs;
+            c.rho = rho;
+            c.attempt += 1;
+            c.cell = match (solved, banked) {
+                _ if rejected => Cell::Error,
+                (true, _) => Cell::SolvedClean,
+                (false, true) => Cell::TimeoutBanked,
+                (false, false) => Cell::Owed,
+            };
+            if let Some(v) = verdict {
+                c.verdict = Some(v.to_string());
+            }
+        });
+        if banked {
+            if let Some(p) = &self.progress {
+                p.lock().unwrap().banked_at.push(Instant::now());
+            }
+            self.boards[idx].banked.insert(d.key.clone());
+            stats.banked += 1;
+            stats.all_dirty = false;
+        }
+        // Written either way. The board is not banked, but the work is
+        // not lost -- and a later banked row supersedes this one under the
+        // same key.
+        self.boards[idx].rows.insert(d.key, d.row);
+    }
+}
+
+/// Who is running beside whom, measured rather than assumed. Until 0.28 a
+/// row's `neighbours` was the batch's NOMINAL width minus one, fixed before
+/// the workers started -- while the width policy collapsed the real one
+/// constantly, so a run the policy had left alone still read as packed.
+/// Each slot holds the most planners that ran beside it at any moment of
+/// its run: every entry raises the peak of everyone already inside.
+struct Crowd(Mutex<Vec<Option<u32>>>);
+
+impl Crowd {
+    fn new(slots: usize) -> Self {
+        Crowd(Mutex::new(vec![None; slots]))
+    }
+
+    fn enter(&self, slot: usize) {
+        let mut g = self.0.lock().unwrap();
+        let others = g
+            .iter()
+            .enumerate()
+            .filter(|(s, v)| *s != slot && v.is_some())
+            .count() as u32;
+        for (s, v) in g.iter_mut().enumerate() {
+            if s == slot {
+                *v = Some(others);
+            } else if let Some(peak) = v {
+                *peak = (*peak).max(others);
+            }
+        }
+    }
+
+    /// The peak neighbour count over this slot's run; the slot is free again.
+    fn leave(&self, slot: usize) -> u32 {
+        self.0.lock().unwrap()[slot].take().unwrap_or(0)
+    }
+}
+
+/// Measure one instance and judge it. Runs on a worker thread with its own
+/// reader; everything it touches is in `ctx`.
+fn run_one(
+    ctx: &RunCtx,
+    slot: usize,
+    i: usize,
+    crowd: &Crowd,
+    plat: &platform::Host,
+    reader: Option<&Reader>,
+) -> Done {
+    let (ipc, variant, inst) = ctx.instances[i].clone();
+    let key = instance_key(&ipc, &variant, &inst.label);
+    let dirty_now = match &ctx.db {
+        None => !sample_box(plat).is_clean(),
+        Some(_) => ctx.shared.level() != Level::Full,
+    };
+    let (tx, rx) = mpsc::channel::<Ctl>();
+    let attached = ctx.shared.attach(tx);
+    if let Some(p) = &ctx.progress {
+        let mut g = p.lock().unwrap();
+        g.running.retain(|r| r.slot != slot);
+        g.running.push(Running {
+            slot,
+            board: ctx.board_idx,
+            inst: i,
+            pid: None,
+            started: Instant::now(),
+            budget: Duration::from_secs(ctx.cfg.timeout_secs),
+        });
+        if let Some(c) = g
+            .boards
+            .get_mut(ctx.board_idx)
+            .and_then(|b| b.cells.get_mut(i))
+        {
+            c.cell = crate::tui::app::Cell::Running;
+        }
+    }
+
+    // The live-child record goes to disk the moment the child exists: a
+    // `kill -9` of this process between here and the run's end leaves a row
+    // the next startup reaps by identity, instead of a planner nobody owns
+    // burning a core until the wall.
+    let register = |pid: Pid, at: f64| {
+        if let Some(p) = &ctx.progress {
+            if let Some(r) = p
+                .lock()
+                .unwrap()
+                .running
+                .iter_mut()
+                .find(|r| r.slot == slot)
+            {
+                r.pid = Some(pid);
+            }
+        }
+        let Some(d) = &ctx.db else {
+            return;
+        };
+        let Some(id) = plat.proc_identity(pid) else {
+            return;
+        };
+        let child = db::LiveChild {
+            pid,
+            pgid: pid,
+            run_id: None,
+            binary_path: id.path.clone(),
+            proc_start_tvsec: id.start_tvsec,
+            spawned_at: at,
+            stopped: false,
+        };
+        if let Err(e) = d.writer.child_spawned(child) {
+            eprintln!("!! could not register child {pid}: {e}");
+        }
+    };
+    crowd.enter(slot);
+    let mut m = crucible_core::sweep::measure(
+        &ctx.engine,
+        &ctx.cfg,
+        &ipc,
+        &variant,
+        &inst,
+        ctx.val.as_deref(),
+        &ctx.plan_dir,
+        plat,
+        &rx,
+        ctx.db.as_ref().map(|_| &register as &dyn Fn(Pid, f64)),
+    );
+    let neighbours = crowd.leave(slot);
+    ctx.shared.detach(attached);
+    if let Some(p) = &ctx.progress {
+        p.lock().unwrap().running.retain(|r| r.slot != slot);
+    }
+    // On the published row too, so a reader of the raw alone can tell a
+    // packed solve from a solo one without the database.
+    m.row.extra.insert(
+        "neighbours".to_string(),
+        serde_json::Value::from(neighbours),
+    );
+
+    let mut done = Done {
+        i,
+        key: key.clone(),
+        row: m.row.clone(),
+        banked: false,
+        verdict: None,
+        box_fault: true,
+        cascade: false,
+        cancelled: m.cancelled,
+        engine_gone: m.engine_gone.clone(),
+        solved: m.row.solved,
+        rejected: m.row.val == Some(false),
+        secs: m.row.time.as_ref().and_then(|t| t.as_f64()),
+        rho: m.cpu_instrument.map(|_| {
+            m.cpu_ms as f64 / m.wall.saturating_sub(m.suspended).as_millis().max(1) as f64
+        }),
+    };
+    if m.cancelled {
+        if let (Some(d), Some(pid)) = (&ctx.db, m.pid) {
+            let _ = d.writer.child_gone(pid);
+        }
+        crate::say!("   interrupted mid-instance ({key}); the row is not written");
+        return done;
+    }
+
+    match (&ctx.db, reader) {
+        (Some(d), Some(reader)) => {
+            let w = &d.writer;
+            if let Some(pid) = m.pid {
+                let _ = w.child_gone(pid);
+            }
+            let (bid, eid) = d.ids;
+            let attempt = reader
+                .next_attempt(bid, eid, Some(&ipc), &variant, &inst.label)
+                .unwrap_or(1);
+            let mut rec = db::RunRecord {
+                board: d.board.clone(),
+                board_facts: d.facts.clone(),
+                engine: d.engine.clone(),
+                engine_facts: d.engine_facts.clone(),
+                attempt,
+                state: db::RunState::Done,
+                timing: db::TimingQuality::Unknown,
+                banked: false,
+                verdict: None,
+                val_reason: m.val_reason.and_then(db::ValReason::parse),
+                row: m.row.clone(),
+                measured: db::Measured {
+                    started_at: m.row.start_ts,
+                    finished_at: m.row.end_ts,
+                    wall_ms: Some(m.wall.as_millis() as u64),
+                    cpu_ms: Some(m.cpu_ms),
+                    cpu_instrument: m.cpu_instrument.map(str::to_string),
+                    neighbours: Some(neighbours),
+                    demoted: Some(m.demoted),
+                    suspended_ms: Some(m.suspended.as_millis() as u64),
+                    peak_rss: Some(m.peak_rss),
+                    mem_instrument: Some(m.mem_instrument.to_string()),
+                    exit_code: m.exit_code,
+                    term_signal: m.term_signal,
+                    pid: m.pid,
+                    pgid: m.pgid,
+                },
+            };
+            // THE RECEIPT. Committed before the verdict is asked for, in its
+            // own transaction, and this call waits for it.
+            if let Err(e) = w.run(rec.clone()) {
+                eprintln!("!! could not commit {key}: {e}");
+            }
+            let _ = w.flush();
+            let window = match (m.row.start_ts, m.row.end_ts) {
+                (Some(st), Some(en)) => Some((st, en)),
+                _ => None,
+            };
+            let gate = window
+                .map(|(st, en)| {
+                    reader
+                        .window_gate(st, en, d.interval, None)
+                        .unwrap_or(db::Cleanliness::Uncovered)
+                })
+                .unwrap_or(db::Cleanliness::Uncovered);
+            let swap =
+                window.and_then(|(st, en)| reader.swap_growth_between(st, en).ok().flatten());
+            let clock_factor =
+                window.and_then(|(st, en)| reader.canary_max_between(st, en).ok().flatten());
+            // THE R2 REFEREE (sched::referee): the row is judged by what the
+            // kernel says about ITS process; beside our own planners only a
+            // solve counts.
+            let facts = referee::Facts {
+                solved: m.row.solved,
+                threads: ctx.cfg.threads,
+                cpu_instrument: m.cpu_instrument.map(str::to_string),
+                cpu_ms: m.cpu_ms,
+                effective_ms: m.wall.saturating_sub(m.suspended).as_millis() as u64,
+                clock_jump: !m.clock_jump.is_zero(),
+                window: gate,
+                swap_growth_mb: swap,
+                clock_factor,
+                demoted: m.demoted,
+                neighbours,
+                prior_solved: ctx
+                    .prior_solved
+                    .contains(&format!("{variant}/{}", inst.label)),
+                // This run's own row is committed above, so the count
+                // includes it when it ran solo.
+                solo_attempt: if neighbours == 0 {
+                    reader
+                        .solo_attempts(bid, eid, &variant, &inst.label)
+                        .unwrap_or(1)
+                        .max(1)
+                } else {
+                    0
+                },
+            };
+            let verdict = referee::judge(&ctx.rule, &facts);
+            rec.timing = referee::timing(&facts);
+            rec.banked = verdict.banked();
+            rec.verdict = Some(verdict.as_str().to_string());
+            if let Err(e) = w.run(rec) {
+                eprintln!("!! could not record the verdict for {key}: {e}");
+            }
+            done.banked = verdict.banked();
+            done.verdict = Some(verdict.as_str());
+            done.box_fault = verdict.box_fault();
+            done.cascade = verdict == referee::Verdict::Owed(referee::Owe::Packed);
+        }
+        _ => {
+            // The pre-database rule, kept bit for bit under --no-db: a
+            // before/after pair, and nothing in between.
+            let after = sample_box(plat);
+            done.banked = !dirty_now && after.is_clean() && m.clock_jump.is_zero();
+        }
+    }
+    done
+}
+
+/// The predecessor's rows for a board: `variant/label -> (solved, secs)` from
+/// the promoted raw under `benchmarks/`. Empty when there is none.
+pub(crate) fn prior_rows(
+    repo: &Path,
+    raw: &str,
+) -> std::collections::BTreeMap<String, (bool, Option<f64>)> {
+    let mut out = std::collections::BTreeMap::new();
+    let path = repo.join("benchmarks").join(raw);
+    let Ok(src) = std::fs::read_to_string(&path) else {
+        return out;
+    };
+    if let Ok(rows) = crucible_publish::parse_rows(&src, &path.display().to_string()) {
+        for r in rows {
+            let label = db::InstanceKey::of(&r.instance).label;
+            out.insert(
+                format!("{}/{label}", r.variant),
+                (r.solved, r.time.as_ref().and_then(|t| t.as_f64())),
+            );
+        }
+    }
+    out
 }
 
 /// The row's address inside a board: the same three fields `run` is keyed by.
@@ -108,8 +801,16 @@ pub struct Setup<'s> {
     pub engine: SweepEngine,
     pub val: Option<PathBuf>,
     pub quiet_only: bool,
-    pub quiet_hours: crate::config::QuietHours,
     pub max_passes: Option<u32>,
+    /// The throttle level the watcher publishes, and the channel to the
+    /// running child it drives.
+    pub shared: Arc<Shared>,
+    pub rule: referee::Rule,
+    /// Start under POLITE rather than waiting for FULL (`[referee]`).
+    pub admit_below_full: bool,
+    /// The dashboard's feed, when one is on screen.
+    pub progress: Option<ProgressHandle>,
+    pub pack: Pack,
     /// Whether this engine can run a given `--mode`. A board it cannot run is
     /// skipped with ZERO rows, never measured as zero coverage.
     pub capable: &'s dyn Fn(&str) -> bool,
@@ -123,20 +824,26 @@ pub struct Setup<'s> {
 
 pub struct SweepRunner<'a> {
     stage: PathBuf,
+    repo: PathBuf,
     manifest: &'a Manifest,
     engine: SweepEngine,
     val: Option<PathBuf>,
     pub(crate) boards: Vec<Board>,
-    throttle: Throttle,
+    shared: Arc<Shared>,
+    rule: referee::Rule,
+    admit_below_full: bool,
+    progress: Option<ProgressHandle>,
+    pack: Pack,
     plat: platform::Host,
     /// Set when the operator interrupts. The remaining work stays remaining --
     /// it is not failed, and the next run picks it up.
     stop: bool,
+    /// Set when the engine binary went missing mid-sweep (0.28). Unlike
+    /// `stop`, this IS a failure: the sweep returns an error naming the
+    /// binary, so a supervisor can rebuild it instead of retrying into the
+    /// same hole forever.
+    engine_gone: Option<String>,
     quiet_only: bool,
-    /// Quiet hours steer SCHEDULING and skip the game check. They never move a
-    /// contention threshold: a Time Machine run at 3am depresses coverage
-    /// exactly as much as one at 3pm.
-    quiet_hours: crate::config::QuietHours,
     /// Stop after this many passes. `None` is the resident behaviour: a board
     /// that cannot bank because the box is never quiet is not FAILING, it is
     /// waiting, and a harness meant to live in a pane for three days should go
@@ -215,6 +922,7 @@ fn sample_box(plat: &platform::Host) -> Sample {
         loadavg1: None,
         swap_mb: plat.swap_used_mb(),
         cpu_speed_limit: plat.cpu_speed_limit(),
+        mem_pressure: plat.memory_pressure_level(),
     }
 }
 
@@ -236,8 +944,12 @@ impl<'a> SweepRunner<'a> {
             engine,
             val,
             quiet_only,
-            quiet_hours,
             max_passes,
+            shared,
+            rule,
+            admit_below_full,
+            progress,
+            pack,
             capable,
             db,
             stage,
@@ -264,7 +976,7 @@ impl<'a> SweepRunner<'a> {
             // (0.26 F6 Part 2) so it has provenance, not just an absence.
             if let Some(mode) = &b.mode {
                 if !capable(mode) {
-                    println!(
+                    crate::say!(
                         "SKIP {id}: this engine has no --mode {mode} -- \
                          feature-absent, not zero coverage"
                     );
@@ -293,7 +1005,7 @@ impl<'a> SweepRunner<'a> {
                 spec: b.clone(),
                 position,
                 instances,
-                clean: Default::default(),
+                banked: Default::default(),
                 rows: Default::default(),
                 ids: None,
                 key: board_key_for_sweep(manifest, b, &cfg),
@@ -334,21 +1046,97 @@ impl<'a> SweepRunner<'a> {
 
         let mut runner = SweepRunner {
             stage: stage.unwrap_or_else(|| repo.join(&spec.stage)),
+            repo: repo.to_path_buf(),
             manifest,
             engine,
             val,
             boards,
-            throttle: Throttle::new(Default::default()),
+            shared,
+            rule,
+            admit_below_full,
+            progress,
+            pack,
             plat: platform::host(),
             stop: false,
+            engine_gone: None,
             quiet_only,
-            quiet_hours,
             max_passes,
             passes: 0,
             db,
         };
         runner.seed_from_db()?;
+        runner.publish_boards();
         Ok(runner)
+    }
+
+    /// Build the dashboard's board rows from what the runner knows: every
+    /// instance, its predecessor's row from the promoted raw, and the row
+    /// this sweep already holds for it.
+    fn publish_boards(&self) {
+        let Some(p) = &self.progress else {
+            return;
+        };
+        use crate::tui::app::{BoardRow, Cell, InstanceCell};
+        let mut rows = Vec::new();
+        let mut ids = Vec::new();
+        for b in &self.boards {
+            let cfg = board_cfg(self.manifest, &b.spec);
+            let prev = prior_rows(&self.repo, &b.spec.raw);
+            let cells = b
+                .instances
+                .iter()
+                .map(|(ipc, variant, inst)| {
+                    let key = instance_key(ipc, variant, &inst.label);
+                    let mut c = InstanceCell {
+                        variant: variant.clone(),
+                        label: inst.label.clone(),
+                        ..Default::default()
+                    };
+                    if let Some((solved, secs)) = prev.get(&format!("{variant}/{}", inst.label)) {
+                        c.prev_solved = Some(*solved);
+                        c.prev_secs = *secs;
+                    }
+                    if let Some(r) = b.rows.get(&key) {
+                        c.this_solved = Some(r.solved);
+                        c.this_secs = r.time.as_ref().and_then(|t| t.as_f64());
+                        let banked = b.banked.contains(&key);
+                        c.cell = match (r.solved, banked) {
+                            _ if r.val == Some(false) => Cell::Error,
+                            (true, _) => Cell::SolvedClean,
+                            (false, true) => Cell::TimeoutBanked,
+                            (false, false) => Cell::Owed,
+                        };
+                        c.attempt = 1;
+                    }
+                    c
+                })
+                .collect();
+            rows.push(BoardRow {
+                id: b.spec.id.clone(),
+                label: b.spec.label.clone(),
+                budget_secs: cfg.timeout_secs,
+                threads: cfg.threads,
+                cells,
+            });
+            ids.push(b.ids);
+        }
+        let mut g = p.lock().unwrap();
+        g.boards = rows;
+        g.ids = ids;
+    }
+
+    fn progress_cell(
+        &self,
+        idx: usize,
+        i: usize,
+        f: impl FnOnce(&mut crate::tui::app::InstanceCell),
+    ) {
+        if let Some(p) = &self.progress {
+            let mut g = p.lock().unwrap();
+            if let Some(c) = g.boards.get_mut(idx).and_then(|b| b.cells.get_mut(i)) {
+                f(c);
+            }
+        }
     }
 
     /// The restart: every row and every clean verdict the database already
@@ -376,7 +1164,7 @@ impl<'a> SweepRunner<'a> {
                 .context("resolving the board in the database")?;
             b.ids = Some((bid, eid));
             let rows = ctx.reader.export_rows(bid, eid)?;
-            let clean = ctx.reader.clean_instances(bid, eid)?;
+            let clean = ctx.reader.banked_instances(bid, eid)?;
             if rows.is_empty() {
                 continue;
             }
@@ -401,16 +1189,16 @@ impl<'a> SweepRunner<'a> {
             for (ipc, variant, label) in clean {
                 let key = instance_key(ipc.as_deref().unwrap_or(""), &variant, &label);
                 if known.contains(&key) {
-                    b.clean.insert(key);
+                    b.banked.insert(key);
                 }
             }
             b.reused = b.rows.len();
             if b.reused > 0 {
-                println!(
-                    "resume  {:<22} {} row(s) read back, {} clean -- {} still owed",
+                crate::say!(
+                    "resume  {:<22} {} row(s) read back, {} banked -- {} still owed",
                     b.spec.id,
                     b.reused,
-                    b.clean.len(),
+                    b.banked.len(),
                     b.remaining()
                 );
                 seeded.push(idx);
@@ -429,29 +1217,6 @@ impl<'a> SweepRunner<'a> {
     }
 
     /// Is the machine in its known-unattended window right now?
-    fn in_quiet_hours(&self) -> bool {
-        let cfg = crate::config::Config {
-            quiet_hours: self.quiet_hours.clone(),
-            ..Default::default()
-        };
-        cfg.in_quiet_hours(minutes_past_midnight())
-    }
-
-    /// The busiest game process, if any. Presence alone is never enough --
-    /// Steam idles in the background for weeks, and suspending a three-day
-    /// sweep because a launcher is open would be its own kind of failure.
-    fn games(&self) -> monitor::GameState {
-        let ps = std::process::Command::new("ps")
-            .args(["-Ao", "pid,ppid,pcpu,comm"])
-            .output()
-            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-            .unwrap_or_default();
-        let procs = monitor::games::snapshot(&self.plat, &ps);
-        monitor::GameState {
-            busiest: monitor::GameRules::default().busiest(&procs),
-        }
-    }
-
     /// Write the board's raw and its summary, in the corpus's canonical order.
     ///
     /// After EVERY attempt, not only at the end. `ipc67.py` opens its raw with
@@ -503,10 +1268,6 @@ impl<'a> SweepRunner<'a> {
             std::fs::remove_file(&done)?;
         }
         Ok(())
-    }
-
-    fn sample(&self) -> Sample {
-        sample_box(&self.plat)
     }
 
     /// The `.done` marker's provenance: what this attempt measured, what it
@@ -575,182 +1336,77 @@ impl Runner for SweepRunner<'_> {
         let _ = std::fs::create_dir_all(&self.stage);
         let pass_started = now_epoch();
 
-        let (_tx, rx) = mpsc::channel::<Ctl>();
-        let mut banked = 0usize;
-        let mut ran = 0usize;
-        let mut all_dirty = true;
         let todo: Vec<usize> = (0..self.boards[idx].instances.len())
             .filter(|i| {
                 let (ipc, variant, inst) = &self.boards[idx].instances[*i];
                 !self.boards[idx]
-                    .clean
+                    .banked
                     .contains(&instance_key(ipc, variant, &inst.label))
             })
             .collect();
 
-        for i in todo {
-            if self.stop {
-                break;
-            }
-            // Admission: the box must be FULL, and have been for a dwell. A
-            // board started under load is a board measured under load.
-            let s = self.sample();
-            // Overnight the game check is skipped: nobody is playing at 04:00,
-            // so it is a source of false positives rather than of signal.
-            // Nothing else about the box's judgement moves with the clock -- a
-            // Time Machine run at 3am depresses coverage exactly as much as one
-            // at 3pm, and the numbers have to be comparable regardless.
-            let games = if self.in_quiet_hours() && self.quiet_hours.skip_game_check {
-                Default::default()
-            } else {
-                self.games()
-            };
-            self.throttle.on_sample(&s, &games, Instant::now());
-            let dirty_now =
-                !s.is_clean() || (self.quiet_only && self.throttle.level() != Level::Full);
-
-            let (ipc, variant, inst) = self.boards[idx].instances[i].clone();
-            let key = instance_key(&ipc, &variant, &inst.label);
-
-            // The live-child record goes to disk the moment the child exists:
-            // a `kill -9` of this process between here and the run's end
-            // leaves a row the next startup reaps by identity, instead of a
-            // planner nobody owns burning a core until the wall.
-            let register = |pid: Pid, at: f64| {
-                let Some(ctx) = &self.db else {
-                    return;
-                };
-                let Some(id) = self.plat.proc_identity(pid) else {
-                    return;
-                };
-                // The identity is the KERNEL's reading of the process, both
-                // halves -- never the path this process configured. The
-                // kernel canonicalises (`/var` is `/private/var` on Darwin),
-                // and a reaper comparing a configured path against a live
-                // one would spare every orphan as a stranger.
-                let child = db::LiveChild {
-                    pid,
-                    pgid: pid,
-                    run_id: None,
-                    binary_path: id.path.clone(),
-                    proc_start_tvsec: id.start_tvsec,
-                    spawned_at: at,
-                    stopped: false,
-                };
-                if let Err(e) = ctx.db.writer().child_spawned(child) {
-                    eprintln!("!! could not register child {pid}: {e}");
-                }
-            };
-            let m = crucible_core::sweep::measure(
-                &self.engine,
-                &cfg,
-                &ipc,
-                &variant,
-                &inst,
-                self.val.as_deref(),
-                &plan_dir,
-                &self.plat,
-                &rx,
-                self.db.as_ref().map(|_| &register as &dyn Fn(Pid, f64)),
+        // THE CASCADE (decision 2026-09-05): what the predecessor solved fast
+        // runs packed as wide as the cores and the memory allow; a packed
+        // miss falls to the narrow batch; a narrow miss runs solo. All in
+        // this pass, so packing can only ever cost time.
+        let (wide, mut narrow, mut solo) = self.classify(idx, &cfg, &todo);
+        let mut stats = PassStats::default();
+        if !wide.is_empty() {
+            crate::say!(
+                "   {:<22} packed: {} wide x{} ({:.1} GB budget), {} narrow, {} solo",
+                self.boards[idx].spec.id,
+                wide.len(),
+                self.pack.width,
+                self.mem_budget() as f64 / (1u64 << 30) as f64,
+                narrow.len(),
+                solo.len()
             );
-            ran += 1;
-
-            let clean = match &self.db {
-                None => {
-                    // The pre-database rule, kept bit for bit under --no-db:
-                    // a before/after pair, and nothing in between.
-                    let after = self.sample();
-                    !dirty_now && after.is_clean() && m.clock_jump.is_zero()
-                }
-                Some(ctx) => {
-                    let w = ctx.db.writer();
-                    if let Some(pid) = m.pid {
-                        let _ = w.child_gone(pid);
-                    }
-                    let (bid, eid) = self.boards[idx]
-                        .ids
-                        .expect("a board with a database has resolved ids");
-                    let attempt = ctx
-                        .reader
-                        .next_attempt(bid, eid, Some(&ipc), &variant, &inst.label)
-                        .unwrap_or(1);
-                    let mut rec = db::RunRecord {
-                        board: self.boards[idx].key.clone(),
-                        board_facts: self.boards[idx].facts.clone(),
-                        engine: ctx.engine.clone(),
-                        engine_facts: ctx.engine_facts.clone(),
-                        attempt,
-                        state: db::RunState::Done,
-                        timing: db::TimingQuality::Unknown,
-                        val_reason: m.val_reason.and_then(db::ValReason::parse),
-                        row: m.row.clone(),
-                        measured: db::Measured {
-                            started_at: m.row.start_ts,
-                            finished_at: m.row.end_ts,
-                            wall_ms: Some(m.wall.as_millis() as u64),
-                            cpu_ms: Some(m.cpu_ms),
-                            suspended_ms: Some(m.suspended.as_millis() as u64),
-                            peak_rss: Some(m.peak_rss),
-                            mem_instrument: Some(m.mem_instrument.to_string()),
-                            exit_code: m.exit_code,
-                            term_signal: m.term_signal,
-                            pid: m.pid,
-                            pgid: m.pgid,
-                        },
-                    };
-                    // THE RECEIPT. Committed before the verdict is asked for,
-                    // in its own transaction, and this call waits for it.
-                    if let Err(e) = w.run(rec.clone()) {
-                        eprintln!("!! could not commit {key}: {e}");
-                    }
-                    // The verdict: every watcher sample within one interval of
-                    // the run's window under the clean line, and at least one
-                    // of them. Flush first -- the watcher's samples are batched
-                    // and the reader is a separate connection.
-                    let _ = w.flush();
-                    let gate = match (m.row.start_ts, m.row.end_ts) {
-                        (Some(s), Some(e)) => ctx
-                            .reader
-                            .window_gate(s, e, ctx.interval, None)
-                            .unwrap_or(db::Cleanliness::Uncovered),
-                        _ => db::Cleanliness::Uncovered,
-                    };
-                    let clean = gate == db::Cleanliness::Clean && m.clock_jump.is_zero();
-                    rec.timing = match gate {
-                        db::Cleanliness::Clean if clean => db::TimingQuality::Clean,
-                        db::Cleanliness::Clean | db::Cleanliness::Dirty => db::TimingQuality::Dirty,
-                        db::Cleanliness::Uncovered => db::TimingQuality::Unknown,
-                    };
-                    if let Err(e) = w.run(rec) {
-                        eprintln!("!! could not record the verdict for {key}: {e}");
-                    }
-                    clean
-                }
-            };
-
-            // The row is KEPT either way -- nothing is discarded for
-            // contention. It just does not count toward banking.
-            if clean {
-                self.boards[idx].clean.insert(key.clone());
-                banked += 1;
-                all_dirty = false;
-            }
-            // Written either way. The board is not banked, but the work is
-            // not lost -- and a later clean row supersedes this one under the
-            // same key.
-            self.boards[idx].rows.insert(key, m.row);
         }
+        let wide = self.expected_bytes(idx, &cfg, &wide);
+        let missed = self.run_batch(idx, &cfg, &plan_dir, wide, self.pack.width, &mut stats);
+        narrow.extend(missed);
+        let narrow = self.expected_bytes(idx, &cfg, &narrow);
+        let missed = self.run_batch(
+            idx,
+            &cfg,
+            &plan_dir,
+            narrow,
+            self.pack.narrow_width,
+            &mut stats,
+        );
+        solo.extend(missed);
+        let solo = self.expected_bytes(idx, &cfg, &solo);
+        let _ = self.run_batch(idx, &cfg, &plan_dir, solo, 1, &mut stats);
 
+        if !stats.tally.is_empty() {
+            let line: Vec<String> = stats
+                .tally
+                .iter()
+                .map(|(k, v)| format!("{k} {v}"))
+                .collect();
+            crate::say!(
+                "   {:<22} verdicts: {}",
+                self.boards[idx].spec.id,
+                line.join(", ")
+            );
+        }
         if let Err(e) = self.write_artifacts(idx) {
             eprintln!("!! could not write {}: {e}", self.boards[idx].spec.id);
         }
-        self.record_pass(idx, ran, pass_started);
+        self.record_pass(idx, stats.ran, pass_started);
 
         Attempt {
-            banked,
+            banked: stats.banked,
             remaining: self.boards[idx].remaining(),
-            dirty: all_dirty && banked == 0,
+            dirty: stats.all_dirty && stats.banked == 0,
         }
+    }
+
+    fn stopped(&mut self) -> bool {
+        if exec::interrupted() {
+            self.stop = true;
+        }
+        self.stop
     }
 
     fn wait(&mut self, backoff: Duration) -> Next {
@@ -759,11 +1415,18 @@ impl Runner for SweepRunner<'_> {
         }
         if let Some(max) = self.max_passes {
             if self.passes >= max {
-                println!("   (--max-passes {max} reached)");
+                crate::say!("   (--max-passes {max} reached)");
                 return Next::Stop;
             }
         }
-        std::thread::sleep(backoff.min(Duration::from_secs(60)));
+        let until = Instant::now() + backoff.min(Duration::from_secs(60));
+        while Instant::now() < until {
+            if exec::interrupted() {
+                self.stop = true;
+                return Next::Stop;
+            }
+            std::thread::sleep(Duration::from_secs(1));
+        }
         Next::Continue
     }
 
@@ -773,7 +1436,7 @@ impl Runner for SweepRunner<'_> {
         match event {
             Event::PassStarted { pass, boards } => {
                 self.passes = pass;
-                println!("== pass {pass} -- {} board(s) outstanding", boards.len())
+                crate::say!("== pass {pass} -- {} board(s) outstanding", boards.len())
             }
             Event::Attempted {
                 board,
@@ -781,7 +1444,7 @@ impl Runner for SweepRunner<'_> {
                 before,
                 after,
                 dirty,
-            } => println!(
+            } => crate::say!(
                 "   {board:<22} banked {banked:>4}   {before} -> {after}{}",
                 if dirty {
                     "   [DEGRADED -- not banked, work owed]"
@@ -790,26 +1453,28 @@ impl Runner for SweepRunner<'_> {
                 }
             ),
             Event::Unproductive { board, remaining } => {
-                println!("!! {board}: no progress and the box was quiet -- {remaining} still owed")
+                crate::say!(
+                    "!! {board}: no progress and the box was quiet -- {remaining} still owed"
+                )
             }
             Event::Grew {
                 board,
                 before,
                 after,
             } => {
-                println!("!! {board}: remaining GREW {before} -> {after} -- a runner bug")
+                crate::say!("!! {board}: remaining GREW {before} -> {after} -- a runner bug")
             }
             Event::Stalled {
                 consecutive,
                 backoff,
                 remaining,
-            } => println!(
+            } => crate::say!(
                 "!! stalled after {consecutive} passes; backing off {backoff:?}, {remaining} owed"
             ),
             Event::Finished { passes, banked } => {
-                println!("SWEEP COMPLETE -- {banked} banked in {passes} pass(es)")
+                crate::say!("SWEEP COMPLETE -- {banked} banked in {passes} pass(es)")
             }
-            Event::Stopped { passes, remaining } => println!(
+            Event::Stopped { passes, remaining } => crate::say!(
                 "stopped after {passes} pass(es); {remaining} still owed -- \
                  the next run picks them up"
             ),
@@ -821,6 +1486,9 @@ impl Runner for SweepRunner<'_> {
 /// How this invocation differs from a plain resident sweep.
 pub struct Opts<'a> {
     pub set: &'a str,
+    /// Print the log instead of hosting the dashboard. The default when
+    /// stdout is not a terminal.
+    pub headless: bool,
     /// Refuse unless the binary reports this. The gate every sweep driver opens
     /// with: measure the CANDIDATE, not whatever happens to be built. `None`
     /// defers to the set's own `requires_version`.
@@ -834,29 +1502,602 @@ pub struct Opts<'a> {
     pub no_db: bool,
 }
 
+/// What the sweep publishes for the dashboard: every board's cells, the
+/// run in flight, and where the database is. Written by the runner at each
+/// instance's start and end, read by the UI thread once per tick. Nothing
+/// here blocks a measurement: the lock is held for a map update.
+#[derive(Default)]
+pub struct Progress {
+    pub boards: Vec<crate::tui::app::BoardRow>,
+    /// Every run in flight, one per worker slot.
+    pub running: Vec<Running>,
+    pub db_path: Option<PathBuf>,
+    pub engine_ver: String,
+    pub engine_hash: String,
+    pub started: Option<Instant>,
+    /// Instances banked, with the time they banked at: the throughput line.
+    pub banked_at: Vec<Instant>,
+    /// `(board id, engine id)` per board, for the UI's own reader.
+    pub ids: Vec<Option<(i64, i64)>>,
+    pub finished: bool,
+}
+
+pub struct Running {
+    pub slot: usize,
+    pub board: usize,
+    pub inst: usize,
+    pub pid: Option<Pid>,
+    pub started: Instant,
+    pub budget: Duration,
+}
+
+pub type ProgressHandle = Arc<Mutex<Progress>>;
+
+/// What the watcher thread publishes and the runner reads: the throttle
+/// level, and the control channel of the child that is running right now.
+/// R1 computed the throttle and never delivered it -- `attempt()` built its
+/// channel as `let (_tx, rx)` and dropped the sender on the spot, so
+/// SUSPENDED never reached a planner (`crucible-spec.md` R2.0). This is the
+/// sender, kept.
+pub struct Shared {
+    level: Mutex<(Level, Option<String>)>,
+    /// Every running child's control channel, by attachment id. A throttle
+    /// transition or a canary pause reaches all of them.
+    children: Mutex<Vec<(u64, mpsc::Sender<Ctl>)>>,
+    next_id: std::sync::atomic::AtomicU64,
+    /// May we demote children right now? Set by the watcher: TRUE only
+    /// while the operator is actually at the keyboard. Demotion buys the
+    /// operator a responsive box and costs the measurement its meaning
+    /// (Darwin's background band is an efficiency core, 13x slower here),
+    /// so it is spent only when someone is there to benefit.
+    demote_ok: AtomicBool,
+    /// The canary is reading: nothing of ours may START until it is done.
+    /// Pausing the attached children is not enough with ten workers cycling
+    /// through short instances -- the next spawn lands inside the reading.
+    hold: AtomicBool,
+    /// The canary's latest clock factor and when it was read.
+    canary: Mutex<Option<(f64, Instant)>>,
+    /// The width policy's answer right now (`policy_width`).
+    width: std::sync::atomic::AtomicUsize,
+}
+
+impl Shared {
+    pub fn new() -> Arc<Shared> {
+        Arc::new(Shared {
+            level: Mutex::new((Level::Full, None)),
+            children: Mutex::new(Vec::new()),
+            next_id: std::sync::atomic::AtomicU64::new(1),
+            demote_ok: AtomicBool::new(false),
+            hold: AtomicBool::new(false),
+            canary: Mutex::new(None),
+            width: std::sync::atomic::AtomicUsize::new(usize::MAX),
+        })
+    }
+
+    /// Planners allowed right now; `usize::MAX` until the watcher has said.
+    pub fn width(&self) -> usize {
+        self.width.load(Ordering::Relaxed)
+    }
+
+    pub fn set_width(&self, w: usize) {
+        self.width.store(w, Ordering::Relaxed);
+    }
+
+    pub fn set_demote_ok(&self, on: bool) {
+        self.demote_ok.store(on, Ordering::Relaxed);
+    }
+
+    pub fn demote_ok(&self) -> bool {
+        self.demote_ok.load(Ordering::Relaxed)
+    }
+
+    pub fn hold(&self, on: bool) {
+        self.hold.store(on, Ordering::Relaxed);
+    }
+
+    pub fn held(&self) -> bool {
+        self.hold.load(Ordering::Relaxed)
+    }
+
+    /// How many of our own planners are attached right now.
+    pub fn attached(&self) -> usize {
+        self.children.lock().unwrap().len()
+    }
+
+    pub fn canary(&self) -> Option<f64> {
+        self.canary.lock().unwrap().map(|(f, _)| f)
+    }
+
+    pub fn set_canary(&self, factor: f64) {
+        *self.canary.lock().unwrap() = Some((factor, Instant::now()));
+    }
+
+    pub fn level(&self) -> Level {
+        self.level.lock().unwrap().0
+    }
+
+    pub fn reason(&self) -> Option<String> {
+        self.level.lock().unwrap().1.clone()
+    }
+
+    pub fn set_level(&self, level: Level, reason: Option<String>) {
+        *self.level.lock().unwrap() = (level, reason);
+    }
+
+    /// Register the running child's channel. A child that starts while the
+    /// box is already POLITE is told so at once, rather than at the next
+    /// transition.
+    pub fn attach(&self, tx: mpsc::Sender<Ctl>) -> u64 {
+        for c in ctl_for(Level::Full, self.level(), self.demote_ok()) {
+            let _ = tx.send(c);
+        }
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        self.children.lock().unwrap().push((id, tx));
+        id
+    }
+
+    pub fn detach(&self, id: u64) {
+        self.children.lock().unwrap().retain(|(i, _)| *i != id);
+    }
+
+    /// To every attached child.
+    pub fn send(&self, c: Ctl) {
+        for (_, tx) in self.children.lock().unwrap().iter() {
+            let _ = tx.send(c);
+        }
+    }
+}
+
+/// How many of our own planners may run right now. The night, or an idle
+/// box, starts from every core; a box the operator is using by day from
+/// the P-cores; foreign load then takes back the cores it is actually
+/// using (56 % of a core is one core, not nine -- the POLITE line is a
+/// quarter of a core and is this desktop's resting state); SUSPENDED is
+/// none. Never below one: the referee, not the width, decides whether a
+/// row measured beside foreign load counts.
+pub fn policy_width(
+    level: Level,
+    quiet_hours: bool,
+    user_idle_secs: Option<f64>,
+    foreign_pcpu: f64,
+    pack: &Pack,
+) -> usize {
+    if level == Level::Suspended {
+        return 0;
+    }
+    let at_the_box = user_idle_secs.is_some_and(|i| i < pack.user_active_secs);
+    let base = if quiet_hours || !at_the_box {
+        pack.width
+    } else {
+        pack.width_day.min(pack.width)
+    };
+    let foreign_cores = (foreign_pcpu.max(0.0) / 100.0).ceil() as usize;
+    base.saturating_sub(foreign_cores).max(1)
+}
+
+/// What a throttle transition tells the running child.
+pub fn ctl_for(from: Level, to: Level, demote_ok: bool) -> Vec<Ctl> {
+    // POLITE narrows the WIDTH always (policy_width); it moves children into
+    // the background band only when the operator is at the keyboard. A
+    // demoted run is not a measurement -- the referee refuses to bank an
+    // unsolved one -- so the trade is made explicitly: responsiveness while
+    // someone is there, honest numbers when nobody is.
+    let demote = |v: Vec<Ctl>| -> Vec<Ctl> {
+        if demote_ok {
+            v
+        } else {
+            v.into_iter().filter(|c| *c != Ctl::Demote).collect()
+        }
+    };
+    match (from, to) {
+        (Level::Suspended, Level::Suspended) => vec![],
+        (_, Level::Suspended) => vec![Ctl::Stop],
+        (Level::Suspended, Level::Polite) => demote(vec![Ctl::Cont, Ctl::Demote]),
+        (Level::Suspended, Level::Full) => vec![Ctl::Cont, Ctl::Promote],
+        (Level::Full, Level::Polite) => demote(vec![Ctl::Demote]),
+        (Level::Polite, Level::Full) => vec![Ctl::Promote],
+        (Level::Full, Level::Full) | (Level::Polite, Level::Polite) => vec![],
+    }
+}
+
+fn level_str(l: Level) -> &'static str {
+    match l {
+        Level::Full => "full",
+        Level::Polite => "polite",
+        Level::Suspended => "suspended",
+    }
+}
+
+/// The throttle's configuration, from the operator's `[contention]` table.
+/// The polite threshold is the clean line itself, so the throttle and the
+/// window gate cannot disagree about what "busy" means.
+pub fn throttle_config(c: &crate::config::Contention) -> monitor::Config {
+    let secs = Duration::from_secs;
+    monitor::Config {
+        polite_threshold_pct: monitor::SAMPLE_CLEAN_PCPU,
+        polite_dwell: secs(c.polite_dwell_secs),
+        suspend_threshold_pct: c.suspend_threshold_pct,
+        resume_dwell: secs(c.resume_dwell_secs),
+        game_cpu_threshold_pct: c.game_cpu_threshold_pct,
+        game_dwell: secs(c.game_dwell_secs),
+        swap_pressure_mb: c.swap_pressure_mb,
+    }
+}
+
+/// The busiest game process, if any. Presence alone is never enough --
+/// Steam idles in the background for weeks, and suspending a three-day
+/// sweep because a launcher is open would be its own kind of failure.
+fn games_now(plat: &platform::Host) -> monitor::GameState {
+    let ps = std::process::Command::new("ps")
+        .args(["-Ao", "pid,ppid,pcpu,comm"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default();
+    let procs = monitor::games::snapshot(plat, &ps);
+    monitor::GameState {
+        busiest: monitor::GameRules::default().busiest(&procs),
+    }
+}
+
+/// The canary (`crucible-spec.md` R2.3): one fixed, fast, low-variance
+/// instance, run solo `baseline_n` times before the first child to set the
+/// baseline (the FASTEST of them -- the least-disturbed reading), then once
+/// every `interval` beside whatever is running. Its wall over the baseline
+/// is the box's clock factor, stamped on every sample the watcher takes
+/// until the next reading, and read back by the referee over a run's
+/// window. This is the instrument for what `rho` cannot see: the packing
+/// calibration put four planners on four P-cores, each at rho 0.99, and
+/// they ran 1.73x slower than solo.
+pub struct Canary {
+    argv: Vec<String>,
+    envs: Vec<(std::ffi::OsString, std::ffi::OsString)>,
+    program: PathBuf,
+    baseline: Option<Duration>,
+    baseline_n: u32,
+    interval: Duration,
+    max_factor: f64,
+    label: String,
+}
+
+impl Canary {
+    /// `None` when the configured instance is not on disk: a sweep on a box
+    /// without the corpus variant runs without a clock, and says so.
+    /// The label carries the engine's hash: the canary's time is a
+    /// property of the ENGINE as much as the box (the 0.27 successor
+    /// generator solved it 2.3x faster than 0.26), so its history and its
+    /// baseline are per engine, never shared across them.
+    pub fn resolve(
+        repo: &Path,
+        engine: &Path,
+        engine_hash: &str,
+        r: &crate::config::Referee,
+    ) -> Option<Canary> {
+        let corpus_dir = std::env::var_os("FERROPLAN_IPC_CORPUS")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| repo.join("benchmarks/.ipc-corpus"));
+        let vdir = corpus_dir
+            .join(&r.canary_ipc)
+            .join("domains")
+            .join(&r.canary_variant);
+        let problem = vdir
+            .join("instances")
+            .join(format!("instance-{}.pddl", r.canary_instance));
+        let mut domain = vdir.join("domain.pddl");
+        if !domain.exists() {
+            let first: String = r
+                .canary_instance
+                .chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect();
+            domain = vdir.join("domains").join(format!("domain-{first}.pddl"));
+        }
+        if !problem.exists() || !domain.exists() {
+            return None;
+        }
+        let cfg = BoardCfg {
+            timeout_secs: 30,
+            mode: None,
+            jobs: 1,
+            threads: 1,
+            mem_gb: 2.0,
+            env: Default::default(),
+            extra_args: vec![],
+        };
+        Some(Canary {
+            argv: crucible_core::sweep::argv(&cfg, &domain, &problem),
+            envs: crucible_core::exec::env::build(30, 2.0, &Default::default()),
+            program: engine.to_path_buf(),
+            baseline: None,
+            baseline_n: r.canary_baseline_n.max(1),
+            interval: Duration::from_secs(r.canary_interval_secs.max(60)),
+            max_factor: r.canary_max_factor,
+            label: format!("{}/{}@{engine_hash}", r.canary_variant, r.canary_instance),
+        })
+    }
+
+    /// `on_spawn` REGISTERS THE CANARY'S CHILD (0.28), the way every planner
+    /// already was. Without it the canary wrote no `live_child` row, so a
+    /// hard kill during a canary read -- and the canary runs at sweep start
+    /// and every 20 minutes after -- left an orphan that no later startup
+    /// could reap by identity. The one process whose job is to measure
+    /// whether the box is clean was the one that could dirty it invisibly.
+    fn run_once(&self, on_spawn: Option<&dyn Fn(Pid, f64)>) -> Option<Duration> {
+        let (_tx, rx) = mpsc::channel::<Ctl>();
+        let plat = platform::host();
+        let out = exec::run(
+            &exec::RunRequest {
+                program: &self.program,
+                args: &self.argv,
+                envs: &self.envs,
+                timeout: Duration::from_secs(30),
+                mem_cap: crucible_core::platform::MemCap::Off,
+                on_spawn,
+            },
+            &plat,
+            &rx,
+        )
+        .ok()?;
+        if out.killed.is_some() || out.exit_code != Some(0) {
+            return None;
+        }
+        Some(out.effective)
+    }
+
+    /// The baseline: a low PERCENTILE of this box's recent solo readings
+    /// (`prior`, from `Reader::canary_baseline`) against `baseline_n` runs
+    /// taken now, each recorded through `record`.
+    ///
+    /// NOT the fastest ever, and not the fastest of five at start. The
+    /// all-time minimum spent a night of the 0.27 cut sweep refusing every
+    /// timeout: five 0.52 s readings out of 174 against the box's ordinary
+    /// 0.77 s meant every later reading was 1.49x and nothing could be
+    /// clean. The fastest-of-five is the opposite failure -- a sweep that
+    /// starts on a slow morning is lenient all day. A percentile of the
+    /// recent window is what the box actually does.
+    pub fn calibrate(
+        &mut self,
+        prior: Option<f64>,
+        record: &dyn Fn(f64),
+        on_spawn: Option<&dyn Fn(Pid, f64)>,
+    ) -> Option<Duration> {
+        let mut now: Vec<f64> = Vec::new();
+        for _ in 0..self.baseline_n {
+            if let Some(d) = self.run_once(on_spawn) {
+                let secs = d.as_secs_f64();
+                record(secs);
+                now.push(secs);
+            }
+        }
+        now.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        // The median of this start's runs, and the history's percentile;
+        // the SLOWER of the two, so neither a lucky boost clock nor a
+        // single slow start can set an unreachable line.
+        let mine = now.get(now.len() / 2).copied();
+        self.baseline = match (prior, mine) {
+            (Some(p), Some(m)) => Some(p.max(m)),
+            (a, b) => a.or(b),
+        }
+        .map(Duration::from_secs_f64);
+        self.baseline
+    }
+
+    /// One reading: `(secs, secs / baseline)`. The baseline does not move
+    /// within a run -- a faster reading is information about the box, not
+    /// a new line to hold every later row to.
+    pub fn read(&mut self, on_spawn: Option<&dyn Fn(Pid, f64)>) -> Option<(f64, f64)> {
+        let base = self.baseline?;
+        let secs = self.run_once(on_spawn)?.as_secs_f64();
+        Some((secs, secs / base.as_secs_f64().max(0.001)))
+    }
+
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+}
+
 /// The box-wide contention timeline: one sample every interval, for as long
 /// as the sweep runs, written to the database as telemetry -- batched, and
 /// allowed to be lost, unlike a run row. This is what `window_gate` reads.
+///
+/// Since R2 the watcher also OWNS the throttle: every sample is judged, a
+/// transition is published through [`Shared`], delivered to the running
+/// child as a `Ctl`, logged as an event and bracketed as a throttle window.
 struct Watcher {
     stop: Arc<AtomicBool>,
     join: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Watcher {
-    fn start(writer: db::WriterHandle, interval: Duration) -> Watcher {
+    fn start(
+        writer: db::WriterHandle,
+        interval: Duration,
+        shared: Arc<Shared>,
+        throttle_cfg: monitor::Config,
+        quiet_hours: crate::config::QuietHours,
+        mut canary: Option<Canary>,
+        pack: Pack,
+    ) -> Watcher {
         let stop = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&stop);
         let join = std::thread::Builder::new()
             .name("crucible-watch".into())
             .spawn(move || {
                 let plat = platform::host();
+                let mut throttle = Throttle::new(throttle_cfg);
                 let mut next = Instant::now();
+                let mut window: Option<i64> = None;
+                let mut next_canary = canary.as_ref().map(|c| Instant::now() + c.interval);
                 while !flag.load(Ordering::Relaxed) {
+                    if let (Some(c), Some(t)) = (&mut canary, next_canary) {
+                        if Instant::now() >= t {
+                            // The canary measures the BOX, so our own planner
+                            // is paused for its two seconds: beside one
+                            // neighbour it read 1.14x on an idle box (the
+                            // calibration's +23 % for a single neighbour),
+                            // beside an mco board's eight threads 1.42x.
+                            // Suspended time is not charged to the run.
+                            let pause = shared.level() != Level::Suspended;
+                            let paused = shared.attached();
+                            shared.hold(true);
+                            if pause {
+                                shared.send(Ctl::Stop);
+                                std::thread::sleep(Duration::from_millis(400));
+                            }
+                            // Register the canary's child so a hard kill
+                            // during its read leaves something reapable
+                            // (0.28).
+                            let plat_reg = platform::host();
+                            let reg = |pid: Pid, at: f64| {
+                                let Some(id) = plat_reg.proc_identity(pid) else {
+                                    return;
+                                };
+                                let child = db::LiveChild {
+                                    pid,
+                                    pgid: pid,
+                                    run_id: None,
+                                    binary_path: id.path.clone(),
+                                    proc_start_tvsec: id.start_tvsec,
+                                    spawned_at: at,
+                                    stopped: false,
+                                };
+                                if let Err(e) = writer.child_spawned(child) {
+                                    eprintln!("!! could not register the canary child {pid}: {e}");
+                                }
+                            };
+                            let reading = c.read(Some(&reg as &dyn Fn(Pid, f64)));
+                            if pause && shared.level() != Level::Suspended {
+                                shared.send(Ctl::Cont);
+                            }
+                            shared.hold(false);
+                            if let Some((secs, _)) = reading {
+                                writer.canary(now_epoch(), c.label().to_string(), secs, pause);
+                            }
+                            if let Some((_, f)) = reading {
+                                shared.set_canary(f);
+                                let slow = f > c.max_factor;
+                                if slow {
+                                    crate::say!(
+                                        "!! canary {} at {f:.2}x its baseline -- the box is slow",
+                                        c.label
+                                    );
+                                }
+                                writer.event(db::EventRec {
+                                    at: now_epoch(),
+                                    level: if slow { "warn" } else { "info" },
+                                    kind: "canary",
+                                    run_id: None,
+                                    board_id: None,
+                                    message: format!(
+                                        "{} clock factor {f:.3} ({paused} of ours paused)",
+                                        c.label
+                                    ),
+                                });
+                            }
+                            // Under foreign load the box changes faster than
+                            // twenty minutes: read four times as often.
+                            let every = if shared.level() == Level::Full {
+                                c.interval
+                            } else {
+                                c.interval / 4
+                            };
+                            next_canary = Some(Instant::now() + every);
+                        }
+                    }
                     if Instant::now() >= next {
-                        writer.sample(db::SampleRec::of(&sample_box(&plat)));
+                        let s = sample_box(&plat);
+                        let mut rec = db::SampleRec::of(&s);
+                        rec.canary_factor = shared.canary();
+                        writer.sample(rec);
+                        // Overnight the game check is skipped: nobody is
+                        // playing at 04:00, so it is a source of false
+                        // positives rather than of signal.
+                        let qcfg = crate::config::Config {
+                            quiet_hours: quiet_hours.clone(),
+                            ..Default::default()
+                        };
+                        let quiet_now = qcfg.in_quiet_hours(minutes_past_midnight());
+                        let games = if quiet_now && quiet_hours.skip_game_check {
+                            Default::default()
+                        } else {
+                            games_now(&plat)
+                        };
+                        if let Some(t) = throttle.on_sample(&s, &games, Instant::now()) {
+                            let reason = format!("{:?}", t.reason);
+                            shared.set_level(t.to, Some(reason.clone()));
+                            for c in ctl_for(t.from, t.to, shared.demote_ok()) {
+                                shared.send(c);
+                            }
+                            let at = now_epoch();
+                            crate::say!(
+                                "!! throttle {} -> {} ({reason})",
+                                level_str(t.from),
+                                level_str(t.to)
+                            );
+                            writer.event(db::EventRec {
+                                at,
+                                level: if t.to == Level::Full { "info" } else { "warn" },
+                                kind: "throttle",
+                                run_id: None,
+                                board_id: None,
+                                message: format!(
+                                    "{} -> {}: {reason}",
+                                    level_str(t.from),
+                                    level_str(t.to)
+                                ),
+                            });
+                            if let Some(id) = window.take() {
+                                let _ = writer.throttle_close(id, at);
+                            }
+                            if t.to != Level::Full {
+                                window = writer
+                                    .throttle_open(db::ThrottleWindowRec {
+                                        level: level_str(t.to),
+                                        started_at: at,
+                                        ended_at: None,
+                                        reason: Some(reason),
+                                    })
+                                    .ok();
+                            }
+                        }
+                        // The width policy, every sample: the level, the
+                        // hour, and whether anyone is at the keyboard.
+                        let idle = plat.user_idle_secs();
+                        // Demotion is for a human who is actually here.
+                        shared.set_demote_ok(idle.is_some_and(|i| i < pack.user_active_secs));
+                        let allowed = policy_width(
+                            shared.level(),
+                            quiet_now,
+                            idle,
+                            s.competitors_total,
+                            &pack,
+                        );
+                        if allowed != shared.width() {
+                            crate::say!(
+                                "!! width {} -> {} ({}{}{}, foreign {:.0}%)",
+                                if shared.width() == usize::MAX {
+                                    "-".to_string()
+                                } else {
+                                    shared.width().to_string()
+                                },
+                                allowed,
+                                level_str(shared.level()),
+                                if quiet_now { ", quiet hours" } else { "" },
+                                match idle {
+                                    Some(i) if i < pack.user_active_secs =>
+                                        format!(", operator active {i:.0}s ago"),
+                                    Some(i) => format!(", idle {i:.0}s"),
+                                    None => String::new(),
+                                },
+                                s.competitors_total,
+                            );
+                            shared.set_width(allowed);
+                        }
                         next += interval;
                     }
                     std::thread::sleep(Duration::from_millis(250));
+                }
+                if let Some(id) = window.take() {
+                    let _ = writer.throttle_close(id, now_epoch());
                 }
             })
             .expect("spawning the contention watcher");
@@ -890,7 +2131,7 @@ fn open_db(cfg: &crate::config::Config, engine: &crate::repo::Engine) -> anyhow:
     let plat = platform::host();
     let orphans = reader.live_children()?;
     if !orphans.is_empty() {
-        println!(
+        crate::say!(
             "reap    {} child(ren) recorded by an earlier run",
             orphans.len()
         );
@@ -909,14 +2150,14 @@ fn open_db(cfg: &crate::config::Config, engine: &crate::repo::Engine) -> anyhow:
         for r in orphan::reap(&children, &plat) {
             match &r {
                 orphan::Reaped::Killed { pid, pgid } => {
-                    println!("        killed {pid} (group {pgid}) -- verified ours")
+                    crate::say!("        killed {pid} (group {pgid}) -- verified ours")
                 }
-                orphan::Reaped::Vanished { pid } => println!("        {pid} already gone"),
+                orphan::Reaped::Vanished { pid } => crate::say!("        {pid} already gone"),
                 orphan::Reaped::Recycled {
                     pid,
                     expected,
                     found,
-                } => println!(
+                } => crate::say!(
                     "        {pid} is somebody else's now ({found}, not {expected}) -- \
                      NOT signalled"
                 ),
@@ -958,6 +2199,11 @@ pub fn run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) -> anyhow::Res
 
 /// The sweep proper, for an engine already identified: the candidate (above)
 /// or a built tag (`backfill`). `stage` overrides the set's own staging dir.
+///
+/// Hosts the dashboard (`crucible-spec.md` R2.4) unless `--headless` or
+/// stdout is not a terminal: the sweep runs on a scoped thread, the UI on
+/// this one; `q` cancels the running child the way ^C does and the sweep
+/// stops with everything banked kept.
 pub fn run_engine(
     repo: &Path,
     cfg: &crate::config::Config,
@@ -966,9 +2212,74 @@ pub fn run_engine(
     engine: crate::repo::Engine,
     stage: Option<PathBuf>,
 ) -> anyhow::Result<()> {
+    let tui = !o.headless && !o.dry_run && std::io::IsTerminal::is_terminal(&std::io::stdout());
+    let shared = Shared::new();
+    if !tui {
+        return sweep_body(repo, cfg, o, manifest, engine, stage, shared, None);
+    }
+    let progress: ProgressHandle = Arc::new(Mutex::new(Progress {
+        engine_ver: engine.ver.clone(),
+        engine_hash: engine.short_hash(),
+        started: Some(Instant::now()),
+        ..Default::default()
+    }));
+    crate::out::quiet(true);
+    let result = std::thread::scope(|sc| {
+        let body = {
+            let shared = Arc::clone(&shared);
+            let progress = Arc::clone(&progress);
+            sc.spawn(move || {
+                let r = sweep_body(
+                    repo,
+                    cfg,
+                    o,
+                    manifest,
+                    engine,
+                    stage,
+                    shared,
+                    Some(Arc::clone(&progress)),
+                );
+                progress.lock().unwrap().finished = true;
+                r
+            })
+        };
+        let mut feed = crate::tui::feed::Feed::new(Arc::clone(&progress), Arc::clone(&shared));
+        let ui = crate::tui::run::run(
+            cfg.ui.fps,
+            &cfg.ui.banner_text,
+            |prev| feed.next(prev),
+            |action, _| {
+                if action == crate::tui::run::Action::Quit {
+                    exec::set_interrupted(true);
+                }
+            },
+        );
+        // The screen is given back before the sweep is joined, so the
+        // operator sees the stop happen rather than a frozen frame.
+        drop(ui);
+        body.join()
+            .unwrap_or_else(|_| Err(anyhow::anyhow!("the sweep thread panicked")))
+    });
+    crate::out::quiet(false);
+    crate::out::flush_to_stdout();
+    result
+}
+
+#[allow(clippy::too_many_arguments)]
+fn sweep_body(
+    repo: &Path,
+    cfg: &crate::config::Config,
+    o: Opts<'_>,
+    manifest: &Manifest,
+    engine: crate::repo::Engine,
+    stage: Option<PathBuf>,
+    shared: Arc<Shared>,
+    progress: Option<ProgressHandle>,
+) -> anyhow::Result<()> {
     let Opts {
         set,
         require_version: _,
+        headless: _,
         quiet_only,
         dry_run,
         max_passes,
@@ -983,18 +2294,91 @@ pub fn run_engine(
     }
     // A three-day sweep that sleeps at hour four is not a sweep.
     let _awake = platform::host().keep_awake();
+    // ^C or SIGTERM cancels the running child (SIGTERM, grace, SIGKILL to
+    // its group) and stops the loop with everything banked kept. The 0.26
+    // sweep was stopped with SIGTERM and left its planner under pid 1.
+    exec::install_interrupt_handler();
 
-    println!("engine  {} [{}]", engine.ver, engine.short_hash());
+    crate::say!("engine  {} [{}]", engine.ver, engine.short_hash());
     let dbctx = if dry_run || no_db {
         None
     } else {
         Some(open_db(cfg, &engine)?)
     };
+    // The canary's baseline is taken NOW, solo, before any child exists.
+    let canary = if dry_run {
+        None
+    } else {
+        match Canary::resolve(repo, &engine.path, &engine.short_hash(), &cfg.referee) {
+            Some(mut c) => {
+                // The recent window's 25th percentile: robust to a lucky
+                // boost clock at one end and a slow hour at the other.
+                let prior = dbctx.as_ref().and_then(|d| {
+                    d.reader
+                        .canary_baseline(c.label(), 100, 0.25)
+                        .ok()
+                        .flatten()
+                });
+                let label = c.label().to_string();
+                let record = |secs: f64| {
+                    if let Some(d) = &dbctx {
+                        d.db.writer().canary(now_epoch(), label.clone(), secs, true);
+                    }
+                };
+                match c.calibrate(prior, &record, None) {
+                    Some(b) => {
+                        crate::say!(
+                            "canary  {} baseline {:.3} s ({}); read every {} s, slow above {:.2}x",
+                            c.label(),
+                            b.as_secs_f64(),
+                            match prior {
+                                Some(p) => format!(
+                                    "p25 of the last 100 readings is {p:.3} s, against {} runs now",
+                                    c.baseline_n
+                                ),
+                                None => format!("median of {} runs, no history yet", c.baseline_n),
+                            },
+                            c.interval.as_secs(),
+                            c.max_factor
+                        );
+                        shared.set_canary(1.0);
+                        Some(c)
+                    }
+                    None => {
+                        eprintln!(
+                            "note: the canary {} did not solve; sweeping without a clock",
+                            c.label()
+                        );
+                        None
+                    }
+                }
+            }
+            None => {
+                eprintln!(
+                    "note: canary instance {}/{} not in the corpus; sweeping without a clock",
+                    cfg.referee.canary_variant, cfg.referee.canary_instance
+                );
+                None
+            }
+        }
+    };
+    if let (Some(p), Some(c)) = (&progress, &dbctx) {
+        p.lock().unwrap().db_path = Some(c.db.path().to_path_buf());
+    }
     let _watcher = dbctx.as_ref().map(|c| {
-        println!("db      {}", c.db.path().display());
+        crate::say!("db      {}", c.db.path().display());
         Watcher::start(
             c.db.writer().clone(),
             Duration::from_secs(cfg.contention.sample_interval_secs.max(1)),
+            Arc::clone(&shared),
+            throttle_config(&cfg.contention),
+            cfg.quiet_hours.clone(),
+            canary,
+            if quiet_only {
+                Pack::solo()
+            } else {
+                Pack::from_config(&cfg.scheduler)
+            },
         )
     });
 
@@ -1016,23 +2400,43 @@ pub fn run_engine(
             },
             val,
             quiet_only,
-            quiet_hours: cfg.quiet_hours.clone(),
             max_passes,
+            shared: Arc::clone(&shared),
+            rule: referee::Rule {
+                rho_min: cfg.referee.cpu_ratio_min,
+                rho_floor_ms: cfg.referee.rho_floor_ms,
+                rho_overhead_ms: cfg.referee.rho_overhead_ms,
+                swap_growth_mb: cfg.referee.swap_growth_mb,
+                canary_max_factor: cfg.referee.canary_max_factor,
+            },
+            admit_below_full: cfg.referee.admit_below_full,
+            progress: progress.clone(),
+            // --quiet-only is the R1 shape: one at a time, FULL only.
+            pack: if quiet_only {
+                Pack::solo()
+            } else {
+                Pack::from_config(&cfg.scheduler)
+            },
             capable: &|m| engine.supports_mode(m),
             db: dbctx,
             stage,
         },
     )?;
-    println!("set     {set}: {} instances", runner.total_instances());
+    crate::say!("set     {set}: {} instances", runner.total_instances());
 
     if dry_run {
         // Everything up to the first spawn: the boards, their row-identity
         // tuples, and how much work each owes. Enough to check a sweep before
         // committing days of the machine to it.
-        println!();
-        println!(
+        crate::say!();
+        crate::say!(
             "{:<22} {:>7} {:>5} {:>5} {:>7} {:<10} notes",
-            "board", "insts", "wall", "jobs", "threads", "mode"
+            "board",
+            "insts",
+            "wall",
+            "jobs",
+            "threads",
+            "mode"
         );
         for b in &runner.boards {
             let c = board_cfg(manifest, &b.spec);
@@ -1049,7 +2453,7 @@ pub fn run_engine(
             if !c.env.is_empty() {
                 notes.push(format!("env {:?}", c.env));
             }
-            println!(
+            crate::say!(
                 "{:<22} {:>7} {:>5} {:>5} {:>7} {:<10} {}",
                 b.spec.id,
                 b.instances.len(),
@@ -1060,8 +2464,8 @@ pub fn run_engine(
                 notes.join("; ")
             );
         }
-        println!();
-        println!("dry run -- nothing measured, nothing written");
+        crate::say!();
+        crate::say!("dry run -- nothing measured, nothing written");
         return Ok(());
     }
 
@@ -1072,16 +2476,57 @@ pub fn run_engine(
             ..Default::default()
         },
     );
+    // The instrument went missing mid-measurement (0.28). Everything measured
+    // before that is on disk and banked exactly as it was -- this is an error
+    // about the NEXT run, not about the rows already taken. Reported as one so
+    // a supervisor can rebuild the binary rather than retry into the same hole
+    // every five minutes.
+    if let Some(why) = runner.engine_gone.clone() {
+        crate::say!(
+            "{} instance(s) still owed -- rows are written, nothing is lost",
+            out.remaining
+        );
+        anyhow::bail!("the engine binary could not be run: {why}");
+    }
     if !out.complete {
         // NOT an error. A board that could not bank because the box was never
         // quiet has lost nothing -- every row it measured is on disk, and the
         // next run picks up exactly what is still owed.
-        println!(
+        crate::say!(
             "{} instance(s) still owed -- rows are written, nothing is lost",
             out.remaining
         );
     }
     Ok(())
+}
+
+/// THE BYTE BUDGET, as a policy rather than a constant (0.28).
+///
+/// A free function for the same reason `policy_width` is one: it is a rule
+/// about the operator, and a rule about the operator has to be testable
+/// without a box in a particular mood.
+///
+/// Width has always collapsed the at-the-box distinction -- an idle keyboard
+/// buys every logical core -- while the byte budget did not, so a sleeping
+/// laptop went on holding back the full desktop reserve.
+///
+/// The gain is narrow and worth stating honestly, because the mean lies here:
+/// peak RSS over 9,744 measured rows is p50 0.58 GB but p90 4.41 GB. For a
+/// median instance memory is not the constraint at all -- 13 GB admits
+/// fifteen and the policy hands out ten cores -- so this changes nothing.
+/// It changes the tail, where one p90 planner wants 6.6 GB with headroom and
+/// the budget decides whether a second one fits beside it.
+///
+/// The idle reserve is never zero and never larger than the active one. Swap
+/// is the pressure the referee cannot un-ring: a row that swapped is owed,
+/// and a box swapping hard takes its neighbours' rows down with it.
+pub fn policy_mem_budget(mem_bytes: u64, at_the_box: bool, pack: &Pack) -> u64 {
+    let reserve = if at_the_box {
+        pack.mem_reserve_bytes
+    } else {
+        pack.mem_reserve_idle_bytes.min(pack.mem_reserve_bytes)
+    };
+    mem_bytes.saturating_sub(reserve).max(1 << 30)
 }
 
 /// Local minutes past midnight, without a timezone dependency: the offset comes
@@ -1104,4 +2549,255 @@ fn minutes_past_midnight() -> u32 {
         }
     }
     ((secs % 86_400) / 60) as u32
+}
+
+#[cfg(test)]
+mod r2_tests {
+    use super::*;
+
+    /// REAL WIDTH ON THE ROW (0.28 Phase 0 item 3): the neighbour count is
+    /// what ran beside the run, not the batch's nominal width.
+    #[test]
+    fn a_run_left_alone_is_solo_whatever_the_batch_width() {
+        let c = Crowd::new(10);
+        c.enter(0);
+        assert_eq!(c.leave(0), 0, "nominal width 10, nobody beside it");
+    }
+
+    #[test]
+    fn the_crowd_keeps_each_runs_peak_after_the_neighbours_leave() {
+        let c = Crowd::new(4);
+        c.enter(0);
+        c.enter(1); // 0 now has 1 beside it
+        c.enter(2); // 0 and 1 now have 2 beside them
+        assert_eq!(c.leave(1), 2);
+        assert_eq!(c.leave(2), 2, "it entered beside two");
+        c.enter(3); // beside 0 only
+        assert_eq!(c.leave(3), 1);
+        assert_eq!(c.leave(0), 2, "the peak survives the neighbours leaving");
+        c.enter(1);
+        assert_eq!(
+            c.leave(1),
+            0,
+            "a slot re-entered starts from what is there now"
+        );
+    }
+
+    /// THE BYTE BUDGET FOLLOWS THE OPERATOR, like width already did (0.28).
+    ///
+    /// This is the constraint that actually caps the pack on this box. Width
+    /// hands out ten cores on an idle keyboard; memory only ever fed about
+    /// six instances, because the reserve was a flat 3 GB whether or not
+    /// anyone was using the desktop it was reserved for.
+    #[test]
+    fn the_memory_reserve_shrinks_once_the_operator_leaves() {
+        let gb = |n: f64| (n * (1u64 << 30) as f64) as u64;
+        let pack = Pack {
+            mem_reserve_bytes: gb(3.0),
+            mem_reserve_idle_bytes: gb(1.5),
+            ..Pack::solo()
+        };
+        let box_ram = gb(16.0);
+
+        assert_eq!(
+            policy_mem_budget(box_ram, true, &pack),
+            gb(13.0),
+            "someone is typing: the desktop, the browser and the rest of it \
+             have to fit beside us"
+        );
+        assert_eq!(
+            policy_mem_budget(box_ram, false, &pack),
+            gb(14.5),
+            "nobody is here: take the box"
+        );
+
+        // THE GAIN, in the currency that matters, and it is not where the
+        // mean would put it. Measured peak RSS over 9,744 rows: p50 0.58 GB,
+        // p90 4.41 GB.
+        let fits = |at_the_box, rss_gb: f64| {
+            policy_mem_budget(box_ram, at_the_box, &pack) / ((gb(rss_gb) as f64 * 1.5) as u64)
+        };
+
+        // A median instance is small enough that memory never binds: both
+        // budgets admit more than the ten cores the width policy hands out,
+        // so this knob is correctly a no-op there.
+        assert!(
+            fits(true, 0.58) >= 10 && fits(false, 0.58) >= 10,
+            "at p50 the cap is width, not memory: {} vs {}",
+            fits(true, 0.58),
+            fits(false, 0.58)
+        );
+
+        // The tail is the whole point: one p90 planner or two.
+        assert_eq!(
+            (fits(true, 4.41), fits(false, 4.41)),
+            (1, 2),
+            "at p90 the reserve decides whether the box runs one fat planner \
+             or two -- which is exactly when it would otherwise sit idle"
+        );
+    }
+
+    /// Two guards, because this knob decides how hard the machine is pushed
+    /// and a misconfigured one is a swap storm rather than an error.
+    #[test]
+    fn the_idle_reserve_can_never_be_the_greedier_of_the_two() {
+        let gb = |n: f64| (n * (1u64 << 30) as f64) as u64;
+        // An operator who sets the idle reserve HIGHER than the active one
+        // means "hold back at least this much"; it must not become a way to
+        // take MORE while they are sitting here.
+        let pack = Pack {
+            mem_reserve_bytes: gb(2.0),
+            mem_reserve_idle_bytes: gb(8.0),
+            ..Pack::solo()
+        };
+        assert_eq!(
+            policy_mem_budget(gb(16.0), false, &pack),
+            policy_mem_budget(gb(16.0), true, &pack),
+            "the idle reserve is clamped to the active one, never above it"
+        );
+
+        // And a box too small for any reserve still gets a gigabyte to work
+        // in, rather than a budget of zero that admits nothing forever.
+        let big = Pack {
+            mem_reserve_bytes: gb(64.0),
+            mem_reserve_idle_bytes: gb(64.0),
+            ..Pack::solo()
+        };
+        assert_eq!(policy_mem_budget(gb(8.0), false, &big), gb(1.0));
+    }
+
+    /// Night or an idle box: everything. The operator at the box by day:
+    /// the P-cores. Foreign load takes back its cores. Suspended: none.
+    #[test]
+    fn the_width_policy_reads_the_hour_the_keyboard_and_the_level() {
+        let pack = Pack {
+            width: 10,
+            width_day: 4,
+            user_active_secs: 300.0,
+            narrow_width: 2,
+            max_frac: 0.5,
+            narrow_max_frac: 0.85,
+            mem_reserve_bytes: 0,
+            mem_reserve_idle_bytes: 0,
+            rss_headroom: 1.5,
+        };
+        assert_eq!(
+            policy_width(Level::Full, true, Some(3.0), 0.0, &pack),
+            10,
+            "quiet hours"
+        );
+        assert_eq!(
+            policy_width(Level::Full, false, Some(3.0), 0.0, &pack),
+            4,
+            "at the box by day"
+        );
+        assert_eq!(
+            policy_width(Level::Full, false, Some(900.0), 0.0, &pack),
+            10,
+            "idle by day"
+        );
+        assert_eq!(
+            policy_width(Level::Full, false, None, 0.0, &pack),
+            10,
+            "unknown reads as idle"
+        );
+        // Foreign load takes back the cores it uses, never everything.
+        assert_eq!(
+            policy_width(Level::Polite, false, Some(900.0), 56.0, &pack),
+            9
+        );
+        assert_eq!(
+            policy_width(Level::Polite, false, Some(900.0), 340.0, &pack),
+            6
+        );
+        assert_eq!(
+            policy_width(Level::Polite, false, Some(3.0), 340.0, &pack),
+            1,
+            "P-cores minus four, floored"
+        );
+        assert_eq!(
+            policy_width(Level::Full, true, None, 2000.0, &pack),
+            1,
+            "never below one"
+        );
+        assert_eq!(policy_width(Level::Suspended, true, None, 0.0, &pack), 0);
+        let solo = Pack::solo();
+        assert_eq!(policy_width(Level::Full, true, None, 0.0, &solo), 1);
+    }
+
+    /// Every transition delivers what the child needs, and nothing else: a
+    /// stopped child is continued before it is demoted or promoted, and a
+    /// no-op transition sends nothing.
+    #[test]
+    fn transitions_map_to_control_messages() {
+        use Level::*;
+        assert_eq!(ctl_for(Full, Suspended, true), vec![Ctl::Stop]);
+        assert_eq!(ctl_for(Polite, Suspended, true), vec![Ctl::Stop]);
+        assert_eq!(
+            ctl_for(Suspended, Polite, true),
+            vec![Ctl::Cont, Ctl::Demote]
+        );
+        assert_eq!(
+            ctl_for(Suspended, Full, true),
+            vec![Ctl::Cont, Ctl::Promote]
+        );
+        assert_eq!(ctl_for(Full, Polite, true), vec![Ctl::Demote]);
+        assert_eq!(ctl_for(Polite, Full, true), vec![Ctl::Promote]);
+        assert!(ctl_for(Full, Full, true).is_empty());
+        assert!(ctl_for(Suspended, Suspended, true).is_empty());
+
+        // Nobody at the keyboard: POLITE still narrows the width, but no
+        // child is moved to an efficiency core, because a demoted run
+        // cannot bank an unsolved row and the night is when the timeout
+        // tail gets measured.
+        assert!(ctl_for(Full, Polite, false).is_empty());
+        assert_eq!(ctl_for(Suspended, Polite, false), vec![Ctl::Cont]);
+        assert_eq!(
+            ctl_for(Polite, Full, false),
+            vec![Ctl::Promote],
+            "promote is always safe"
+        );
+        assert_eq!(
+            ctl_for(Full, Suspended, false),
+            vec![Ctl::Stop],
+            "suspension is not politeness"
+        );
+    }
+
+    /// A child attached while the box is already POLITE is demoted at once;
+    /// a later transition reaches it; after detach nothing is sent anywhere.
+    #[test]
+    fn the_shared_state_delivers_to_the_attached_child() {
+        let shared = Shared::new();
+        shared.set_demote_ok(true);
+        shared.set_level(Level::Polite, Some("test".into()));
+        let (tx, rx) = mpsc::channel();
+        let id = shared.attach(tx);
+        assert_eq!(rx.try_recv(), Ok(Ctl::Demote));
+        let (tx2, rx2) = mpsc::channel();
+        let id2 = shared.attach(tx2);
+        assert_eq!(rx2.try_recv(), Ok(Ctl::Demote));
+        shared.send(Ctl::Stop);
+        assert_eq!(rx.try_recv(), Ok(Ctl::Stop));
+        assert_eq!(
+            rx2.try_recv(),
+            Ok(Ctl::Stop),
+            "a transition reaches every child"
+        );
+        assert_eq!(shared.attached(), 2);
+        shared.detach(id);
+        shared.send(Ctl::Cont);
+        assert!(rx.try_recv().is_err());
+        assert_eq!(rx2.try_recv(), Ok(Ctl::Cont));
+        shared.detach(id2);
+        assert_eq!(shared.attached(), 0);
+
+        // With nobody at the keyboard a child attached under POLITE is not
+        // demoted at all.
+        let quiet = Shared::new();
+        quiet.set_level(Level::Polite, Some("night".into()));
+        let (tx3, rx3) = mpsc::channel();
+        quiet.attach(tx3);
+        assert!(rx3.try_recv().is_err(), "no demotion when nobody is there");
+    }
 }

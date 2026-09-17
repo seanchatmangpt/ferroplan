@@ -2983,6 +2983,16 @@ fn temporal_search(
     // 25k stored nodes — the memory-attribution eyes for the temporal path.
     let dbg = std::env::var("FF_RES_DEBUG").is_ok();
     let orbit_gen = std::env::var("FF_ORBIT_GEN").is_ok();
+    // THE CANDIDATE SOURCE for block (a) (0.28 Lane A). Read ONCE per pass,
+    // never in the pop loop -- the file's own idiom for env and deadline.
+    //
+    // The full scan survives in two passes. Under FF_ORBIT_GEN the
+    // generation-skip below claims a symmetry class from the FIRST candidate
+    // carrying it, applicable or not, so a narrowed list would hand the class
+    // to a different op and change which successors are generated -- that arm
+    // is opt-in, default-off, and already a recorded negative (match-cellar
+    // lost 9 instances to it). FF_NO_TSUCC=1 is the named restore.
+    let scan_all = (orbit.is_some() && orbit_gen) || std::env::var("FF_NO_TSUCC").is_ok();
     let lifo = std::env::var("FF_TLIFO").is_ok();
     let tb_free_g = std::env::var("FF_TB_FREE_G").is_ok();
     // The SEARCH-side wall checkpoint (0.24 Phase 6): the caps above are
@@ -2999,16 +3009,17 @@ fn temporal_search(
     // found are returned by the goal check before any pop is spent.
     // Unarmed `FF_TIME_LIMIT` or `FF_NO_RUNG_WALLCAP=1` ⇒ `None` ⇒
     // byte-identical search.
-    let wall = if crate::search::rung_wallcap_on() {
-        crate::search::wall_deadline()
-    } else {
-        None
-    };
+    // The env wall (hatch-gated) joined with the caller's per-call budget
+    // (0.28, never hatch-gated) — see `search::effective_deadline`.
+    let wall = crate::search::effective_deadline();
+    let cancel = crate::search::call_budget().cancel;
     let per_node = temporal_per_node_bytes(task, til_events.len());
     // A pass entered after the wall has already expired exits before its
     // root evaluation — the ladder above runs up to four passes, and an
     // expired ladder must not pay four root h builds to learn the time.
-    if wall.is_some_and(|d| crate::search::deadline_expired_reserving(d, 0)) {
+    if wall.is_some_and(|d| crate::search::deadline_expired_reserving(d, 0))
+        || crate::search::cancelled(&cancel)
+    {
         if std::env::var("FF_WALL_DEBUG").is_ok() {
             eprintln!("wall: temporal search checkpoint expired (pass entry refused)");
         }
@@ -3130,6 +3141,9 @@ fn temporal_search(
     heap.push(Reverse((0, if lifo { usize::MAX } else { 0 })));
     let mut visited: HashSet<(StateKey, Vec<(i64, usize)>)> = HashSet::new();
     visited.insert(tkey(task, &nodes[0], relative, orbit));
+    // Successor-generator scratch, reused across expansions: one allocation
+    // per pass (`applicable_ops` clears it).
+    let mut succ_buf: Vec<u32> = Vec::new();
 
     while let Some(Reverse((_k, tie))) = heap.pop() {
         // Decode the FF_TLIFO tie encoding (see enqueue_committed).
@@ -3277,7 +3291,7 @@ fn temporal_search(
         // the ladder's next pass refuses at entry, the caller reports.
         let wall_hit = wall.is_some_and(|d| {
             crate::search::deadline_expired_reserving(d, nodes.len().saturating_mul(per_node))
-        });
+        }) || crate::search::cancelled(&cancel);
         if wall_hit && std::env::var("FF_WALL_DEBUG").is_ok() {
             eprintln!(
                 "wall: temporal search checkpoint expired (nodes {}, evaluated {}) at {}ms",
@@ -3305,8 +3319,9 @@ fn temporal_search(
         let time = nodes[ni].time;
         let pg = nodes[ni].g;
 
-        // (a) start a durative action / apply a classical action — restricted to
-        // the node's helpful set under pruning (else a full scan), minus any
+        // (a) start a durative action / apply a classical action — the node's
+        // helpful set under pruning, else the ops APPLICABLE here (the 0.27
+        // successor generator; `scan_all` passes keep the full scan), minus any
         // forbidden ops (sibling protection; forbidding a START suffices).
         // forbidden (sibling protection) + goal-relevance pruning, both phases.
         // Empty relevance mask = keep all (default path). Sound: a non-relevant op
@@ -3323,8 +3338,29 @@ fn temporal_search(
                 .map(|&o| o as usize)
                 .filter(|&oi| allow(oi))
                 .collect()
-        } else {
+        } else if scan_all {
             (0..task.n_ops).filter(|&oi| allow(oi)).collect()
+        } else {
+            // THE SUCCESSOR GENERATOR (0.27 `PackedTask::applicable_ops`): the
+            // applicable ops ascending, through the anchor index instead of a
+            // scan over every grounded op. This rung was the one 0.27 did not
+            // wire, and the boards said so -- the same commit moved
+            // ipc2014-sat +12 and ipc2014-agile +14 through the wired rungs
+            // and ipc2014-tempo by exactly 0.
+            //
+            // Byte-identical here: both live arms below re-test
+            // `op_applicable` (Start, Classical) and emit nothing without it,
+            // `End | Til | Skip` is the empty arm, and pending ends and TILs
+            // fire from the AGENDA in block (b), never from this list.
+            // `allow` is orthogonal to applicability, so it still runs, and
+            // the order is unchanged -- `applicable_ops` returns ascending op
+            // ids, which is what the scan produced.
+            task.applicable_ops(&nodes[ni].state, &mut succ_buf);
+            succ_buf
+                .iter()
+                .map(|&o| o as usize)
+                .filter(|&oi| allow(oi))
+                .collect()
         };
         // Successor prototypes first (cheap state application), heuristics second —
         // batched across worker threads when the frontier is big enough, then
@@ -4224,7 +4260,51 @@ pub fn score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Optio
     let objs = crate::ground::objects_by_type(domain, problem);
     let goal_prefs = crate::pddl3::preferences(&problem.goal, &objs);
     let exp = crate::constraints::expand(domain, problem).ok()?;
-    if goal_prefs.is_empty() && exp.soft.is_empty() {
+    // Condition preferences (0.28 Lane B): `(preference p (at start phi))`
+    // on a durative action, bound per plan step. The search drops them
+    // (grounding reads a positive Pref as true); the count lives here, one
+    // instance per APPLICATION -- PDDL3's action-preference semantics.
+    let cond_prefs: Vec<Vec<(TimeSpec, String, Formula)>> = plan
+        .steps
+        .iter()
+        .map(|step| {
+            let mut it = step.action.split_whitespace();
+            let head = it.next().unwrap_or("");
+            let args: Vec<&str> = it.collect();
+            let Some(da) = domain
+                .durative_actions
+                .iter()
+                .find(|a| a.name.eq_ignore_ascii_case(head))
+            else {
+                return Vec::new();
+            };
+            if step.duration.is_none() || da.params.len() != args.len() {
+                return Vec::new();
+            }
+            let b: HashMap<Sym, Sym> = da
+                .params
+                .iter()
+                .zip(&args)
+                .map(|((v, _), a)| (v.clone(), a.to_string()))
+                .collect();
+            da.conditions
+                .iter()
+                .filter_map(|(ts, f)| match f {
+                    Formula::Pref(name, phi) => Some((
+                        *ts,
+                        name.clone()
+                            .unwrap_or_else(|| format!("{}-condition", da.name)),
+                        crate::constraints::expand_quantifiers(
+                            &crate::pddl3::subst_formula(phi, &b),
+                            &objs,
+                        ),
+                    )),
+                    _ => None,
+                })
+                .collect()
+        })
+        .collect();
+    if goal_prefs.is_empty() && exp.soft.is_empty() && cond_prefs.iter().all(Vec::is_empty) {
         return None;
     }
     let c = compile(domain, problem);
@@ -4235,9 +4315,10 @@ pub fn score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Optio
         time: f64,
         op: usize,
         is_start: bool,
+        step: Option<usize>,
     }
     let mut hs: Vec<H> = Vec::new();
-    for step in &plan.steps {
+    for (si, step) in plan.steps.iter().enumerate() {
         let mut it = step.action.splitn(2, ' ');
         let head = it.next().unwrap_or("");
         let rest = it.next();
@@ -4251,17 +4332,20 @@ pub fn score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Optio
                     time: step.time,
                     op: find(&with("-START"))?,
                     is_start: true,
+                    step: Some(si),
                 });
                 hs.push(H {
                     time: step.time + dur,
                     op: find(&with("-END"))?,
                     is_start: false,
+                    step: Some(si),
                 });
             }
             None => hs.push(H {
                 time: step.time,
                 op: find(&step.action)?,
                 is_start: true,
+                step: None,
             }),
         }
     }
@@ -4274,6 +4358,7 @@ pub fn score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Optio
                 time: *t,
                 op: find(name)?,
                 is_start: false,
+                step: None,
             });
         }
     }
@@ -4293,11 +4378,49 @@ pub fn score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Optio
             crate::verify::eval_formula(&task, &state, phi)
         });
     }
+    // (step, condition index, violated so far) for each open `over all`
+    // preference: it reads every state strictly inside its action's
+    // interval, i.e. the state before each happening up to its own end.
+    let mut open: Vec<(usize, usize, bool)> = Vec::new();
+    let mut cond_seen: Vec<(String, bool)> = Vec::new();
     for h in &hs {
+        for (s, k, v) in &mut open {
+            if !*v && !crate::verify::eval_formula(&task, &state, &cond_prefs[*s][*k].2) {
+                *v = true;
+            }
+        }
+        if let Some(s) = h.step {
+            for (ts, name, phi) in &cond_prefs[s] {
+                if matches!(
+                    (ts, h.is_start),
+                    (TimeSpec::Start, true) | (TimeSpec::End, false)
+                ) {
+                    let held = crate::verify::eval_formula(&task, &state, phi);
+                    cond_seen.push((name.clone(), !held));
+                }
+            }
+            if !h.is_start {
+                open.retain(|&(os, k, v)| {
+                    if os == s {
+                        cond_seen.push((cond_prefs[s][k].1.clone(), v));
+                        false
+                    } else {
+                        true
+                    }
+                });
+            }
+        }
         if !task.op_applicable(h.op, &state) {
             return None;
         }
         state = task.apply(h.op, &state);
+        if let (Some(s), true) = (h.step, h.is_start) {
+            for (k, (ts, _, _)) in cond_prefs[s].iter().enumerate() {
+                if *ts == TimeSpec::All {
+                    open.push((s, k, false));
+                }
+            }
+        }
         for (_, f) in &mut folds {
             f.step_at(h.time, &mut |phi| {
                 crate::verify::eval_formula(&task, &state, phi)
@@ -4318,6 +4441,14 @@ pub fn score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Optio
         if inst_viol[i] {
             violated.push(name.clone());
             *counts.entry(name.to_ascii_uppercase()).or_insert(0.0) += 1.0;
+        } else {
+            satisfied += 1;
+        }
+    }
+    for (name, v) in cond_seen {
+        if v {
+            *counts.entry(name.to_ascii_uppercase()).or_insert(0.0) += 1.0;
+            violated.push(name);
         } else {
             satisfied += 1;
         }

@@ -158,7 +158,13 @@ impl Throttle {
             .as_ref()
             .filter(|(_, cpu)| *cpu > self.cfg.game_cpu_threshold_pct);
         let game_for = hold(&mut self.game_since, game_busy.is_some());
-        let swapping = s.swap_mb.is_some_and(|m| m > self.cfg.swap_pressure_mb);
+        // The kernel's level when it has one -- CRITICAL suspends, warn does
+        // not -- and the swap-stock line only as a fallback where it does
+        // not. Swap in use never comes back down once idle pages are out.
+        let swapping = match s.mem_pressure {
+            Some(level) => level >= 4,
+            None => s.swap_mb.is_some_and(|m| m > self.cfg.swap_pressure_mb),
+        };
 
         // Escalate first, and to the highest level the evidence supports.
         if game_for.is_some_and(|d| d >= self.cfg.game_dwell) {
@@ -170,15 +176,22 @@ impl Throttle {
             self.clear_since = None;
             return None;
         }
-        if suspend_for.is_some_and(|d| d >= self.cfg.polite_dwell) || swapping {
+        // Memory pressure suspends. FOREIGN CPU LOAD NEVER DOES (R2,
+        // 2026-09-05): the referee judges every row by its own process's
+        // CPU share and the canary, so a busy box costs a demotion to the
+        // background band, not a stop. The R1 rule stopped a sweep for
+        // three hours because the operator's own desktop apps held the box
+        // above the resume line -- the "empty box" assumption R2 exists to
+        // retire. `suspend_threshold_pct` is kept in the config for
+        // compatibility and read by nothing.
+        let _ = suspend_for;
+        if swapping {
             if self.level != Level::Suspended {
                 self.clear_since = None;
-                let r = if swapping {
-                    Reason::MemoryPressure(s.swap_mb.unwrap_or_default())
-                } else {
-                    Reason::Foreign(load)
-                };
-                return Some(self.go(Level::Suspended, r));
+                return Some(self.go(
+                    Level::Suspended,
+                    Reason::MemoryPressure(s.swap_mb.unwrap_or_default()),
+                ));
             }
             self.clear_since = None;
             return None;
@@ -191,8 +204,18 @@ impl Throttle {
         // De-escalate only after a sustained clear stretch, and only ONE level
         // at a time -- SUSPENDED returns to POLITE, which then has to earn FULL
         // separately. Jumping straight back to full throttle is how a
-        // borderline box oscillates.
-        if load <= self.cfg.polite_threshold_pct && game_busy.is_none() && !swapping {
+        // borderline box oscillates. What counts as clear depends on the
+        // level: a suspension ends when the game and the memory pressure are
+        // gone, whatever the CPU load (load is POLITE's business); POLITE
+        // ends when foreign load is under the line.
+        let clear = match self.level {
+            Level::Suspended => game_busy.is_none() && !swapping,
+            Level::Polite => {
+                load <= self.cfg.polite_threshold_pct && game_busy.is_none() && !swapping
+            }
+            Level::Full => false,
+        };
+        if clear {
             let since = *self.clear_since.get_or_insert(now);
             if now.saturating_duration_since(since) >= self.cfg.resume_dwell {
                 self.clear_since = Some(now);
@@ -310,6 +333,39 @@ mod tests {
         assert_eq!(tr.to, Level::Full);
     }
 
+    /// THE R2 RULE: foreign CPU load demotes and never suspends, however
+    /// high and however long -- the referee judges the rows. And a
+    /// suspension (a game) ends when the game ends, even with the box
+    /// still busy: the sweep goes back to POLITE and runs demoted.
+    #[test]
+    fn foreign_load_only_ever_demotes_and_a_busy_box_still_resumes() {
+        let t0 = Instant::now();
+        let mut th = Throttle::new(Config::default());
+        let quiet = GameState::default();
+        assert!(th.on_sample(&load(95.0), &quiet, t0).is_none());
+        let tr = th.on_sample(&load(95.0), &quiet, at(t0, 25)).unwrap();
+        assert_eq!(tr.to, Level::Polite);
+        for s in [60, 600, 3600] {
+            assert!(th.on_sample(&load(95.0), &quiet, at(t0, s)).is_none());
+            assert_eq!(th.level(), Level::Polite, "never suspended by load alone");
+        }
+        let playing = GameState {
+            busiest: Some(("Timberborn".into(), 240.0)),
+        };
+        th.on_sample(&load(95.0), &playing, at(t0, 4000));
+        let tr = th.on_sample(&load(95.0), &playing, at(t0, 4015)).unwrap();
+        assert_eq!(tr.to, Level::Suspended);
+        // The game ends; the desktop is still busy. Back to POLITE after the
+        // dwell -- the old rule would have waited for a box that never came.
+        assert!(th.on_sample(&load(80.0), &quiet, at(t0, 4020)).is_none());
+        let tr = th.on_sample(&load(80.0), &quiet, at(t0, 4090)).unwrap();
+        assert_eq!(tr.to, Level::Polite);
+        assert!(
+            th.on_sample(&load(80.0), &quiet, at(t0, 4200)).is_none(),
+            "still busy: stays polite"
+        );
+    }
+
     /// A swapping box slows search while looking perfectly CPU-idle, so the
     /// CPU threshold alone would never catch it.
     #[test]
@@ -337,5 +393,46 @@ mod tests {
             .is_none());
         assert_eq!(th.level(), Level::Suspended);
         assert_eq!(th.set_manual_hold(false).unwrap().to, Level::Full);
+    }
+}
+
+#[cfg(test)]
+mod pressure_tests {
+    use super::*;
+
+    fn sample(swap_mb: f64, level: Option<u32>) -> Sample {
+        Sample {
+            at: 0.0,
+            competitors_total: 0.0,
+            swap_mb: Some(swap_mb),
+            mem_pressure: level,
+            ..Default::default()
+        }
+    }
+
+    /// 15 GB of swap in use with the kernel at "warn" is a box that paged
+    /// out its idle pages, not a box under pressure. The first R2 evening
+    /// sat SUSPENDED on exactly this until the level replaced the stock.
+    #[test]
+    fn the_kernel_level_outranks_the_swap_stock() {
+        let mut t = Throttle::new(Config::default());
+        let g = GameState::default();
+        let now = Instant::now();
+        assert!(t.on_sample(&sample(15_700.0, Some(2)), &g, now).is_none());
+        assert_eq!(t.level(), Level::Full);
+        let tr = t
+            .on_sample(&sample(15_700.0, Some(4)), &g, now)
+            .expect("critical suspends");
+        assert_eq!(tr.to, Level::Suspended);
+        assert!(matches!(tr.reason, Reason::MemoryPressure(_)));
+    }
+
+    /// Without a kernel reading the swap-stock line still applies.
+    #[test]
+    fn the_swap_stock_is_the_fallback() {
+        let mut t = Throttle::new(Config::default());
+        let g = GameState::default();
+        let tr = t.on_sample(&sample(15_700.0, None), &g, Instant::now());
+        assert_eq!(tr.map(|t| t.to), Some(Level::Suspended));
     }
 }

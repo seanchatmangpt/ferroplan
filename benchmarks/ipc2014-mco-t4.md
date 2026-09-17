@@ -1,22 +1,22 @@
-# seq-mco t4 — four cores, one clock, the competition's own rule
+# IPC-2008/2011 seq-mco-2014 full-corpus results
 
-60s a head, single job, four threads (wall-clock as the rule demands), mode auto. Every plan checked against VAL.
+timeout 60s/instance, jobs 1, mode auto. Plans externally validated with VAL. STITCHED: 280 row(s) reused from a prior pass's clean windows ().
 
 | variant | coverage | summed cost | solve time | val |
 |---|---|---|---|---|
-| ipc-2014/barman-sequential-multi-core | 20/20 | 3034 | 70.1s | 20/20 |
-| ipc-2014/cave-diving-sequential-multi-core | 5/20 | 558 | 157.5s | 5/5 |
-| ipc-2014/child-snack-sequential-multi-core | 8/20 | 481 | 80.2s | 8/8 |
-| ipc-2014/city-car-sequential-multi-core | 3/20 | 1302 | 88.9s | 3/3 |
-| ipc-2014/floor-tile-sequential-multi-core | 2/20 | 178 | 2.6s | 2/2 |
-| ipc-2014/genome-edit-distances-sequential-multi-core | 20/20 | 813 | 46.2s | 20/20 |
-| ipc-2014/hiking-sequential-multi-core | 20/20 | 1175 | 174.3s | 20/20 |
-| ipc-2014/maintenance-sequential-multi-core | 16/20 | 1596 | 2.0s | 16/16 |
-| ipc-2014/openstacks-sequential-multi-core | 7/20 | 949 | 165.8s | 7/7 |
-| ipc-2014/parking-sequential-multi-core | 8/20 | 653 | 406.3s | 8/8 |
-| ipc-2014/tetris-sequential-multi-core | 12/20 | 1659 | 333.4s | 12/12 |
-| ipc-2014/thoughtful-sequential-multi-core | 20/20 | 2521 | 155.9s | 20/20 |
-| ipc-2014/transport-sequential-multi-core | 0/20 | 0 | 0.0s | 0/0 |
-| ipc-2014/visit-all-sequential-multi-core | 20/20 | 57438 | 97.5s | 20/20 |
+| ipc-2014/barman-sequential-multi-core | 20/20 | 3034 | 32.5s | 20/20 |
+| ipc-2014/cave-diving-sequential-multi-core | 7/20 | 770 | 150.4s | 7/7 |
+| ipc-2014/child-snack-sequential-multi-core | 8/20 | 481 | 72.5s | 8/8 |
+| ipc-2014/city-car-sequential-multi-core | 4/20 | 1678 | 104.6s | 4/4 |
+| ipc-2014/floor-tile-sequential-multi-core | 2/20 | 178 | 2.3s | 2/2 |
+| ipc-2014/genome-edit-distances-sequential-multi-core | 20/20 | 813 | 35.5s | 20/20 |
+| ipc-2014/hiking-sequential-multi-core | 20/20 | 1175 | 143.6s | 20/20 |
+| ipc-2014/maintenance-sequential-multi-core | 16/20 | 1596 | 4.4s | 16/16 |
+| ipc-2014/openstacks-sequential-multi-core | 7/20 | 949 | 145.0s | 7/7 |
+| ipc-2014/parking-sequential-multi-core | 8/20 | 688 | 331.0s | 8/8 |
+| ipc-2014/tetris-sequential-multi-core | 17/20 | 2633 | 374.1s | 17/17 |
+| ipc-2014/thoughtful-sequential-multi-core | 20/20 | 2521 | 102.9s | 20/20 |
+| ipc-2014/transport-sequential-multi-core | 3/20 | 9449 | 176.8s | 3/3 |
+| ipc-2014/visit-all-sequential-multi-core | 20/20 | 57438 | 91.0s | 20/20 |
 
-final tally: **161/280**
+total coverage: **172/280**

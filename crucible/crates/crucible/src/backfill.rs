@@ -105,15 +105,8 @@ fn ensure_binary(wt: &Path) -> anyhow::Result<PathBuf> {
         "build   cargo build --release -p ferroplan-cli in {}",
         wt.display()
     );
-    let status = Command::new("cargo")
-        .args(["build", "--release", "-p", "ferroplan-cli"])
-        .current_dir(wt)
-        .status()
-        .context("running cargo build in the tag worktree")?;
-    if !status.success() {
-        anyhow::bail!("the tag did not build ({status}); nothing measured");
-    }
-    Ok(bin)
+    // Both lanes build the same way (0.28): see `repo::build_planner`.
+    crate::repo::build_planner(wt).context("the tag did not build; nothing measured")
 }
 
 /// Keep the newest `keep` worktrees under crucible's OWN prefix; never touch
@@ -163,6 +156,7 @@ pub fn run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) -> anyhow::Res
         repo,
         cfg,
         crate::sweep::Opts {
+            headless: false,
             set: o.set,
             require_version: None,
             quiet_only: false,

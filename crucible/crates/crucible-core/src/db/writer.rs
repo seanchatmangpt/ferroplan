@@ -47,6 +47,7 @@ enum Cmd {
     Run(Box<RunRecord>, Sender<Result<i64, DbError>>),
     Sample(Box<SampleRec>),
     Event(Box<EventRec>),
+    Canary(f64, String, f64, bool),
     ThrottleOpen(ThrottleWindowRec, Sender<Result<i64, DbError>>),
     ThrottleClose {
         id: i64,
@@ -94,6 +95,11 @@ impl WriterHandle {
     /// be lost.
     pub fn sample(&self, s: SampleRec) {
         let _ = self.tx.send(Cmd::Sample(Box::new(s)));
+    }
+
+    /// Record one canary run. Fire-and-forget, like a sample.
+    pub fn canary(&self, at: f64, label: String, secs: f64, solo: bool) {
+        let _ = self.tx.send(Cmd::Canary(at, label, secs, solo));
     }
 
     /// Append one log line. Fire-and-forget, same reasoning.
@@ -386,6 +392,14 @@ fn immediate(conn: &Connection, ids: &mut Ids, cmd: Cmd) -> bool {
         Cmd::Flush(reply) => {
             let _ = reply.send(Ok(()));
         }
+        Cmd::Canary(at, label, secs, solo) => {
+            // Fire-and-forget telemetry: a lost canary row costs a reading,
+            // never a verdict already made.
+            let _ = conn.execute(
+                "INSERT INTO canary (at, label, secs, solo) VALUES (?1, ?2, ?3, ?4)",
+                params![at, label, secs, solo as i64],
+            );
+        }
         Cmd::Stop => return true,
         Cmd::Sample(_) | Cmd::Event(_) => unreachable!("batched commands never reach immediate"),
     }
@@ -414,8 +428,8 @@ fn drain(
         for s in samples.iter() {
             c.execute(
                 "INSERT INTO sample
-                   (at,idle_pct,competitors_total,loadavg1,swap_mb,cpu_speed_limit,pass_id)
-                 VALUES(?1,?2,?3,?4,?5,?6,?7)",
+                   (at,idle_pct,competitors_total,loadavg1,swap_mb,cpu_speed_limit,pass_id,canary_factor,mem_pressure)
+                 VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
                 params![
                     s.at,
                     s.idle_pct,
@@ -423,7 +437,9 @@ fn drain(
                     s.loadavg1,
                     s.swap_mb,
                     s.cpu_speed_limit.map(|v| v as i64),
-                    s.pass_id
+                    s.pass_id,
+                    s.canary_factor,
+                    s.mem_pressure.map(|v| v as i64)
                 ],
             )?;
             let sid = c.last_insert_rowid();
@@ -660,7 +676,7 @@ fn insert_run(conn: &Connection, ids: &mut Ids, rec: &RunRecord) -> Result<i64, 
                 present_ipc,present_budget,present_stamps,present_makespan,present_resumed_clean,
                 extra_json,
                 started_at,finished_at,wall_ms,cpu_ms,suspended_ms,peak_rss,mem_instrument,
-                exit_code,term_signal,pid,pgid)
+                exit_code,term_signal,pid,pgid,cpu_instrument,banked,verdict,neighbours,demoted)
              VALUES
                (?1,?2,?3,?4,?5,?6,
                 ?7,?8,?9,?10,?11,?12,?13,?14,
@@ -668,7 +684,7 @@ fn insert_run(conn: &Connection, ids: &mut Ids, rec: &RunRecord) -> Result<i64, 
                 ?24,?25,?26,?27,?28,
                 ?29,
                 ?30,?31,?32,?33,?34,?35,?36,
-                ?37,?38,?39,?40)
+                ?37,?38,?39,?40,?41,?42,?43,?44,?45)
              ON CONFLICT(board_id,instance_id,engine_id,attempt) DO UPDATE SET
                 state=excluded.state, timing_quality=excluded.timing_quality,
                 solved=excluded.solved, time_secs=excluded.time_secs,
@@ -691,7 +707,10 @@ fn insert_run(conn: &Connection, ids: &mut Ids, rec: &RunRecord) -> Result<i64, 
                 suspended_ms=excluded.suspended_ms, peak_rss=excluded.peak_rss,
                 mem_instrument=excluded.mem_instrument,
                 exit_code=excluded.exit_code, term_signal=excluded.term_signal,
-                pid=excluded.pid, pgid=excluded.pgid
+                pid=excluded.pid, pgid=excluded.pgid,
+                cpu_instrument=excluded.cpu_instrument,
+                banked=excluded.banked, verdict=excluded.verdict,
+                neighbours=excluded.neighbours, demoted=excluded.demoted
              RETURNING id",
         )?
         .query_row(
@@ -736,6 +755,11 @@ fn insert_run(conn: &Connection, ids: &mut Ids, rec: &RunRecord) -> Result<i64, 
                 m.term_signal,
                 m.pid,
                 m.pgid,
+                m.cpu_instrument,
+                rec.banked as i64,
+                rec.verdict,
+                m.neighbours.map(|v| v as i64),
+                m.demoted.map(|v| v as i64),
             ],
             |row| row.get(0),
         )?;

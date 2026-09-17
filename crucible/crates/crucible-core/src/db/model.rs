@@ -289,6 +289,13 @@ pub struct Measured {
     pub finished_at: Option<f64>,
     pub wall_ms: Option<u64>,
     pub cpu_ms: Option<u64>,
+    /// Which instrument produced `cpu_ms`: `Some("wait4")` from the R2
+    /// runner, `None` on every row before it (see `schema::V2`).
+    pub cpu_instrument: Option<String>,
+    /// Our own planners running beside this one (`schema::V7`).
+    pub neighbours: Option<u32>,
+    /// The run was in the background band at some point (`schema::V8`).
+    pub demoted: Option<bool>,
     pub suspended_ms: Option<u64>,
     pub peak_rss: Option<u64>,
     /// Which instrument enforced the memory budget, because the two measure
@@ -312,6 +319,12 @@ pub struct RunRecord {
     pub attempt: i64,
     pub state: RunState,
     pub timing: TimingQuality,
+    /// The referee's verdict (`sched::referee`): does this row bank? This is
+    /// what a restart reads back; `timing` is a separate question.
+    pub banked: bool,
+    /// Why -- `Verdict::as_str`. `None` on a row that was never judged
+    /// (abandoned, or imported).
+    pub verdict: Option<String>,
     pub val_reason: Option<ValReason>,
     pub row: RawRow,
     pub measured: Measured,
@@ -332,6 +345,11 @@ pub struct SampleRec {
     /// watcher's samples belong to no board.
     pub pass_id: Option<i64>,
     pub processes: Vec<(String, f64)>,
+    /// The canary's most recent clock factor (wall / baseline) when this
+    /// sample was taken. `None` before the first canary run.
+    pub canary_factor: Option<f64>,
+    /// The kernel's memory-pressure level (1 normal, 2 warn, 4 critical).
+    pub mem_pressure: Option<u32>,
 }
 
 impl SampleRec {
@@ -354,8 +372,36 @@ impl SampleRec {
             cpu_speed_limit: s.cpu_speed_limit,
             pass_id: None,
             processes: s.competitors.iter().map(|(k, v)| (k.clone(), *v)).collect(),
+            canary_factor: None,
+            mem_pressure: s.mem_pressure,
         }
     }
+}
+
+/// One attempt as the dashboard reads it back (`Reader::attempts_for`).
+#[derive(Debug, Clone, Default)]
+pub struct AttemptRec {
+    pub attempt: u32,
+    pub solved: bool,
+    pub secs: Option<f64>,
+    pub wall_ms: Option<u64>,
+    pub cpu_ms: Option<u64>,
+    pub suspended_ms: Option<u64>,
+    pub peak_rss: Option<u64>,
+    pub timing: String,
+    pub verdict: Option<String>,
+    pub started_at: Option<f64>,
+    pub finished_at: Option<f64>,
+}
+
+/// One watcher sample as the dashboard reads it back.
+#[derive(Debug, Clone, Default)]
+pub struct SamplePoint {
+    pub at: f64,
+    pub foreign: Option<f64>,
+    pub canary: Option<f64>,
+    pub swap_mb: Option<f64>,
+    pub mem_pressure: Option<u32>,
 }
 
 /// A line of the rolling log.

@@ -38,6 +38,7 @@ pub struct BoardCfg {
     pub extra_args: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Engine {
     pub path: PathBuf,
     /// Exactly `ff --version`. Written into every row; NOT the identity the
@@ -91,6 +92,14 @@ pub struct Measured {
     pub row: RawRow,
     pub val_reason: Option<&'static str>,
     pub cpu_ms: u64,
+    /// `Some("wait4")` when a child ran; `None` on the spawn-fail path.
+    pub cpu_instrument: Option<&'static str>,
+    /// The run spent time in the background band (see `exec::RunOutcome`).
+    pub demoted: bool,
+    /// The operator cancelled the run (a Ctl::Cancel, or SIGINT/SIGTERM to
+    /// crucible). The row's numbers describe an interrupted run and must not
+    /// be exported as a measurement.
+    pub cancelled: bool,
     pub peak_rss: u64,
     pub suspended: Duration,
     /// The machine slept mid-run. Every number here is suspect.
@@ -103,6 +112,22 @@ pub struct Measured {
     /// The child that ran. `None` only when nothing was spawned.
     pub pid: Option<crate::platform::Pid>,
     pub pgid: Option<crate::platform::Pid>,
+    /// THE ENGINE ITSELF IS GONE (0.28): the binary named by `engine.path`
+    /// could not be run at all -- deleted, replaced by a directory, chmod'd
+    /// un-executable. Carries the OS error.
+    ///
+    /// This is not a row and never becomes one: booking it would produce
+    /// 6,584 spawn-fail rows and call them a measurement. It is not a
+    /// spawn-fail either -- that is the SYSTEM failing to fork, which is
+    /// environmental and recoverable. It is the instrument going missing
+    /// mid-measurement, so the pass ends and the caller is told why.
+    ///
+    /// Until 0.28 this arm was a `panic!`, which was right about the row and
+    /// wrong about the process: on 2026-09-07 a disk cleanup deleted
+    /// `target/`, the panic unwound out of a scoped worker, and the cut27
+    /// sweep sat dead for eleven hours with 7,773 measured rows on disk and
+    /// nobody watching.
+    pub engine_gone: Option<String>,
 }
 
 /// Build the argv `ipc67.py` builds.
@@ -198,8 +223,10 @@ pub fn measure<P: Platform>(
         Err(e) => {
             // A missing or unrunnable binary is fatal to the SWEEP, never a
             // row: booking it would produce 6,584 spawn-fail rows and call
-            // them a measurement.
-            panic!("planner not runnable: {e}");
+            // them a measurement. Fatal to the sweep is not the same as
+            // fatal to the PROCESS, which is what the panic here used to
+            // mean -- see `Measured::engine_gone`.
+            return engine_gone(row, mem_cap, e.to_string());
         }
     };
 
@@ -339,6 +366,9 @@ fn done(
         row,
         val_reason: verdict.and_then(|v| v.reason()),
         cpu_ms: out.map_or(0, |o| o.cpu_ms),
+        cpu_instrument: out.map(|o| o.cpu_instrument),
+        demoted: out.is_some_and(|o| o.demoted),
+        cancelled: out.is_some_and(|o| o.killed == Some(exec::Killed::Cancelled)),
         peak_rss: out.map_or(0, |o| o.peak_rss),
         suspended: out.map_or(Duration::ZERO, |o| o.suspended),
         clock_jump: out.map_or(Duration::ZERO, |o| o.clock_jump),
@@ -348,7 +378,15 @@ fn done(
         term_signal: out.and_then(|o| o.term_signal),
         pid: out.map(|o| o.pid),
         pgid: out.map(|o| o.pgid),
+        engine_gone: None,
     }
+}
+
+/// The instrument is missing: no row, no verdict, and the pass ends.
+fn engine_gone(row: RawRow, mem_cap: MemCap, why: String) -> Measured {
+    let mut m = done(row, None, None, mem_cap);
+    m.engine_gone = Some(why);
+    m
 }
 
 #[cfg(test)]

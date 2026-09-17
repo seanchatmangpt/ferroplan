@@ -4,170 +4,152 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
-## [0.25.0] - 2026-08-27 — The table grows to 32 boards — and the like-for-like 22 dips, and says so first
+## [0.27.1] - 2026-09-11 — A budget the caller can set, and withdraw
 
-Two headlines BY DESIGN (roadmap-0.25 Phase 6): the grown table and the
-like-for-like instrument, never blended. Full record:
-[`docs/roadmap-0.25.md`](https://github.com/hhh42/ferroplan/blob/main/docs/roadmap-0.25.md).
+No engine change. Coverage is unchanged from 0.27.0 (5,122/8,444) because
+nothing here touches how the planner searches — the additions are inert
+unless you set them.
 
-### Headline one — the grown table
+### Added
 
-**56% coverage across 32 IPC boards** (4,705/8,444), of which **665 are
-certified optima** — the proof surface nearly doubles (386 → 665). Ten
-boards enter: 2014 mco t2 (157/280) and t8 (164/280), 2018-opt
-(89/240 ⚖️), 2023 sat (36/140) and 2023 opt (33/140 ⚖️), 2023
-numeric-opt (81/400 ⚖️), 2026-opt FULL (80/260 ⚖️), and the three 2006
-preference tracks on their full corpora — simple 90/130, qualitative
-23/100, complex 9/108 (the first complex-preferences rows in this
-planner's history; the Phase 2 entry). The denominator grows
-6,366 → 8,444 and the total percentage DROPS on entry day exactly as the
-roadmap said it would — a bigger honest table, not a regression.
+Two fields on `Options`, both `None` by default:
 
-### Headline two — the like-for-like 22: down 38, and the record names where
+- **`wall_ms: Option<u64>`** — this call's wall, in milliseconds. Armed at
+  the top of `solve`, so it bounds parsing and GROUNDING as well as
+  search. That is the budget the existing knobs could not express:
+  `max_evaluated` caps evaluated states, and grounding runs before the
+  first state exists, so a call capped at fifty thousand evaluations can
+  still spend minutes. `FF_TIME_LIMIT` could not express it either, for
+  the opposite reason — it is armed once per PROCESS from the first solve,
+  so in a long-lived host it either bounds nothing or eventually refuses
+  everything.
+- **`should_continue: Option<Arc<AtomicBool>>`** — flip it to `false` to
+  stop this call. Polled wherever the wall is: the grounding checkpoint
+  (every 256 bindings), the best-first batch boundary, EHC's
+  per-evaluation slice, and the temporal pop. `#[serde(skip)]`, since a
+  live handle has no JSON form.
 
-3,943/6,366 (61.9%) vs 3,981/6,366 (62.5%) at 0.24.0 — **−38 net**,
-concentrated: **net-benefit 248→224 (−24)** and **propositional 369→358
-(−11)** own −35 of it; 2023-numeric −8 (251→243) is third. Gains:
-**metric-time 54→64 (+10)** and **time 77→79 (+2)** — BOTH under the
-Phase 5 tier move (their boards moved 30 s → 60 s this cycle), so their
-movement column carries budget-plus-engine, never engine alone; the
-engine half of metric-time's +10 includes the two 0.25 bug fixes (the
-zero-duration durative skip and the [TREL] relevance-mask hole).
-seq-sat +3 (504→507); small ±1–3 elsewhere at the 60 s wall.
+A stop from either returns `solved: false` with a note naming which budget
+bound and where — `grounding stopped at the declared budget: …` or
+`search stopped at the declared budget: …` — and never the word
+"unsolvable". Running out of time is not a proof.
 
-**Adjudications owed, hypotheses named (the 0.24 rule — never papered
-over):** the prime suspect for net-benefit's −24 is the Phase 2
-preference-tier ROUTER, a global change — the sweep header itself said
-"the router change is global — watch for parity" before it ran.
-Propositional's −11 sits entirely in near-wall timeouts (92 vs 81, zero
-mem-caps), where borderline flips and the same router suspect both
-apply. Both boards' final numbers came from CLEAN re-runs (~74% idle) —
-contention does not explain them. Neither is root-caused in this
-record; both are named for 0.26.
+The budget is held per call, in a thread-local armed by an RAII guard, so
+concurrent `solve` calls on different threads each carry their own and a
+spent budget cannot leak into the next call on its thread.
+`FF_NO_RUNG_WALLCAP` does not disable it: that hatch governs the
+environment wall, and a budget passed in code outranks an environment
+variable.
 
-### The cycle's engine story
+### Why this is a patch release
 
-- **Wing II (Phase 3):** the conflict-rate bail is the refund that
-  shipped (match-cellar i1 30.7→17.5 s, i2 31→1.2 s;
-  `FF_NO_SAT_RATEBAIL` restores); the CEGAR pairing GUARD (a soundness
-  fix, no hatch by design), layer-shift generalization
-  (`FF_NO_SAT_LAYERGEN`); planning branching MEASURED NEGATIVE for
-  default-on and shipped opt-in (`FF_SAT_BRANCH`). The wing's step-5
-  verdict stands recorded: no board moved.
-- **The metric-time decode (Phase 4)** found and fixed two real bugs,
-  fixtures first; pathways stays 0/30 and its riddle carries to 0.26
-  sharpened.
-- **match-cellar canary: 40/40** at 0.23's exact costs — clean.
+It answers a consumer blocked on it. `solve` was blocking and
+uninterruptible, so a host that abandoned the work leaked that thread for
+the life of the process; their own instrumentation recorded 213 solves
+completed, then 2 abandoned, after which the pool was dead — 0 completed,
+4 abandoned. The rest of the 0.28 cycle is unmeasured and stays on its
+branch until it has been swept.
 
-### The sweep, on the record
+### Note
 
-Three passes, 2026-08-26 → 08-27, on `m5-air`. Nine boards measured
-under contention in pass 1 (Docker Desktop's VM, Steam, a wrangler
-burst, a Gradle daemon — each named in the log) were refused WHOLE and
-re-banked clean in passes 2–3 at ~74–77% idle. Nothing dirty was
-promoted. Snapshot banked (`standings-history.json`, 7th snapshot).
+The search ladder rations a wall across its rungs, so a budget is not
+simply "time until I stop" — each rung sees a fraction of it. A 30-block
+instance that solves in 34 ms unbudgeted is stopped by a 120 ms wall and
+solved under a 200 ms one. That is not new to this release: `FF_TIME_LIMIT`
+of 0.12 s fails the same instance and 0.2 s solves it. Measure your own
+domain rather than assuming a 250 ms wall buys 250 ms of search.
 
-## [0.24.0] - 2026-08-20 — The SAT wing: the zero block gets its first nonzero row
+## [0.27.0] - 2026-09-10 — One lever in the engine, and an instrument that can finally finish
 
-The cycle that absorbed a solver instead of hand-rolling one, built the
-first machinery in this planner's history that can crack the
-temporal-machine-shop family, and caught its own regression before it
-shipped. Full record:
-[`docs/roadmap-0.24.md`](https://github.com/hhh42/ferroplan/blob/main/docs/roadmap-0.24.md).
+**61% coverage across 32 IPC boards** (5,122/8,444), **687 certified
+optima** — **+134** over 0.26.0 on the same instrument. Full record:
+[`docs/roadmap-0.27.md`](https://github.com/hhh42/ferroplan/blob/main/docs/roadmap-0.27.md).
 
-### Where this leaves the standings
+The engine changed in exactly one place this cycle. Most of the work went
+into the thing that measures it, and that is the honest summary of what
+0.27 is.
 
-**63% coverage across 22 IPC boards** (3,981/6,366), of which **386
-are certified optima** — up from 62%/3,916/6,366/381 at 0.23.0.
-+65 net across the (unchanged) board set. At-a-glance:
-[`STANDINGS.md`](https://github.com/hhh42/ferroplan/blob/main/STANDINGS.md).
+### The engine
 
-- **THE HEADLINE: temporal-machine-shop falls.** TMS-2011 i2 —
-  SOLVED, VAL-valid, ~1 s (Mode::Sat, horizon 16, one STN
-  refutation): the first TMS solve in this planner's history, on
-  the family where every non-SAT entrant ever fielded scored zero.
-  The zero block has its first nonzero row. slitherlink p01 falls
-  to the classical face for a second first.
-- **The cut's own canary caught a real regression before it
-  shipped.** The 22-board sweep read match-cellar at 0/20
-  (2014-tempo) and 7/20 (2011) against a 40/40 expectation — the
-  promoted SAT rung was running against the WHOLE wall (h32
-  ground its conflict budget in pure SAT conflicts, zero STN
-  refutations, so the pre-registered thrash bail never saw
-  anything to bail on) and starving the 0.02 s classical ladder of
-  any time to run at all. Fixed: the promoted entry now gets
-  `FF_SAT_PROMO_WALL_FRAC` (default 0.5) of the remaining wall as
-  its own bounded slice, handing back cleanly on expiry so the
-  ladder always gets its turn. Re-swept clean: match-cellar back to
-  40/40 at 0.23's exact costs (750, 1060); TMS-2011 i2 unaffected
-  (still 0.4 s).
-- **ferroplan-sat**: varisat absorbed and owned — 5,012 lines, zero
-  external dependencies, attribution preserved, a differential
-  battery that proved itself RED against a lying stub and never
-  trusts the solver's own models. One addition (conflict budgets);
-  one named not-taken (planning-specific branching).
-- **The wing**: ∃-step bounded-layer encoding with disabling
-  chains, snap-event pairing for the temporal face, the existing
-  STN scheduler as CEGAR teacher with a pre-registered thrash
-  bail, a required-concurrency detector for early promotion, and
-  honesty pinned at every exit (declines, horizons, budgets —
-  never "unsolvable" without a proof).
-- **Stage c**: `within`/`always-within` lowered onto a
-  search-stamped clock — the 2006 constraints gate names nothing
-  unenforced; six timed solves banked oracle-green; the
-  constraints board itself moves 12/120 → 28/120.
-- **onlycraft's docket reads paid**: both numeric-2026 variants
-  (opt and sat) move 3/20 → 20/20, 34 of this board's 37-instance
-  gain — the roadmap's open engine docket from 0.22's reallocation.
-  Measured on this cut, mechanism not separately chased down this
-  cycle (no targeted commit touches it) — worth confirming it holds
-  under contention before calling it closed for good.
-- **The basket**: the temporal search pays the wall (sokoban-t's
-  honest exits); the a2 chain converts pathwaysmetric i2 at 173
-  evals; the hash-join candidate lists clear the slitherlink gate
-  (p03 grounding >60 s → 1.3 s); the 5A convergence fix recorded
-  as a measured negative (nurikabe and spider are irreconcilable).
-- **The game phase**: budget-stamped thinks with capped-vs-proven
-  honesty on the MCP wire; the village tick loop 15.6 → 10.6 s at
-  byte-identical evals; bazaar think latency halved. Mode::Sat
-  reaches the wire by construction.
-- **The contention-verdict methodology moved off raw idle%.**
-  Whole-machine idle counts a board's OWN threads, so a fixed
-  floor could never pass an mco `--threads 8` board even in an
-  empty room (measured: 38-40% idle with <5% real competing load).
-  The verdict now keys off named-competitor load instead — and
-  caught a run the old metric missed (a stuck renderer process
-  averaging 52% CPU across a 3h43m board, loadavg spiking to 123,
-  masked by a still-above-floor median idle).
+- **The anchored successor generator** (`PackedTask::applicable_ops`).
+  Expansion used to scan every grounded op to find the applicable ones.
+  Now each op is anchored at its RAREST positive precondition, candidates
+  are gathered from the state's true facts, and the result is sorted back
+  into the scan's order — so the search it feeds is byte-identical, the
+  same plans found in the same number of evaluations. Expansion per
+  evaluation: labyrinth 234 → 34 µs (7×), parking 258 → 21 µs (12×),
+  markettrader 10 → 5.6 µs. Wired into the classical, LAMA and novelty
+  rungs.
+- `apply()` gains an allocation-free path for ops with no conditional and
+  no numeric effects, which otherwise cost four temporaries per successor.
+- **Recorded negative:** the counter-based relaxed-graph build (reached
+  facts decrement the ops that need them, no per-layer scan) measured
+  1.78 → 2.02 ms on labyrinth and 0.92 → 0.96 on parking. Slower.
+  Removed. What remains on these boards is the relaxation floor itself,
+  ~1.7–2 ms per evaluation at 60–80k ops; moving it means firing fewer
+  ops or evaluating fewer states, not a faster scan.
 
-## Movement — all 22 boards, 0.23 promoted vs 0.24 promoted
+### Where it moved
 
-| board | track | 0.23 | 0.24 | delta | what moved |
-|---|---|---|---|---|---|
-| ipc2026-numeric | 2026 numeric | 180/320 | 217/320 | +37 | onlycraft opt+sat 3/20→20/20 each (+34); settlers-snp +2; factory-robot +1 |
-| ipc5-constraints | constraints (60 s) | 12/120 | 28/120 | +16 | stage c's timed-operator lowering continues into the 2006 corpus |
-| ipc-opt-2008-11 (proof) | seq-opt | 281/550 | 287/550 | +6 | +6 certs |
-| ipc5-prop | propositional | 366/450 | 369/450 | +3 | quality 0.90 |
-| ipc67-netben | net-benefit | 246/270 | 248/270 | +2 | recovers both 0.23 wall losses |
-| ipc2018-sat | 2018 seq-sat | 80/240 | 82/240 | +2 | |
-| ipc67-temporal | tempo-sat 08+11 | 436/630 | 437/630 | +1 | match-cellar restored to parity (20/20) plus a net +1 elsewhere |
-| ipc67-results | seq-sat 08+11 | 503/580 | 504/580 | +1 | |
-| ipc2023-agile | 2023 classical | 36/140 | 37/140 | +1 | |
-| ipc2023-agile-300s | 2023 agile ENTRY | 51/140 | 52/140 | +1 | |
-| ipc5-time | time | 77/130 | 77/130 | = | |
-| ipc5-metric-time | metric-time | 54/200 | 54/200 | = | |
-| ipc2026-opt (proof) | 2026 numeric-opt | 22/60 | 22/60 | = | |
-| ipc2023-numeric | 2023 numeric | 251/400 | 251/400 | = | |
-| ipc2014-tempo | 2014 tempo-sat | 74/200 | 74/200 | = | match-cellar restored to parity (20/20); net board total unchanged |
-| ipc7-mco-t2 | seq-mco t2 | 230/280 | 230/280 | = | |
-| ipc7-mco-t4 | seq-mco t4 | 237/280 | 237/280 | = | |
-| ipc7-mco-t8 | seq-mco t8 | 240/280 | 240/280 | = | |
-| ipc2014-sat | 2014 seq-sat | 151/280 | 149/280 | −2 | |
-| ipc2014-agile | 2014 seq-agile | 147/280 | 146/280 | −1 | |
-| ipc2014-opt (proof) | 2014 seq-opt | 78/256 | 77/256 | −1 | |
-| ipc2014-mco-t4 | 2014 seq-mco t4 | 164/280 | 163/280 | −1 | |
-| **TOTAL** | | **3,916/6,366 (62%)** | **3,981/6,366 (63%)** | **+65** | optima 381 → 386 |
+simple-preferences +8.5 pts (119/130), 2014 seq-agile +6.4 (172/280),
+qualitative-preferences +5.0 (51/100), and 2014 seq-sat / 2023 seq-sat /
+2023 classical +4.3 each. 2018 seq-sat at 94/240 now places ~1st of 25
+entrants by rate. One track went backwards: tempo-sat −0.3 pts.
+
+net-benefit stands at **270/270**, but that is NOT claimed as a 0.27
+gain. The like-for-like backfill now running — the v0.26.0 tag rebuilt
+and re-measured on this box under the current referee — reaches 270/270
+as well, so its published +3 was the instrument, not the engine. The
+same control has so far moved 2026 numeric-opt's +1 to 0 for the same
+reason. **Expect the same-instrument total to land a little under +134**;
+it will be recorded when the backfill completes, against 0.26.0's own
+re-measured numbers rather than its published table.
+
+### The instrument (crucible R2)
+
+Not shipped to crates.io — it is the harness — but it is why the numbers
+above are worth reading. **This is the first sweep in the project's
+history to reach a terminal state: 8,444 of 8,444 instances banked, zero
+owed.** The 0.26 cut was taken by decision after six passes and five days
+sixteen hours with 232 rows still owed.
+
+The referee now judges each row by ITS OWN process rather than by the
+box, which is what makes a clean terminal state reachable at all. Four
+defects it found the hard way, each with its receipt:
+
+- `cpu_ms` was **41.67× low** on every row ever recorded — Mach absolute
+  time read as nanoseconds.
+- The throttle never reached the child for the whole 0.26 sweep: the
+  control channel's sender was dropped at construction.
+- The **E-core defect**: under POLITE the harness put planners in
+  Darwin's background band, where the same instance took **59.28 s
+  instead of 4.52 s** — and banked, because ρ 0.956 is CPU share and a
+  demoted process has all the share of a slow core. 1,709 rows affected.
+- The canary locked onto a 3%-frequency boost clock and refused 553 rows
+  as thermal across eleven boards. Its baseline is now the 25th
+  percentile of recent solo readings.
+
+### Honesty notes
+
+- **11 instances that 0.26 solved, 0.27 did not.** Each was re-opened and
+  re-run solo on a quiet box under the cut rule before promotion; these
+  are the ones that failed again and are counted as real. Eight others
+  looked like regressions and were not — they solved on the re-run, which
+  is a 42% false-regression rate in the raw sweep and the reason the
+  re-check exists.
+- **The referee changed during the final passes.** ρ is CPU over wall,
+  and every process pays a fixed ~0.3 s of fork, exec, linking and
+  teardown that is wall without CPU — so below ~8 s no process, however
+  well served, can reach ρ ≥ 0.95. Runs under that floor were being
+  refused forever, and the set could not have completed. They are now
+  judged by the box-wide window, which is what 0.26's instrument did for
+  every row. Verified against the database rather than asserted: the same
+  rows banked under 0.26 as `window`. The solved count did not move
+  across either change — what banked were honest non-solutions.
+- Coverage is measured at 60 s (300 s where a board says ENTRY), against
+  official budgets that are typically 30× longer. The comparison is to
+  ferroplan 0.26.0 on the same box, not to the competition.
 
 ---
 
-Older releases: [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) (25 earlier releases, 0.1.0–0.23.0).
+Older releases: [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) (28 earlier releases, 0.1.0–0.26.0).

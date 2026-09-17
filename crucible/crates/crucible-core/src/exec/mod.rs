@@ -28,6 +28,54 @@ pub mod orphan;
 
 use crate::platform::{MemCap, Pid, Platform};
 use std::io::Read;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Set by [`install_interrupt_handler`] on SIGINT/SIGTERM/SIGHUP. The supervisor
+/// reads it every tick and treats it as an operator cancel of the running
+/// child -- SIGTERM, a grace period, SIGKILL, all to the process group --
+/// so that stopping crucible never leaves a planner running under pid 1.
+/// The 0.26 sweep was stopped with SIGTERM and did exactly that.
+static INTERRUPTED: AtomicBool = AtomicBool::new(false);
+
+pub fn interrupted() -> bool {
+    INTERRUPTED.load(Ordering::Relaxed)
+}
+
+extern "C" fn on_interrupt(_sig: libc::c_int) {
+    INTERRUPTED.store(true, Ordering::Relaxed);
+}
+
+/// Route SIGINT, SIGTERM and SIGHUP to the flag. Idempotent; call once at
+/// startup.
+///
+/// SIGHUP was added in 0.28 and it is the same defect SIGTERM already had,
+/// by another route. Its default action TERMINATES, so a closed terminal, a
+/// logout, or a detached session whose controlling tty goes away killed the
+/// supervisor without running the cancel path -- no SIGCONT to a stopped
+/// child, no SIGTERM to the process group, no reaping. That is precisely the
+/// orphan the 0.26 stop produced (`ff` left running under pid 1 until its own
+/// wall), and it was fixed for SIGTERM only.
+///
+/// It matters more now, not less: every sweep since 0.27 runs detached, from
+/// `nohup` or from a launchd agent, which is exactly the shape that gets
+/// HUP'd rather than INT'd.
+pub fn install_interrupt_handler() {
+    // SAFETY: installing a handler that does one relaxed atomic store, which
+    // is async-signal-safe.
+    unsafe {
+        for sig in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
+            libc::signal(
+                sig,
+                on_interrupt as extern "C" fn(libc::c_int) as libc::sighandler_t,
+            );
+        }
+    }
+}
+
+/// Tests only: pretend the operator pressed ^C, or clear it.
+pub fn set_interrupted(on: bool) {
+    INTERRUPTED.store(on, Ordering::Relaxed);
+}
 use std::process::{Command, Stdio};
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
@@ -77,7 +125,28 @@ pub struct RunOutcome {
     /// Wall minus suspension: what the deadline is compared against.
     pub effective: Duration,
     pub suspended: Duration,
+    /// User + system CPU time of the child, from `wait4(2)`'s `rusage` at
+    /// reap: exact, no polling gap, and in a unit the kernel documents. The
+    /// R1 runner polled `Platform::cpu_ms` every tick and kept the last
+    /// reading -- short runs recorded whatever the first tick caught (often
+    /// nothing), and on Apple Silicon the reading itself was in Mach units
+    /// read as nanoseconds, 41.67x low. Every `cpu_ms` written before this
+    /// field existed carries that error; `cpu_instrument` says which.
     pub cpu_ms: u64,
+    /// `"wait4"`. Rows written by the R1 runner have no instrument stamp and
+    /// are treated as CPU-unknown by the referee.
+    pub cpu_instrument: &'static str,
+    /// The run was moved into the background scheduling band at any point.
+    ///
+    /// THIS IS A MEASUREMENT VERDICT, not a curiosity. On Darwin the
+    /// background band confines a process to the efficiency cores, and it
+    /// still gets ~all of one: measured on this box, rovers-propositional
+    /// i36 solves in 4.52 s at normal priority and takes 59.28 s demoted --
+    /// 13x -- with cpu/wall 0.956, which clears the starvation line. So a
+    /// demoted timeout is not evidence of a timeout, and `rho` cannot see
+    /// it: rho is CPU SHARE, and a demoted process has all the share of a
+    /// slow core.
+    pub demoted: bool,
     pub peak_rss: u64,
     pub mem_hit: bool,
     pub spawn_attempts: u32,
@@ -207,15 +276,15 @@ pub fn run<P: Platform>(
     let mut suspended_since: Option<Instant> = None;
     let mut clock_jump = Duration::ZERO;
     let mut peak_rss = 0u64;
-    let mut cpu_ms = 0u64;
+    let mut demoted = false;
     let mut mem_hit = false;
     let mut killed: Option<Killed> = None;
     let mut cancel_sent: Option<Instant> = None;
     let mut last_tick = Instant::now();
 
-    let status = loop {
-        if let Some(s) = child.try_wait()? {
-            break s;
+    let (status, rusage) = loop {
+        if let Some(r) = reap(pid)? {
+            break r;
         }
 
         std::thread::sleep(TICK);
@@ -232,14 +301,10 @@ pub fn run<P: Platform>(
         }
         last_tick = tick_now;
 
-        // Sample only while running: a stopped process's RSS is stale and its
-        // CPU time cannot advance.
+        // Sample only while running: a stopped process's RSS is stale.
         if suspended_since.is_none() {
             if let Some(r) = plat.rss_bytes(pid) {
                 peak_rss = peak_rss.max(r);
-            }
-            if let Some(c) = plat.cpu_ms(pid) {
-                cpu_ms = c;
             }
         }
 
@@ -264,7 +329,9 @@ pub fn run<P: Platform>(
                     }
                 }
                 Ok(Ctl::Demote) => {
-                    let _ = plat.demote(pid);
+                    if plat.demote(pid).is_ok() {
+                        demoted = true;
+                    }
                 }
                 Ok(Ctl::Promote) => {
                     let _ = plat.promote(pid);
@@ -283,6 +350,17 @@ pub fn run<P: Platform>(
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => break,
             }
+        }
+
+        // The operator's ^C or a SIGTERM to crucible: cancel the child the
+        // same way a Ctl::Cancel would, once.
+        if interrupted() && cancel_sent.is_none() {
+            if suspended_since.take().is_some() {
+                killpg(pgid, libc::SIGCONT);
+            }
+            killpg(pgid, libc::SIGTERM);
+            cancel_sent = Some(Instant::now());
+            killed = Some(Killed::Cancelled);
         }
 
         if let Some(t) = cancel_sent {
@@ -307,6 +385,7 @@ pub fn run<P: Platform>(
     }
     let wall = start.elapsed();
     let effective = wall.saturating_sub(suspended);
+    let cpu_ms = timeval_us(&rusage.ru_utime).saturating_add(timeval_us(&rusage.ru_stime)) / 1000;
 
     let stdout = String::from_utf8_lossy(&out_h.join().unwrap_or_default()).into_owned();
     let stderr = String::from_utf8_lossy(&err_h.join().unwrap_or_default()).into_owned();
@@ -321,6 +400,8 @@ pub fn run<P: Platform>(
         effective,
         suspended,
         cpu_ms,
+        cpu_instrument: CPU_INSTRUMENT,
+        demoted,
         peak_rss,
         mem_hit,
         spawn_attempts: attempts,
@@ -330,6 +411,41 @@ pub fn run<P: Platform>(
         pid,
         pgid,
     })
+}
+
+/// What `RunOutcome::cpu_instrument` says when the CPU time came from
+/// `wait4`. The referee trusts this stamp and no other.
+pub const CPU_INSTRUMENT: &str = "wait4";
+
+fn timeval_us(t: &libc::timeval) -> u64 {
+    (t.tv_sec.max(0) as u64)
+        .saturating_mul(1_000_000)
+        .saturating_add(t.tv_usec.max(0) as u64)
+}
+
+/// Non-blocking reap of OUR child, with its resource usage. `None` while it
+/// is still running (or stopped -- no `WUNTRACED`, so a `SIGSTOP`ped child
+/// is simply not reported). After this returns `Some`, the pid is gone and
+/// `std::process::Child` must not be waited on again.
+fn reap(pid: Pid) -> std::io::Result<Option<(std::process::ExitStatus, libc::rusage)>> {
+    use std::os::unix::process::ExitStatusExt;
+    let mut status: libc::c_int = 0;
+    // SAFETY: a zeroed rusage is a valid rusage; wait4 fills it.
+    let mut ru: libc::rusage = unsafe { std::mem::zeroed() };
+    // SAFETY: waiting on a child this process spawned; both out-pointers are
+    // valid for the duration of the call.
+    let r = unsafe { libc::wait4(pid, &mut status, libc::WNOHANG, &mut ru) };
+    if r == 0 {
+        return Ok(None);
+    }
+    if r < 0 {
+        let e = std::io::Error::last_os_error();
+        if e.raw_os_error() == Some(libc::EINTR) {
+            return Ok(None);
+        }
+        return Err(e);
+    }
+    Ok(Some((ExitStatusExt::from_raw(status), ru)))
 }
 
 #[cfg(unix)]

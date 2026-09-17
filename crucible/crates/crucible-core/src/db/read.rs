@@ -76,6 +76,43 @@ impl Reader {
     }
 
     /// The engines that have contributed rows to this board, oldest first.
+    /// Resolve an engine the way an OPERATOR names one (0.28): a tag
+    /// (`v0.26.0`), a BLAKE3 prefix, or a version string.
+    ///
+    /// Returns every match, because ambiguity here must be reported rather
+    /// than guessed at. `ver` is explicitly not an identity -- every dev
+    /// build of a cycle reports the same string -- so a version that matches
+    /// several engines is a question for the caller, not a coin toss.
+    pub fn engines_matching(&self, needle: &str) -> Result<Vec<(i64, String)>, DbError> {
+        let mut st = self.conn.prepare(
+            "SELECT id, ifnull(tag, ifnull(ver,'?')) || ' [' || ifnull(substr(blake3,1,12),'rebuilt') || ']'
+               FROM engine
+              WHERE tag = ?1 OR blake3 LIKE ?1 || '%' OR ver = ?1
+              ORDER BY id",
+        )?;
+        let rows = st.query_map([needle], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// The engine with this BLAKE3, if the database has ever seen it (0.28).
+    ///
+    /// A reader that wants "the run in progress" must ask by hash and not by
+    /// recency. Boards carry rows from every engine ever measured on them, so
+    /// picking the newest engine PER BOARD silently mixes cycles: a board the
+    /// current candidate has not reached yet answers with its predecessor's
+    /// rows, which are complete, and the set reads as finished when it has
+    /// barely started.
+    pub fn engine_by_hash(&self, blake3: &str) -> Result<Option<i64>, DbError> {
+        let mut st = self
+            .conn
+            .prepare("SELECT id FROM engine WHERE blake3 = ?1")?;
+        let mut rows = st.query([blake3])?;
+        Ok(match rows.next()? {
+            Some(r) => Some(r.get(0)?),
+            None => None,
+        })
+    }
+
     pub fn engines_for_board(&self, board_id: i64) -> Result<Vec<i64>, DbError> {
         let mut st = self
             .conn
@@ -201,6 +238,266 @@ impl Reader {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?))
         })?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// THE VERDICT ON EACH INSTANCE'S LATEST ATTEMPT (0.28), keyed by
+    /// (variant, label).
+    ///
+    /// Board-scoped, like every other latest-attempt rule here, and for a
+    /// reason worth writing down: 1,360 instances of the cut27 set belong to
+    /// more than one board -- the mco boards measure the same instances at 2,
+    /// 4 and 8 threads. A `MAX(attempt)` that forgets `board_id` lets a
+    /// six-attempt row on mco-t8 make the mco-t2 row of the same instance
+    /// look stale, and every hand-rolled query that dropped the clause
+    /// reported a sweep losing banked work it had not lost.
+    pub fn verdicts_for(
+        &self,
+        board_id: i64,
+        engine_id: i64,
+    ) -> Result<std::collections::HashMap<(String, String), String>, DbError> {
+        let mut st = self.conn.prepare(
+            "SELECT v.name, i.label, r.verdict
+               FROM run r
+               JOIN instance i ON i.id = r.instance_id
+               JOIN variant  v ON v.id = i.variant_id
+              WHERE r.board_id = ?1 AND r.engine_id = ?2
+                AND r.state = 'done' AND r.verdict IS NOT NULL
+                AND r.attempt = (SELECT MAX(r2.attempt) FROM run r2
+                                  WHERE r2.board_id = r.board_id
+                                    AND r2.instance_id = r.instance_id
+                                    AND r2.engine_id = r.engine_id
+                                    AND r2.state = 'done')",
+        )?;
+        let rows = st.query_map(params![board_id, engine_id], |r| {
+            Ok(((r.get::<_, String>(0)?, r.get::<_, String>(1)?), r.get(2)?))
+        })?;
+        Ok(rows.collect::<Result<std::collections::HashMap<_, _>, _>>()?)
+    }
+
+    /// The instances whose latest done attempt BANKED under the referee --
+    /// what a restart owes nothing for. Same latest-attempt rule as
+    /// [`Reader::clean_instances`]; `banked` is the R2 column, and on a
+    /// migrated database it carries the v3 backfill (solves and clean rows).
+    pub fn banked_instances(
+        &self,
+        board_id: i64,
+        engine_id: i64,
+    ) -> Result<Vec<(Option<String>, String, String)>, DbError> {
+        let mut st = self.conn.prepare(
+            "SELECT v.ipc, v.name, i.label
+               FROM run r
+               JOIN instance i ON i.id = r.instance_id
+               JOIN variant  v ON v.id = i.variant_id
+              WHERE r.board_id = ?1 AND r.engine_id = ?2
+                AND r.state = 'done' AND r.banked = 1
+                AND r.attempt = (SELECT MAX(r2.attempt) FROM run r2
+                                  WHERE r2.board_id = r.board_id
+                                    AND r2.instance_id = r.instance_id
+                                    AND r2.engine_id = r.engine_id
+                                    AND r2.state = 'done')
+              ORDER BY v.ipc, v.name, i.sort_key",
+        )?;
+        let rows = st.query_map(params![board_id, engine_id], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// How much swap grew across a window: the last reading minus the first,
+    /// over the live watcher's samples. `None` when no sample with a swap
+    /// reading covers the window.
+    pub fn swap_growth_between(&self, start_ts: f64, end_ts: f64) -> Result<Option<f64>, DbError> {
+        let mut st = self.conn.prepare(
+            "SELECT swap_mb FROM sample
+              WHERE pass_id IS NULL AND at >= ?1 AND at <= ?2 AND swap_mb IS NOT NULL
+              ORDER BY at",
+        )?;
+        let vals: Vec<f64> = st
+            .query_map(params![start_ts, end_ts], |r| r.get(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(match (vals.first(), vals.last()) {
+            (Some(a), Some(b)) => Some(b - a),
+            _ => None,
+        })
+    }
+
+    /// The worst clock factor the canary reported across a window, from the
+    /// live watcher's samples. `None` when no sample in the window carries
+    /// one -- the sweep's first twenty minutes, or a pre-canary database.
+    pub fn canary_max_between(&self, start_ts: f64, end_ts: f64) -> Result<Option<f64>, DbError> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT MAX(canary_factor) FROM sample
+                  WHERE pass_id IS NULL AND at >= ?1 AND at <= ?2",
+                params![start_ts, end_ts],
+                |r| r.get::<_, Option<f64>>(0),
+            )
+            .optional()?
+            .flatten())
+    }
+
+    /// Every attempt of one instance under one engine, oldest first, with
+    /// what the supervisor measured. The dashboard's instance view.
+    pub fn attempts_for(
+        &self,
+        board_id: i64,
+        engine_id: i64,
+        variant: &str,
+        label: &str,
+    ) -> Result<Vec<AttemptRec>, DbError> {
+        let mut st = self.conn.prepare(
+            "SELECT r.attempt, r.solved, r.time_secs, r.wall_ms, r.cpu_ms, r.suspended_ms,
+                    r.peak_rss, r.timing_quality, r.verdict, r.started_at, r.finished_at
+               FROM run r
+               JOIN instance i ON i.id = r.instance_id
+               JOIN variant  v ON v.id = i.variant_id
+              WHERE r.board_id = ?1 AND r.engine_id = ?2 AND v.name = ?3 AND i.label = ?4
+                AND r.state = 'done'
+              ORDER BY r.attempt",
+        )?;
+        let rows = st.query_map(params![board_id, engine_id, variant, label], |r| {
+            Ok(AttemptRec {
+                attempt: r.get::<_, i64>(0)? as u32,
+                solved: r.get::<_, i64>(1)? != 0,
+                secs: r.get(2)?,
+                wall_ms: r.get::<_, Option<i64>>(3)?.map(|v| v as u64),
+                cpu_ms: r.get::<_, Option<i64>>(4)?.map(|v| v as u64),
+                suspended_ms: r.get::<_, Option<i64>>(5)?.map(|v| v as u64),
+                peak_rss: r.get::<_, Option<i64>>(6)?.map(|v| v as u64),
+                timing: r.get(7)?,
+                verdict: r.get(8)?,
+                started_at: r.get(9)?,
+                finished_at: r.get(10)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// The live watcher's samples across a span, oldest first.
+    pub fn samples_between(&self, start_ts: f64, end_ts: f64) -> Result<Vec<SamplePoint>, DbError> {
+        let mut st = self.conn.prepare(
+            "SELECT at, competitors_total, canary_factor, swap_mb, mem_pressure
+               FROM sample
+              WHERE pass_id IS NULL AND at >= ?1 AND at <= ?2
+              ORDER BY at",
+        )?;
+        let rows = st.query_map(params![start_ts, end_ts], |r| {
+            Ok(SamplePoint {
+                at: r.get(0)?,
+                foreign: r.get(1)?,
+                canary: r.get(2)?,
+                swap_mb: r.get(3)?,
+                mem_pressure: r.get::<_, Option<i64>>(4)?.map(|v| v as u32),
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// Throttle windows overlapping a span: `(started_at, ended_at, level)`.
+    pub fn throttle_windows_between(
+        &self,
+        start_ts: f64,
+        end_ts: f64,
+    ) -> Result<Vec<(f64, Option<f64>, String)>, DbError> {
+        let mut st = self.conn.prepare(
+            "SELECT started_at, ended_at, level FROM throttle_window
+              WHERE started_at <= ?2 AND (ended_at IS NULL OR ended_at >= ?1)
+              ORDER BY started_at",
+        )?;
+        let rows = st.query_map(params![start_ts, end_ts], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// Runs under one engine that overlap a span: `(started, finished, banked)`.
+    pub fn runs_between(
+        &self,
+        engine_id: i64,
+        start_ts: f64,
+        end_ts: f64,
+    ) -> Result<Vec<(f64, f64, bool)>, DbError> {
+        let mut st = self.conn.prepare(
+            "SELECT started_at, finished_at, banked FROM run
+              WHERE engine_id = ?1 AND state = 'done'
+                AND started_at IS NOT NULL AND finished_at IS NOT NULL
+                AND started_at <= ?3 AND finished_at >= ?2
+              ORDER BY started_at",
+        )?;
+        let rows = st.query_map(params![engine_id, start_ts, end_ts], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? != 0))
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// The most memory this box has ever seen the instance take, on any
+    /// engine, from the supervisor's RSS watchdog. Sizes a packed batch.
+    pub fn prior_peak_rss(&self, variant: &str, label: &str) -> Result<Option<u64>, DbError> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT MAX(r.peak_rss) FROM run r
+                   JOIN instance i ON i.id = r.instance_id
+                   JOIN variant  v ON v.id = i.variant_id
+                  WHERE v.name = ?1 AND i.label = ?2 AND r.state = 'done'",
+                params![variant, label],
+                |r| r.get::<_, Option<i64>>(0),
+            )
+            .optional()?
+            .flatten()
+            .map(|v| v as u64))
+    }
+
+    /// The canary's baseline: a low PERCENTILE of its most recent solo
+    /// readings, not the fastest ever.
+    ///
+    /// The 0.27 cut sweep spent a night refusing every timeout as
+    /// `thermal` because the baseline was the all-time minimum: five
+    /// readings of 0.52 s out of 174 (a cool boost clock, 3 % of the
+    /// record) against the box's ordinary 0.77 s, so every reading was
+    /// 1.49x and nothing could ever be clean. A percentile of the recent
+    /// window tracks what the box actually does, tolerates a lucky-fast
+    /// outlier, and still moves if the box gets genuinely slower.
+    pub fn canary_baseline(
+        &self,
+        label: &str,
+        window: usize,
+        pct: f64,
+    ) -> Result<Option<f64>, DbError> {
+        let mut st = self.conn.prepare(
+            "SELECT secs FROM canary WHERE label = ?1 AND solo = 1
+              ORDER BY at DESC LIMIT ?2",
+        )?;
+        let mut secs: Vec<f64> = st
+            .query_map(params![label, window as i64], |r| r.get(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        if secs.is_empty() {
+            return Ok(None);
+        }
+        secs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let idx = ((secs.len() - 1) as f64 * pct.clamp(0.0, 1.0)).round() as usize;
+        Ok(Some(secs[idx]))
+    }
+
+    /// How many SOLO done attempts (no neighbours) this instance already has
+    /// under this engine. The suspect rule counts these, not attempts.
+    pub fn solo_attempts(
+        &self,
+        board_id: i64,
+        engine_id: i64,
+        variant: &str,
+        label: &str,
+    ) -> Result<u32, DbError> {
+        Ok(self.conn.query_row(
+            "SELECT COUNT(*) FROM run r
+               JOIN instance i ON i.id = r.instance_id
+               JOIN variant  v ON v.id = i.variant_id
+              WHERE r.board_id = ?1 AND r.engine_id = ?2 AND v.name = ?3 AND i.label = ?4
+                AND r.state = 'done' AND COALESCE(r.neighbours, 0) = 0",
+            params![board_id, engine_id, variant, label],
+            |r| r.get::<_, i64>(0),
+        )? as u32)
     }
 
     /// The attempt number a NEW run of this instance should carry: one past
