@@ -616,15 +616,28 @@ fn parse_order_edges(s: &Sexp) -> Result<Vec<OrderEdge>, ParseError> {
     rest.iter()
         .map(|entry| {
             let pair = as_list(entry)?;
-            if pair.len() != 2 {
-                return Err(ParseError::Syntax(
-                    "expected '(before after)' ordering edge".to_owned(),
-                ));
+            match pair.len() {
+                2 => Ok(OrderEdge {
+                    before: as_atom(&pair[0])?.to_owned(),
+                    after: as_atom(&pair[1])?.to_owned(),
+                }),
+                // Standard HDDL ordering-edge grammar (matches the PANDA-derived
+                // koala-planner/Planner hddl.y `ordering_def` rule): an explicit
+                // `<` token, either prefix `(< before after)` or infix
+                // `(before < after)`.
+                3 if as_atom(&pair[0]).ok() == Some("<") => Ok(OrderEdge {
+                    before: as_atom(&pair[1])?.to_owned(),
+                    after: as_atom(&pair[2])?.to_owned(),
+                }),
+                3 if as_atom(&pair[1]).ok() == Some("<") => Ok(OrderEdge {
+                    before: as_atom(&pair[0])?.to_owned(),
+                    after: as_atom(&pair[2])?.to_owned(),
+                }),
+                _ => Err(ParseError::Syntax(
+                    "expected '(before after)', '(< before after)', or '(before < after)' ordering edge"
+                        .to_owned(),
+                )),
             }
-            Ok(OrderEdge {
-                before: as_atom(&pair[0])?.to_owned(),
-                after: as_atom(&pair[1])?.to_owned(),
-            })
         })
         .collect()
 }
@@ -1028,6 +1041,45 @@ mod tests {
             .map(|e| (e.before.clone(), e.after.clone()))
             .collect::<std::collections::BTreeSet<_>>();
         let expected = [("t1", "t3"), ("t2", "t4"), ("t3", "t5"), ("t4", "t5")]
+            .into_iter()
+            .map(|(a, b)| (a.to_owned(), b.to_owned()))
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(edges, expected);
+    }
+
+    /// Standard HDDL ordering-edge syntax uses an explicit `<` operator
+    /// (either prefix `(< before after)` or infix `(before < after)`), per
+    /// the PANDA-derived reference grammar (koala-planner/Planner
+    /// `parser/src/hddl.y`'s `ordering_def` rule) and real-world domains
+    /// (koala-planner/domains' Transport and Satellite both write
+    /// `(< task0 task1)`). Before this fix, `parse_order_edges` only
+    /// accepted a bare 2-element `(before after)` pair and rejected both
+    /// `<`-operator forms with a hard parse error.
+    #[test]
+    fn parses_ordering_edges_with_explicit_less_than_operator_prefix_and_infix() {
+        const DOMAIN: &str = "(define (domain ordering-operator)
+          (:types loc)
+          (:predicates (at ?l - loc))
+          (:task deliver :parameters (?l - loc))
+          (:method m-deliver
+            :parameters (?l - loc)
+            :task (deliver ?l)
+            :subtasks (and
+              (t1 (deliver ?l))
+              (t2 (deliver ?l))
+              (t3 (deliver ?l)))
+            :ordering (and
+              (< t1 t2)
+              (t2 < t3))))";
+        let domain = parse_domain(DOMAIN).expect("prefix/infix `<` ordering parses");
+        let method = &domain.methods[0];
+        let edges = method
+            .network
+            .order
+            .iter()
+            .map(|e| (e.before.clone(), e.after.clone()))
+            .collect::<std::collections::BTreeSet<_>>();
+        let expected = [("t1", "t2"), ("t2", "t3")]
             .into_iter()
             .map(|(a, b)| (a.to_owned(), b.to_owned()))
             .collect::<std::collections::BTreeSet<_>>();
