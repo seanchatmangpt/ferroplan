@@ -45,3 +45,39 @@ delegated to T07 by T09's ticket.
 Coordinator post-wave: respawn losses → integrate new branches serially (same
 protocol as T20, using each branch's final tip) → update tickets to ALIVE/BLOCKED
 → receipt with 比 and ledger deltas.
+
+---
+
+# Wave-4 — harden / benchmark / stress / document (20 agents, one message)
+
+Same canonical dispatch form as wave 3. Tickets 21–23 (wave-3 follow-ups) are worked as-is.
+New tickets 24–40. Integration remains the coordinator's, post-wave, serial.
+
+| ticket | work surface | branch |
+|---|---|---|
+| fond-htn-21-eq-goal-evaluation | ~/ferroplan-worktrees/wt-a21 | fix/eq-goal-evaluation |
+| fond-htn-22-parse-depth-budget | ~/ferroplan-worktrees/wt-a22 | fix/parse-depth-budget |
+| fond-htn-23-translate-capacity | ~/ferroplan-worktrees/wt-a23 | fix/translate-capacity |
+| fond-htn-24-ground-conditional-effects | ~/ferroplan-worktrees/wt-a24 | fix/ground-conditional-effects |
+| fond-htn-25-fond-loop-failsafes | ~/ferroplan-worktrees/wt-a25 | fix/fond-loop-failsafes |
+| fond-htn-26-bench-fond-criterion | ~/ferroplan-worktrees/wt-b26 | bench/fond-criterion |
+| fond-htn-27-bench-ipc-full-sweep | ~/ferroplan-worktrees/wt-b27 | bench/ipc-full-sweep |
+| fond-htn-28-bench-scaling-ladder | ~/ferroplan-worktrees/wt-b28 | bench/scaling-ladder |
+| fond-htn-29-stress-concurrency-wasm | ~/ferroplan-worktrees/wt-s29 | stress/concurrency-wasm |
+| fond-htn-30-stress-memory-ceilings | ~/ferroplan-worktrees/wt-s30 | stress/memory-ceilings |
+| fond-htn-31-fuzz-hddl-roundtrip | ~/ferroplan-worktrees/wt-s31 | fuzz/hddl-roundtrip |
+| fond-htn-32-fuzz-api-panic-hunt | ~/ferroplan-worktrees/wt-s32 | fuzz/api-panic-hunt |
+| fond-htn-33-property-scaleup | ~/ferroplan-worktrees/wt-p33 | test/property-scaleup |
+| fond-htn-34-oracle-extension | /tmp only | — |
+| fond-htn-35-docs-fond-htn-update | ~/ferroplan-worktrees/wt-d35 | docs/fond-htn-wave4 |
+| fond-htn-36-docs-benchmarks | ~/ferroplan-worktrees/wt-d36 | docs/benchmarks-consolidated |
+| fond-htn-37-docs-readme | ~/ferroplan-worktrees/wt-d37 | docs/readme-capability |
+| fond-htn-38-docs-book-chapter | ~/ferroplan-worktrees/wt-d38 | docs/book-fond-htn |
+| fond-htn-39-docs-readiness-refresh | ~/ferroplan-worktrees/wt-d39 | docs/readiness-refresh |
+| fond-htn-40-docs-changelog-draft | ~/ferroplan-worktrees/wt-d40 | docs/changelog-0.28-draft |
+
+File-ownership lanes to minimize merge seams: 21/24 share ferroplan-hddl eval paths
+(21 = goal `=`; 24 = effect `when` — disjoint functions, keep diffs inside them);
+25 owns planning_runtime loop bounds; 23 owns translate limits plumbing;
+26–28 own new files only; 29–32 own new test files (+29 may touch wasi_abi tests module);
+35–40 own docs (+39 touches readiness.rs and its test only).
