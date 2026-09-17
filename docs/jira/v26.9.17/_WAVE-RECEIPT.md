@@ -39,7 +39,7 @@ property instances) + 3 regression tests + reproducer promotion; T02 respawn; fo
 
 - cargo test -p ferroplan -p ferroplan-hddl (post-integration, pre-hotfix): 691 passed / 0 failed
 - hotfix worktree: planning_runtime 12/12; fond_canonical 10/10; fond_property 3/3 (incl. un-ignored FOUND_BUG_1) — exits 0
-- final full gate: see History row appended below on completion
+- final full gate (main @ f13c6b7, post-hotfix, post-promotion): 695 passed / 0 failed — exit 0
 - oracle smokes (T01): flexible SOLVED 0.2 s; PARSE_ERROR classification; flock double-run — exits 0
 
 ## 比 / ledger
