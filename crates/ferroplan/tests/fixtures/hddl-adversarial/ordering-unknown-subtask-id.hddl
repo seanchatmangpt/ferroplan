@@ -1,0 +1,15 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; Ordering edge references 's9', which is not an id in :subtasks.
+(define (domain order-unknown)
+  (:predicates (at ?x))
+  (:action move
+    :parameters (?x)
+    :precondition ()
+    :effect (at ?x))
+  (:task travel
+    :parameters (?x))
+  (:method m-travel
+    :parameters (?x)
+    :task (travel ?x)
+    :subtasks (and (s1 (move ?x)))
+    :ordering (and (s1 < s9))))

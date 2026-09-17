@@ -1,0 +1,8 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; 'oneof' used in ':precondition' — non-determinism is effect-only in HDDL.
+(define (domain oneof-precond)
+  (:predicates (at ?x) (open ?x))
+  (:action move
+    :parameters (?x)
+    :precondition (and (oneof (at ?x) (open ?x)))
+    :effect (at ?x)))

@@ -1,0 +1,8 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; Predicate 'at' declared twice.
+(define (domain duplicate-pred)
+  (:predicates (at ?x) (at ?x))
+  (:action move
+    :parameters (?x)
+    :precondition ()
+    :effect (at ?x)))

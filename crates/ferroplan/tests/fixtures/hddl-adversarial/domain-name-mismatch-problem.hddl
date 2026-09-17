@@ -1,0 +1,10 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; Problem declares ':domain other' while the parsed domain is named 'mismatch'.
+;; Current behavior under audit: parse+validate do NOT cross-check the names
+;; (asserted explicitly in hddl_adversarial.rs).
+(define (problem mismatch-p1)
+  (:domain other)
+  (:objects x1)
+  (:init (at x1))
+  (:goal (at x1))
+  (:htn :ordered-subtasks (move x1)))

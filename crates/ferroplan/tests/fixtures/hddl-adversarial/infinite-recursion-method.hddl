@@ -1,0 +1,15 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; Recursive decomposition: method for task 'loop' decomposes into 'loop'
+;; itself — must hit TranslateLimits (depth/states), never hang.
+(define (domain infinite-recursion)
+  (:predicates (at ?x))
+  (:action move
+    :parameters (?x)
+    :precondition ()
+    :effect (at ?x))
+  (:task loop
+    :parameters ())
+  (:method m-loop
+    :parameters ()
+    :task (loop)
+    :subtasks (and (s1 (loop)))))

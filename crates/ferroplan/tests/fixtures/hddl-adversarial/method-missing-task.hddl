@@ -1,0 +1,9 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; ':method' without the required ':task' head.
+(define (domain method-no-task)
+  (:predicates (at ?x))
+  (:task travel
+    :parameters (?x))
+  (:method m-travel
+    :parameters (?x)
+    :subtasks (and (s1 (move ?x)))))
