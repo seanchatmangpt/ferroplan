@@ -235,27 +235,19 @@ fn method_without_task_is_typed_syntax_error() {
 
 #[test]
 fn ordering_edge_to_unknown_subtask_id_is_documented_tolerance() {
-    // Audit outcome (recorded in ticket History): neither the parser nor
-    // validate_domain/validate_problem cross-checks ':ordering' edges
-    // against ':subtasks' ids, so an edge naming a nonexistent id is
-    // currently dead data, silently carried. Assert the no-panic +
-    // accepted-tolerance behavior explicitly so a future validator change
-    // must update this test consciously.
+    // Superseded semantics (ticket History records the audit-era tolerance):
+    // validation now cross-checks ':ordering' edges against ':subtasks' ids
+    // (fix/hddl-validation) — an edge naming a nonexistent id is a typed
+    // UndefinedOrderRef rejection at validation/ground time, not silently
+    // carried dead data. Parsing still accepts; validation must refuse.
     let src = fx!("ordering-unknown-subtask-id.hddl");
     let domain = no_panic("order-unknown-parse", || parse_domain(src))
-        .expect("ordering-with-unknown-id must parse (documented tolerance)");
-    no_panic("order-unknown-validate", || validate_domain(&domain))
-        .expect("ordering-with-unknown-id must validate (documented tolerance)");
-    let problem_src = problem_for("order-unknown", "travel");
-    let problem = parse_problem(&problem_src).expect("companion problem parses");
-    let ir = no_panic("order-unknown-ground", || {
-        ground(&domain, &problem, &GroundingLimits::default())
-    })
-    .expect("grounding tolerates the dead ordering edge");
-    no_panic("order-unknown-translate", || {
-        translate(&ir, &TranslateLimits::default())
-    })
-    .expect("translation tolerates the dead ordering edge");
+        .expect("ordering-with-unknown-id must parse (tolerance moved to validation)");
+    let validation = no_panic("order-unknown-validate", || validate_domain(&domain));
+    assert!(
+        matches!(&validation, Err(ValidationError::UndefinedOrderRef { .. })),
+        "unknown ordering id must be a typed UndefinedOrderRef rejection, got {validation:?}"
+    );
 }
 
 #[test]
@@ -330,29 +322,14 @@ fn htn_root_task_wrong_arity_is_clean_reject_never_hangs() {
 
 #[test]
 fn empty_oneof_is_cleanly_handled_never_panics() {
-    // '(oneof)' with zero branches. Audit outcome (ticket History): parses
-    // as Effect::Oneof([]) and grounds to a no-branch action; asserted as
-    // no-panic + the currently-observed pipeline outcome so any behavior
-    // change is conscious.
-    let domain_src = fx!("oneof-empty.hddl");
-    let parsed = no_panic("oneof-empty-parse", || parse_domain(domain_src));
+    // Superseded semantics (ticket History records the audit-era tolerance):
+    // since fix/oneof-koala-semantics, '(oneof)' with zero branches is a
+    // typed MalformedOneof rejection at parse time — never a panic, never
+    // a silently-unexecutable action.
+    let parsed = no_panic("oneof-empty-parse", || parse_domain(fx!("oneof-empty.hddl")));
     match &parsed {
-        Ok(_) => {}
-        other => panic!("'(oneof)' should parse (Effect::Oneof of empty vec) per audit, got {other:?}"),
-    }
-    let domain = parsed.expect("parse outcome asserted above");
-    let problem = parse_problem(&problem_for("oneof-empty", "move")).expect("companion problem");
-    let ground_result = no_panic("oneof-empty-ground", || {
-        ground(&domain, &problem, &GroundingLimits::default())
-    });
-    match &ground_result {
-        Ok(ir) => {
-            no_panic("oneof-empty-translate", || {
-                translate(ir, &TranslateLimits::default())
-            })
-            .expect("translate must terminate cleanly on empty-oneof");
-        }
-        Err(e) => panic!("empty oneof grounding changed behavior — update this test consciously: {e}"),
+        Err(ParseError::MalformedOneof(_)) => {}
+        other => panic!("'(oneof)' must be a typed MalformedOneof rejection, got {other:?}"),
     }
 }
 
@@ -362,8 +339,8 @@ fn nested_oneof_is_typed_malformed_oneof() {
     match err {
         Err(e @ ParseError::MalformedOneof(_)) => {
             assert!(
-                e.to_string().contains("nested oneof"),
-                "diagnostic should say why, got: {e}"
+                e.to_string().to_lowercase().contains("oneof"),
+                "diagnostic should name the construct, got: {e}"
             );
         }
         other => panic!("expected ParseError::MalformedOneof for nested oneof, got {other:?}"),
@@ -372,36 +349,33 @@ fn nested_oneof_is_typed_malformed_oneof() {
 
 #[test]
 fn oneof_in_precondition_is_typed_rejection() {
-    // Audit outcome: parse_goal has no 'oneof' arm, and parse_term rejects
-    // list-shaped terms, so '(oneof (at ?x) ...)' in a precondition fails
-    // as ParseError::Syntax before validation ever sees it.
+    // Since fix/oneof-koala-semantics, oneof in a goal-description position
+    // is a dedicated MalformedOneof arm in parse_goal — no longer a generic
+    // Syntax failure.
     let err = no_panic("oneof-precond", || {
         parse_domain(fx!("oneof-in-precondition.hddl"))
     });
     match &err {
-        Err(ParseError::Syntax(_)) => {}
-        other => panic!("expected a typed ParseError for oneof-in-precondition, got {other:?}"),
+        Err(ParseError::MalformedOneof(_)) => {}
+        other => panic!("expected MalformedOneof for oneof-in-precondition, got {other:?}"),
     }
 }
 
 #[test]
 fn when_inside_oneof_branch_is_cleanly_handled_never_panics() {
-    // '(oneof (when c e) b2)': parses (Effect::Oneof of a conditional
-    // branch), grounds as a conditional effect per outcome. Assert the
-    // full pipeline terminates without panic; the observed acceptance is
-    // recorded in ticket History so a change must be conscious.
-    let domain_src = fx!("when-inside-oneof-branch.hddl");
-    let domain = no_panic("when-oneof-parse", || parse_domain(domain_src))
-        .expect("when-inside-oneof must parse (audit: legal as per-branch conditional)");
-    let problem = parse_problem(&problem_for("when-in-oneof", "move")).expect("companion problem");
-    let ir = no_panic("when-oneof-ground", || {
-        ground(&domain, &problem, &GroundingLimits::default())
-    })
-    .expect("grounding must terminate cleanly");
-    no_panic("when-oneof-translate", || {
-        translate(&ir, &TranslateLimits::default())
-    })
-    .expect("translation must terminate cleanly");
+    // Superseded semantics (ticket History records the audit-era tolerance):
+    // the reference dialect parses '(when ...)' inside a oneof branch and
+    // then silently DROPS the conditional effect downstream; since
+    // fix/oneof-koala-semantics ferroplan refuses loudly instead — a typed
+    // MalformedOneof rejection at parse, never a panic, never a silently
+    // weakened domain.
+    let parsed = no_panic("when-oneof-parse", || {
+        parse_domain(fx!("when-inside-oneof-branch.hddl"))
+    });
+    match &parsed {
+        Err(ParseError::MalformedOneof(_)) => {}
+        other => panic!("when-inside-oneof must be a typed MalformedOneof rejection, got {other:?}"),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -463,10 +437,10 @@ fn method_subtask_naming_unknown_task_is_typed_validation_error() {
 
 #[test]
 fn problem_goal_referencing_undeclared_object_never_panics() {
-    // Audit outcome (ticket History): validate_problem does not cross-check
-    // goal objects against ':objects', and a constant unknown to grounding
-    // is refused by grounder (GroundError) or flows to a dead-end — assert
-    // no-panic plus the observed typed outcome.
+    // Superseded semantics (ticket History records the audit-era tolerance):
+    // since fix/hddl-validation, validate_problem checks goal atoms against
+    // declared predicates/objects — an undeclared object in ':goal' is a
+    // typed rejection before grounding. Never a panic.
     let domain_src = "\
 (define (domain ghost-domain)
   (:predicates (at ?x))
@@ -480,21 +454,11 @@ fn problem_goal_referencing_undeclared_object_never_panics() {
         parse_problem(fx!("problem-goal-undeclared-object.hddl"))
     })
     .expect("goal-references-unknown-object problem must parse");
-    no_panic("ghost-validate", || validate_problem(&domain, &problem))
-        .expect("per audit, validate_problem does not check goal objects");
-    let ground_result = no_panic("ghost-ground", || {
-        ground(&domain, &problem, &GroundingLimits::default())
-    });
-    match &ground_result {
-        Ok(ir) => {
-            no_panic("ghost-translate", || {
-                translate(ir, &TranslateLimits::default())
-            })
-            .expect("translate must terminate cleanly");
-        }
-        Err(GroundError::UnboundVariable(_)) => { /* typed refusal — also acceptable */ }
-        Err(e) => panic!("unexpected ground error shape — update consciously: {e:?}"),
-    }
+    let validation = no_panic("ghost-validate", || validate_problem(&domain, &problem));
+    assert!(
+        validation.is_err(),
+        "goal referencing an undeclared object must be a typed validation rejection, got Ok"
+    );
 }
 
 // ---------------------------------------------------------------------------
