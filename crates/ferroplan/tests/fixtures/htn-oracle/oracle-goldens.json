@@ -1,0 +1,156 @@
+{
+  "harvested_utc": "2026-09-17T21:52:34Z",
+  "instances": {
+    "Blocksworld-GTOHP": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "p01.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.578
+    },
+    "Blocksworld-HPDDL": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "pfile_005.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.524
+    },
+    "Depots": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "p01.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.401
+    },
+    "Factories-simple": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "pfile01.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.324
+    },
+    "Lamps": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "pfile01.pddl",
+      "status": "SOLVED",
+      "wall_s": 0.343
+    },
+    "Multiarm-Blocksworld": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "pfile_01_005.hddl",
+      "status": "SOLVED",
+      "wall_s": 1.237
+    },
+    "PCP_1": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "p-pcp01.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.288
+    },
+    "PO_Satellite": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "1obs-1sat-1mod.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.382
+    },
+    "PO_Transport": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "pfile01.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.338
+    },
+    "Robot": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "pfile_01_001.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.406
+    },
+    "Satellite-GTOHP": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "p01.hddl",
+      "status": "SOLVED",
+      "wall_s": 1.229
+    },
+    "Towers": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "pfile_01.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.451
+    },
+    "Transport": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "pfile01.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.327
+    },
+    "panda-conditional-effect": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "problem.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.301
+    },
+    "panda-empty": {
+      "cross_check_flexible": "NOSOLUTION",
+      "domain_file": "domain.hddl",
+      "mode": "fixed-ld",
+      "problem_file": "problem.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.29
+    },
+    "panda-interleaving": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "problem.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.273
+    },
+    "panda-method-effect": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "problem.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.284
+    },
+    "shop3-port-ab-ordering": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "problem.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.393
+    },
+    "shop3-port-loan-credit": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "problem.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.338
+    },
+    "shop3-port-loan-noplan": {
+      "cross_check_fixed_ld": "ERROR",
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "problem.hddl",
+      "status": "ERROR",
+      "wall_s": 0.292
+    },
+    "shop3-port-swap": {
+      "domain_file": "domain.hddl",
+      "mode": "flexible",
+      "problem_file": "problem.hddl",
+      "status": "SOLVED",
+      "wall_s": 0.544
+    }
+  },
+  "note": "koala/pandaPI oracle verdicts; verdicts + wall only (T03 verdicts lost to /tmp wipe; re-harvested by fond-htn-05 through /tmp/fond-oracle/oracle-run.sh; verdict rule: SOLVED if any mode solves, NOSOLUTION only if both modes agree; panda-empty flexible NOSOLUTION is the known koala-flexible quirk, fixed-ld returns the empty-plan policy)",
+  "oracle": "/tmp/fond-oracle/oracle-run.sh"
+}

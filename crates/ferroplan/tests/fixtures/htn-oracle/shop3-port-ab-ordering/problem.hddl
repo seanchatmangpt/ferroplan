@@ -1,0 +1,16 @@
+; HAND-PORT (SHOP3 -> HDDL).
+; Source: github.com/shop-planner/shop3, shop3/examples/toy/ordering-example.lisp
+;         (defproblem p1 ab () (a-and-b smurf)),
+;         commit ce53f9b651acde8c44dc21eddb1a1c5b97f10536.
+; Expected: SOLVES. ta and tb may interleave, but every valid plan has a1 before
+; b1 (b1 needs (foo smurf), which only a1 adds) and a2 after a1; e.g.
+;   (a1 smurf) (b1 smurf) (a2 smurf) (b2 smurf)
+; If a planner reports NoPlan here, its unordered-subtask handling is suspect.
+(define (problem ab-p1)
+  (:domain ab-ordering)
+  (:objects smurf - thing)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and
+      (a-and-b smurf)))
+  (:init))

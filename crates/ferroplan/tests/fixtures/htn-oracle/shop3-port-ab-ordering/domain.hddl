@@ -1,0 +1,64 @@
+; HAND-PORT (SHOP3 -> HDDL), not a verbatim copy.
+; Source: github.com/shop-planner/shop3, file shop3/examples/toy/ordering-example.lisp
+;         (defdomain ab ...), commit ce53f9b651acde8c44dc21eddb1a1c5b97f10536,
+;         MPL-1.1/GPL-2.0/LGPL-2.1.
+; Port map:
+;   (:operator (!a1 ?x) () () ((foo ?x)))     -> :action a1, adds (foo ?x)
+;   (:operator (!a2 ?x) () ((foo ?x)) ())     -> :action a2, deletes (foo ?x)
+;   (:operator (!b1 ?x) ((foo ?x)) () ())     -> :action b1, needs (foo ?x)
+;   (:operator (!b2 ?x) () () ())             -> :action b2, no-op
+;   The root method's (:unordered (:unordered (!a1 ?x) (!a2 ?x))
+;                                 (:ordered  (!b1 ?x) (!b2 ?x)))
+;   is ported to an HDDL method with an UNORDERED :subtasks list over two helper
+;   abstract tasks ta/tb (mirrors the original p2 decomposition into methods a and b).
+; Purpose of the port: exercise unordered (partial-order) subtask lists in HDDL.
+(define (domain ab-ordering)
+  (:requirements :typing :hierarchy)
+  (:types thing)
+  (:predicates
+    (foo ?x - thing))
+
+  (:task a-and-b :parameters (?x - thing))
+  (:task ta      :parameters (?x - thing))
+  (:task tb      :parameters (?x - thing))
+
+  (:action a1
+    :parameters (?x - thing)
+    :precondition (and)
+    :effect (foo ?x))
+
+  (:action a2
+    :parameters (?x - thing)
+    :precondition (and)
+    :effect (not (foo ?x)))
+
+  (:action b1
+    :parameters (?x - thing)
+    :precondition (foo ?x)
+    :effect (and))
+
+  (:action b2
+    :parameters (?x - thing)
+    :precondition (and)
+    :effect (and))
+
+  (:method ab-root
+    :parameters (?x - thing)
+    :task (a-and-b ?x)
+    :subtasks (and
+      (ta ?x)
+      (tb ?x)))
+
+  (:method ta-do
+    :parameters (?x - thing)
+    :task (ta ?x)
+    :ordered-subtasks (and
+      (a1 ?x)
+      (a2 ?x)))
+
+  (:method tb-do
+    :parameters (?x - thing)
+    :task (tb ?x)
+    :ordered-subtasks (and
+      (b1 ?x)
+      (b2 ?x))))

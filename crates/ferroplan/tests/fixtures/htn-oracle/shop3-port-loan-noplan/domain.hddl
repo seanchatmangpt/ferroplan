@@ -1,0 +1,65 @@
+; HAND-PORT (SHOP3 -> HDDL), not a verbatim copy.
+; Source: github.com/shop-planner/shop3, file shop3/examples/toy/optimize-example.lisp
+;         (defdomain loan ...), commit ce53f9b651acde8c44dc21eddb1a1c5b97f10536,
+;         MPL-1.1/GPL-2.0/LGPL-2.1.
+; Port map:
+;   (:operator (!borrow-mortgage ?ammt ?acct) () () ((debt ?ammt ?acct)) 15.0)
+;   (:operator (!borrow-credit-card ?ammt ?acct) () () ((debt ?ammt ?acct)) 0.0)
+;     -> :action borrow-mortgage / borrow-credit-card (costs DROPPED, see below)
+;   (:operator (!pay-mortgage-interest ?acct) ((debt ?ammt ?acct)) () () (* .1 ?ammt))
+;   (:operator (!pay-credit-card-interest ?acct) ((debt ?ammt ?acct)) () () (* .2 ?ammt))
+;     -> :action pay-*-interest taking (?amt ?acct); the original binds ?ammt
+;        implicitly from the state, which minimal HDDL cannot express, so the
+;        amount is passed explicitly and matches the borrowed amount.
+;   (:operator (!procrastinate) () () () 0.0) -> dropped (cost-optimization prop only)
+;   get-money methods: SHOP3 method preconditions -> HDDL :precondition.
+;   The third SHOP3 method (house branch with procrastinate inserted) differs only
+;   in plan cost, so it is collapsed into the house branch: minimal HDDL port.
+; DELIBERATELY DROPPED: variable action costs ((* .1 ?ammt) etc.) -- Lisp numeric
+; expressions are not expressible in minimal HDDL; this port tests branching on
+; method preconditions, not cost optimization.
+(define (domain loan)
+  (:requirements :typing :hierarchy)
+  (:types amount account)
+  (:predicates
+    (debt ?amt - amount ?acct - account)
+    (have-credit-card ?acct - account)
+    (have-house ?acct - account))
+
+  (:task get-money :parameters (?amt - amount ?acct - account))
+
+  (:action borrow-credit-card
+    :parameters (?amt - amount ?acct - account)
+    :precondition (and)
+    :effect (debt ?amt ?acct))
+
+  (:action borrow-mortgage
+    :parameters (?amt - amount ?acct - account)
+    :precondition (and)
+    :effect (debt ?amt ?acct))
+
+  (:action pay-credit-card-interest
+    :parameters (?amt - amount ?acct - account)
+    :precondition (debt ?amt ?acct)
+    :effect (and))
+
+  (:action pay-mortgage-interest
+    :parameters (?amt - amount ?acct - account)
+    :precondition (debt ?amt ?acct)
+    :effect (and))
+
+  (:method get-money-via-credit-card
+    :parameters (?amt - amount ?acct - account)
+    :task (get-money ?amt ?acct)
+    :precondition (have-credit-card ?acct)
+    :ordered-subtasks (and
+      (borrow-credit-card ?amt ?acct)
+      (pay-credit-card-interest ?amt ?acct)))
+
+  (:method get-money-via-mortgage
+    :parameters (?amt - amount ?acct - account)
+    :task (get-money ?amt ?acct)
+    :precondition (have-house ?acct)
+    :ordered-subtasks (and
+      (borrow-mortgage ?amt ?acct)
+      (pay-mortgage-interest ?amt ?acct))))
