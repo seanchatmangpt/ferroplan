@@ -1,0 +1,48 @@
+; river (unsafe variant) — flat-FOND miniature, hand-authored for the
+; v26.9.17 FOND-HTN wave (ticket fond-htn-06-diff-flatfond). A river crossing
+; where EVERY ford risks being swept away irrecoverably (no reachable policy
+; guarantees the far bank), after the river-crossing examples of the
+; nondeterministic-planning literature (cf. Cimatti, Pistore, Roveri &
+; Traverso, AIJ 2003); this variant is deliberately UNSOLVABLE.
+; Class: unsolvable.
+(define (domain river-unsafe-flat)
+  (:predicates
+    (at-left)
+    (at-mid)
+    (at-right)
+    (swept))
+  (:task solve :parameters ())
+  (:action ford-1
+    :parameters ()
+    :precondition (and (at-left))
+    :effect (oneof
+      (and (not (at-left)) (at-mid))
+      (and (not (at-left)) (swept))))
+  (:action ford-2
+    :parameters ()
+    :precondition (and (at-mid))
+    :effect (oneof
+      (and (not (at-mid)) (at-right))
+      (and (not (at-mid)) (swept))))
+  (:action finish
+    :parameters ()
+    :precondition (and (at-right)))
+  (:method m-finish
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-right))
+    :ordered-subtasks (and (f (finish))))
+  (:method m-ford1
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-left))
+    :ordered-subtasks (and
+      (f1 (ford-1))
+      (r (solve))))
+  (:method m-ford2
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-mid))
+    :ordered-subtasks (and
+      (f2 (ford-2))
+      (r (solve)))))

@@ -1,0 +1,7 @@
+{
+  "domain": "faults-1bit",
+  "literature_class": "strong",
+  "provenance": "Hand-authored flat-FOND miniature (ticket fond-htn-06-diff-flatfond, 2026-09-17). One fault bit is probed; BOTH probe outcomes are recoverable by a distinct deterministic log action — the AND-semantics all-outcomes-acceptable shape of a strong plan (Cimatti, Pistore, Roveri & Traverso, AIJ 2003). No koala files used.",
+  "literature_ref": "Cimatti, Pistore, Roveri, Traverso, 'Weak, Strong, and Strong Cyclic Planning via Symbolic Model Checking', AIJ 147 (2003)",
+  "class_rationale": "probe's two outcomes lead to bit-0/bit-1 states, each completable by its own deterministic log action with no loops: an acyclic strong policy exists."
+}

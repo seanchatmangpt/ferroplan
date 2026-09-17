@@ -1,0 +1,45 @@
+; boolean (not) — flat-FOND miniature, hand-authored for the v26.9.17
+; FOND-HTN wave (ticket fond-htn-06-diff-flatfond). Achieving a negated
+; boolean fact where BOTH nondeterministic outcomes of the flip achieve the
+; goal (one additionally leaves an audit trace) — the STRONG-plan shape of
+; all-outcomes-acceptable, per Cimatti, Pistore, Roveri & Traverso, AIJ 2003.
+; Class: strong.
+(define (domain boolean-not-flat)
+  (:predicates
+    (boot)
+    (p)
+    (not-p)
+    (audited))
+  (:task solve :parameters ())
+  (:action load
+    :parameters ()
+    :precondition (and (boot))
+    :effect (and (not (boot)) (p)))
+  (:action negate
+    :parameters ()
+    :precondition (and (p))
+    :effect (oneof
+      (and (not (p)) (not-p))
+      (and (not (p)) (not-p) (audited))))
+  (:action finish
+    :parameters ()
+    :precondition (and (not-p)))
+  (:method m-finish
+    :parameters ()
+    :task (solve)
+    :precondition (and (not-p))
+    :ordered-subtasks (and (f (finish))))
+  (:method m-load
+    :parameters ()
+    :task (solve)
+    :precondition (and (boot))
+    :ordered-subtasks (and
+      (l (load))
+      (r (solve))))
+  (:method m-negate
+    :parameters ()
+    :task (solve)
+    :precondition (and (p))
+    :ordered-subtasks (and
+      (n (negate))
+      (r (solve)))))

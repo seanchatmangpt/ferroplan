@@ -1,0 +1,9 @@
+; coffee — flat-FOND miniature, hand-authored (see domain.hddl header).
+(define (problem coffee-flat-p1)
+  (:domain coffee-flat)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (at-office))
+  (:goal (and (delivered))))

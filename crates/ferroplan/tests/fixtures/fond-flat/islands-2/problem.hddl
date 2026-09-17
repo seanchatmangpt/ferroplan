@@ -1,0 +1,10 @@
+; islands (2 islands) — flat-FOND miniature, hand-authored
+; (see domain.hddl header).
+(define (problem islands-2-flat-p1)
+  (:domain islands-2-flat)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (at-main))
+  (:goal (and (at-i2))))

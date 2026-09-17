@@ -1,0 +1,61 @@
+; coffee — flat-FOND miniature, hand-authored for the v26.9.17 FOND-HTN wave
+; (ticket fond-htn-06-diff-flatfond). Brew may fail and must be retried
+; (self-loop), delivery may spill and requires walking back — the
+; retry-until-success shape of strong-cyclic planning, after the coffee-robot
+; example of Bryce & Weld, "Synthesizing Optical Trackers..." / (the coffee
+; robot of the nondeterministic-planning benchmarks) with strong-cyclic
+; semantics per Cimatti, Pistore, Roveri & Traverso, AIJ 2003.
+; Class: cyclic-only.
+(define (domain coffee-flat)
+  (:predicates
+    (at-office)
+    (has-coffee)
+    (at-client)
+    (spilled)
+    (delivered))
+  (:task solve :parameters ())
+  (:action brew
+    :parameters ()
+    :precondition (and (at-office))
+    :effect (oneof
+      (and (has-coffee))
+      (and)))
+  (:action deliver
+    :parameters ()
+    :precondition (and (at-office) (has-coffee))
+    :effect (oneof
+      (and (not (at-office)) (at-client) (delivered))
+      (and (not (at-office)) (at-client) (spilled))))
+  (:action walk-back
+    :parameters ()
+    :precondition (and (at-client) (spilled))
+    :effect (and (not (at-client)) (not (spilled)) (at-office)))
+  (:action finish
+    :parameters ()
+    :precondition (and (delivered)))
+  (:method m-finish
+    :parameters ()
+    :task (solve)
+    :precondition (and (delivered))
+    :ordered-subtasks (and (f (finish))))
+  (:method m-brew
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-office))
+    :ordered-subtasks (and
+      (b (brew))
+      (r (solve))))
+  (:method m-deliver
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-office) (has-coffee))
+    :ordered-subtasks (and
+      (d (deliver))
+      (r (solve))))
+  (:method m-walkback
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-client) (spilled))
+    :ordered-subtasks (and
+      (w (walk-back))
+      (r (solve)))))

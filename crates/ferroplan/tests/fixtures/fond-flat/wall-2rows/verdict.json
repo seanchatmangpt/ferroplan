@@ -1,0 +1,7 @@
+{
+  "domain": "wall-2rows",
+  "literature_class": "cyclic-only",
+  "provenance": "Hand-authored flat-FOND miniature (ticket fond-htn-06-diff-flatfond, 2026-09-17). Walls-style stacking domains from the FOND benchmark suites (cf. Muise, McIlraith & Beck, ICAPS 2012 nondeterministic benchmarks); 2-row variant where a dropped brick must be fetched and placement retried. No koala files used.",
+  "literature_ref": "Muise, McIlraith, Beck, 'Improved Non-Deterministic Planning by Exploiting State Relevance', ICAPS 2012 (benchmark families); Cimatti et al., AIJ 147 (2003) for strong-cyclic semantics",
+  "class_rationale": "Each placement may drop the brick; fetching loops back to the same stacking state, so no strong plan exists; the retry policy is strong-cyclic."
+}

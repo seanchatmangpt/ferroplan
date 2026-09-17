@@ -1,0 +1,17 @@
+{
+  "states": [
+    { "id": "s-left", "facts": ["at-left"] },
+    { "id": "s-mid", "facts": ["at-mid"] },
+    { "id": "s-right", "facts": ["at-right"] },
+    { "id": "s-swept", "facts": ["swept"] }
+  ],
+  "initial_states": ["s-left"],
+  "goal": { "facts": ["at-right"] },
+  "unsafe_states": ["s-swept"],
+  "transitions": [
+    { "action": "ford-1", "from": "s-left", "to": "s-mid", "probability_ppm": 500000 },
+    { "action": "ford-1", "from": "s-left", "to": "s-swept", "probability_ppm": 500000 },
+    { "action": "ford-2", "from": "s-mid", "to": "s-right", "probability_ppm": 500000 },
+    { "action": "ford-2", "from": "s-mid", "to": "s-swept", "probability_ppm": 500000 }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "states": [
+    { "id": "s-idle", "facts": ["f-ok"] },
+    { "id": "s-bit0", "facts": ["bit-0"] },
+    { "id": "s-bit1", "facts": ["bit-1"] },
+    { "id": "s-logged", "facts": ["logged"] }
+  ],
+  "initial_states": ["s-idle"],
+  "goal": { "facts": ["logged"] },
+  "unsafe_states": [],
+  "transitions": [
+    { "action": "probe", "from": "s-idle", "to": "s-bit0", "probability_ppm": 500000 },
+    { "action": "probe", "from": "s-idle", "to": "s-bit1", "probability_ppm": 500000 },
+    { "action": "log-0", "from": "s-bit0", "to": "s-logged" },
+    { "action": "log-1", "from": "s-bit1", "to": "s-logged" }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "states": [
+    { "id": "s-start", "facts": ["boot"] },
+    { "id": "s-p", "facts": ["p"] },
+    { "id": "s-notp", "facts": ["not-p"] },
+    { "id": "s-notp-audit", "facts": ["not-p", "audited"] }
+  ],
+  "initial_states": ["s-start"],
+  "goal": { "facts": ["not-p"] },
+  "unsafe_states": [],
+  "transitions": [
+    { "action": "load", "from": "s-start", "to": "s-p" },
+    { "action": "negate", "from": "s-p", "to": "s-notp", "probability_ppm": 500000 },
+    { "action": "negate", "from": "s-p", "to": "s-notp-audit", "probability_ppm": 500000 }
+  ]
+}

@@ -1,0 +1,55 @@
+; islands (2 islands) — flat-FOND miniature, hand-authored for the v26.9.17
+; FOND-HTN wave (ticket fond-htn-06-diff-flatfond). Bridge-building that may
+; flood and must be retried after drying out, after the islands-style
+; strong-cyclic examples of Cimatti, Pistore, Roveri & Traverso, AIJ 2003.
+; Class: cyclic-only.
+(define (domain islands-2-flat)
+  (:predicates
+    (at-main)
+    (at-i2)
+    (b12)
+    (soaked))
+  (:task solve :parameters ())
+  (:action build-bridge
+    :parameters ()
+    :precondition (and (at-main))
+    :effect (oneof
+      (and (b12))
+      (and (soaked))))
+  (:action dry-out
+    :parameters ()
+    :precondition (and (soaked))
+    :effect (and (not (soaked))))
+  (:action sail
+    :parameters ()
+    :precondition (and (at-main) (b12))
+    :effect (and (not (at-main)) (at-i2)))
+  (:action finish
+    :parameters ()
+    :precondition (and (at-i2) (b12)))
+  (:method m-finish
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-i2) (b12))
+    :ordered-subtasks (and (f (finish))))
+  (:method m-build
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-main))
+    :ordered-subtasks (and
+      (b (build-bridge))
+      (r (solve))))
+  (:method m-dry
+    :parameters ()
+    :task (solve)
+    :precondition (and (soaked))
+    :ordered-subtasks (and
+      (d (dry-out))
+      (r (solve))))
+  (:method m-sail
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-main) (b12))
+    :ordered-subtasks (and
+      (s (sail))
+      (r2 (solve)))))

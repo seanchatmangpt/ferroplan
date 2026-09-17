@@ -1,0 +1,10 @@
+; boolean (not) — flat-FOND miniature, hand-authored
+; (see domain.hddl header).
+(define (problem boolean-not-flat-p1)
+  (:domain boolean-not-flat)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (boot))
+  (:goal (and (not-p))))

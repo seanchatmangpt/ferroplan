@@ -1,0 +1,18 @@
+{
+  "states": [
+    { "id": "s-office", "facts": ["at-office"] },
+    { "id": "s-brewed", "facts": ["at-office", "has-coffee"] },
+    { "id": "s-spilled", "facts": ["at-client", "spilled"] },
+    { "id": "s-delivered", "facts": ["at-client", "has-coffee", "delivered"] }
+  ],
+  "initial_states": ["s-office"],
+  "goal": { "facts": ["delivered"] },
+  "unsafe_states": [],
+  "transitions": [
+    { "action": "brew", "from": "s-office", "to": "s-brewed", "probability_ppm": 500000 },
+    { "action": "brew", "from": "s-office", "to": "s-office", "probability_ppm": 500000 },
+    { "action": "deliver", "from": "s-brewed", "to": "s-delivered", "probability_ppm": 500000 },
+    { "action": "deliver", "from": "s-brewed", "to": "s-spilled", "probability_ppm": 500000 },
+    { "action": "walk-back", "from": "s-spilled", "to": "s-office" }
+  ]
+}

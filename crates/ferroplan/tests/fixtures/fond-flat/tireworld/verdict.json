@@ -1,0 +1,7 @@
+{
+  "domain": "tireworld",
+  "literature_class": "cyclic-only",
+  "provenance": "Hand-authored flat-FOND miniature (ticket fond-htn-06-diff-flatfond, 2026-09-17). Tireworld family of the nondeterministic-planning literature (tireworld as FOND/contingent benchmark: Hoffmann & Brafman, JAIR 2006; strong-cyclic treatment: Cimatti, Pistore, Roveri & Traverso, AIJ 2003). No koala files used.",
+  "literature_ref": "Cimatti, Pistore, Roveri, Traverso, 'Weak, Strong, and Strong Cyclic Planning via Symbolic Model Checking', AIJ 147 (2003); Hoffmann & Brafman, JAIR 26 (2006)",
+  "class_rationale": "Every drive may flatten the tire; recovery (change-tire) returns to the same driving state, so no acyclic strong policy exists, but the retry loop reaches the goal under fairness."
+}

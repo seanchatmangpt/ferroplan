@@ -1,0 +1,7 @@
+{
+  "domain": "coffee",
+  "literature_class": "cyclic-only",
+  "provenance": "Hand-authored flat-FOND miniature (ticket fond-htn-06-diff-flatfond, 2026-09-17). Coffee-robot example of the nondeterministic-planning literature (cf. Bryce & Weld, AAAI 2002 benchmark families) with strong-cyclic retry semantics (Cimatti et al., AIJ 2003): brewing may fail and must be retried, delivery may spill and requires walking back. No koala files used.",
+  "literature_ref": "Bryce & Weld, 'Optimally ... nondeterministic actions' benchmark families (2002); Cimatti, Pistore, Roveri, Traverso, AIJ 147 (2003)",
+  "class_rationale": "brew's failure outcome self-loops on the office state, so any office-exiting policy has an infinite execution: no strong plan; the brew-retry policy is strong-cyclic."
+}

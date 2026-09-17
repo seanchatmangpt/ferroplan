@@ -1,0 +1,46 @@
+; triangle-tireworld (3 cities) — flat-FOND miniature, hand-authored for the
+; v26.9.17 FOND-HTN wave (ticket fond-htn-06-diff-flatfond). Semantics after
+; the Triangle Tireworld benchmark (Hoffmann & Brafman, JAIR 2006; FOND
+; strong-cyclic treatment per Cimatti et al., AIJ 2003). Spares at a and b;
+; none at goal city c. Class: cyclic-only.
+(define (domain triangle-tireworld-flat)
+  (:types loc)
+  (:predicates
+    (at ?l - loc)
+    (road ?a - loc ?b - loc)
+    (destination ?l - loc)
+    (tire-ok)
+    (flat))
+  (:task solve :parameters ())
+  (:action drive
+    :parameters (?a - loc ?b - loc)
+    :precondition (and (at ?a) (road ?a ?b) (tire-ok))
+    :effect (oneof
+      (and (not (at ?a)) (at ?b))
+      (and (not (tire-ok)) (flat))))
+  (:action change-tire
+    :parameters ()
+    :precondition (and (flat))
+    :effect (and (not (flat)) (tire-ok)))
+  (:action finish
+    :parameters (?g - loc)
+    :precondition (and (at ?g) (destination ?g) (tire-ok)))
+  (:method m-finish
+    :parameters (?g - loc)
+    :task (solve)
+    :precondition (and (at ?g) (destination ?g) (tire-ok))
+    :ordered-subtasks (and (f (finish ?g))))
+  (:method m-drive
+    :parameters (?a - loc ?b - loc)
+    :task (solve)
+    :precondition (and (tire-ok))
+    :ordered-subtasks (and
+      (d (drive ?a ?b))
+      (r (solve))))
+  (:method m-change
+    :parameters ()
+    :task (solve)
+    :precondition (and (flat))
+    :ordered-subtasks (and
+      (c (change-tire))
+      (r (solve)))))
