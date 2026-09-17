@@ -316,6 +316,110 @@ mod tests {
         assert!(matches!(err, HddlError::Parse(_)));
     }
 
+    // -- oneof end-to-end (koala-planner reference semantics) --------------
+    // A `oneof` is one non-deterministic choice point per action: each
+    // branch compiles to exactly one outcome of the translated explicit
+    // graph, the action's `:precondition` gates all branches, and the
+    // resulting FOND policy exposes that choice point as one `PolicyEntry`
+    // with one `PolicyOutcome` per branch.
+
+    /// A 2-branch `oneof` action yields a solved policy whose toss entry
+    /// carries exactly two `PolicyOutcome`s splitting the full 1_000_000 ppm
+    /// and landing on two distinct outcome states — the explicit-graph shape
+    /// the reference `oneof` semantics must compile to (here the branches
+    /// are exhaustive over the `(or (heads) (tails))` goal, so both outcomes
+    /// are winning and the strong FOND solve succeeds).
+    #[test]
+    fn two_branch_oneof_yields_a_policy_with_two_outcomes() {
+        const DOMAIN: &str = "(define (domain coin)
+  (:predicates (heads) (tails))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof (heads) (tails)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))";
+        const PROBLEM: &str = "(define (problem coin-p1)
+  (:domain coin)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal (or (heads) (tails))))";
+
+        let plan = solve_hddl(DOMAIN, PROBLEM, &PlannerLimits::default())
+            .expect("2-branch oneof problem solves");
+        assert!(plan.solved);
+
+        let toss_entry = plan
+            .policy
+            .iter()
+            .find(|e| e.action.ends_with(":toss"))
+            .expect("policy contains the toss execution");
+        assert_eq!(
+            toss_entry.outcomes.len(),
+            2,
+            "each oneof branch must be exactly one policy outcome"
+        );
+        let mass: u32 = toss_entry.outcomes.iter().map(|o| o.probability_ppm).sum();
+        assert_eq!(mass, 1_000_000, "the two branches split the full mass");
+        let distinct_states: std::collections::BTreeSet<&str> = toss_entry
+            .outcomes
+            .iter()
+            .map(|o| o.state.as_str())
+            .collect();
+        assert_eq!(distinct_states.len(), 2, "branches land on distinct states");
+    }
+
+    /// The empty `()` branch (a legal branch shape, as in the koala corpus)
+    /// survives the whole pipeline to a real no-change outcome and the
+    /// problem still solves: the empty branch lands on the task-complete
+    /// state with the facts unchanged, so the toss choice covers both
+    /// outcomes and the strong FOND fixpoint admits it.
+    #[test]
+    fn empty_branch_oneof_still_solves() {
+        const DOMAIN: &str = "(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))";
+        const PROBLEM: &str = "(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))";
+
+        let plan = solve_hddl(DOMAIN, PROBLEM, &PlannerLimits::default())
+            .expect("empty-branch oneof problem solves");
+        assert!(plan.solved);
+
+        let toss_entry = plan
+            .policy
+            .iter()
+            .find(|e| e.action.ends_with(":toss"))
+            .expect("policy contains the toss execution");
+        assert_eq!(
+            toss_entry.outcomes.len(),
+            2,
+            "the empty branch is a real outcome, not a dropped branch"
+        );
+        let mass: u32 = toss_entry.outcomes.iter().map(|o| o.probability_ppm).sum();
+        assert_eq!(mass, 1_000_000);
+        let distinct_states: std::collections::BTreeSet<&str> = toss_entry
+            .outcomes
+            .iter()
+            .map(|o| o.state.as_str())
+            .collect();
+        assert_eq!(distinct_states.len(), 2);
+    }
+
     const FIXTURE_A_DOMAIN: &str = include_str!("../../ferroplan-hddl/fixtures/a/domain.hddl");
     const FIXTURE_A_PROBLEM: &str = include_str!("../../ferroplan-hddl/fixtures/a/problem.hddl");
 
