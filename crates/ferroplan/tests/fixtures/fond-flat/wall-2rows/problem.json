@@ -1,0 +1,20 @@
+{
+  "states": [
+    { "id": "s-empty", "facts": ["wall-0"] },
+    { "id": "s-b1-down", "facts": ["wall-0", "b1-ground"] },
+    { "id": "s-row1", "facts": ["b1-placed"] },
+    { "id": "s-b2-down", "facts": ["b1-placed", "b2-ground"] },
+    { "id": "s-row2", "facts": ["b1-placed", "b2-placed"] }
+  ],
+  "initial_states": ["s-empty"],
+  "goal": { "facts": ["b1-placed", "b2-placed"] },
+  "unsafe_states": [],
+  "transitions": [
+    { "action": "place-b1", "from": "s-empty", "to": "s-row1", "probability_ppm": 500000 },
+    { "action": "place-b1", "from": "s-empty", "to": "s-b1-down", "probability_ppm": 500000 },
+    { "action": "fetch-b1", "from": "s-b1-down", "to": "s-empty" },
+    { "action": "place-b2", "from": "s-row1", "to": "s-row2", "probability_ppm": 500000 },
+    { "action": "place-b2", "from": "s-row1", "to": "s-b2-down", "probability_ppm": 500000 },
+    { "action": "fetch-b2", "from": "s-b2-down", "to": "s-row1" }
+  ]
+}

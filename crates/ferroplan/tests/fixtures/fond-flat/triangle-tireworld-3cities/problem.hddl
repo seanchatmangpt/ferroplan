@@ -1,0 +1,10 @@
+; triangle-tireworld (3 cities) — flat-FOND miniature, hand-authored
+; (see domain.hddl header).
+(define (problem triangle-tireworld-flat-p1)
+  (:domain triangle-tireworld-flat)
+  (:objects a b c - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (at a) (road a b) (road b c) (road a c) (destination c) (tire-ok))
+  (:goal (and (at c))))

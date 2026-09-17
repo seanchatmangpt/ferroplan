@@ -1,0 +1,17 @@
+{
+  "states": [
+    { "id": "s-main", "facts": ["at-main"] },
+    { "id": "s-soaked", "facts": ["at-main", "soaked"] },
+    { "id": "s-bridge", "facts": ["at-main", "b12"] },
+    { "id": "s-island", "facts": ["at-i2", "b12"] }
+  ],
+  "initial_states": ["s-main"],
+  "goal": { "facts": ["at-i2"] },
+  "unsafe_states": [],
+  "transitions": [
+    { "action": "build-bridge", "from": "s-main", "to": "s-bridge", "probability_ppm": 500000 },
+    { "action": "build-bridge", "from": "s-main", "to": "s-soaked", "probability_ppm": 500000 },
+    { "action": "dry-out", "from": "s-soaked", "to": "s-main" },
+    { "action": "sail-2-i2", "from": "s-bridge", "to": "s-island" }
+  ]
+}

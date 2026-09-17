@@ -1,0 +1,10 @@
+; faults (1 bit) — flat-FOND miniature, hand-authored
+; (see domain.hddl header).
+(define (problem faults-1bit-flat-p1)
+  (:domain faults-1bit-flat)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (f-ok))
+  (:goal (and (logged))))

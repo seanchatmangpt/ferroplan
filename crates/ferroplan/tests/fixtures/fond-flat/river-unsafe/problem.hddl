@@ -1,0 +1,10 @@
+; river (unsafe variant) — flat-FOND miniature, hand-authored
+; (see domain.hddl header).
+(define (problem river-unsafe-flat-p1)
+  (:domain river-unsafe-flat)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (at-left))
+  (:goal (and (at-right))))

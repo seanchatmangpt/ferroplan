@@ -1,0 +1,9 @@
+; tireworld — flat-FOND miniature, hand-authored (see domain.hddl header).
+(define (problem tireworld-flat-p1)
+  (:domain tireworld-flat)
+  (:objects l1 l2 l3 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (at l1) (road l1 l2) (road l2 l3) (destination l3) (tire-ok))
+  (:goal (and (at l3))))

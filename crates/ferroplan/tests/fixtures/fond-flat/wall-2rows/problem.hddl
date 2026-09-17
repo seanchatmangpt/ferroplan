@@ -1,0 +1,10 @@
+; wall (2 rows) — flat-FOND miniature, hand-authored
+; (see domain.hddl header).
+(define (problem wall-2rows-flat-p1)
+  (:domain wall-2rows-flat)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (wall-0))
+  (:goal (and (b1-placed) (b2-placed))))

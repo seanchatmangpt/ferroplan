@@ -1,0 +1,7 @@
+{
+  "domain": "triangle-tireworld-3cities",
+  "literature_class": "cyclic-only",
+  "provenance": "Hand-authored flat-FOND miniature (ticket fond-htn-06-diff-flatfond, 2026-09-17). Triangle Tireworld benchmark family (Hoffmann & Brafman, JAIR 2006); 3-city variant with spares at a and b, none at goal c. No koala files used.",
+  "literature_ref": "Hoffmann & Brafman, 'Contingent Planning via Heuristic Forward Search with Implicit Belief States', JAIR 26 (2006); Cimatti et al., AIJ 147 (2003)",
+  "class_rationale": "Every drive may flatten the tire and change-tire loops back, so no strong plan exists; the retry policy is strong-cyclic."
+}

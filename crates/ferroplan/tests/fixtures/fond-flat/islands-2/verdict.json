@@ -1,0 +1,7 @@
+{
+  "domain": "islands-2",
+  "literature_class": "cyclic-only",
+  "provenance": "Hand-authored flat-FOND miniature (ticket fond-htn-06-diff-flatfond, 2026-09-17). Islands-style bridge-building strong-cyclic example (Cimatti, Pistore, Roveri & Traverso, AIJ 2003); 2-island variant where a flooded build must dry out and be retried. No koala files used.",
+  "literature_ref": "Cimatti, Pistore, Roveri, Traverso, 'Weak, Strong, and Strong Cyclic Planning via Symbolic Model Checking', AIJ 147 (2003)",
+  "class_rationale": "build-bridge may flood; the flooded builder must dry out and rebuild, a loop, so no strong plan exists; the retry policy is strong-cyclic."
+}

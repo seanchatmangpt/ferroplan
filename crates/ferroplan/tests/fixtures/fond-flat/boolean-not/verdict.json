@@ -1,0 +1,7 @@
+{
+  "domain": "boolean-not",
+  "literature_class": "strong",
+  "provenance": "Hand-authored flat-FOND miniature (ticket fond-htn-06-diff-flatfond, 2026-09-17). Achieve-negation boolean example: BOTH nondeterministic outcomes of the flip achieve the goal fact (one additionally leaves an audit trace) — the all-outcomes-acceptable STRONG shape (Cimatti, Pistore, Roveri & Traverso, AIJ 2003). No koala files used.",
+  "literature_ref": "Cimatti, Pistore, Roveri, Traverso, 'Weak, Strong, and Strong Cyclic Planning via Symbolic Model Checking', AIJ 147 (2003)",
+  "class_rationale": "negate's two outcomes both carry not-p; every edge is forward and goal-satisfying: an acyclic strong policy exists."
+}

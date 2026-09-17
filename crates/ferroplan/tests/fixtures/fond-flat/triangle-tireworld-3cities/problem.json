@@ -1,0 +1,22 @@
+{
+  "states": [
+    { "id": "s-a-ok", "facts": ["at-a", "tire-ok"] },
+    { "id": "s-a-flat", "facts": ["at-a", "flat"] },
+    { "id": "s-b-ok", "facts": ["at-b", "tire-ok"] },
+    { "id": "s-b-flat", "facts": ["at-b", "flat"] },
+    { "id": "s-c-ok", "facts": ["at-c", "tire-ok"] }
+  ],
+  "initial_states": ["s-a-ok"],
+  "goal": { "facts": ["at-c"] },
+  "unsafe_states": [],
+  "transitions": [
+    { "action": "drive-a-b", "from": "s-a-ok", "to": "s-b-ok", "probability_ppm": 500000 },
+    { "action": "drive-a-b", "from": "s-a-ok", "to": "s-a-flat", "probability_ppm": 500000 },
+    { "action": "change-a", "from": "s-a-flat", "to": "s-a-ok" },
+    { "action": "drive-b-c", "from": "s-b-ok", "to": "s-c-ok", "probability_ppm": 500000 },
+    { "action": "drive-b-c", "from": "s-b-ok", "to": "s-b-flat", "probability_ppm": 500000 },
+    { "action": "change-b", "from": "s-b-flat", "to": "s-b-ok" },
+    { "action": "drive-a-c", "from": "s-a-ok", "to": "s-c-ok", "probability_ppm": 500000 },
+    { "action": "drive-a-c", "from": "s-a-ok", "to": "s-a-flat", "probability_ppm": 500000 }
+  ]
+}

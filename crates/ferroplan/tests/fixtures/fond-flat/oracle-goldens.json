@@ -1,0 +1,48 @@
+{
+  "description": "Observed koala oracle verdicts for the fond-flat differential fixtures (ticket fond-htn-06-diff-flatfond). Verdicts are FACTS, not code — committed per wave KOALA POLICY. Oracle = external koala via /tmp/fond-oracle/oracle-run.sh (flock-serialized T01 runner); no koala code or files vendored.",
+  "generated_utc": "2026-09-17T15:30:00Z",
+  "runner": "/tmp/fond-oracle/oracle-run.sh",
+  "semantics_note": "koala flexible/fixed-ld search finite strong plan trees. Domains whose only solutions are cyclic POLICIES (retry loops) have no finite strong plan tree, so the search diverges: TIMEOUT on a <=12-state instance is the observed signature of cyclic-only, cross-checked per wave protocol with --fixed-ld (identical outcome). SOLVED = strong plan found; NOSOLUTION = exhausted with no plan.",
+  "results": {
+    "tireworld": {
+      "literature_class": "cyclic-only",
+      "flexible": { "status": "TIMEOUT", "wall_s": 122.838, "artifact": "/tmp/fond-oracle/runs/7ff2162d3f8a9a58ccfa222c1e96a392497825f776242e4af7db7c309b0dde28/policy.txt" },
+      "fixed_ld": { "status": "TIMEOUT", "wall_s": 60.608, "artifact": "/tmp/fond-oracle/runs/ae385de9e661b199818d729bfba8def19b6c932d8327f7e6c1d7d4c7589d3758/policy.txt" }
+    },
+    "triangle-tireworld-3cities": {
+      "literature_class": "cyclic-only",
+      "flexible": { "status": "TIMEOUT", "wall_s": 120.08, "artifact": "/tmp/fond-oracle/runs/2cf4b1e72d169e88d699b0229ed880be39b21617082ad3880834e5ff54c75ddb/policy.txt" },
+      "fixed_ld": { "status": "TIMEOUT", "wall_s": 60.47, "artifact": "/tmp/fond-oracle/runs/ef3724c711e8f71b1e2aad428ae7aa617f828503515b29e4fc2d6fc32cceda2f/policy.txt" }
+    },
+    "islands-2": {
+      "literature_class": "cyclic-only",
+      "flexible": { "status": "TIMEOUT", "wall_s": 120.039, "artifact": "/tmp/fond-oracle/runs/c612b60460954848ed15381d34867b0094de66eb2375a101844619464171c658/policy.txt" },
+      "fixed_ld": { "status": "TIMEOUT", "wall_s": 65.217, "artifact": "/tmp/fond-oracle/runs/5be2406feeeef688a98204a8379e3d1bc2f6d0d85ffb544635b0c103d264db66/policy.txt" }
+    },
+    "wall-2rows": {
+      "literature_class": "cyclic-only",
+      "flexible": { "status": "TIMEOUT", "wall_s": 120.045, "artifact": "/tmp/fond-oracle/runs/c53d11ba1e328039b73a64e82375a77a23a68873430937fd5585e01a71b39d6d/policy.txt" },
+      "fixed_ld": { "status": "TIMEOUT", "wall_s": 60.446, "artifact": "/tmp/fond-oracle/runs/b6db9c72e2f04ca56e5c4931c21ee17e6b7e5a048cf57e4cc3e1e5d258a19c9c/policy.txt" }
+    },
+    "faults-1bit": {
+      "literature_class": "strong",
+      "flexible": { "status": "SOLVED", "wall_s": 0.119, "artifact": "/tmp/fond-oracle/runs/ffa3fda13d33cf068dbe6e7f8d65cdb90ef6293927a481a04f8587cf70e644f8/policy.txt" },
+      "fixed_ld": null
+    },
+    "boolean-not": {
+      "literature_class": "strong",
+      "flexible": { "status": "SOLVED", "wall_s": 0.108, "artifact": "/tmp/fond-oracle/runs/1ffcd0125e7f54df8ad82d4e2c18e354cc2284396485ca971404f04d4ca87bd8/policy.txt" },
+      "fixed_ld": null
+    },
+    "coffee": {
+      "literature_class": "cyclic-only",
+      "flexible": { "status": "TIMEOUT", "wall_s": 60.037, "artifact": "/tmp/fond-oracle/runs/eff9f5b6e3709193c7058338c5b17b31c01ab61ba52d1e15bbeb50cfbc61b838/policy.txt" },
+      "fixed_ld": { "status": "TIMEOUT", "wall_s": 61.373, "artifact": "/tmp/fond-oracle/runs/2f55e38109d5b15e9eb78eb970d7a3583cbb0de8d58c3155223e5327b183f957/policy.txt" }
+    },
+    "river-unsafe": {
+      "literature_class": "unsolvable",
+      "flexible": { "status": "NOSOLUTION", "wall_s": 0.155, "artifact": "/tmp/fond-oracle/runs/d56fb02b4e0cbc096539fd242525b65353a446bdedf078ef8e9f47f386c01329/policy.txt" },
+      "fixed_ld": null
+    }
+  }
+}

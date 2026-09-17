@@ -1,0 +1,7 @@
+{
+  "domain": "river-unsafe",
+  "literature_class": "unsolvable",
+  "provenance": "Hand-authored flat-FOND miniature (ticket fond-htn-06-diff-flatfond, 2026-09-17). River-crossing example of the nondeterministic-planning literature (cf. Cimatti et al., AIJ 2003); this variant is deliberately UNSOLVABLE: every ford risks being swept away irrecoverably, so no policy guarantees the far bank. No koala files used.",
+  "literature_ref": "Cimatti, Pistore, Roveri, Traverso, 'Weak, Strong, and Strong Cyclic Planning via Symbolic Model Checking', AIJ 147 (2003)",
+  "class_rationale": "Each ford's swept outcome is an unrecoverable unsafe state; no action has all outcomes winning, so neither a strong nor a strong-cyclic policy exists."
+}

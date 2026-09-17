@@ -1,0 +1,55 @@
+; faults (1 bit) — flat-FOND miniature, hand-authored for the v26.9.17
+; FOND-HTN wave (ticket fond-htn-06-diff-flatfond). A sensor probe reads one
+; fault bit with two acceptable outcomes; both are recoverable by a distinct
+; deterministic log action — the AND-semantics shape of a STRONG plan, per
+; Cimatti, Pistore, Roveri & Traverso, AIJ 2003. Class: strong.
+(define (domain faults-1bit-flat)
+  (:predicates
+    (f-ok)
+    (bit-0)
+    (bit-1)
+    (logged))
+  (:task solve :parameters ())
+  (:action probe
+    :parameters ()
+    :precondition (and (f-ok))
+    :effect (oneof
+      (and (not (f-ok)) (bit-0))
+      (and (not (f-ok)) (bit-1))))
+  (:action log-0
+    :parameters ()
+    :precondition (and (bit-0))
+    :effect (and (not (bit-0)) (logged)))
+  (:action log-1
+    :parameters ()
+    :precondition (and (bit-1))
+    :effect (and (not (bit-1)) (logged)))
+  (:action finish
+    :parameters ()
+    :precondition (and (logged)))
+  (:method m-finish
+    :parameters ()
+    :task (solve)
+    :precondition (and (logged))
+    :ordered-subtasks (and (f (finish))))
+  (:method m-probe
+    :parameters ()
+    :task (solve)
+    :precondition (and (f-ok))
+    :ordered-subtasks (and
+      (p (probe))
+      (r (solve))))
+  (:method m-log0
+    :parameters ()
+    :task (solve)
+    :precondition (and (bit-0))
+    :ordered-subtasks (and
+      (l (log-0))
+      (r (solve))))
+  (:method m-log1
+    :parameters ()
+    :task (solve)
+    :precondition (and (bit-1))
+    :ordered-subtasks (and
+      (l (log-1))
+      (r (solve)))))

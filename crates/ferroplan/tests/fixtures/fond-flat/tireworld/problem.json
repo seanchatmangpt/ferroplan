@@ -1,0 +1,20 @@
+{
+  "states": [
+    { "id": "s-l1-ok", "facts": ["at-l1", "tire-ok"] },
+    { "id": "s-l1-flat", "facts": ["at-l1", "flat"] },
+    { "id": "s-l2-ok", "facts": ["at-l2", "tire-ok"] },
+    { "id": "s-l2-flat", "facts": ["at-l2", "flat"] },
+    { "id": "s-l3-ok", "facts": ["at-l3", "tire-ok"] }
+  ],
+  "initial_states": ["s-l1-ok"],
+  "goal": { "facts": ["at-l3"] },
+  "unsafe_states": [],
+  "transitions": [
+    { "action": "drive-1-2", "from": "s-l1-ok", "to": "s-l2-ok", "probability_ppm": 500000 },
+    { "action": "drive-1-2", "from": "s-l1-ok", "to": "s-l1-flat", "probability_ppm": 500000 },
+    { "action": "change-1", "from": "s-l1-flat", "to": "s-l1-ok" },
+    { "action": "drive-2-3", "from": "s-l2-ok", "to": "s-l3-ok", "probability_ppm": 500000 },
+    { "action": "drive-2-3", "from": "s-l2-ok", "to": "s-l2-flat", "probability_ppm": 500000 },
+    { "action": "change-2", "from": "s-l2-flat", "to": "s-l2-ok" }
+  ]
+}

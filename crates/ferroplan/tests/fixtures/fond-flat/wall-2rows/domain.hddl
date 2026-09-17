@@ -1,0 +1,69 @@
+; wall (2 rows) — flat-FOND miniature, hand-authored for the v26.9.17
+; FOND-HTN wave (ticket fond-htn-06-diff-flatfond). Brick placement that may
+; drop the brick back to the ground, after the walls-style stacking domains
+; of the FOND benchmark suites (cf. Muise, McIlraith & Beck, ICAPS 2012
+; nondeterministic benchmarks). Class: cyclic-only.
+(define (domain wall-2rows-flat)
+  (:predicates
+    (wall-0)
+    (b1-placed)
+    (b1-ground)
+    (b2-placed)
+    (b2-ground))
+  (:task solve :parameters ())
+  (:action place-b1
+    :parameters ()
+    :precondition (and (wall-0))
+    :effect (oneof
+      (and (not (wall-0)) (b1-placed))
+      (and (b1-ground))))
+  (:action fetch-b1
+    :parameters ()
+    :precondition (and (b1-ground))
+    :effect (and (not (b1-ground))))
+  (:action place-b2
+    :parameters ()
+    :precondition (and (b1-placed))
+    :effect (oneof
+      (and (b2-placed))
+      (and (b2-ground))))
+  (:action fetch-b2
+    :parameters ()
+    :precondition (and (b2-ground))
+    :effect (and (not (b2-ground))))
+  (:action finish
+    :parameters ()
+    :precondition (and (b1-placed) (b2-placed)))
+  (:method m-finish
+    :parameters ()
+    :task (solve)
+    :precondition (and (b1-placed) (b2-placed))
+    :ordered-subtasks (and (f (finish))))
+  (:method m-place1
+    :parameters ()
+    :task (solve)
+    :precondition (and (wall-0))
+    :ordered-subtasks (and
+      (p (place-b1))
+      (r (solve))))
+  (:method m-fetch1
+    :parameters ()
+    :task (solve)
+    :precondition (and (b1-ground))
+    :ordered-subtasks (and
+      (p (fetch-b1))
+      (r (solve))))
+  (:method m-place2
+    :parameters ()
+    :task (solve)
+    :precondition (and (b1-placed))
+    :ordered-subtasks (and
+      (p (place-b2))
+      (r (solve))))
+  (:method m-fetch2
+    :parameters ()
+    :task (solve)
+    :precondition (and (b2-ground))
+    :ordered-subtasks (and
+      (p (fetch-b2))
+      (r (solve)))))
