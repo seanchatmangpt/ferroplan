@@ -21,8 +21,14 @@ pub enum ParseError {
     /// correct place to stop rather than accepting `:duration` and
     /// `:condition`/`#t`-style timed conditions and silently ignoring them).
     UnsupportedConstruct(String),
-    /// A `(oneof ...)` effect block with a shape this parser can't handle
-    /// (e.g. nested under another `oneof`/`when` in a way outside scope).
+    /// A `(oneof ...)` construct violating the koala-planner reference
+    /// position/branch rules: `oneof` is legal ONLY as the entire top-level
+    /// `:effect` of an action (`:effect (oneof e1 ... ek)`) — never nested
+    /// under `and`/`when`/another `oneof`, and never in a
+    /// precondition/method-condition/`:goal` position; a branch may not
+    /// itself be a `when` (koala parses that shape but silently drops it
+    /// downstream — see the `when` arm of `parse_effect`); and k >= 1 (a
+    /// bare `(oneof)` with no branches).
     MalformedOneof(String),
     /// A `(:probabilistic ...)` block was found textually nested inside
     /// another `:probabilistic` block's captured effect text — refused by
@@ -443,6 +449,18 @@ fn parse_goal(s: &Sexp) -> Result<GoalDesc, ParseError> {
                 Ok(GoalDesc::Exists(vars, body))
             }
         }
+        // `oneof` is an effect construct only — the koala reference grammar
+        // admits it in exactly one position (a whole action's `:effect`), so
+        // an occurrence in any goal-description position (action/method
+        // `:precondition`, a `when`-condition, `:goal`) is a hard, typed
+        // error rather than the old fall-through behavior, which silently
+        // mis-parsed `(oneof p q)` as an atom with predicate "oneof" (and
+        // surfaced `(oneof (p) (q))` only as a generic `Syntax` error).
+        "oneof" => Err(ParseError::MalformedOneof(
+            "'oneof' is an effect construct: it is only permitted as a whole action's \
+             ':effect', never in a precondition, method condition, or goal position"
+                .to_owned(),
+        )),
         _ => {
             let args = items[1..]
                 .iter()
@@ -456,22 +474,61 @@ fn parse_goal(s: &Sexp) -> Result<GoalDesc, ParseError> {
     }
 }
 
-/// `allow_oneof` gates whether a `oneof` construct is legal at this position:
-/// true only at the top of an action's `:effect`. A `oneof` nested inside
-/// another `oneof` branch, or inside a `when`-effect, is a hard error.
-fn parse_effect(s: &Sexp, allow_oneof: bool) -> Result<Effect, ParseError> {
+/// Where an effect s-expression appears — the context that decides which
+/// effect constructs are legal there. This encodes the koala-planner
+/// reference position rules for `oneof` (that grammar, hddl.y, admits
+/// `(oneof ...)` in exactly one position: the entire top-level `:effect` of
+/// an action):
+///
+/// - [`EffectCtx::Top`] — the whole `:effect` of a `:action`. The ONLY
+///   context in which `oneof` is legal.
+/// - [`EffectCtx::OneofBranch`] — inside a `oneof` branch (directly or under
+///   an `and`). Branches may be plain literal effects, `and`-conjunctions, or
+///   the empty effect `()`; a nested `oneof` and a `when` are both refused
+///   (for `when`: koala parses it but silently drops conditional effects
+///   downstream — a known koala TODO — so ferroplan refuses loudly instead;
+///   see the `when` arm of `parse_effect`).
+/// - [`EffectCtx::Nested`] — every other effect position: under a top-level
+///   `when`, or under a top-level `and` (`and` never creates a oneof
+///   position — `(:effect (and (p) (oneof ...)))` is outside the language).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EffectCtx {
+    Top,
+    Nested,
+    OneofBranch,
+}
+
+/// Parse one effect s-expression in context `ctx` (see [`EffectCtx`] for the
+/// exact per-context rules; see [`ParseError::MalformedOneof`] for what gets
+/// refused where).
+fn parse_effect(s: &Sexp, ctx: EffectCtx) -> Result<Effect, ParseError> {
     let items = as_list(s)?;
     if items.is_empty() {
+        // The empty effect `()` — legal in every effect position, including
+        // as a `oneof` branch (where it survives as an `Effect::Empty`
+        // branch and grounds/translates to a genuine no-change outcome).
         return Ok(Effect::Empty);
     }
     let head = as_atom(&items[0])?;
     match head {
-        "and" => Ok(Effect::And(
-            items[1..]
-                .iter()
-                .map(|e| parse_effect(e, allow_oneof))
-                .collect::<Result<_, _>>()?,
-        )),
+        "and" => {
+            // `and` is legal in every context, but it NEVER creates a oneof
+            // position: a top-level `(:effect (and ... (oneof ...)))` puts
+            // the `oneof` under an `and`, which is outside the language
+            // (koala admits `oneof` only as the ENTIRE top-level effect).
+            // An `and` inside a `oneof` branch stays inside the branch —
+            // its children keep the branch's own restrictions.
+            let child = match ctx {
+                EffectCtx::Top => EffectCtx::Nested,
+                other => other,
+            };
+            Ok(Effect::And(
+                items[1..]
+                    .iter()
+                    .map(|e| parse_effect(e, child))
+                    .collect::<Result<_, _>>()?,
+            ))
+        }
         "not" => {
             if items.len() != 2 {
                 return Err(ParseError::Syntax(
@@ -486,24 +543,60 @@ fn parse_effect(s: &Sexp, allow_oneof: bool) -> Result<Effect, ParseError> {
                     "'when' takes a condition and an effect".to_owned(),
                 ));
             }
-            let cond = parse_goal(&items[1])?;
-            // oneof under when is out of scope regardless of the caller's own
-            // allow_oneof — a when's effect is never itself a oneof position.
-            let eff = parse_effect(&items[2], false)?;
-            Ok(Effect::When(cond, Box::new(eff)))
-        }
-        "oneof" => {
-            if !allow_oneof {
+            if ctx == EffectCtx::OneofBranch {
+                // Deliberate, documented deviation from koala: koala's
+                // grammar parses `when` inside a `oneof` branch, but its
+                // pipeline then silently DROPS the conditional effect
+                // downstream (a known koala TODO), so accepting the shape
+                // here would manufacture a silently-weaker domain. Refuse
+                // loudly instead.
                 return Err(ParseError::MalformedOneof(
-                    "nested oneof or oneof under when is not permitted".to_owned(),
+                    "'when' inside a 'oneof' branch is not supported: koala-planner parses \
+                     this shape but silently drops the conditional effect downstream, so \
+                     ferroplan refuses it loudly rather than accept a silently-weaker domain"
+                        .to_owned(),
                 ));
             }
-            let branches = items[1..]
-                .iter()
-                .map(|e| parse_effect(e, false))
-                .collect::<Result<_, _>>()?;
-            Ok(Effect::Oneof(branches))
+            let cond = parse_goal(&items[1])?;
+            // The guarded sub-effect is never a oneof position (a oneof
+            // under `when` is outside the language), hence `Nested` here
+            // regardless of this `when`'s own context.
+            let eff = parse_effect(&items[2], EffectCtx::Nested)?;
+            Ok(Effect::When(cond, Box::new(eff)))
         }
+        "oneof" => match ctx {
+            EffectCtx::Nested => Err(ParseError::MalformedOneof(
+                "'oneof' is only permitted as a whole action's ':effect' — it may not be \
+                 nested under a top-level 'and' or 'when'"
+                    .to_owned(),
+            )),
+            EffectCtx::OneofBranch => Err(ParseError::MalformedOneof(
+                "nested 'oneof' is not permitted: each branch must be a plain literal \
+                 effect, an 'and' conjunction, or the empty effect ()"
+                    .to_owned(),
+            )),
+            EffectCtx::Top => {
+                let branches = items[1..]
+                    .iter()
+                    .map(|e| parse_effect(e, EffectCtx::OneofBranch))
+                    .collect::<Result<Vec<_>, _>>()?;
+                match branches.len() {
+                    // k >= 1: a bare `(oneof)` with no branches is outside
+                    // the language (it would silently ground to an action
+                    // with zero outcomes, i.e. an unexecutable dead-end).
+                    0 => Err(ParseError::MalformedOneof(
+                        "'oneof' requires at least one branch (k >= 1)".to_owned(),
+                    )),
+                    // k == 1 degenerates to a deterministic effect (the
+                    // reference grammar treats a single-branch `oneof`
+                    // exactly this way): normalize the wrapper away so an
+                    // `Effect::Oneof` in a parsed AST always carries k >= 2
+                    // genuinely non-deterministic branches.
+                    1 => Ok(branches.into_iter().next().expect("branches.len() == 1")),
+                    _ => Ok(Effect::Oneof(branches)),
+                }
+            }
+        },
         "increase" | "decrease" => {
             if items.len() != 3 {
                 return Err(ParseError::Syntax(format!(
@@ -698,7 +791,7 @@ fn parse_action_def(rest: &[Sexp]) -> Result<ActionDef, ParseError> {
         None => GoalDesc::Empty,
     };
     let effect = match map.get(":effect") {
-        Some(s) => parse_effect(s, true)?,
+        Some(s) => parse_effect(s, EffectCtx::Top)?,
         None => Effect::Empty,
     };
     Ok(ActionDef {
@@ -766,9 +859,9 @@ fn parse_htn(rest: &[Sexp]) -> Result<TaskNetwork, ParseError> {
 /// `(domain <name>)` header, or an unknown domain section keyword;
 /// `ParseError::UnsupportedConstruct` for `:functions` or `:durative-action`
 /// (temporal/durative actions are a permanent non-goal — see `ast`'s module
-/// docs); and
-/// `ParseError::MalformedOneof` for a `oneof` effect block this parser can't
-/// interpret.
+/// docs); and `ParseError::MalformedOneof` for a `oneof` construct outside
+/// the supported surface (see `EffectCtx`/`parse_effect` and
+/// `ParseError::MalformedOneof` for the exact position/branch rules).
 ///
 /// # Examples
 ///
@@ -1143,6 +1236,247 @@ mod tests {
             :effect (oneof (and (p)) (oneof (and (q)) (and (p))))))"#;
         let err = parse_domain(src).unwrap_err();
         assert!(matches!(err, ParseError::MalformedOneof(_)));
+    }
+
+    // -- oneof surface rules (koala-planner reference alignment) -----------
+    // The reference language admits `oneof` in exactly one position — the
+    // ENTIRE top-level `:effect` of an action, k >= 1 — with branch shapes
+    // limited to plain literals, `and`-conjunctions, and the empty effect
+    // `()`. Branches need not be mutually exclusive. Each rule below has an
+    // accept-case and a reject-case pinning the exact `ParseError` variant.
+
+    /// Accept-case, empty branch: a Transport-style drop whose second branch
+    /// is the empty effect `()` parses, with the empty branch surviving as a
+    /// real `Effect::Empty` branch (later grounding to a no-change outcome —
+    /// see `translate::tests::empty_branch_translates_to_a_no_change_outcome`).
+    #[test]
+    fn accepts_oneof_with_an_empty_branch() {
+        const DOMAIN: &str = "(define (domain drop-d)
+          (:types loc truck)
+          (:predicates (at ?t - truck ?l - loc))
+          (:action drop
+            :parameters (?t - truck ?from - loc ?to - loc)
+            :precondition (at ?t ?from)
+            :effect (oneof
+              (and (not (at ?t ?from)) (at ?t ?to))
+              ())))";
+        let domain = parse_domain(DOMAIN).expect("oneof with an empty branch parses");
+        let drop = domain
+            .actions
+            .iter()
+            .find(|a| a.name == "drop")
+            .expect("drop action present");
+        match &drop.effect {
+            Effect::Oneof(branches) => {
+                assert_eq!(branches.len(), 2);
+                assert!(
+                    matches!(&branches[0], Effect::And(parts) if parts.len() == 2),
+                    "first branch must be the move conjunction, got {:?}",
+                    branches[0]
+                );
+                assert_eq!(branches[1], Effect::Empty, "second branch must be ()");
+            }
+            other => panic!("expected a oneof effect, got {other:?}"),
+        }
+    }
+
+    /// Accept-case, overlap: Childsnack-style overlapping branches (branch 2
+    /// is a strict superset of branch 1, exactly as in the koala corpus's
+    /// Childsnack serve/drop tray branches). Branches need NOT be mutually
+    /// exclusive — no exclusivity/disjointness validation exists or should
+    /// exist — and both branches are kept verbatim, in declaration order.
+    #[test]
+    fn accepts_overlapping_oneof_branches_verbatim() {
+        const DOMAIN: &str = "(define (domain childsnack-style)
+          (:types child)
+          (:predicates (served ?c - child) (dirty ?c - child))
+          (:action putdown
+            :parameters (?c - child)
+            :precondition ()
+            :effect (oneof
+              (and (served ?c))
+              (and (served ?c) (not (dirty ?c))))))";
+        let domain = parse_domain(DOMAIN).expect("overlapping oneof branches parse");
+        let action = domain.actions[0].clone();
+        match &action.effect {
+            Effect::Oneof(branches) => {
+                assert_eq!(branches.len(), 2, "both overlapping branches are kept");
+                assert!(
+                    matches!(&branches[0], Effect::And(parts) if parts.len() == 1),
+                    "branch 1 kept verbatim"
+                );
+                assert!(
+                    matches!(&branches[1], Effect::And(parts) if parts.len() == 2),
+                    "branch 2 (the superset) kept verbatim"
+                );
+            }
+            other => panic!("expected a oneof effect, got {other:?}"),
+        }
+    }
+
+    /// Accept-case, k == 3: every declared branch becomes exactly one AST
+    /// branch (outcome-count fidelity starts at parse time; see
+    /// `translate::tests::oneof_branches_translate_to_exactly_one_outcome_transition_each`
+    /// for the translated-graph version of this invariant).
+    #[test]
+    fn accepts_three_branch_oneof() {
+        const DOMAIN: &str = "(define (domain three-way)
+          (:predicates (p) (q) (r))
+          (:action tri
+            :parameters ()
+            :precondition ()
+            :effect (oneof (p) (q) (r))))";
+        let domain = parse_domain(DOMAIN).expect("3-branch oneof parses");
+        match &domain.actions[0].effect {
+            Effect::Oneof(branches) => {
+                assert_eq!(branches.len(), 3);
+                assert_eq!(
+                    branches[0],
+                    Effect::Literal(Literal::Pos(AtomicFormula {
+                        predicate: "p".to_owned(),
+                        args: vec![],
+                    }))
+                );
+                assert_eq!(
+                    branches[2],
+                    Effect::Literal(Literal::Pos(AtomicFormula {
+                        predicate: "r".to_owned(),
+                        args: vec![],
+                    }))
+                );
+            }
+            other => panic!("expected a oneof effect, got {other:?}"),
+        }
+    }
+
+    /// Accept-case, k == 1: a single-branch `oneof` degenerates to a plain
+    /// deterministic effect (koala hddl.y:327-330 treats k == 1 exactly this
+    /// way), so the parser normalizes `(oneof e)` to just `e` — a parsed
+    /// `Effect::Oneof` always carries k >= 2 genuinely non-deterministic
+    /// branches.
+    #[test]
+    fn oneof_with_a_single_branch_degenerates_to_a_deterministic_effect() {
+        const DOMAIN: &str = "(define (domain one-way)
+          (:predicates (p) (q))
+          (:action once
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (p) (q)))))";
+        let domain = parse_domain(DOMAIN).expect("k == 1 oneof parses");
+        match &domain.actions[0].effect {
+            // NOT an Effect::Oneof — the wrapper is normalized away.
+            Effect::And(parts) => assert_eq!(parts.len(), 2),
+            other => panic!(
+                "expected k == 1 oneof to normalize to a deterministic effect, got {other:?}"
+            ),
+        }
+    }
+
+    /// Reject-case: `oneof` mixed with other top-level effects —
+    /// `(:effect (and (p) (oneof ...)))` — is outside the language: koala's
+    /// grammar admits `oneof` only as the ENTIRE top-level `:effect`, never
+    /// as a conjunct of an `and`.
+    #[test]
+    fn rejects_oneof_nested_under_top_level_and() {
+        const DOMAIN: &str = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (and (p) (oneof (q) (r)))))";
+        let err = parse_domain(DOMAIN).unwrap_err();
+        assert!(
+            matches!(err, ParseError::MalformedOneof(_)),
+            "expected MalformedOneof for a oneof under a top-level 'and', got {err:?}"
+        );
+    }
+
+    /// Reject-case: `oneof` in a precondition position (action
+    /// `:precondition` here; the same `parse_goal` guard covers method
+    /// `:precondition`, `when`-conditions, and `:goal`) must be a typed
+    /// `MalformedOneof`, not the old fall-through that silently mis-parsed
+    /// `(oneof p q)` as an atom with predicate "oneof".
+    #[test]
+    fn rejects_oneof_in_precondition_position() {
+        const DOMAIN: &str = "(define (domain bad)
+          (:predicates (p) (q))
+          (:action a
+            :parameters ()
+            :precondition (oneof (p) (q))
+            :effect (and (p))))";
+        let err = parse_domain(DOMAIN).unwrap_err();
+        assert!(
+            matches!(err, ParseError::MalformedOneof(_)),
+            "expected MalformedOneof for a oneof in :precondition, got {err:?}"
+        );
+    }
+
+    /// Reject-case: `when` inside a `oneof` branch — direct or nested under
+    /// the branch's `and`. Deliberate deviation from koala, documented in
+    /// `parse_effect`'s `when` arm: koala parses this shape but silently
+    /// drops the conditional effect downstream (a known koala TODO), so
+    /// ferroplan refuses it loudly instead of accepting a silently-weaker
+    /// domain.
+    #[test]
+    fn rejects_when_inside_a_oneof_branch() {
+        const DIRECT: &str = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (when (r) (p)) (q))))";
+        let err = parse_domain(DIRECT).unwrap_err();
+        assert!(
+            matches!(err, ParseError::MalformedOneof(_)),
+            "expected MalformedOneof for a 'when' directly in a branch, got {err:?}"
+        );
+
+        const UNDER_AND: &str = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (when (r) (p))) (q))))";
+        let err = parse_domain(UNDER_AND).unwrap_err();
+        assert!(
+            matches!(err, ParseError::MalformedOneof(_)),
+            "expected MalformedOneof for a 'when' under an 'and' inside a branch, got {err:?}"
+        );
+    }
+
+    /// Position-rule completeness: `oneof` under a top-level `when` (nesting
+    /// inside `when`) is likewise refused with the same typed error.
+    #[test]
+    fn rejects_oneof_under_when_effect() {
+        const DOMAIN: &str = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (when (r) (oneof (p) (q)))))";
+        let err = parse_domain(DOMAIN).unwrap_err();
+        assert!(
+            matches!(err, ParseError::MalformedOneof(_)),
+            "expected MalformedOneof for a oneof under 'when', got {err:?}"
+        );
+    }
+
+    /// k >= 1: a bare `(oneof)` with no branches is refused — it would
+    /// otherwise silently ground to an action with zero outcomes, i.e. an
+    /// unexecutable dead-end at translate time.
+    #[test]
+    fn rejects_empty_oneof() {
+        const DOMAIN: &str = "(define (domain bad)
+          (:predicates (p))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof)))";
+        let err = parse_domain(DOMAIN).unwrap_err();
+        assert!(
+            matches!(err, ParseError::MalformedOneof(_)),
+            "expected MalformedOneof for a branchless (oneof), got {err:?}"
+        );
     }
 
     const NUMERIC_DOMAIN: &str = r#"(define (domain numeric-d)

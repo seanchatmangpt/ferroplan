@@ -58,8 +58,12 @@
 //! already get in that position.
 //!
 //! Deliberately NOT represented at all (a parse of one of these must be a
-//! hard error, never a silent drop): temporal/durative actions, and nested
-//! `oneof` / `oneof` under `when`.
+//! hard error, never a silent drop): temporal/durative actions, and any
+//! `oneof` outside the supported surface — a `oneof` nested under
+//! `and`/`when`/another `oneof`, a `oneof` in a precondition/method-
+//! condition/`:goal` position, a `oneof` with no branches, or a `when`
+//! inside a `oneof` branch (all refused with `ParseError::MalformedOneof`;
+//! see `lib.rs` for the full supported surface).
 
 use std::collections::BTreeMap;
 
@@ -178,8 +182,18 @@ pub enum Effect {
     /// `(when cond effect)` — `effect` applies only if `cond` holds in the
     /// state the action is applied to.
     When(GoalDesc, Box<Effect>),
-    /// Exactly one of these sub-effects occurs at execution time — grounding
-    /// turns each branch into one non-deterministic outcome of the action.
+    /// `(oneof e1 ... ek)`, k >= 2 after k == 1 normalization (a
+    /// single-branch `oneof` degenerates to a deterministic effect and is
+    /// unwrapped by `parser::parse_effect`, matching koala hddl.y:327-330;
+    /// k == 0 is refused) — exactly one of these sub-effects occurs at
+    /// execution time. Legal in exactly one position: the ENTIRE top-level
+    /// `:effect` of an action (never nested under `and`/`when`/another
+    /// `oneof`, never in a precondition/`:goal` position — all refused with
+    /// `ParseError::MalformedOneof`). Branches may be plain literals,
+    /// `and`-conjunctions, or `Effect::Empty` (`when` inside a branch is
+    /// refused — see `parser::parse_effect`'s `when` arm); they need not be
+    /// mutually exclusive, and each grounds to exactly one non-deterministic
+    /// outcome of the action.
     Oneof(Vec<Effect>),
     /// `(increase (fluent ?args...) value)` — parsed, never grounded: see the
     /// module-level docs and `GroundError::UnsupportedNumericFluent`.
@@ -264,6 +278,11 @@ pub struct ActionDef {
     /// (String)` already follows elsewhere in this module, so no float
     /// `Eq`/`PartialEq` concerns leak into this `#[derive(... Eq)]` type.
     /// `None` for a plain (weightless) `oneof` or a deterministic effect.
+    /// Note k == 1: a `(:probabilistic w e)` block whose single weighted
+    /// branch `parser::parse_effect` normalizes to a deterministic effect
+    /// (see `Effect::Oneof`) leaves the weight unused — a deterministic
+    /// action has one outcome carrying all probability mass, so there is
+    /// nothing to split.
     pub probability_weights: Option<Vec<String>>,
 }
 
