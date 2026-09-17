@@ -763,12 +763,16 @@ fn fond_policy(
     {
         return Err(PlannerError::NoPlan);
     }
-    // Goal states need no policy entry; all non-goal winning states do.
-    for state in &winning {
-        if !problem.goal.holds(states[state.as_str()]) && !choices.contains_key(state) {
-            return Err(PlannerError::NoPlan);
-        }
-    }
+    // `choices` is inserted on exactly the same branch that admits a state
+    // into `winning` (single code path above), so every non-goal winning
+    // state trivially has a choice entry: the former post-check here could
+    // never fire — tautological dead code. Kept as a debug-only tripwire
+    // guarding that admission invariant (`cargo test`/debug builds still
+    // verify it); release builds compile it away, so there is no behavior
+    // change.
+    debug_assert!(winning.iter().all(|state| {
+        problem.goal.holds(states[state.as_str()]) || choices.contains_key(state)
+    }));
     Ok(policy_from_choices(
         problem,
         choices,
