@@ -1,0 +1,10 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; 'oneof' nested directly inside a 'oneof' branch — outside scope.
+(define (domain oneof-nested)
+  (:predicates (at ?x) (open ?x))
+  (:action move
+    :parameters (?x)
+    :precondition ()
+    :effect (oneof
+      (oneof (at ?x) (open ?x))
+      (open ?x))))

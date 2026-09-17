@@ -1,0 +1,10 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; A 'when' conditional effect nested inside a 'oneof' branch.
+(define (domain when-in-oneof)
+  (:predicates (at ?x) (open ?x))
+  (:action move
+    :parameters (?x)
+    :precondition ()
+    :effect (oneof
+      (when (open ?x) (at ?x))
+      (open ?x))))

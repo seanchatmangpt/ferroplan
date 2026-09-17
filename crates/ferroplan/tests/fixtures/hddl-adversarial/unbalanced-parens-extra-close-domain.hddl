@@ -1,0 +1,9 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; A stray ')' in the MIDDLE of the form (trailing-only extra parens are
+;; silently discarded by read_top — that gap is asserted separately).
+(define (domain unbalanced-extra)
+  (:predicates (at ?x))
+  (:action move
+    :parameters (?x))
+    :precondition (at ?x)
+    :effect (at ?x))

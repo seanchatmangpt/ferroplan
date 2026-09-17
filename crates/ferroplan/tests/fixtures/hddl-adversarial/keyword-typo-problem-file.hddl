@@ -1,0 +1,8 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; ':initt' is a typo of ':init' in a problem file.
+(define (problem typo-p1)
+  (:domain typo-problem)
+  (:objects x1)
+  (:initt (at x1))
+  (:goal (at x1))
+  (:htn :ordered-subtasks (move x1)))

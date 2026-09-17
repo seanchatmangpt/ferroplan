@@ -1,0 +1,8 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; Problem root ':htn' calls the 0-parameter action 'move' with 1 argument.
+(define (problem arity-root-p1)
+  (:domain arity-root)
+  (:objects x1)
+  (:init)
+  (:goal (at x1))
+  (:htn :ordered-subtasks (move x1)))

@@ -1,0 +1,8 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; ':predicatse' is a typo of ':predicates'.
+(define (domain typo-domain)
+  (:predicatse (at ?x))
+  (:action move
+    :parameters (?x)
+    :precondition ()
+    :effect (at ?x)))

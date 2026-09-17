@@ -1,0 +1,3 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; 'define' with no header at all.
+(define)

@@ -1,0 +1,8 @@
+;; hand-authored adversarial fixture (ticket fond-htn-14) — not derived from any corpus.
+;; Problem file missing the final ')' of the top-level (define ...) form.
+(define (problem unbalanced-p1)
+  (:domain unbalanced)
+  (:objects x1)
+  (:init)
+  (:goal (at x1))
+  (:htn :ordered-subtasks (move x1))
