@@ -1,0 +1,20 @@
+; hand-authored, Snake-pattern: micro recursive method with '=' precondition
+(define (domain micro-recurse)
+  (:requirements :typing :equality :negative-preconditions :hierarchy :method-preconditions)
+  (:types location)
+  (:constants robot - location)
+  (:predicates (adjacent ?a - location ?b - location) (at ?s - location ?l - location))
+  (:task travel :parameters (?s - location ?goal - location))
+  (:action step :parameters (?from - location ?to - location)
+    :precondition (and (at robot ?from) (adjacent ?from ?to))
+    :effect (and (not (at robot ?from)) (at robot ?to)))
+  (:method m-arrived
+    :parameters (?s - location ?goal - location)
+    :task (travel ?s ?goal)
+    :precondition (= ?s ?goal)
+    :ordered-subtasks ())
+  (:method m-step
+    :parameters (?s - location ?goal - location ?next - location)
+    :task (travel ?s ?goal)
+    :precondition (adjacent ?s ?next)
+    :ordered-subtasks (and (t1 (step ?s ?next)) (t2 (travel ?next ?goal)))))

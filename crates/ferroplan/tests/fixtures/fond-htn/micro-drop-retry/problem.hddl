@@ -1,0 +1,7 @@
+; hand-authored, Transport-pattern: micro drop-retry problem
+(define (problem micro-drop-p1)
+  (:domain micro-drop)
+  (:objects box - package)
+  (:init (at box depot))
+  (:goal (at box dropzone))
+  (:htn :subtasks (and (task0 (deliver box dropzone)))))

@@ -1,0 +1,7 @@
+; hand-authored, Snake-pattern: micro recursion problem
+(define (problem micro-recurse-p1)
+  (:domain micro-recurse)
+  (:objects alpha beta gamma - location)
+  (:init (at robot alpha) (adjacent alpha beta) (adjacent beta gamma) (adjacent alpha gamma))
+  (:goal (at robot gamma))
+  (:htn :subtasks (and (task0 (travel alpha gamma)))))

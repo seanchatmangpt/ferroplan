@@ -1,0 +1,27 @@
+; hand-authored, Satellite-pattern: micro sensing two-branch with recovery
+(define (domain micro-sense)
+  (:requirements :typing :negative-preconditions :hierarchy :method-preconditions)
+  (:types satellite direction mode)
+  (:predicates (calibrated ?s - satellite) (have-image ?d - direction ?m - mode))
+  (:task ensure-image :parameters (?s - satellite ?d - direction ?m - mode))
+  (:action calibrate :parameters (?s - satellite)
+    :precondition (and (not (calibrated ?s)))
+    :effect (and (calibrated ?s)))
+  (:action take-image :parameters (?s - satellite ?d - direction ?m - mode)
+    :precondition (calibrated ?s)
+    :effect (oneof (and (have-image ?d ?m)) (and (not (calibrated ?s)))))
+  (:method m-have
+    :parameters (?s - satellite ?d - direction ?m - mode)
+    :task (ensure-image ?s ?d ?m)
+    :precondition (have-image ?d ?m)
+    :ordered-subtasks ())
+  (:method m-take
+    :parameters (?s - satellite ?d - direction ?m - mode)
+    :task (ensure-image ?s ?d ?m)
+    :precondition (calibrated ?s)
+    :ordered-subtasks (and (t1 (take-image ?s ?d ?m)) (t2 (ensure-image ?s ?d ?m))))
+  (:method m-recal
+    :parameters (?s - satellite ?d - direction ?m - mode)
+    :task (ensure-image ?s ?d ?m)
+    :precondition (not (calibrated ?s))
+    :ordered-subtasks (and (t1 (calibrate ?s)) (t2 (ensure-image ?s ?d ?m)))))

@@ -1,0 +1,19 @@
+; hand-authored, Childsnack-pattern: micro overlapping method branches
+(define (domain micro-overlap)
+  (:requirements :typing :negative-preconditions :hierarchy :method-preconditions)
+  (:types child sandwich)
+  (:predicates (hungry ?c - child) (fresh ?s - sandwich) (served ?c - child))
+  (:task serve :parameters (?c - child ?s - sandwich))
+  (:action hand-over :parameters (?c - child ?s - sandwich)
+    :precondition (and (hungry ?c) (fresh ?s))
+    :effect (and (not (hungry ?c)) (served ?c) (not (fresh ?s))))
+  (:method m-serve-plain
+    :parameters (?c - child ?s - sandwich)
+    :task (serve ?c ?s)
+    :precondition (hungry ?c)
+    :ordered-subtasks ())
+  (:method m-serve-fresh
+    :parameters (?c - child ?s - sandwich)
+    :task (serve ?c ?s)
+    :precondition (and (hungry ?c) (fresh ?s))
+    :ordered-subtasks (and (t1 (hand-over ?c ?s)))))
