@@ -1737,4 +1737,240 @@ mod tests {
              must be reachable"
         );
     }
+
+    /// Real (non-synthetic) facts of a translated state: strips the
+    /// frontier/`htn:done` marker facts `augmented_facts` folds in, so two
+    /// states' *real* fact sets can be compared directly.
+    fn real_facts(facts: &BTreeSet<String>) -> BTreeSet<String> {
+        facts
+            .iter()
+            .filter(|f| !f.starts_with("htn:done") && !f.starts_with("htn-frontier"))
+            .cloned()
+            .collect()
+    }
+
+    /// Outcome-count fidelity: each declared `oneof` branch must become
+    /// exactly ONE outcome transition in the translated explicit graph —
+    /// three branches yield exactly three `htn:exec` transitions from the
+    /// single state where the action executes, splitting the full
+    /// 1_000_000 ppm and landing on the three distinct branch effects,
+    /// verbatim (no dedup, no merging, no extra outcomes).
+    #[test]
+    fn oneof_branches_translate_to_exactly_one_outcome_transition_each() {
+        const DOMAIN: &str = "(define (domain three-way)
+  (:predicates (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition ()
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))";
+        const PROBLEM: &str = "(define (problem three-way-p1)
+  (:domain three-way)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))";
+
+        let domain = parse_domain(DOMAIN).unwrap();
+        let problem = parse_problem(PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let plan =
+            translate(&ir, &TranslateLimits::default()).expect("3-branch oneof fixture translates");
+
+        let initial = plan
+            .states
+            .iter()
+            .find(|s| s.id == plan.initial_states[0])
+            .unwrap();
+        let decompose = plan
+            .transitions
+            .iter()
+            .find(|t| t.from == initial.id && t.action.ends_with(":m-go"))
+            .expect("initial state decomposes go via m-go");
+        let decomposed = plan
+            .states
+            .iter()
+            .find(|s| s.id == decompose.to)
+            .expect("decomposed state exists");
+
+        let tri_edges = plan
+            .transitions
+            .iter()
+            .filter(|t| t.from == decomposed.id && t.action.ends_with(":tri"))
+            .collect::<Vec<_>>();
+        assert_eq!(tri_edges.len(), 3, "one outcome transition per branch");
+        let mass: u32 = tri_edges.iter().map(|t| t.probability_ppm).sum();
+        assert_eq!(mass, 1_000_000);
+
+        // Each branch's effect lands on its own state, verbatim: exactly the
+        // singleton real-fact sets {p}, {q}, {r} (the empty :goal adds
+        // nothing).
+        let mut landed: Vec<BTreeSet<String>> = tri_edges
+            .iter()
+            .map(|t| {
+                real_facts(
+                    &plan
+                        .states
+                        .iter()
+                        .find(|s| s.id == t.to)
+                        .expect("outcome state exists")
+                        .facts,
+                )
+            })
+            .collect();
+        landed.sort();
+        let expected: Vec<BTreeSet<String>> = ["p", "q", "r"]
+            .iter()
+            .map(|f| BTreeSet::from([f.to_string()]))
+            .collect();
+        assert_eq!(landed, expected);
+    }
+
+    /// The action's single `:precondition` gates ALL of its oneof branches
+    /// together — one `evaluate_ground_goal` check before the branch loop —
+    /// so a ground action whose precondition fails offers zero branches,
+    /// never a subset.
+    #[test]
+    fn action_precondition_gates_all_oneof_branches_together() {
+        const DOMAIN: &str = "(define (domain gated-tri)
+  (:predicates (ready) (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition (ready)
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))";
+        const PROBLEM: &str = "(define (problem gated-tri-p1)
+  (:domain gated-tri)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))";
+
+        let domain = parse_domain(DOMAIN).unwrap();
+        let problem = parse_problem(PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        // Grounding is static and world-state-blind: all three outcome
+        // branches exist post-grounding...
+        let tri = ir
+            .actions
+            .iter()
+            .find(|a| a.name == "tri")
+            .expect("tri ground instance present");
+        assert_eq!(tri.outcomes.len(), 3);
+        assert_eq!(
+            tri.precondition,
+            crate::grounder::GroundGoal::Atom("ready".to_owned())
+        );
+
+        let plan =
+            translate(&ir, &TranslateLimits::default()).expect("gated-tri fixture translates");
+        // ...but the failing precondition blocks the action (and therefore
+        // all three branches at once) at translate time: only decomposition
+        // bookkeeping ever appears, and no branch effect is reachable.
+        assert!(
+            plan.transitions
+                .iter()
+                .all(|t| t.action.starts_with("htn:decompose:")),
+            "no exec transition may exist for a ground action whose precondition fails"
+        );
+        assert!(
+            !plan.states.iter().any(|s| ["p", "q", "r"]
+                .iter()
+                .any(|f| s.facts.contains(&f.to_string()))),
+            "no oneof branch effect may be reachable when the shared precondition fails"
+        );
+    }
+
+    /// The empty `()` branch (a legal branch shape) must survive to a
+    /// genuine no-change outcome in the translated graph: the branch's
+    /// outcome state carries exactly the source state's real facts (only the
+    /// task-network bookkeeping advanced) — never a dropped or merged
+    /// outcome.
+    #[test]
+    fn empty_branch_translates_to_a_no_change_outcome() {
+        const DOMAIN: &str = "(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))";
+        const PROBLEM: &str = "(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))";
+
+        let domain = parse_domain(DOMAIN).unwrap();
+        let problem = parse_problem(PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        // Grounding already proves the empty branch survives grounding as a
+        // real (add/del-empty) outcome.
+        let toss = ir
+            .actions
+            .iter()
+            .find(|a| a.name == "toss")
+            .expect("toss ground instance present");
+        assert_eq!(toss.outcomes.len(), 2);
+        assert!(toss.outcomes[0].add.is_empty() && toss.outcomes[0].del.is_empty());
+        assert!(toss.outcomes[1].add.contains("heads"));
+
+        let plan = translate(&ir, &TranslateLimits::default())
+            .expect("empty-branch oneof fixture translates");
+        let initial = plan
+            .states
+            .iter()
+            .find(|s| s.id == plan.initial_states[0])
+            .unwrap();
+        let decompose = plan
+            .transitions
+            .iter()
+            .find(|t| t.from == initial.id && t.action.ends_with(":m-go"))
+            .expect("initial state decomposes go via m-go");
+        let decomposed = plan
+            .states
+            .iter()
+            .find(|s| s.id == decompose.to)
+            .expect("decomposed state exists");
+
+        let toss_edges = plan
+            .transitions
+            .iter()
+            .filter(|t| t.from == decomposed.id && t.action.ends_with(":toss"))
+            .collect::<Vec<_>>();
+        assert_eq!(toss_edges.len(), 2, "both branches survive translation");
+
+        let source_real = real_facts(&decomposed.facts);
+        let mut have_no_change = false;
+        let mut have_heads = false;
+        for edge in &toss_edges {
+            let to = plan.states.iter().find(|s| s.id == edge.to).unwrap();
+            let to_real = real_facts(&to.facts);
+            if to_real == source_real {
+                // The empty branch: real facts unchanged — the no-change
+                // outcome (only the task-network bookkeeping advanced).
+                have_no_change = true;
+                assert!(to.facts.contains(htn_done_marker()));
+            } else {
+                let mut expected = source_real.clone();
+                expected.insert("heads".to_owned());
+                assert_eq!(to_real, expected);
+                have_heads = true;
+            }
+        }
+        assert!(
+            have_no_change && have_heads,
+            "expected one no-change outcome (empty branch) and one heads outcome"
+        );
+    }
 }
