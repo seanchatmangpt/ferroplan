@@ -1,0 +1,24 @@
+;; hand-authored, transport-pattern (ticket fond-htn-12)
+(define (domain drop-retry)
+  (:types loc)
+  (:predicates
+    (at ?l - loc)
+    (holding)
+    (done))
+  (:task deliver :parameters (?p - loc))
+  (:action drop
+    :parameters (?p - loc)
+    :precondition (and (at ?p) (holding))
+    :effect (oneof
+      (and (not (holding)) (done))
+      (and)))
+  (:method retry-until-done
+    :parameters (?p - loc)
+    :task (deliver ?p)
+    :precondition (and (holding))
+    :ordered-subtasks (and (t1 (drop ?p)) (t2 (deliver ?p))))
+  (:method deliver-done
+    :parameters (?p - loc)
+    :task (deliver ?p)
+    :precondition (and (done))
+    :ordered-subtasks (and)))

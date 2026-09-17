@@ -1,0 +1,6 @@
+;; hand-authored, snake-pattern (ticket fond-htn-12)
+(define (problem grow-loop-p1)
+  (:domain grow-loop)
+  (:htn :ordered-subtasks (and (r1 (build))))
+  (:init (stage1))
+  (:goal (and (full))))

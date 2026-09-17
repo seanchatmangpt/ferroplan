@@ -1,0 +1,10 @@
+;; hand-authored, double-deadend-oneof pattern (ticket fond-htn-12)
+;; Deliberately UNSOLVABLE: both force-door outcomes dead-end (terminal,
+;; non-goal states), so solve_hddl must report a typed NoPlan.
+(define (domain deadend-doors)
+  (:predicates (at-door) (locked-out) (alarmed) (inside))
+  (:task get-in :parameters ())
+  (:action force-door :parameters () :precondition (and (at-door))
+    :effect (oneof (and (locked-out)) (and (alarmed))))
+  (:method m-get-in :parameters () :task (get-in)
+    :precondition (and) :ordered-subtasks (and (t1 (force-door)))))

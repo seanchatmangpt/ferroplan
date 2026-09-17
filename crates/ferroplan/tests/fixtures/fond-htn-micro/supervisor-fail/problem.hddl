@@ -1,0 +1,6 @@
+;; hand-authored, depots-pattern (ticket fond-htn-12)
+(define (problem supervisor-fail-p1)
+  (:domain supervisor-fail)
+  (:htn :ordered-subtasks (and (r1 (ship))))
+  (:init (ready))
+  (:goal (and (done))))
