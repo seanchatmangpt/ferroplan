@@ -13,7 +13,7 @@ actuates them.
 | temporal | Duration-minimizing search with timestamps |
 | preferences | Hard-goal search with soft-goal penalties |
 | probabilistic | Bounded value iteration |
-| FOND | Strong winning-state fixed point |
+| FOND | Strong winning-state fixed point, plus strong-cyclic dispatch (retry-loop aware); HDDL and Eve handoffs dispatch into both |
 | conformant | Belief-state breadth-first search |
 | contingent | Observation-branching AND-OR policy search |
 | hierarchical | Recursive task/method expansion with cycle bounds |

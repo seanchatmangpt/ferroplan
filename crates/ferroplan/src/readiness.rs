@@ -297,6 +297,48 @@ pub fn capability_manifest() -> CapabilityManifest {
                 "core.fingerprint.replay",
             ],
         ),
+        // FOND policy capability (strong fixpoint + strong-cyclic dispatch).
+        // Evidence ids are REAL test names — the `fond_policy*` tests in
+        // `crates/ferroplan/src/planning_runtime.rs`.
+        contract(
+            "fp.core.fond",
+            "crates/ferroplan",
+            InterfaceKind::RustLibrary,
+            AuthorityClass::CandidateOnly,
+            DeterminismClass::Exact,
+            ReplayClass::Exact,
+            SecurityClass::UntrustedInput,
+            &[
+                "fond.fond_policy_alone_still_returns_no_plan_on_retry_loop",
+                "fond.fond_policy_strong_cyclic_solves_the_retry_loop_domain",
+                "fond.fond_policy_strong_cyclic_solves_two_independent_retry_points",
+                "fond.fond_policy_still_solves_acyclic_strong_domains_directly",
+            ],
+        ),
+        // HDDL front-end capability (parse -> ground -> translate -> FOND
+        // solve, plus the Eve `DecomposeHddl` bridge). Evidence ids are REAL
+        // test names — the `eve_bridge_*`/`solve_hddl*` tests in
+        // `crates/ferroplan/src/hddl.rs` and
+        // `crates/ferroplan/tests/eve_genesis.rs`.
+        contract(
+            "fp.core.hddl",
+            "crates/ferroplan",
+            InterfaceKind::RustLibrary,
+            AuthorityClass::CandidateOnly,
+            DeterminismClass::Exact,
+            ReplayClass::Exact,
+            SecurityClass::UntrustedInput,
+            &[
+                "hddl.eve_bridge_accepts_a_problem_whose_network_matches_the_eve_root_task",
+                "hddl.eve_bridge_refuses_a_problem_network_conflicting_with_the_eve_root_task",
+                "hddl.eve_bridge_reports_a_parse_error_for_a_malformed_eve_root_task",
+                "hddl.eve_bridge_splices_the_root_task_before_the_closing_paren_even_with_a_trailing_comment",
+                "hddl.rejects_malformed_hddl_with_a_parse_error",
+                "hddl.solve_hddl_from_eve_solves_a_deterministic_regime_micro_domain",
+                "hddl.solve_hddl_from_eve_solves_a_probabilistic_regime_micro_domain_hddl_half",
+                "hddl.solve_hddl_produces_correct_independent_results_under_concurrent_calls",
+            ],
+        ),
         contract(
             "fp.core.parallel",
             "crates/ferroplan",
@@ -1109,9 +1151,11 @@ mod tests {
             .iter()
             .map(|capability| capability.id.as_str())
             .collect::<BTreeSet<_>>();
-        assert_eq!(ids.len(), 19);
+        assert_eq!(ids.len(), 21);
         assert!(!ids.contains("fp.core.stream"));
         assert!(ids.contains("fp.core.explain"));
+        assert!(ids.contains("fp.core.fond"));
+        assert!(ids.contains("fp.core.hddl"));
     }
 
     #[test]
