@@ -4,6 +4,16 @@
 //! These planners operate over one explicit, serializable state-transition
 //! model.  PDDL/PPDDL front-ends may project into this model; RDF, A2A, and MCP
 //! front-ends may manufacture it directly.  The module performs no actuation.
+//!
+//! Scope caveat for the HTN family ([`PlanningType::Hierarchical`] and every
+//! other planner routed through [`hierarchical_plan`]): decomposition is
+//! *structural only* — methods are tried exhaustively with depth-first
+//! backtracking over the task/method hierarchy, but subtask ordering carries
+//! no precondition, effect, or goal semantics.  A `solved: true` hierarchical
+//! plan therefore means "every root decomposed down to primitive actions",
+//! not "the emitted action sequence reaches the goal from the initial state"
+//! (that guarantee belongs to the state-searching planners).  Every plan
+//! returned by [`hierarchical_plan`] carries a note stating exactly this.
 
 use crate::planning_types::PlanningType;
 use serde::{Deserialize, Serialize};
@@ -1076,6 +1086,30 @@ fn task_map(problem: &PlanningProblem) -> BTreeMap<&str, &Task> {
         .collect()
 }
 
+/// Decompose every root task down to primitive actions via HTN methods.
+///
+/// Method choice is a complete exhaustive depth-first search: for a compound
+/// task, every method is tried **in declaration order** until one decomposes
+/// fully; on failure the search backtracks and tries the next method.
+///
+/// Error semantics of backtracking:
+/// - [`PlannerError::NoMethod`], [`PlannerError::UnknownTask`], and
+///   [`PlannerError::HierarchyCycle`] are *method-choice-dependent*: a
+///   subtask failure with one of these causes the enclosing method attempt
+///   to fail and the next method to be tried.  The error is propagated only
+///   when **every** method of the task failed, in which case the error from
+///   the **last** method tried is returned (documented consolidation choice:
+///   the last attempt is the final observed state of the search; the
+///   declaration-order scan makes the first attempt's error recoverable from
+///   the fact that later methods were reached at all).
+/// - [`PlannerError::ResourceBound`] is *global* (depth/output budget shared
+///   by the whole expansion, not a property of any single method) and aborts
+///   the search immediately, without backtracking.
+///
+/// State-blindness caveat: decomposition is structural only.  Subtask order
+/// carries no precondition, effect, or goal semantics, so `solved: true`
+/// attests to successful *decomposition*, never to state-level goal
+/// satisfaction — the returned plan's notes say so explicitly.
 fn hierarchical_plan(
     problem: &PlanningProblem,
     limits: &PlannerLimits,
@@ -1117,17 +1151,49 @@ fn hierarchical_plan(
                 task: task_id.to_owned(),
             });
         }
-        let method = methods
-            .get(task_id)
-            .and_then(|candidates| candidates.first())
-            .ok_or_else(|| PlannerError::NoMethod {
+        let Some(candidates) = methods.get(task_id) else {
+            stack.remove(task_id);
+            return Err(PlannerError::NoMethod {
                 task: task_id.to_owned(),
-            })?;
-        for subtask in &method.subtasks {
-            expand(subtask, tasks, methods, stack, output, depth + 1, limits)?;
+            });
+        };
+        // Exhaustive DFS backtracking over this task's methods, in
+        // declaration order.  Each attempt starts from a clean output
+        // prefix (`mark`) so partial expansions of failed methods never
+        // leak into the returned plan.
+        let mut last_error: Option<PlannerError> = None;
+        for method in candidates {
+            let mark = output.len();
+            let mut failed = false;
+            for subtask in &method.subtasks {
+                match expand(subtask, tasks, methods, stack, output, depth + 1, limits) {
+                    Ok(()) => {}
+                    // Global budget exhausted: not method-specific, abort.
+                    Err(err @ PlannerError::ResourceBound { .. }) => {
+                        stack.remove(task_id);
+                        return Err(err);
+                    }
+                    // Method-choice-dependent failure: backtrack and try
+                    // the next method.
+                    Err(err) => {
+                        output.truncate(mark);
+                        last_error = Some(err);
+                        failed = true;
+                        break;
+                    }
+                }
+            }
+            if !failed {
+                stack.remove(task_id);
+                return Ok(());
+            }
         }
         stack.remove(task_id);
-        Ok(())
+        // Every method failed: report the last attempt's error (see the
+        // function-level docs for the consolidation choice).
+        Err(last_error.unwrap_or_else(|| PlannerError::NoMethod {
+            task: task_id.to_owned(),
+        }))
     }
     let mut actions = Vec::new();
     let mut stack = BTreeSet::new();
@@ -1144,6 +1210,10 @@ fn hierarchical_plan(
                 ..PlanStep::default()
             })
             .collect(),
+        notes: vec![
+            "hierarchical expansion: structural decomposition with method backtracking (no state semantics)"
+                .to_owned(),
+        ],
         ..UniversalPlan::default()
     })
 }
