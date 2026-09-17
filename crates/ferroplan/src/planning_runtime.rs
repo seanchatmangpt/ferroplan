@@ -215,12 +215,13 @@ impl Default for PlannerLimits {
     }
 }
 
-/// Checked once per outer-loop iteration by the fixpoint solvers that can
-/// otherwise only be bounded by `max_iterations` (`fond_policy`,
-/// `fond_policy_strong_cyclic`) — see `PlannerError::Timeout`'s doc comment
-/// for why a wall-clock bound is needed in addition to an iteration count
-/// (a single iteration's cost scales with the problem's state/action count,
-/// which `max_iterations` alone does not bound).
+/// Checked once per outer-loop iteration by the fixpoint solvers whose
+/// round cost scales with the problem's state/action count (`fond_policy`,
+/// bounded by `max_iterations`; `fond_policy_strong_cyclic`, bounded by its
+/// `states + 1` round failsafe) — see `PlannerError::Timeout`'s doc comment
+/// for why a wall-clock bound is needed in addition to a round count
+/// (a single round's cost scales with the problem's state/action count,
+/// which neither round bound alone bounds).
 fn check_wall_deadline(start: Instant, limits: &PlannerLimits) -> Result<(), PlannerError> {
     if limits.max_wall_ms > 0 {
         let elapsed = start.elapsed();
@@ -817,6 +818,25 @@ fn fond_policy_strong_cyclic(
     let edges_by_from = grouped_edges(problem);
     let groups = action_groups(problem);
 
+    // Both fixpoint loops below are bounded by their own mathematical
+    // termination argument, NOT by `PlannerLimits::max_iterations`: every
+    // round that changes anything admits (Phase 1) or prunes (Phase 2) at
+    // least one state, so each loop converges within
+    // `problem.states.len()` changing rounds plus one confirming round.
+    // `max_iterations` used to gate these loops; truncating a
+    // greatest-fixpoint prune mid-convergence left witnesses validated
+    // early in a round pointing at states pruned later in the same round —
+    // a returned policy with a dead sink (the defect this fixes), so it no
+    // longer gates either loop. The `states + 1` failsafe is unreachable by
+    // the argument above; if it ever fires that is an internal invariant
+    // violation and must surface as `Err(Timeout)` rather than a silently
+    // truncated (possibly stale) policy — `limit_ms` echoes the configured
+    // wall budget (`0` when unbounded) because the `Timeout` payload is
+    // wall-shaped, but the bound that fired is the round failsafe.
+    // `check_wall_deadline` still runs every round, so wall-clock deadline
+    // semantics (`Timeout` propagation) are unchanged.
+    let failsafe_rounds = problem.states.len() + 1;
+
     // Phase 1: weak/OR backward reachability -> `weak`.
     let mut weak = problem
         .states
@@ -824,8 +844,16 @@ fn fond_policy_strong_cyclic(
         .filter(|state| problem.goal.holds(state))
         .map(|state| state.id.clone())
         .collect::<BTreeSet<_>>();
-    for _ in 0..limits.max_iterations {
+    let mut rounds = 0_usize;
+    loop {
         check_wall_deadline(start, limits)?;
+        rounds += 1;
+        if rounds > failsafe_rounds {
+            return Err(PlannerError::Timeout {
+                elapsed_ms: start.elapsed().as_millis(),
+                limit_ms: u128::from(limits.max_wall_ms),
+            });
+        }
         let mut changed = false;
         for state in &problem.states {
             if weak.contains(&state.id) || problem.unsafe_states.contains(&state.id) {
@@ -850,8 +878,16 @@ fn fond_policy_strong_cyclic(
     // policy as states are confirmed to have an all-outcomes-covered action.
     let mut surviving = weak.clone();
     let mut choices = BTreeMap::<String, String>::new();
-    for _ in 0..limits.max_iterations {
+    let mut rounds = 0_usize;
+    loop {
         check_wall_deadline(start, limits)?;
+        rounds += 1;
+        if rounds > failsafe_rounds {
+            return Err(PlannerError::Timeout {
+                elapsed_ms: start.elapsed().as_millis(),
+                limit_ms: u128::from(limits.max_wall_ms),
+            });
+        }
         let mut changed = false;
         for state in &problem.states {
             if !surviving.contains(&state.id) || problem.goal.holds(state) {
@@ -885,9 +921,34 @@ fn fond_policy_strong_cyclic(
     {
         return Err(PlannerError::NoPlan);
     }
-    // Goal states need no policy entry; all other surviving states do.
+    // Outcome closure, computed on the FINAL (surviving, choices) pair:
+    // every surviving non-goal state must have a choice, and every outcome
+    // of that choice must land in a goal state or in another surviving
+    // state that itself has a choice. Phase 2 validates each state's
+    // witness against `surviving` *as of its own round*, so a witness
+    // validated early in a round can be invalidated by a prune later in
+    // the same round; when `max_iterations` used to truncate the loop
+    // before the next revalidation round, that stale witness survived into
+    // the returned policy as a choice leading to a pruned, choice-less,
+    // non-goal state (a dead sink). This check is the soundness witness
+    // that no stale witness can masquerade as a plan.
     for state in &surviving {
-        if !problem.goal.holds(states[state.as_str()]) && !choices.contains_key(state) {
+        if problem.goal.holds(states[state.as_str()]) {
+            continue;
+        }
+        let Some(action) = choices.get(state) else {
+            // Goal states need no policy entry; all other surviving states do.
+            return Err(PlannerError::NoPlan);
+        };
+        let closed = groups
+            .get(&(state.as_str(), action.as_str()))
+            .into_iter()
+            .flatten()
+            .all(|edge| {
+                problem.goal.holds(states[edge.to.as_str()])
+                    || (surviving.contains(&edge.to) && choices.contains_key(&edge.to))
+            });
+        if !closed {
             return Err(PlannerError::NoPlan);
         }
     }
@@ -1693,5 +1754,140 @@ mod tests {
             .expect("fond_policy solves the acyclic strong domain on its own");
         assert!(plan.solved);
         assert_eq!(plan.notes, vec!["strong FOND fixed point".to_owned()]);
+    }
+
+    /// The wave-1 audit's truncation dead-sink reproducer (4 states): `a`
+    /// leaves `s0` for `x`; `b` from `x` either reaches the goal `g` or the
+    /// dead-end `z` (non-goal, choice-less, never weakly goal-reachable).
+    /// No strong-cyclic policy exists: every execution of `b` can fall into
+    /// `z`, from which the goal is unreachable.
+    ///
+    /// Phase 2's first prune round validates `s0` against `x` and then
+    /// prunes `x` later in that same round; only a further revalidation
+    /// round prunes `s0`. A loop truncated between those two rounds
+    /// returned the bogus policy `{s0: a}` — its sole step leads into the
+    /// pruned, choice-less, non-goal dead sink, a shape the old post-loop
+    /// checks (initials surviving + has-some-choice) could not see because
+    /// they never examined outcome closure. Post-fix the loop runs to its
+    /// fixpoint (`max_iterations` no longer gates it) and the outcome-
+    /// closure post-check rejects that shape unconditionally: round 2
+    /// revalidates `s0`, finds `x` pruned, prunes `s0`, and the solver
+    /// must return `Err(NoPlan)`.
+    fn dead_sink_reproducer_problem() -> PlanningProblem {
+        PlanningProblem {
+            states: vec![
+                state("s0", &[]),
+                state("x", &[]),
+                state("z", &[]),
+                state("g", &["done"]),
+            ],
+            initial_states: vec!["s0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: vec![
+                edge("a", "s0", "x", 1_000_000),
+                edge("b", "x", "g", 500_000),
+                edge("b", "x", "z", 500_000),
+            ],
+            ..PlanningProblem::default()
+        }
+    }
+
+    #[test]
+    fn fond_policy_strong_cyclic_rejects_the_truncation_dead_sink_reproducer() {
+        let problem = dead_sink_reproducer_problem();
+        // Pre-fix, `max_iterations: 1` truncated the fixpoints mid-flight
+        // (Phase 1 admitted only `x` in its single round); post-fix the
+        // cap no longer gates either loop — the chain of rounds must run
+        // to its fixpoint, where `s0` is admitted, validated in round 1,
+        // and pruned in round 2 — so only `Err(NoPlan)` is admissible.
+        let limits = PlannerLimits {
+            max_iterations: 1,
+            ..PlannerLimits::default()
+        };
+        assert_eq!(
+            fond_policy_strong_cyclic(&problem, &limits),
+            Err(PlannerError::NoPlan),
+            "s0 is validated in round 1 and must be pruned in round 2 once x \
+             dies; returning any policy here means a stale witness pointing \
+             into the pruned dead sink survived"
+        );
+    }
+
+    /// A chain of `CHAIN_LEN` non-goal states `c0 -> c1 -> ... -> g`, one
+    /// deterministic action per hop, laid out in the state vector in chain
+    /// order so Phase 1's backward admission propagates exactly one hop per
+    /// round: full convergence needs `CHAIN_LEN` changing rounds plus one
+    /// confirming round — far more than the `max_iterations: 1` passed
+    /// here. Pre-fix, that cap truncated Phase 1 after its first round
+    /// (only `cCHAIN_LEN-1` admitted), so the initial state could never
+    /// enter `surviving` and a solvable domain was rejected with a bogus
+    /// `NoPlan`. Post-fix, `max_iterations` no longer gates either fixpoint
+    /// — the loop runs `while changed` under the `states + 1` round
+    /// failsafe (never reached: each changing round admits at least one
+    /// state) — so the chain must still be solved completely.
+    #[test]
+    fn fond_policy_strong_cyclic_converges_past_max_iterations_on_a_chain() {
+        const CHAIN_LEN: usize = 12;
+        let ids = (0..CHAIN_LEN)
+            .map(|index| format!("c{index}"))
+            .collect::<Vec<_>>();
+        let problem = PlanningProblem {
+            states: ids
+                .iter()
+                .map(|id| state(id, &[]))
+                .chain(std::iter::once(state("g", &["done"])))
+                .collect(),
+            initial_states: vec!["c0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: (0..CHAIN_LEN)
+                .map(|index| {
+                    let to = if index + 1 < CHAIN_LEN {
+                        format!("c{}", index + 1)
+                    } else {
+                        "g".to_owned()
+                    };
+                    edge(&format!("step_{index}"), &ids[index], &to, 1_000_000)
+                })
+                .collect(),
+            ..PlanningProblem::default()
+        };
+        let limits = PlannerLimits {
+            max_iterations: 1,
+            ..PlannerLimits::default()
+        };
+        let plan = fond_policy_strong_cyclic(&problem, &limits).expect(
+            "the chain fixpoint needs one round per hop, so solving it under \
+             max_iterations: 1 proves the cap no longer gates the loop",
+        );
+        assert!(plan.solved);
+        assert_eq!(plan.policy.len(), CHAIN_LEN);
+        let by_state = plan
+            .policy
+            .iter()
+            .map(|entry| (entry.state.as_str(), entry))
+            .collect::<BTreeMap<_, _>>();
+        for (index, id) in ids.iter().enumerate() {
+            let entry = by_state
+                .get(id.as_str())
+                .expect("every chain state gets a policy entry");
+            assert_eq!(
+                entry.action,
+                format!("step_{index}"),
+                "state {id} must choose its own chain action"
+            );
+            let expected_to = if index + 1 < CHAIN_LEN {
+                format!("c{}", index + 1)
+            } else {
+                "g".to_owned()
+            };
+            assert_eq!(entry.outcomes.len(), 1);
+            assert_eq!(entry.outcomes[0].state, expected_to);
+        }
     }
 }
