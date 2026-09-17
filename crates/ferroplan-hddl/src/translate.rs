@@ -638,7 +638,16 @@ fn encode_field(s: &str, out: &mut String) {
 fn total_order_ranks(f: &Frontier) -> Option<BTreeMap<&Addr, usize>> {
     let mut indeg: BTreeMap<&Addr, usize> = f.pending.keys().map(|a| (a, 0)).collect();
     for (_, after) in &f.order {
-        *indeg.get_mut(after).expect("order endpoint is a pending key") += 1;
+        // Adversarial input (ticket fond-htn-14): a malformed ':ordering'
+        // edge may name a subtask id that is not in 'pending' (e.g. a typo'd
+        // or nonexistent id). Such a frontier is by definition NOT a strict
+        // total order over 'pending' — the same condition this function
+        // already answers with None below — so refuse via the existing None
+        // path (raw-Addr marker fallback) instead of panicking.
+        match indeg.get_mut(after) {
+            Some(d) => *d += 1,
+            None => return None,
+        }
     }
     let mut ranks: BTreeMap<&Addr, usize> = BTreeMap::new();
     let mut remaining = indeg;
