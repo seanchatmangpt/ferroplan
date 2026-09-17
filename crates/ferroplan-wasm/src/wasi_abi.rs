@@ -81,12 +81,12 @@
 //! dealloc it afterward); the response buffer is host-owned, freed via
 //! `fp_dealloc(out_ptr, out_len)` after reading.
 
+use ferroplan::planning_runtime::{solve_planning_type, PlanningProblem, UniversalPlanningRequest};
+use ferroplan::planning_types::PlanningType;
 use ferroplan::{
     capability_manifest, solve, solve_hddl, solve_production, HddlError, Mode, Options,
     PlannerLimits, ProductionLimits, Search,
 };
-use ferroplan::planning_runtime::{solve_planning_type, PlanningProblem, UniversalPlanningRequest};
-use ferroplan::planning_types::PlanningType;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::alloc::Layout;
@@ -484,10 +484,24 @@ fn op_hddl_solve(req: &Value) -> Result<Value, String> {
         ProductionLimits::default().max_problem_bytes,
         "problem",
     )?;
-    let limits: PlannerLimits = match req.get("limits") {
+    let mut limits: PlannerLimits = match req.get("limits") {
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("limits: {e}"))?,
         None => PlannerLimits::default(),
     };
+    // `solve_hddl`'s wall-clock watchdog (`max_wall_ms != 0`, the
+    // `PlannerLimits::default()` case) spawns a real `std::thread` to race
+    // against the timeout -- see `crates/ferroplan/src/hddl.rs`. WASI
+    // preview1 (this crate's `wasm32-wasip1` target) has no OS threads:
+    // `std::thread::spawn` there aborts the whole guest instance with an
+    // `unreachable` trap instead of returning an `Err`, so every
+    // `hddl_solve` call would panic before this function's own
+    // `Ok(err_json)`-not-`Err` contract (see this fn's own doc comment) ever
+    // had a chance to apply. Force the synchronous, non-threaded
+    // `solve_hddl_inner` path (`max_wall_ms == 0`) at this ABI boundary --
+    // the caller's own `limits` object (if any) is otherwise honored
+    // unchanged, and a hung parse is still bounded on the BEAM side by this
+    // op's own wasmex call timeout.
+    limits.max_wall_ms = 0;
     match solve_hddl(domain, problem, &limits) {
         Ok(plan) => serde_json::to_value(plan).map_err(|e| e.to_string()),
         Err(e) => Ok(hddl_error_json(&e)),
@@ -509,6 +523,17 @@ fn hddl_error_json(e: &HddlError) -> Value {
             &format!("HDDL translation error: {msg}"),
         ),
         HddlError::Planner(pe) => err_json("FP_MODEL", &format!("planner error: {pe}")),
+        HddlError::Timeout {
+            elapsed_ms,
+            limit_ms,
+        } => err_json(
+            "FP_TIMEOUT",
+            &format!("HDDL solve timed out after {elapsed_ms}ms (limit {limit_ms}ms)"),
+        ),
+        HddlError::WorkerPanicked(msg) => err_json(
+            "FP_WORKER_PANICKED",
+            &format!("HDDL solve worker panicked: {msg}"),
+        ),
     }
 }
 
@@ -950,5 +975,364 @@ mod tests {
             err.contains("domain"),
             "error should name the missing field: {err}"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // fond-htn-17 (wave v26.9.17): `hddl_solve` / `fond_policy` / `htn_plan`
+    // op coverage. Every test below goes through the real wire path
+    // (`dispatch_json`, JSON bytes in / JSON bytes out), because what it
+    // asserts is that the *ABI surface* preserves the solver's result shape
+    // -- not just that the solver works.
+    //
+    // Every request passes `limits: {"max_wall_ms": 0}` explicitly. Under
+    // `wasm32-wasip1` (this module's only real target) `solve_hddl`'s
+    // watchdog thread cannot exist and the op already forces the synchronous
+    // path, but stating it per-request keeps these tests deterministic and
+    // target-portable regardless of that op-level default.
+    // ------------------------------------------------------------------
+
+    /// Hand-authored for this ticket (fond-htn-17). Provenance: a
+    /// self-written micro Transport-pattern FOND-HTN in the shape of this
+    /// crate's own `ferroplan-hddl/fixtures/a` (pickup/drive/dropoff); no
+    /// external corpus, no koala code. The FOND core is `drive`'s
+    /// two-branch `oneof` whose second branch is the EMPTY effect `(and)` —
+    /// the truck's move may silently fail — so the translated problem
+    /// genuinely carries a non-deterministic action with two outcomes
+    /// (arrive-at-l2 / nothing-changes), and the continuation stays solvable
+    /// from both (`dropoff` is deliberately location-free, so the failed
+    /// branch is a live branch, not a dead end).
+    const TRANSPORT_ONEOF_EMPTY_DOMAIN: &str = r#"(define (domain transport-oneof)
+  (:types loc)
+  (:predicates
+    (at ?l - loc)
+    (connected ?a - loc ?b - loc)
+    (has-package)
+    (delivered))
+  (:task deliver :parameters (?from - loc ?to - loc))
+  (:action pickup
+    :parameters (?l - loc)
+    :precondition (at ?l)
+    :effect (and (has-package)))
+  (:action drive
+    :parameters (?a - loc ?b - loc)
+    :precondition (and (at ?a) (connected ?a ?b))
+    :effect (oneof
+      (and (not (at ?a)) (at ?b))
+      (and)))
+  (:action dropoff
+    :parameters ()
+    :precondition (has-package)
+    :effect (and (not (has-package)) (delivered)))
+  (:method m-deliver
+    :parameters (?from - loc ?to - loc)
+    :task (deliver ?from ?to)
+    :ordered-subtasks (and
+      (t1 (pickup ?from))
+      (t2 (drive ?from ?to))
+      (t3 (dropoff)))))"#;
+
+    const TRANSPORT_ONEOF_EMPTY_PROBLEM: &str = r#"(define (problem transport-oneof-p1)
+  (:domain transport-oneof)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (and (delivered))))"#;
+
+    /// (a) `hddl_solve` on the micro Transport FOND-HTN above: the ABI must
+    /// hand back a solved `UniversalPlan` whose *policy shape survives the
+    /// wire* — exactly one policy entry (the `drive` choice) carries the
+    /// action's two `oneof` outcomes, outcome mass sums to the full
+    /// probability scale, and every entry keeps a non-empty outcomes array.
+    #[test]
+    fn hddl_solve_transport_oneof_with_empty_branch_solves_and_preserves_outcomes() {
+        let response = dispatch_json(&json!({
+            "op": "hddl_solve",
+            "domain": TRANSPORT_ONEOF_EMPTY_DOMAIN,
+            "problem": TRANSPORT_ONEOF_EMPTY_PROBLEM,
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert!(
+            response.get("error").is_none(),
+            "micro Transport oneof domain must solve, got: {response}"
+        );
+        assert_eq!(response["solved"], json!(true), "{response}");
+        assert_eq!(response["planning_type"], json!("fond"), "{response}");
+
+        let policy = response["policy"]
+            .as_array()
+            .expect("solved FOND plan carries a policy array");
+        assert!(!policy.is_empty(), "policy must not be empty: {response}");
+
+        let two_outcome_entries: Vec<&Value> = policy
+            .iter()
+            .filter(|entry| {
+                entry["outcomes"]
+                    .as_array()
+                    .map(|outcomes| outcomes.len() == 2)
+                    .unwrap_or(false)
+            })
+            .collect();
+        assert_eq!(
+            two_outcome_entries.len(),
+            1,
+            "exactly the nondeterministic drive choice may carry two outcomes: {response}"
+        );
+        let drive_entry = two_outcome_entries[0];
+        assert!(
+            drive_entry["action"]
+                .as_str()
+                .is_some_and(|action| action.contains("drive")),
+            "the two-outcome entry must be the drive choice: {drive_entry}"
+        );
+        let outcomes = drive_entry["outcomes"].as_array().unwrap();
+        let mass: u64 = outcomes
+            .iter()
+            .map(|outcome| outcome["probability_ppm"].as_u64().unwrap_or(0))
+            .sum();
+        assert_eq!(
+            mass, 1_000_000,
+            "the two oneof outcomes must preserve the full probability mass: {drive_entry}"
+        );
+        let mut outcome_states = outcomes
+            .iter()
+            .map(|outcome| outcome["state"].as_str().unwrap_or_default())
+            .collect::<Vec<_>>();
+        outcome_states.sort();
+        outcome_states.dedup();
+        assert_eq!(
+            outcome_states.len(),
+            2,
+            "the empty branch and the move branch must land in two distinct states: {drive_entry}"
+        );
+
+        for entry in policy {
+            let outcomes = entry["outcomes"]
+                .as_array()
+                .unwrap_or_else(|| panic!("every policy entry carries outcomes: {entry}"));
+            assert!(
+                !outcomes.is_empty(),
+                "no policy entry may drop its outcome set on the wire: {entry}"
+            );
+        }
+    }
+
+    /// The `fond_policy` op's wire problem for the retry-loop fixture: one
+    /// nondeterministic `flip` from `s0` that either reaches the goal or
+    /// loops back onto `s0` (same shape as planning_runtime's own
+    /// `retry_loop_problem` unit fixture). No acyclic strong policy exists;
+    /// the op must return the strong-cyclic solution through
+    /// `solve_planning_type`'s fallback.
+    fn retry_loop_problem_json() -> String {
+        json!({
+            "states": [
+                { "id": "s0" },
+                { "id": "g", "facts": ["done"] },
+            ],
+            "initial_states": ["s0"],
+            "goal": { "facts": ["done"] },
+            "transitions": [
+                { "action": "flip", "from": "s0", "to": "g", "probability_ppm": 500_000 },
+                { "action": "flip", "from": "s0", "to": "s0", "probability_ppm": 500_000 },
+            ],
+        })
+        .to_string()
+    }
+
+    /// (b) `fond_policy` on the retry-loop problem: solved, and the policy
+    /// that comes back through the ABI is *closed* — the single `flip` entry
+    /// at `s0` still carries BOTH outcomes (goal + self-loop), and every
+    /// outcome state is either policy-covered (`s0`) or the goal state
+    /// (`g`), so the wire policy is a total controller, not a truncated
+    /// fragment.
+    #[test]
+    fn fond_policy_op_solves_the_retry_loop_with_a_closed_policy() {
+        let response = dispatch_json(&json!({
+            "op": "fond_policy",
+            "problem": retry_loop_problem_json(),
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert!(
+            response.get("error").is_none(),
+            "retry-loop domain must solve via the strong-cyclic fallback, got: {response}"
+        );
+        assert_eq!(response["solved"], json!(true), "{response}");
+        assert_eq!(response["planning_type"], json!("fond"), "{response}");
+        assert!(
+            response["notes"][0]
+                .as_str()
+                .is_some_and(|note| note.contains("strong-cyclic")),
+            "a self-loop-only domain must be solved by the strong-cyclic fixpoint: {response}"
+        );
+
+        let policy = response["policy"].as_array().expect("policy array");
+        assert_eq!(policy.len(), 1, "only s0 needs a choice: {response}");
+        let entry = &policy[0];
+        assert_eq!(entry["state"], json!("s0"), "{response}");
+        assert_eq!(entry["action"], json!("flip"), "{response}");
+        let mut outcome_states = entry["outcomes"]
+            .as_array()
+            .expect("entry outcomes array")
+            .iter()
+            .map(|outcome| outcome["state"].as_str().unwrap_or_default())
+            .collect::<Vec<_>>();
+        outcome_states.sort();
+        assert_eq!(
+            outcome_states,
+            vec!["g".to_owned(), "s0".to_owned()],
+            "the ABI must preserve both the goal and the self-loop outcome: {response}"
+        );
+        // Closure: every outcome state is either covered by a policy entry
+        // or is the goal state (which needs no entry).
+        let covered: std::collections::BTreeSet<&str> = policy
+            .iter()
+            .map(|entry| entry["state"].as_str().unwrap_or_default())
+            .collect();
+        for state in &outcome_states {
+            assert!(
+                covered.contains(*state) || *state == "g",
+                "policy must be closed: outcome {state} is neither covered nor the goal: {response}"
+            );
+        }
+    }
+
+    /// (b, negative) `fond_policy` on the dead-end variant: `flip`'s second
+    /// outcome lands in `dead`, a non-goal state with no outgoing edges, so
+    /// neither the strong nor the strong-cyclic fixpoint can cover both
+    /// outcomes. Per this ABI's error convention a solver-level refusal is a
+    /// *normal response* (`Ok` bytes, typed `error` envelope), never a trap
+    /// or panic — and the message must still name `NoPlan`.
+    #[test]
+    fn fond_policy_op_reports_a_typed_no_plan_on_the_dead_end_variant() {
+        let problem = json!({
+            "states": [
+                { "id": "s0" },
+                { "id": "g", "facts": ["done"] },
+                { "id": "dead" },
+            ],
+            "initial_states": ["s0"],
+            "goal": { "facts": ["done"] },
+            "transitions": [
+                { "action": "flip", "from": "s0", "to": "g", "probability_ppm": 500_000 },
+                { "action": "flip", "from": "s0", "to": "dead", "probability_ppm": 500_000 },
+            ],
+        })
+        .to_string();
+        let response = dispatch_json(&json!({
+            "op": "fond_policy",
+            "problem": problem,
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert_eq!(
+            response["error"]["code"],
+            json!("FP_ADAPTER"),
+            "solver-level refusals surface as the adapter error envelope: {response}"
+        );
+        assert!(
+            response["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("NoPlan")),
+            "the NoPlan shape must survive the ABI mapping: {response}"
+        );
+        assert_eq!(
+            response["error"]["retryable"],
+            json!(false),
+            "a structural dead end is not retryable: {response}"
+        );
+    }
+
+    /// (c) `htn_plan` on a single-method two-level hierarchy: `top` (level 0,
+    /// abstract) decomposes via its only method into `mid` (level 1, still
+    /// abstract) then `p2` (primitive); `mid` decomposes into `p1`
+    /// (primitive). Single-method only by design — this branch's
+    /// `hierarchical_plan` is first-method (backtracking lands via a frozen
+    /// branch post-wave) — and the assertion is that the decomposition ORDER
+    /// survives the ABI: depth-first, `a1` before `a2`.
+    #[test]
+    fn htn_plan_op_preserves_the_decomposition_order_of_a_two_level_hierarchy() {
+        let problem = json!({
+            "tasks": [
+                { "id": "top" },
+                { "id": "mid" },
+                { "id": "p1", "primitive_action": "a1" },
+                { "id": "p2", "primitive_action": "a2" },
+            ],
+            "root_tasks": ["top"],
+            "methods": [
+                { "id": "m-top", "task": "top", "subtasks": ["mid", "p2"] },
+                { "id": "m-mid", "task": "mid", "subtasks": ["p1"] },
+            ],
+        })
+        .to_string();
+        let response = dispatch_json(&json!({
+            "op": "htn_plan",
+            "problem": problem,
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert!(
+            response.get("error").is_none(),
+            "single-method hierarchy must decompose, got: {response}"
+        );
+        assert_eq!(response["solved"], json!(true), "{response}");
+        assert_eq!(
+            response["planning_type"],
+            json!("hierarchical"),
+            "{response}"
+        );
+        assert_eq!(
+            response["decomposition"],
+            json!(["a1", "a2"]),
+            "decomposition must come back depth-first in method order: {response}"
+        );
+        let steps = response["steps"].as_array().expect("steps array");
+        let step_actions: Vec<&str> = steps
+            .iter()
+            .map(|step| step["action"].as_str().unwrap_or_default())
+            .collect();
+        assert_eq!(
+            step_actions,
+            vec!["a1", "a2"],
+            "the plan steps must mirror the decomposition order: {response}"
+        );
+    }
+
+    /// (d) ABI negative: a malformed HDDL string must come back as a *typed*
+    /// error envelope through the normal wire path — parseable JSON bytes,
+    /// `FP_PARSE`, non-retryable — never a trap or panic. Covers both the
+    /// domain text and the problem text (each is parsed by its own
+    /// `parse_domain`/`parse_problem` call).
+    #[test]
+    fn hddl_solve_malformed_hddl_text_is_a_typed_error_not_a_trap() {
+        let malformed_domain = dispatch_json(&json!({
+            "op": "hddl_solve",
+            "domain": "(define (domain broken",
+            "problem": TRANSPORT_ONEOF_EMPTY_PROBLEM,
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert_eq!(
+            malformed_domain["error"]["code"],
+            json!("FP_PARSE"),
+            "{malformed_domain}"
+        );
+        assert_eq!(malformed_domain["error"]["retryable"], json!(false));
+        assert!(malformed_domain["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("HDDL parse error")));
+
+        let malformed_problem = dispatch_json(&json!({
+            "op": "hddl_solve",
+            "domain": TRANSPORT_ONEOF_EMPTY_DOMAIN,
+            "problem": "this is not HDDL ]]",
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert_eq!(
+            malformed_problem["error"]["code"],
+            json!("FP_PARSE"),
+            "{malformed_problem}"
+        );
+        assert!(malformed_problem["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("HDDL parse error")));
     }
 }
