@@ -23,3 +23,6 @@ Read `_FOND-HTN-WAVE-CONTEXT.md` first. /tmp only; never copy koala files into a
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T21:30:00Z | BLOCKED | none | — | all |
+| 2026-09-17T21:52:00Z | BLOCKED | none | start: /tmp/fond-oracle absent, binaries present in /tmp/fond-review/Planner; probing build.sh per contract | harness, harvest 6×5 + AH parse case, verdicts+summary |
+| 2026-09-17T21:39:43Z | PARTIAL_ALIVE | none | build.sh exit 0 — T01 runner delivered 21:39:28Z, fallback not needed; harvest launched (flexible/ff/180s, NOSOLUTION->fixed-ld) | 30 runs + AH parse case, verdicts+summary | 
+| 2026-09-17T21:42:02Z | PARTIAL_ALIVE | none | AH negative case: parser exit 0 (no error line — expectation falsified); parser SILENTLY DROPS FaultyPort objects (14 refs in problem -> 0 in parsed model); grounder also exit 0. Verbatim outcome recorded, not fabricated error line | harvest in flight | 

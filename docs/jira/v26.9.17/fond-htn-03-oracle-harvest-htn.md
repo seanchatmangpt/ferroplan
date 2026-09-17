@@ -23,3 +23,7 @@ Read `_FOND-HTN-WAVE-CONTEXT.md` first. /tmp only.
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T21:30:00Z | BLOCKED | none | — | all |
+| 2026-09-17T21:33:00Z | PARTIAL_ALIVE | none (/tmp only) | ticket+context read | harness check pending |
+| 2026-09-17T21:49:22Z | PARTIAL_ALIVE | none (/tmp only) | harness: T01 landed, build.sh exit 0; smokes: Transport fixed-ld+add TIMEOUT@120s exit0, flexible SOLVED 0.3s, truncated->ERROR (reclassified PARSE_ERROR via verbatim "Parse error" log line; T01 script untouched) | harvest 25 running |
+| 2026-09-17T22:18:20Z | PARTIAL_ALIVE | none (/tmp only) | harvest complete: 26 verdict lines (25 instances, loan-noplan flexible rerun); 24 SOLVED / 2 TIMEOUT; all receipts verified on disk | assembly + gate |
+| 2026-09-17T22:18:20Z | ALIVE | none (/tmp only) | gates: 26>=25 verdict lines exit0; htn.json valid T02-schema array exit0; summary exists exit0; repo untouched except ticket appends | none — findings: loan-noplan NOSOLUTION UNCONFIRMED (TIMEOUT both modes, 120s); PANDA PARSE_ERROR expectations falsified (koala accepts+ solves all 4); PCP_1 SOLVED under fixed-LD bounding (artifact prob 1.0000); T01 runner updated mid-wave, receipts per-run consistent |

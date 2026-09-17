@@ -26,3 +26,6 @@ Read `_FOND-HTN-WAVE-CONTEXT.md` first. Worktree only. Mass note as in T11: gene
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T21:30:00Z | BLOCKED | test/fond-property @ base d2faf4d | — | all |
+| 2026-09-17T22:38:09Z | ALIVE | test/fond-property @ d2faf4d (worktree wt-test-cross) | orient: ticket+wave-context+solver internals read; no gates yet | write fond_property.rs, gate, commit |
+| 2026-09-17T22:56:10Z | ALIVE | test/fond-property @ 2dfbd49 | gate: cargo test -p ferroplan --test fond_property → exit 0 (2 passed, 1 ignored: fond_property_FOUND_BUG_1_*; 320 instances, 259 ms, wall<30 s asserted) | ticket rows, final receipt |
+| 2026-09-17T22:56:10Z | PARTIAL_ALIVE | test/fond-property @ 2dfbd49 | FINDING fond_property_FOUND_BUG_1: fond_policy_strong_cyclic GFP prune admits goal-unreachable self-loop policies as solved (79/320 instances); 3-state shrunk reproducer committed #[ignore]d — src untouched per ticket; --ignored run reproduces (exit non-zero as designed) | coordinator: fix strong-cyclic goal-reachability prune in planning_runtime.rs |

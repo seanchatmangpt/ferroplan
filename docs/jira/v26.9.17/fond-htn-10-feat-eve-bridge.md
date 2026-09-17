@@ -23,3 +23,5 @@ Read `_FOND-HTN-WAVE-CONTEXT.md` first. Worktree only; no push.
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T21:30:00Z | BLOCKED | feat/eve-hddl-bridge @ base d2faf4d | — | all |
+| 2026-09-17T21:43:00Z | ALIVE | feat/eve-hddl-bridge @ base d2faf4d (worktree clean) | oriented: hddl.rs solve_hddl(&str,&str,&PlannerLimits), eve.rs EveHandoff.hddl, parser :htn last-wins + `;` comments, readiness count test asserts 19 @ readiness.rs:1112 | bridge fn + tests; manifest entries; planning-types.md Fond row; gates |
+| 2026-09-17T21:52:32Z | ALIVE | feat/eve-hddl-bridge @ 956e545 | `cargo test -p ferroplan --lib readiness` exit 0 (4 passed); `cargo test -p ferroplan --lib hddl` exit 0 (7 passed); `cargo test -p ferroplan --test eve_genesis` exit 0 (16 passed); extras: `--lib` full exit 0 (145 passed), clippy lib+tests -D warnings exit 0, fmt --check clean; all re-run at committed SHA; planning_runtime.rs untouched; no push | none — scope complete (bridge + tests, fp.core.hddl/fp.core.fond manifest w/ real-test evidence ids + count 19→21, Fond row). Awaiting coordinator review/merge |

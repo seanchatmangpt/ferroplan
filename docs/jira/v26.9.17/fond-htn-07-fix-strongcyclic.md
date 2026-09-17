@@ -29,3 +29,6 @@ Read `_FOND-HTN-WAVE-CONTEXT.md` first. All work in your worktree; never touch m
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T21:30:00Z | BLOCKED | fix/fond-sc-closure @ base d2faf4d | — | all |
+| 2026-09-17T21:43:07Z | PARTIAL_ALIVE | fix/fond-sc-closure @ d2faf4d (worktree clean) | orient: defect+fix+tests read, helpers/state_index/validate_problem confirmed | implement fix 1-3 + tests (a)(b), gates |
+| 2026-09-17T22:17:12Z | ALIVE | fix/fond-sc-closure @ 6df15f3 (fix 1+2+tests) then 9d1ed32 (fix 3 debug_assert!) | intermediate tree: gate1 gate2 exit 0; final tree: `cargo test -p ferroplan --lib planning_runtime` exit 0 (8 passed, incl. 2 new + 3 existing strong_cyclic unchanged); `cargo test -p ferroplan --test planning_runtime` exit 0 (12 passed); compound `gate1 && gate2` exit 0; full `cargo test -p ferroplan` exit 0 (62 result lines all ok) | none — both commits landed, tree clean, not pushed |
+| 2026-09-17T22:17:12Z | ALIVE | fix/fond-sc-closure @ 9d1ed32 | falsification note: at max_iterations:1 the pre-fix code returned NoPlan on the 4-state fixture via the initials check (Phase 1 itself truncated); the bogus {s0→a} dead sink manifests when truncation lands between rounds 1-2 — test comments written to state this truthfully; closure check rejects the shape unconditionally regardless | none |

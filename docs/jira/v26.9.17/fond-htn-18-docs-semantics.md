@@ -27,3 +27,6 @@ Write `docs/FOND-HTN.md` (in the worktree; match the repo's docs voice):
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T21:30:00Z | BLOCKED | docs/fond-htn-semantics @ base d2faf4d | — | all |
+| 2026-09-17T22:05:00Z | PARTIAL_ALIVE | docs/fond-htn-semantics @ d2faf4d (worktree clean) | worktree verified | doc authoring; gate pending |
+| 2026-09-17T22:25:00Z | PARTIAL_ALIVE | docs/fond-htn-semantics @ d2faf4d + docs/FOND-HTN.md (uncommitted) | cargo test -p ferroplan --doc exit 0 (1 passed, 0 failed) | atomic commit; final row |
+| 2026-09-17T22:32:00Z | ALIVE | docs/fond-htn-semantics @ 3a001c3 | cargo test -p ferroplan --doc exit 0 | none — all 6 scope sections delivered; awaiting coordinator merge; never pushed |

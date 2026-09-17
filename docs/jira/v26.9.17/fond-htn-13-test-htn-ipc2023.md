@@ -24,3 +24,5 @@ Read `_FOND-HTN-WAVE-CONTEXT.md` first. Worktree only. IPC competition files MAY
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T21:30:00Z | BLOCKED | test/htn-ipc2023 @ base d2faf4d | — | all |
+| 2026-09-17T22:05:00Z | BLOCKED→work | test/htn-ipc2023 @ d2faf4d | worktree clean; corpus README read (13 domains, compat-watch noted) | fixtures copy, htn_ipc2023.rs, RESULTS.md, gate |
+| 2026-09-17T22:47:55Z | ALIVE | test/htn-ipc2023 @ c78d9a4 | cargo test -p ferroplan --test htn_ipc2023 exit 0 (13 pass/0 fail; capture run 1-thread exit 0, 43.9s) | none in scope; follow-ups: translate-wall blowups PO_Transport/Satellite-GTOHP/Transport + internal 10s TranslateLimits not caller-raisable |

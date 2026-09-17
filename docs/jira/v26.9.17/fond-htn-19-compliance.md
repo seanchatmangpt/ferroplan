@@ -24,3 +24,6 @@ COMPLIANCE.md exists with both sweeps, per-path verdicts, and the three branch a
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T21:30:00Z | BLOCKED | none | — | both sweeps |
+| 2026-09-17T22:32:40Z | ALIVE | none (read-only) | start sweep begun: 17 worktrees + main, grep koala-marker set | start sweep, 3 branch audits, provenance spot-check, end sweep, COMPLIANCE.md |
+| 2026-09-17T22:36:00Z | ALIVE | none (read-only) | start sweep done (407 hits, 0 VIOLATION; 1 byte-collision resolved to canonical corpus IPC data); 3 branch diffs audited concept-authored (0f9ea8f: 0 koala lines, 4d40f99: 27 prose-citation lines only, MalformedOneof pre-existing our type, 00fe98d: 0); provenance spot-check 14/14 PASS; probabilistic.rs vs prob_preprocessor.py = concept reimpl with documented divergences | end sweep, COMPLIANCE.md |
+| 2026-09-17T22:44:33Z | ALIVE | none (read-only) | GATE MET: end sweep 449 hits, drift = 4 prose-only files (FOND-HTN.md, htn_ipc2023.rs provenance header, ast.rs/hddl.rs oneof citations); re-hash of 3 advanced repos: 0 new koala byte-collisions; COMPLIANCE.md written with both sweeps + per-path verdicts (17/17 CLEAN + main CLEAN) + 3 branch audits | none — final verdict CLEAN, 0 VIOLATION, 0 REVIEW-NEEDED |
