@@ -1,0 +1,281 @@
+[
+ {
+  "domain": "Transport",
+  "problem": "pfile01.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.199,
+  "artifact": "/tmp/fond-oracle/runs/82295f8b9f748798a6019482011315fcce740ea237337d0acd0e404b9e96d56d/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Transport",
+  "problem": "pfile02.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.28,
+  "artifact": "/tmp/fond-oracle/runs/30a48764df7f9928d5485048083807f7d009efaaa10e6efc0919f371661fba70/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Transport",
+  "problem": "pfile03.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.537,
+  "artifact": "/tmp/fond-oracle/runs/2dcbda65b1c6aa93ba19aa65d30555f2d752c0ca159b349b4bcff3e68b9bc91e/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Transport",
+  "problem": "pfile04.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.706,
+  "artifact": "/tmp/fond-oracle/runs/bd5b7f3a62e9c5c37fa7437db55552367f944998d7cb0b84bec0a80fe6672224/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Transport",
+  "problem": "pfile05.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.38,
+  "artifact": "/tmp/fond-oracle/runs/49a7c4c51bb24d74754378e0aa759b129ea20916150b9e803cc9629aaed38f25/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Snake",
+  "problem": "pb01.snake.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.238,
+  "artifact": "/tmp/fond-oracle/runs/33b28f740c8f2f82911a1085b2cecb2c782c79acd5c791179ebd8218ea1cce12/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Snake",
+  "problem": "pb02.snake.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.227,
+  "artifact": "/tmp/fond-oracle/runs/eba7dafb0250786c0893f2b6f6e867df21847e672f398c771f24aa09febfb8f3/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Snake",
+  "problem": "pb03.snake.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.051,
+  "artifact": "/tmp/fond-oracle/runs/ea5f1d0257085286a8d21f63c09fb37b1b831a3899230263468faa14fb47330b/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Snake",
+  "problem": "pb04.snake.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 3.054,
+  "artifact": "/tmp/fond-oracle/runs/d3780ce2fcb4a929999b915eab58bdea06dad07ce0546a86e840ac11da9f86bf/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Snake",
+  "problem": "pb05.snake.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.148,
+  "artifact": "/tmp/fond-oracle/runs/1bb4ffd711b47702f3f5fc086c06fda702b4cc3fee7b50068f529a123ea1f837/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Childsnack",
+  "problem": "p01.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 10.308,
+  "artifact": "/tmp/fond-oracle/runs/22820506b5059e741eefd40a81eacfca5bf9313436f5beb2a272bad219b78ebd/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Childsnack",
+  "problem": "p02.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.225,
+  "artifact": "/tmp/fond-oracle/runs/3ed4851acbc3af0d47d3d3e59e6ac0f15f993a6ccabbf633a2272d04485e21cb/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Childsnack",
+  "problem": "p03.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.266,
+  "artifact": "/tmp/fond-oracle/runs/d5eebadffd2322dca8662ca33f1fb75624c6b951296886b631098932802cc537/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Childsnack",
+  "problem": "p04.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.159,
+  "artifact": "/tmp/fond-oracle/runs/6145c988c08f3b441ac4e9104cb4ea8952fa0f3ca0b2d4b49eafb774f2b04674/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Childsnack",
+  "problem": "p05.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.152,
+  "artifact": "/tmp/fond-oracle/runs/f2cfced8092135246dd43b432f6dfea6f940cdee619e7f5ac449fb3960364138/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Depots",
+  "problem": "p01.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.259,
+  "artifact": "/tmp/fond-oracle/runs/d72feccd865fc5514a7901afcd67287048d500f1b450cf2fbf4427a80cdbd93f/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Depots",
+  "problem": "p02.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 1.457,
+  "artifact": "/tmp/fond-oracle/runs/f96f58099d740635a8a6965165ddc16dc51b90384665c9c4f8d1b6e38863a963/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Depots",
+  "problem": "p03.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.059,
+  "artifact": "/tmp/fond-oracle/runs/e80b4294546cc2adabb605c5b00a02d0b910930168ccec2c4401990b5ff31d31/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Depots",
+  "problem": "p04.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.358,
+  "artifact": "/tmp/fond-oracle/runs/04477e350d39ac092149ae9e0f405ca5479d8f28beafc0f022e63e4964320d32/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Depots",
+  "problem": "p05.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.051,
+  "artifact": "/tmp/fond-oracle/runs/eda68ea740a650d5c04877c4230ab41cb65789765cec900f23becf08af5669cd/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Rover",
+  "problem": "pfile01.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.152,
+  "artifact": "/tmp/fond-oracle/runs/d37cc69196b51f1eed673a514c0ebb4effaea30c24b77b36e6b86f1776280e6f/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Rover",
+  "problem": "pfile02.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.677,
+  "artifact": "/tmp/fond-oracle/runs/6481fc8c63606ad5e435deda711b5638ee6802de4d83b97a44d73876dbfc3ebb/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Rover",
+  "problem": "pfile03.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.453,
+  "artifact": "/tmp/fond-oracle/runs/9c64258b2410e90f095610969f2bb29dca8d7d4abbfd388f034b40b6549ca112/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Rover",
+  "problem": "pfile04.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.253,
+  "artifact": "/tmp/fond-oracle/runs/a40d8de62f356372d2e99206ea62f08779b9aa2d9f1a68141dce71bd87a57b05/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Rover",
+  "problem": "pfile05.hddl",
+  "mode": "flexible",
+  "status": "TIMEOUT",
+  "wall_s": 90.054,
+  "artifact": "/tmp/fond-oracle/runs/3d48e1346cc1c668ecd4ba3f0eef082f51a1db97da927d665cd13a719379c3c8/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Satellite",
+  "problem": "1obs-1sat-1mod.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.146,
+  "artifact": "/tmp/fond-oracle/runs/e408a220abfeb244cf7f8912a5093e906560a01324e1ef65d04c9b6ec09f9a58/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Satellite",
+  "problem": "1obs-2sat-1mod.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.135,
+  "artifact": "/tmp/fond-oracle/runs/068ed822dfb2305a6efff2ff3cfd4db73df9b1325ef6b36de1231ac3065b5bfd/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Satellite",
+  "problem": "2obs-1sat-1mod.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.12,
+  "artifact": "/tmp/fond-oracle/runs/8434dc42486d2afd2dc81ffe81fd029c9cb6629cfbeac97b3660fafd194cbd36/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Satellite",
+  "problem": "2obs-1sat-2mod.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.138,
+  "artifact": "/tmp/fond-oracle/runs/c7c2eabb1459902a4f05a60b510c6ff86bb17c35fef84c616d0507eee8620b78/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "Satellite",
+  "problem": "2obs-2sat-1mod.hddl",
+  "mode": "flexible",
+  "status": "SOLVED",
+  "wall_s": 0.229,
+  "artifact": "/tmp/fond-oracle/runs/36049f98b0fd47df68277204a9812006c3c5ac9b7245cc99f59ebcc6e6ee6237/policy.txt",
+  "note": ""
+ },
+ {
+  "domain": "AssemblyHierarchical",
+  "problem": "genericLinearProblem_depth01",
+  "mode": "flexible",
+  "status": "UNSUPPORTED",
+  "wall_s": 0.0,
+  "artifact": "/tmp/fond-oracle/ah_parse.err",
+  "note": "parse-stage case: parser exit 0, NO error line (expectation of PARSE_ERROR falsified); parser silently drops FaultyPort objects (2 refs in problem -> 0 in parsed model); grounder exit 0; domain declares no FaultyPort type - broken upstream, external negative case"
+ }
+]
