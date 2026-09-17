@@ -279,6 +279,165 @@ fn hierarchical_and_resolution_adaptive_planners_execute() {
     }
 }
 
+/// Compound task with no primitive action (`requires` unused by the
+/// hierarchical planner; kept empty in these fixtures).
+fn htn_task(id: &str, primitive_action: Option<&str>) -> PlanningTask {
+    PlanningTask {
+        id: id.to_owned(),
+        primitive_action: primitive_action.map(|action| action.to_owned()),
+        requires: BTreeSet::new(),
+    }
+}
+
+fn htn_method(id: &str, task: &str, subtasks: &[&str]) -> PlanningMethod {
+    PlanningMethod {
+        id: id.to_owned(),
+        task: task.to_owned(),
+        subtasks: subtasks.iter().map(|subtask| (*subtask).to_owned()).collect(),
+    }
+}
+
+fn solve_hierarchical_error(problem: PlanningProblem) -> PlannerError {
+    solve_planning_type(&UniversalPlanningRequest {
+        planning_type: PlanningType::Hierarchical,
+        problem,
+        limits: Default::default(),
+    })
+    .unwrap_err()
+}
+
+/// (a) Two-method counterexample: the FIRST declared method of "top" leads
+/// to a dead-end compound task with no method of its own; the second method
+/// decomposes to a primitive.  The planner must backtrack past the dead end
+/// and return m-second's decomposition (pre-backtracking this returned
+/// `NoMethod { task: "dead-end" }`).
+#[test]
+fn hierarchical_backtracks_past_dead_end_first_method_to_second_method() {
+    let problem = PlanningProblem {
+        tasks: vec![
+            htn_task("top", None),
+            htn_task("dead-end", None),
+            htn_task("act", Some("act-primitive")),
+        ],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![
+            htn_method("m-first", "top", &["dead-end"]),
+            htn_method("m-second", "top", &["act"]),
+        ],
+        ..Default::default()
+    };
+    let result = solve(PlanningType::Hierarchical, problem);
+    assert!(result.solved);
+    assert_eq!(result.decomposition, ["act-primitive"]);
+    // Honesty marker: `solved` means structurally decomposed, not
+    // state-level goal satisfaction (this planner has no state semantics).
+    assert!(result
+        .notes
+        .iter()
+        .any(|note| note.contains("method backtracking")
+            && note.contains("no state semantics")));
+}
+
+/// (b) Three-level hierarchy requiring backtracking at TWO distinct choice
+/// points: level 1 ("top": m-top-first leads to mid-a, whose only method
+/// dead-ends) and level 2 ("mid-b": its first method references a task id
+/// that does not exist at all, `UnknownTask`).  Only the third choice,
+/// m-mid-b-second, reaches the primitive.
+#[test]
+fn hierarchical_backtracks_twice_across_three_levels() {
+    let problem = PlanningProblem {
+        tasks: vec![
+            htn_task("top", None),
+            htn_task("mid-a", None),
+            htn_task("mid-b", None),
+            htn_task("dead-end", None),
+            htn_task("leaf", Some("leaf-action")),
+        ],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![
+            htn_method("m-top-first", "top", &["mid-a"]),
+            htn_method("m-top-second", "top", &["mid-b"]),
+            htn_method("m-mid-a", "mid-a", &["dead-end"]),
+            htn_method("m-mid-b-first", "mid-b", &["ghost"]),
+            htn_method("m-mid-b-second", "mid-b", &["leaf"]),
+        ],
+        ..Default::default()
+    };
+    let result = solve(PlanningType::Hierarchical, problem);
+    assert!(result.solved);
+    assert_eq!(result.decomposition, ["leaf-action"]);
+}
+
+/// (c) When EVERY method of the root fails, `NoMethod` is still returned.
+/// The documented consolidation choice pins the error to the LAST method
+/// tried (declaration order), so the task named is the second dead end.
+#[test]
+fn hierarchical_returns_no_method_when_every_method_fails() {
+    let problem = PlanningProblem {
+        tasks: vec![
+            htn_task("top", None),
+            htn_task("dead-end-one", None),
+            htn_task("dead-end-two", None),
+        ],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![
+            htn_method("m-first", "top", &["dead-end-one"]),
+            htn_method("m-second", "top", &["dead-end-two"]),
+        ],
+        ..Default::default()
+    };
+    assert_eq!(
+        solve_hierarchical_error(problem),
+        PlannerError::NoMethod {
+            task: "dead-end-two".to_owned()
+        }
+    );
+}
+
+/// (d) A method whose subtasks recurse back into the task currently being
+/// expanded trips the per-path cycle detector — but that failure is specific
+/// to that method, not to the task: the planner must backtrack to the next
+/// cycle-free method instead of aborting the whole expansion.
+#[test]
+fn hierarchical_cycle_via_one_method_backtracks_to_the_next() {
+    let problem = PlanningProblem {
+        tasks: vec![
+            htn_task("top", None),
+            htn_task("loop", None),
+            htn_task("act", Some("act-primitive")),
+        ],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![
+            htn_method("m-top-cyclic", "top", &["loop", "act"]),
+            htn_method("m-top-acyclic", "top", &["act"]),
+            htn_method("m-loop", "loop", &["top"]),
+        ],
+        ..Default::default()
+    };
+    let result = solve(PlanningType::Hierarchical, problem);
+    assert!(result.solved);
+    assert_eq!(result.decomposition, ["act-primitive"]);
+}
+
+/// Cycle detection itself is still sound: a compound task whose ONLY method
+/// recurses into itself still reports `HierarchyCycle` (backtracking found
+/// no alternative method).
+#[test]
+fn hierarchical_pure_self_cycle_still_reports_hierarchy_cycle() {
+    let problem = PlanningProblem {
+        tasks: vec![htn_task("top", None)],
+        root_tasks: vec!["top".to_owned()],
+        methods: vec![htn_method("m-top", "top", &["top"])],
+        ..Default::default()
+    };
+    assert_eq!(
+        solve_hierarchical_error(problem),
+        PlannerError::HierarchyCycle {
+            task: "top".to_owned()
+        }
+    );
+}
+
 #[test]
 fn partial_order_and_workflow_planners_execute_and_refuse_cycles() {
     let mut problem = hierarchy_problem();
