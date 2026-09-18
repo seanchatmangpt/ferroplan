@@ -6,9 +6,14 @@
 //!
 //! Error-level checks (`ValidationError`, first error wins):
 //!
-//! - Duplicate declarations: task/predicate/type (the original checks) plus
+//! - Duplicate declarations: task/predicate (the original checks) plus
 //!   action and method (domain level) and object (domain `:constants` and
-//!   problem `:objects`) — `ValidationError::DuplicateDefinition`.
+//!   problem `:objects`) — `ValidationError::DuplicateDefinition`. Duplicate
+//!   TYPE names are deliberately NOT here: competition-legal domains (IPC-2023
+//!   PO_UM-Translog) redeclare type names identically or under several
+//!   parents (multiple inheritance), so they are accepted with a
+//!   `ValidationWarning::DuplicateTypeDeclaration` and the parser keeps the
+//!   union of the declared parents as the subtype relation.
 //! - Type system: every type referenced anywhere (typed parameters, numeric
 //!   fluents, `:constants`/`:objects` entries, `forall`/`exists` binders in
 //!   action *and* method preconditions and in `:goal`) was declared in
@@ -53,6 +58,9 @@
 //!   task-decomposition-graph reachability + nullability fixpoint,
 //!   deliberately a WARNING: an unrefinable task is a modeling smell that
 //!   dooms the search, not a syntactic ill-formedness.
+//! - A type name declared more than once in `:types` — identically or under
+//!   several parents (`ValidationWarning::DuplicateTypeDeclaration`,
+//!   domain level only). Competition-legal input, hence a warning.
 
 use crate::ast::{
     AtomicFormula, Domain, Effect, GoalDesc, Literal, MethodDef, Problem, TaskNetwork, Term,
@@ -62,15 +70,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 /// Which kind of name was found declared more than once — see
-/// `ValidationError::DuplicateDefinition`.
+/// `ValidationError::DuplicateDefinition`. (Duplicate TYPE names are not an
+/// error anymore — see `ValidationWarning::DuplicateTypeDeclaration`.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DuplicateKind {
     /// A task name (`:task`).
     Task,
     /// A predicate name (`:predicates`).
     Predicate,
-    /// A type name (`:types`).
-    Type,
     /// An action name (`:action`).
     Action,
     /// A method name (`:method`).
@@ -84,7 +91,6 @@ impl fmt::Display for DuplicateKind {
         let s = match self {
             Self::Task => "task",
             Self::Predicate => "predicate",
-            Self::Type => "type",
             Self::Action => "action",
             Self::Method => "method",
             Self::Object => "object",
@@ -120,8 +126,9 @@ pub enum ValidationError {
     /// entry; or a `forall`/`exists` binder) that was never declared in the
     /// domain's `:types` block, and is not the built-in `object` type.
     UndefinedType(String),
-    /// The same task, predicate, type, action, method, or object/constant
-    /// name is declared more than once.
+    /// The same task, predicate, action, method, or object/constant name is
+    /// declared more than once. (Duplicate type names are warnings — see
+    /// `ValidationWarning::DuplicateTypeDeclaration`.)
     DuplicateDefinition { kind: DuplicateKind, name: String },
     /// The `:types` parent relation contains a cycle, so some type is its
     /// own ancestor and no subtype walk can terminate on it.
@@ -326,6 +333,18 @@ pub enum ValidationWarning {
         /// The unrefinable compound task's name.
         task: String,
     },
+    /// A type name is declared more than once in `:types` — either as an
+    /// exact repeated line (`loc loc`) or under several parents (the
+    /// multiple-inheritance form IPC-2023 PO_UM-Translog uses, e.g.
+    /// `Regular_Truck - Regular_Vehicle` plus `Regular_Truck - Truck`).
+    /// Accepted: the parser keeps the union of the declared parents, so the
+    /// subtype relation simply includes every declared edge. Warning-only
+    /// because it is competition-legal input that real corpora carry, yet
+    /// easy to produce by accident.
+    DuplicateTypeDeclaration {
+        /// The multiply-declared type's name.
+        name: String,
+    },
 }
 
 impl fmt::Display for ValidationWarning {
@@ -334,6 +353,10 @@ impl fmt::Display for ValidationWarning {
             Self::UnrefinableCompoundTask { task } => write!(
                 f,
                 "compound task '{task}' is referenced but no method chain reduces it to primitive actions (preconditions ignored)"
+            ),
+            Self::DuplicateTypeDeclaration { name } => write!(
+                f,
+                "type '{name}' is declared more than once in :types; accepted, using the union of the declared parents"
             ),
         }
     }
@@ -349,9 +372,9 @@ fn first_duplicate<'a, I: IntoIterator<Item = &'a str>>(names: I) -> Option<&'a 
 
 /// The full set of type names the domain's `:types` block makes available:
 /// every declared child name (`TypeDef::declared`, which — unlike
-/// `TypeDef::parent` — includes types whose parent is the implicit `object`),
-/// every name used as a parent (`TypeDef::parent`'s values, e.g. a type
-/// referenced only as a supertype), and the always-available built-in
+/// `TypeDef::parents` — includes types whose parent is the implicit
+/// `object`), every name used as a parent (`TypeDef::parents`' values, e.g.
+/// a type referenced only as a supertype), and the always-available built-in
 /// `object` type itself.
 fn declared_type_names(domain: &Domain) -> BTreeSet<&str> {
     let mut names: BTreeSet<&str> = BTreeSet::new();
@@ -359,8 +382,10 @@ fn declared_type_names(domain: &Domain) -> BTreeSet<&str> {
     for name in &domain.types.declared {
         names.insert(name.as_str());
     }
-    for parent in domain.types.parent.values() {
-        names.insert(parent.as_str());
+    for parents in domain.types.parents.values() {
+        for parent in parents {
+            names.insert(parent.as_str());
+        }
     }
     names
 }
@@ -392,7 +417,10 @@ fn domain_constant_types(domain: &Domain) -> BTreeMap<&str, &str> {
 /// Object name -> declared type name, from the domain's `:constants` and the
 /// problem's `:objects` (the ground terms a problem file may legally name).
 #[allow(clippy::needless_lifetimes)] // elision would tie outputs to `domain` only; they borrow both inputs
-fn problem_ground_types<'a>(domain: &'a Domain, problem: &'a Problem) -> BTreeMap<&'a str, &'a str> {
+fn problem_ground_types<'a>(
+    domain: &'a Domain,
+    problem: &'a Problem,
+) -> BTreeMap<&'a str, &'a str> {
     let mut names = domain_constant_types(domain);
     names.extend(
         problem
@@ -404,26 +432,30 @@ fn problem_ground_types<'a>(domain: &'a Domain, problem: &'a Problem) -> BTreeMa
 }
 
 /// Whether `found` is `expected` itself or one of its (transitive) subtypes
-/// under the domain's `:types` hierarchy. `object` is the top type: every
-/// type is a subtype of `object`. Cycle-safe (a cyclic hierarchy is reported
-/// separately by `check_cyclic_type_hierarchy`, and walks here simply stop
-/// when they revisit a type).
+/// under the domain's `:types` hierarchy — the union of all declared
+/// `child - parent` edges, so a type declared under several parents (see
+/// `ValidationWarning::DuplicateTypeDeclaration`) is a subtype of each of
+/// them. `object` is the top type: every type is a subtype of `object`.
+/// Cycle-safe (a cyclic hierarchy is reported separately by
+/// `check_cyclic_type_hierarchy`, and walks here simply stop when they
+/// revisit a type).
 fn is_subtype(domain: &Domain, found: &str, expected: &str) -> bool {
     if expected == "object" || found == expected {
         return true;
     }
     let mut visited = BTreeSet::new();
     visited.insert(found);
-    let mut current = found;
-    while let Some(parent) = domain.types.parent.get(current) {
-        let parent = parent.as_str();
-        if parent == expected {
-            return true;
+    let mut frontier = vec![found];
+    while let Some(current) = frontier.pop() {
+        for parent in domain.types.parents.get(current).into_iter().flatten() {
+            let parent = parent.as_str();
+            if parent == expected {
+                return true;
+            }
+            if visited.insert(parent) {
+                frontier.push(parent);
+            }
         }
-        if !visited.insert(parent) {
-            return false;
-        }
-        current = parent;
     }
     false
 }
@@ -526,7 +558,11 @@ fn domain_atoms(domain: &Domain) -> Vec<&AtomicFormula> {
 
 fn check_duplicate_definitions(domain: &Domain) -> Result<(), ValidationError> {
     // Checked in declaration-surface order: tasks, actions, methods,
-    // predicates, types, constants.
+    // predicates, constants. Duplicate TYPE names are deliberately not an
+    // error: competition-legal domains (IPC-2023 PO_UM-Translog) redeclare
+    // type names — identically, or under several parents — and are accepted
+    // with a `DuplicateTypeDeclaration` warning instead (see
+    // `duplicate_type_declaration_warnings`).
     if let Some(name) = first_duplicate(domain.tasks.iter().map(|t| t.name.as_str())) {
         return Err(ValidationError::DuplicateDefinition {
             kind: DuplicateKind::Task,
@@ -551,12 +587,6 @@ fn check_duplicate_definitions(domain: &Domain) -> Result<(), ValidationError> {
             name: name.to_owned(),
         });
     }
-    if let Some(name) = first_duplicate(domain.types.declared.iter().map(|s| s.as_str())) {
-        return Err(ValidationError::DuplicateDefinition {
-            kind: DuplicateKind::Type,
-            name: name.to_owned(),
-        });
-    }
     if let Some(name) = first_duplicate(domain.constants.iter().map(|c| c.name.as_str())) {
         return Err(ValidationError::DuplicateDefinition {
             kind: DuplicateKind::Object,
@@ -566,22 +596,86 @@ fn check_duplicate_definitions(domain: &Domain) -> Result<(), ValidationError> {
     Ok(())
 }
 
-/// Walk the `:types` parent chain from every known type name; a chain that
-/// revisits a type is a cycle in the hierarchy (e.g. `(:types a - b b - a)`
-/// or the self-parent `(:types a - a)`).
+/// `DuplicateTypeDeclaration` warnings for every type name that appears more
+/// than once in the `:types` block — whether as an exact repeated line
+/// (`loc loc`) or as a name declared under several parents (the
+/// multiple-inheritance form IPC-2023 PO_UM-Translog uses for
+/// `Regular_Truck` et al.). Deliberately a WARNING, not an error: this is
+/// competition-legal input that real corpora carry, and the parser keeps the
+/// union of the declared parents, so repeated declarations are harmless —
+/// but they are easy to produce by accident and worth surfacing.
+fn duplicate_type_declaration_warnings(domain: &Domain) -> Vec<ValidationWarning> {
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for name in &domain.types.declared {
+        *counts.entry(name.as_str()).or_insert(0) += 1;
+    }
+    counts
+        .into_iter()
+        .filter(|(_, count)| *count > 1)
+        .map(|(name, _)| ValidationWarning::DuplicateTypeDeclaration {
+            name: name.to_owned(),
+        })
+        .collect()
+}
+
+/// Walk the `:types` parent DAG from every known type name; a path that
+/// revisits one of its own types is a cycle in the hierarchy (e.g.
+/// `(:types a - b b - a)` or the self-parent `(:types a - a)`). Reaching the
+/// same type through two DIFFERENT paths (a diamond — ubiquitous in real
+/// multi-parent hierarchies, e.g. PO_UM-Translog's
+/// `Regular_Truck -> {Regular_Vehicle, Truck} -> Vehicle`) is not a cycle:
+/// only a type still on the current walk's own path counts, so the check is
+/// a white/grey/black depth-first walk.
 fn check_cyclic_type_hierarchy(domain: &Domain) -> Result<(), ValidationError> {
-    for name in declared_type_names(domain) {
-        let mut visited = BTreeSet::new();
-        visited.insert(name);
-        let mut current = name;
-        while let Some(parent) = domain.types.parent.get(current) {
-            let parent = parent.as_str();
-            if !visited.insert(parent) {
+    // grey: on the current path; black: fully explored, known cycle-free.
+    let mut grey: BTreeSet<&str> = BTreeSet::new();
+    let mut black: BTreeSet<&str> = BTreeSet::new();
+    for start in declared_type_names(domain) {
+        if black.contains(start) {
+            continue;
+        }
+        // Iterative DFS with an explicit (type, parent-iterator) stack.
+        let mut stack: Vec<(&str, std::vec::IntoIter<&str>)> = vec![(
+            start,
+            domain
+                .types
+                .parents
+                .get(start)
+                .into_iter()
+                .flatten()
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>()
+                .into_iter(),
+        )];
+        grey.insert(start);
+        while let Some((current, mut parents)) = stack.pop() {
+            let Some(parent) = parents.next() else {
+                grey.remove(current);
+                black.insert(current);
+                continue;
+            };
+            stack.push((current, parents));
+            if grey.contains(parent) {
                 return Err(ValidationError::CyclicTypeHierarchy {
                     type_name: parent.to_owned(),
                 });
             }
-            current = parent;
+            if black.contains(parent) {
+                continue;
+            }
+            grey.insert(parent);
+            stack.push((
+                parent,
+                domain
+                    .types
+                    .parents
+                    .get(parent)
+                    .into_iter()
+                    .flatten()
+                    .map(|p| p.as_str())
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            ));
         }
     }
     Ok(())
@@ -822,10 +916,8 @@ fn find_order_cycle(network: &TaskNetwork, ids: &BTreeSet<&str>) -> Option<Vec<S
         if let Some(position) = path.iter().position(|&id| id == current) {
             // `path[position..]` walks the cycle backwards (predecessor
             // steps); reverse it to edge order for the error message.
-            let mut cycle: Vec<String> = path[position..]
-                .iter()
-                .map(|id| (*id).to_owned())
-                .collect();
+            let mut cycle: Vec<String> =
+                path[position..].iter().map(|id| (*id).to_owned()).collect();
             cycle.reverse();
             return Some(cycle);
         }
@@ -910,9 +1002,8 @@ fn check_method(domain: &Domain, method: &MethodDef) -> Result<(), ValidationErr
         &scope,
     )?;
     for subtask in &method.network.subtasks {
-        let params = callee_params(domain, &subtask.task.name).ok_or_else(|| {
-            ValidationError::UnknownTaskOrAction(subtask.task.name.clone())
-        })?;
+        let params = callee_params(domain, &subtask.task.name)
+            .ok_or_else(|| ValidationError::UnknownTaskOrAction(subtask.task.name.clone()))?;
         check_method_task_call_args(
             domain,
             method,
@@ -997,9 +1088,10 @@ fn unrefinable_warnings(domain: &Domain, problem: Option<&Problem>) -> Vec<Valid
 }
 
 /// Run all domain-level static checks (see the module docs for the exact
-/// list) and return the non-fatal warnings (currently: referenced compound
-/// tasks no method chain can refine). The plain `validate_domain` is this
-/// function with the warnings dropped.
+/// list) and return the non-fatal warnings (referenced compound tasks no
+/// method chain can refine, and multiply-declared type names — see
+/// `duplicate_type_declaration_warnings`). The plain `validate_domain` is
+/// this function with the warnings dropped.
 ///
 /// # Errors
 ///
@@ -1035,7 +1127,9 @@ pub fn validate_domain_with_warnings(
     for method in &domain.methods {
         check_method(domain, method)?;
     }
-    Ok(unrefinable_warnings(domain, None))
+    let mut warnings = duplicate_type_declaration_warnings(domain);
+    warnings.extend(unrefinable_warnings(domain, None));
+    Ok(warnings)
 }
 
 /// Run all domain-level static checks (see the module docs for the exact
@@ -1180,9 +1274,8 @@ fn check_root_network(
     consts: &BTreeMap<&str, &str>,
 ) -> Result<(), ValidationError> {
     for subtask in &problem.htn.subtasks {
-        let params = callee_params(domain, &subtask.task.name).ok_or_else(|| {
-            ValidationError::UnknownTaskOrAction(subtask.task.name.clone())
-        })?;
+        let params = callee_params(domain, &subtask.task.name)
+            .ok_or_else(|| ValidationError::UnknownTaskOrAction(subtask.task.name.clone()))?;
         if subtask.task.args.len() != params.len() {
             return Err(ValidationError::ArityMismatch {
                 task: subtask.task.name.clone(),
@@ -1518,6 +1611,14 @@ mod tests {
         );
     }
 
+    // Duplicate TYPE declarations are accepted (warning-only): the
+    // ticketed shape "the same type line twice" — and, more importantly, the
+    // real competition shape behind it. IPC-2023 PO_UM-Translog declares
+    // e.g. `Regular_Truck` under BOTH `Regular_Vehicle` and `Truck`
+    // (multiple inheritance); rejecting that blocked the whole domain, and
+    // rejecting only "identical" duplicates would have left it blocked all
+    // the same. The parser keeps the union of the declared parents, so both
+    // duplicate shapes validate and ground.
     const DUPLICATE_TYPE_DOMAIN: &str = r#"
         (define (domain duplicate-type)
           (:types loc loc)
@@ -1526,15 +1627,132 @@ mod tests {
     "#;
 
     #[test]
-    fn rejects_duplicate_type_definition() {
+    fn accepts_identical_duplicate_type_declaration_with_warning() {
         let domain = parse_domain(DUPLICATE_TYPE_DOMAIN).unwrap();
-        let err = validate_domain(&domain).unwrap_err();
+        assert!(validate_domain(&domain).is_ok());
+        let warnings = validate_domain_with_warnings(&domain).unwrap();
         assert_eq!(
-            err,
-            ValidationError::DuplicateDefinition {
-                kind: DuplicateKind::Type,
+            warnings,
+            vec![ValidationWarning::DuplicateTypeDeclaration {
                 name: "loc".to_owned(),
-            }
+            }]
+        );
+    }
+
+    /// PO_UM-Translog-shaped multi-parent `:types` (two parents, then the
+    /// diamond where both branches rejoin `vehicle`): validation must accept
+    /// it, warn once per redeclared name, and grounding must keep BOTH
+    /// subtype edges — the `regular_truck`-typed object feeds a
+    /// `regular_vehicle`-typed parameter AND a `truck`-typed one, which is
+    /// exactly the argument-type check that a single-parent (last-wins)
+    /// collapse would fail on one side of.
+    const MULTI_PARENT_TYPE_DOMAIN: &str = r#"
+        (define (domain multi-parent-type)
+          (:types
+            regular_vehicle - vehicle
+            truck - vehicle
+            regular_truck - regular_vehicle
+            regular_truck - truck
+            vehicle)
+          (:predicates (at ?v - vehicle) (tows ?t - truck))
+          (:action drive
+            :parameters (?v - vehicle)
+            :precondition (not (at ?v))
+            :effect (at ?v))
+          (:action tow
+            :parameters (?t - truck)
+            :precondition (at ?t)
+            :effect (not (at ?t))))
+    "#;
+
+    const MULTI_PARENT_TYPE_PROBLEM: &str = r#"
+        (define (problem multi-parent-type-p)
+          (:domain multi-parent-type)
+          (:objects t1 - regular_truck)
+          (:init)
+          (:goal (and (at t1) (not (tows t1))))
+          (:htn :ordered-subtasks (and (t1 (drive t1)) (t2 (tow t1)))))
+    "#;
+
+    #[test]
+    fn accepts_multi_parent_type_declaration_with_both_subtype_edges() {
+        let domain = parse_domain(MULTI_PARENT_TYPE_DOMAIN).unwrap();
+        let problem = parse_problem(MULTI_PARENT_TYPE_PROBLEM).unwrap();
+        // Diamond (regular_truck -> {regular_vehicle, truck} -> vehicle)
+        // must NOT be read as a cycle.
+        assert!(validate_domain(&domain).is_ok());
+        assert!(validate_problem(&domain, &problem).is_ok());
+        let warnings = validate_domain_with_warnings(&domain).unwrap();
+        assert_eq!(
+            warnings,
+            vec![ValidationWarning::DuplicateTypeDeclaration {
+                name: "regular_truck".to_owned(),
+            }]
+        );
+        // Union semantics end-to-end: `t1 - regular_truck` reaches a
+        // `truck`-typed action parameter through the truck edge and a
+        // `vehicle`-typed goal/subtask position through the regular_vehicle
+        // edge. Last-wins single-parent storage of either side would break
+        // one of the two checks inside `ground`.
+        let ir = crate::grounder::ground(
+            &domain,
+            &problem,
+            &crate::grounder::GroundingLimits::default(),
+        )
+        .expect("multi-parent domain must ground");
+        assert!(
+            ir.actions.iter().any(|a| a.name == "drive(t1)"),
+            "drive over the regular_truck object must ground"
+        );
+        assert!(
+            ir.actions.iter().any(|a| a.name == "tow(t1)"),
+            "tow over the regular_truck object must ground"
+        );
+    }
+
+    /// External corpus case — the REAL IPC-2023 PO_UM-Translog files (the
+    /// domain whose rejection motivated this ticket). KOALA POLICY forbids
+    /// vendoring competition files that live in the koala HDDL-Parser
+    /// checkout, so this runs straight from `/tmp` and skips with a note
+    /// when the corpus is absent. Re-enable with:
+    /// `cargo test -p ferroplan-hddl -- --ignored`
+    #[ignore = "external corpus /tmp/fond-review/HDDL-Parser/tests/ipc/PO_UM-Translog (run from /tmp, never vendored — KOALA POLICY); run: cargo test -p ferroplan-hddl -- --ignored"]
+    #[test]
+    fn external_po_um_translog_validates_and_grounds() {
+        let dir = std::path::Path::new("/tmp/fond-review/HDDL-Parser/tests/ipc/PO_UM-Translog");
+        let domain_path = dir.join("domain.hddl");
+        let problem_path = dir.join("18-A-RegularTruck.hddl");
+        if !domain_path.exists() || !problem_path.exists() {
+            eprintln!(
+                "SKIP: external PO_UM-Translog corpus absent at {} (need domain.hddl + 18-A-RegularTruck.hddl)",
+                dir.display()
+            );
+            return;
+        }
+        let domain_src = std::fs::read_to_string(&domain_path).expect("read domain.hddl");
+        let problem_src = std::fs::read_to_string(&problem_path).expect("read 18-A problem");
+        let domain = parse_domain(&domain_src).expect("PO_UM-Translog domain parses");
+        let problem = parse_problem(&problem_src).expect("PO_UM-Translog problem parses");
+        validate_domain(&domain)
+            .expect("PO_UM-Translog domain validates (multi-parent types accepted)");
+        validate_problem(&domain, &problem).expect("PO_UM-Translog problem validates");
+        let warnings = validate_domain_with_warnings(&domain).unwrap();
+        assert!(
+            warnings.iter().any(|w| matches!(
+                w,
+                ValidationWarning::DuplicateTypeDeclaration { name } if name == "Regular_Truck"
+            )),
+            "Regular_Truck's repeated declaration must surface as a warning, got {warnings:?}"
+        );
+        let ir = crate::grounder::ground(
+            &domain,
+            &problem,
+            &crate::grounder::GroundingLimits::default(),
+        )
+        .expect("PO_UM-Translog grounds after the duplicate-type fix");
+        assert!(
+            !ir.actions.is_empty(),
+            "grounded action set must be non-empty"
         );
     }
 
@@ -2111,11 +2329,7 @@ mod tests {
         )
         .unwrap();
         let err = validate_problem(&domain, &problem).unwrap_err();
-        let ValidationError::CyclicOrdering {
-            in_method,
-            cycle,
-        } = err
-        else {
+        let ValidationError::CyclicOrdering { in_method, cycle } = err else {
             panic!("expected CyclicOrdering");
         };
         assert_eq!(in_method, None);
@@ -2214,7 +2428,12 @@ mod tests {
         )
         .unwrap();
         let err = validate_problem(&domain, &problem).unwrap_err();
-        assert_eq!(err, ValidationError::UnknownConstant { name: "y".to_owned() });
+        assert_eq!(
+            err,
+            ValidationError::UnknownConstant {
+                name: "y".to_owned()
+            }
+        );
     }
 
     #[test]
@@ -2277,7 +2496,12 @@ mod tests {
         )
         .unwrap();
         let err = validate_problem(&domain, &problem).unwrap_err();
-        assert_eq!(err, ValidationError::UnknownConstant { name: "y".to_owned() });
+        assert_eq!(
+            err,
+            ValidationError::UnknownConstant {
+                name: "y".to_owned()
+            }
+        );
     }
 
     #[test]
@@ -2399,9 +2623,11 @@ mod tests {
         // Plain validate: no *error* (stranded exists; arity 0 = 0).
         assert!(validate_problem(&domain, &problem).is_ok());
         let warnings = validate_problem_with_warnings(&domain, &problem).unwrap();
-        assert!(warnings.contains(&ValidationWarning::UnrefinableCompoundTask {
-            task: "stranded".to_owned()
-        }));
+        assert!(
+            warnings.contains(&ValidationWarning::UnrefinableCompoundTask {
+                task: "stranded".to_owned()
+            })
+        );
     }
 
     // -- transport accept case (hand-authored fixture g) ------------------------
@@ -2418,10 +2644,16 @@ mod tests {
             .unwrap_or_else(|e| panic!("fixture g problem should parse: {e}"));
         let domain_warnings = validate_domain_with_warnings(&domain)
             .unwrap_or_else(|e| panic!("fixture g domain should validate: {e}"));
-        assert!(domain_warnings.is_empty(), "unexpected warnings: {domain_warnings:?}");
+        assert!(
+            domain_warnings.is_empty(),
+            "unexpected warnings: {domain_warnings:?}"
+        );
         let problem_warnings = validate_problem_with_warnings(&domain, &problem)
             .unwrap_or_else(|e| panic!("fixture g problem should validate: {e}"));
-        assert!(problem_warnings.is_empty(), "unexpected warnings: {problem_warnings:?}");
+        assert!(
+            problem_warnings.is_empty(),
+            "unexpected warnings: {problem_warnings:?}"
+        );
     }
 
     #[test]

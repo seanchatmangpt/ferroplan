@@ -2,7 +2,7 @@
 //! recursive-descent translation into `crate::ast` types.
 
 use crate::ast::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 /// An error produced by `parse_domain`/`parse_problem`.
@@ -269,15 +269,21 @@ fn parse_typed_params(items: &[Sexp]) -> Result<Vec<TypedParam>, ParseError> {
 }
 
 fn parse_types(items: &[Sexp]) -> Result<TypeDef, ParseError> {
-    let mut parent = BTreeMap::new();
+    // Set-valued union of the declared subtype edges: a type repeated
+    // identically contributes no new edge, and a type declared under several
+    // parents (multiple inheritance — competition-legal, e.g. IPC-2023
+    // PO_UM-Translog) keeps ALL its declared parents. `declared` still
+    // records every child mention, duplicates included, so validation can
+    // flag accidental redeclarations as warnings.
+    let mut parents: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut declared = Vec::new();
     for (child, ty) in parse_typed_group(items)? {
         declared.push(child.clone());
         if ty != "object" {
-            parent.insert(child, ty);
+            parents.entry(child).or_default().insert(ty);
         }
     }
-    Ok(TypeDef { parent, declared })
+    Ok(TypeDef { parents, declared })
 }
 
 fn parse_term(s: &Sexp) -> Result<Term, ParseError> {
@@ -1084,7 +1090,10 @@ mod tests {
     :condition (at start (at ?a))
     :effect (at end (at ?b))))";
         let err = parse_domain(DOMAIN).unwrap_err();
-        assert_eq!(err, ParseError::UnsupportedConstruct(":durative-action".to_owned()));
+        assert_eq!(
+            err,
+            ParseError::UnsupportedConstruct(":durative-action".to_owned())
+        );
     }
 
     #[test]
