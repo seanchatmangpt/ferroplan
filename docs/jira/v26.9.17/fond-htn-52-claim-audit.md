@@ -23,3 +23,4 @@ Gates: `python3 scripts/verify_doc_claims.py` exit 0; your test exit 0.
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | docs/claim-audit @ 6d14813 | — | all |
+| 2026-09-18T03:02:00Z | respawn-in-flight | docs/claim-audit @ 75870de (wt-d52) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |

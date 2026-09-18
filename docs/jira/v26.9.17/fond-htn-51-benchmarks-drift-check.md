@@ -23,3 +23,4 @@ Gates: `python3 scripts/verify_benchmarks.py` exit 0; `cargo test -p ferroplan -
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | docs/benchmarks-drift-check @ 6d14813 | — | all |
+| 2026-09-18T03:02:00Z | respawn-in-flight | docs/benchmarks-drift-check @ 75870de (wt-d51) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |
