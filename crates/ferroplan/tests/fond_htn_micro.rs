@@ -539,7 +539,14 @@ fn every_fixture_completes_within_its_wall_budget() {
 
 /// The wall budget is real: under a 1ms budget the watchdog must either
 /// deliver the (fast) result or return the typed `HddlError::Timeout` —
-/// never a hang, a worker panic, or a phase-level error.
+/// never a hang, a worker panic, or a phase-level error. One phase-level
+/// refusal *is* now possible by design and tolerated here: ticket
+/// fond-htn-43's capacity plumbing derives `GroundingLimits::max_wall` from
+/// `max_wall_ms`, so a 1ms budget can legitimately surface as grounding's
+/// own wall-clock refusal (a typed, honest limit answer — distinct from the
+/// cap refusals and validation gaps, which stay forbidden under this
+/// fixture). `solve_hddl`'s watchdog usually wins the race and returns its
+/// own `Timeout` first; both answers say the same thing.
 #[test]
 fn one_millisecond_budget_returns_typed_timeout_instead_of_hanging() {
     let tight = PlannerLimits {
@@ -549,6 +556,7 @@ fn one_millisecond_budget_returns_typed_timeout_instead_of_hanging() {
     let result = solve_hddl(PLAIN_CHAIN.0, PLAIN_CHAIN.1, &tight);
     match result {
         Ok(_) | Err(HddlError::Timeout { .. }) => {}
+        Err(HddlError::Ground(msg)) if msg.contains("wall-clock limit exceeded") => {}
         Err(other) => panic!("expected Ok or typed Timeout under a 1ms budget, got {other:?}"),
     }
 }
