@@ -321,6 +321,11 @@ binding rules are in the wave context (Section 6 below).
 - **Differential protocol.** Solve with ferroplan, solve with the oracle,
   compare verdict class (policy found vs. none) and policy shape, per
   corpus instance. Disagreement is a defect report, not noise.
+- **Consolidated results.** Every committed differential and harvest
+  number — per corpus, with reproduction commands and the verdict-legend
+  meanings — is tabulated in
+  [`docs/BENCHMARKS.md`](BENCHMARKS.md); that page consolidates only
+  committed results and never re-measures.
 - **Known oracle quirks (expected; do not "fix").** `Success probability:
   4.0000` is a solved-leaf count, not a probability. The oracle's "flexible"
   mode finds strong plans; its strong-cyclic support is preliminary, so a

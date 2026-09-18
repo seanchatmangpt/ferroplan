@@ -326,6 +326,12 @@ metrics harness (`benchmarks/perf.py run`/`compare` against a committed baseline
 so improvement/regression is measurable across machines) plus the samply /
 flamegraph / criterion-baseline workflow for finding and tracking hotspots.
 
+**FOND-HTN planning results:** every committed FOND-HTN differential and
+external-oracle-harvest number — one canonical table per corpus, with
+reproduction commands and a verdict legend — is consolidated in
+[`docs/BENCHMARKS.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/BENCHMARKS.md)
+(methodology: [`docs/FOND-HTN.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/FOND-HTN.md)).
+
 ## Limitations
 
 - **Numeric** trails Metric-FF: EHC's helpful-action lookahead stalls on some
