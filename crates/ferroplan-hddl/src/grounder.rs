@@ -558,18 +558,42 @@ pub(crate) fn atom_key(predicate: &str, args: &[String]) -> String {
     }
 }
 
+/// Every type reachable from `type_name` by following declared `child -
+/// parent` edges (the union of its transitive ancestors — a multiply
+/// declared type contributes each of its declared parents), ending with
+/// `object`. A diamond (two different paths reaching the same ancestor) is
+/// ordinary in multi-parent hierarchies and not a cycle; only a type that
+/// reappears on the CURRENT path is (`GroundError::TypeCycle` — white/grey/
+/// black depth-first walk, so shared ancestors visited through a finished
+/// sibling branch don't false-positive).
 fn ancestors_of(type_name: &str, types: &TypeDef) -> Result<Vec<String>, GroundError> {
-    let mut chain = vec![type_name.to_owned()];
-    let mut seen = BTreeSet::new();
-    seen.insert(type_name.to_owned());
-    let mut cur = type_name.to_owned();
-    while let Some(parent) = types.parent.get(&cur) {
-        if !seen.insert(parent.clone()) {
-            return Err(GroundError::TypeCycle(type_name.to_owned()));
+    fn visit(
+        current: &str,
+        types: &TypeDef,
+        grey: &mut BTreeSet<String>,
+        black: &mut BTreeSet<String>,
+        out: &mut Vec<String>,
+    ) -> Result<(), GroundError> {
+        grey.insert(current.to_owned());
+        out.push(current.to_owned());
+        for parent in types.parents.get(current).into_iter().flatten() {
+            if grey.contains(parent) {
+                return Err(GroundError::TypeCycle(parent.clone()));
+            }
+            if black.contains(parent) {
+                continue;
+            }
+            visit(parent, types, grey, black, out)?;
         }
-        chain.push(parent.clone());
-        cur = parent.clone();
+        grey.remove(current);
+        black.insert(current.to_owned());
+        Ok(())
     }
+
+    let mut grey: BTreeSet<String> = BTreeSet::new();
+    let mut black: BTreeSet<String> = BTreeSet::new();
+    let mut chain: Vec<String> = Vec::new();
+    visit(type_name, types, &mut grey, &mut black, &mut chain)?;
     if chain.last().map(String::as_str) != Some("object") {
         chain.push("object".to_owned());
     }
@@ -582,9 +606,11 @@ pub fn build_type_closure(
 ) -> Result<BTreeMap<String, BTreeSet<String>>, GroundError> {
     let mut all_types = BTreeSet::new();
     all_types.insert("object".to_owned());
-    for (child, parent) in &domain.types.parent {
+    for (child, parents) in &domain.types.parents {
         all_types.insert(child.clone());
-        all_types.insert(parent.clone());
+        for parent in parents {
+            all_types.insert(parent.clone());
+        }
     }
     let param_lists = domain
         .predicates
@@ -2000,7 +2026,11 @@ mod tests {
         :precondition (idle ?v)
         :effect (and (increase (fuel-level ?v) 10))))"#;
 
-    fn minimal_problem_with_object(domain_name: &str, type_name: &str, root_action: &str) -> Problem {
+    fn minimal_problem_with_object(
+        domain_name: &str,
+        type_name: &str,
+        root_action: &str,
+    ) -> Problem {
         let src = format!(
             r#"(define (problem p)
               (:domain {domain_name})
@@ -2010,6 +2040,58 @@ mod tests {
               (:htn :subtasks (and (r1 ({root_action} o1)))))"#
         );
         crate::parser::parse_problem(&src).expect("minimal problem parses")
+    }
+
+    /// Multi-parent diamonds (`a -> {b, c}`, `b -> d`, `c -> d`) are the
+    /// ordinary shape of real competition hierarchies (IPC-2023 PO_UM-Translog's
+    /// `Regular_Truck -> {Regular_Vehicle, Truck} -> Vehicle`): the closure
+    /// must treat the shared ancestor reached through both branches as ONE
+    /// type, not as a cycle, and every branch's ancestors must appear.
+    #[test]
+    fn type_closure_treats_multi_parent_diamonds_as_diamonds_not_cycles() {
+        let domain = parse_domain(
+            r#"(define (domain diamond-types)
+              (:types
+                b - d
+                c - d
+                a - b
+                a - c
+                d)
+              (:predicates (p ?x - d))
+              (:action noop :parameters () :precondition () :effect ()))"#,
+        )
+        .unwrap();
+        let closure = build_type_closure(&domain).expect("diamond hierarchy is not a cycle");
+        let d_descendants = &closure["d"];
+        for expected in ["a", "b", "c"] {
+            assert!(
+                d_descendants.contains(expected),
+                "d's descendants must contain {expected}: {d_descendants:?}"
+            );
+        }
+        // `a`'s own ancestor walk covers BOTH parents.
+        let b_descendants = &closure["b"];
+        assert!(b_descendants.contains("a"));
+        let c_descendants = &closure["c"];
+        assert!(c_descendants.contains("a"));
+    }
+
+    /// A genuine cycle (`a -> b -> a`) still refuses with `TypeCycle` — the
+    /// diamond tolerance above must not weaken the real tripwire.
+    #[test]
+    fn type_closure_refuses_genuine_cycle_with_typed_error() {
+        let domain = parse_domain(
+            r#"(define (domain cyclic-types)
+              (:types a - b b - a)
+              (:predicates (p ?x - object))
+              (:action noop :parameters () :precondition () :effect ()))"#,
+        )
+        .unwrap();
+        let err = build_type_closure(&domain).unwrap_err();
+        assert!(
+            matches!(err, GroundError::TypeCycle(ref t) if t == "a" || t == "b"),
+            "expected TypeCycle, got {err:?}"
+        );
     }
 
     #[test]

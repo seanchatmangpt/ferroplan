@@ -117,3 +117,36 @@ warnings on all usable domains (their compound tasks are all refinable).
 - Existing tests grounding empty-root-network problems were given real root
   subtasks (their subject was grounding internals, not empty networks);
   `MissingTaskNetwork` is enforced inside `ground()` via `validate_problem`.
+
+## Addendum — duplicate type declarations decriminalized (ticket fond-htn-44, 2026-09-17)
+
+The sweep finding this addendum answers: IPC-2023 PO_UM-Translog (competition
+input, koala HDDL-Parser corpus) was rejected with `type 'Regular_Truck' is
+declared more than once`, blocking the whole domain. The ticket premise ("the
+same type line twice identically") is falsified by the file itself: it declares
+the same type under DIFFERENT parents (`Regular_Truck - Regular_Vehicle` plus
+`Regular_Truck - Truck`, ~40 such names) — multiple inheritance, and legal
+competition input. Identical-only acceptance would have left the domain
+blocked; the recorded decision is therefore:
+
+- Duplicate TYPE names are no longer an error. `DuplicateKind::Type` is removed
+  (an unproducible error variant is fabricated vocabulary). Duplicate
+  task/predicate/action/method/object declarations remain typed errors
+  (corpus check: no such duplicates in PO_UM-Translog).
+- `TypeDef.parent: Map<Name, Name>` is now `TypeDef.parents: Map<Name,
+  Set<Name>>`: the parser keeps the UNION of declared `child - parent` edges
+  (previously last-wins, which silently dropped declared edges and hid the
+  conflict from validation). `is_subtype`, `check_cyclic_type_hierarchy`, and
+  `grounder`'s `ancestors_of`/`build_type_closure` walk all parents.
+- New warning `ValidationWarning::DuplicateTypeDeclaration { name }` (domain
+  level, `validate_domain_with_warnings`): one per redeclared type name,
+  mirroring the `UnrefinableCompoundTask` warnings channel.
+- Cycle detection is now diamond-aware (white/grey/black DFS): shared
+  ancestors reached through two branches (`Regular_Truck -> {Regular_Vehicle,
+  Truck} -> Vehicle`) are NOT cycles; a type reappearing on the current path
+  still is (`CyclicTypeHierarchy` / `GroundError::TypeCycle`).
+- Evidence: `cargo test -p ferroplan-hddl` green (141 lib + 9 doc tests), the
+  real PO_UM-Translog domain+problem parse, validate, warn, and ground via the
+  `#[ignore]`d external test (`external_po_um_translog_validates_and_grounds`,
+  run with `cargo test -p ferroplan-hddl -- --ignored`; files stay in /tmp per
+  KOALA POLICY, nothing vendored).

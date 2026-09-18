@@ -82,7 +82,7 @@
 //! inside a `oneof` branch (all refused with `ParseError::MalformedOneof`;
 //! see `lib.rs` for the full supported surface).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub type Name = String;
 /// Parameter/task variable name, WITHOUT the leading `?`.
@@ -220,21 +220,27 @@ pub enum Effect {
     Decrease(AtomicFormula, NumericValue),
 }
 
-/// type_name -> parent type_name. A type with no declared parent in the source
-/// (the untyped tail of a `:types` list, or "object" itself) has no entry here.
-/// Note: this map alone is NOT the full set of declared type names — a type
-/// declared with an implicit/explicit `object` parent (e.g. `(:types loc)`)
-/// never appears as a key (its parent is "object", filtered out) or as a
-/// value (nothing is a subtype of it). Use `TypeDef::declared` (below) plus
-/// this map's values for that purpose — see `validate::declared_type_names`.
+/// type_name -> every declared parent type_name. A type with no declared
+/// parent in the source (the untyped tail of a `:types` list, or "object"
+/// itself) has no entry here. A type declared under several parents (the
+/// multiple-inheritance form competition domains use, e.g. IPC-2023
+/// PO_UM-Translog's `Regular_Truck - Regular_Vehicle` plus
+/// `Regular_Truck - Truck`) maps to the UNION of its declared parents; the
+/// subtype relation is the union of all declared edges. Note: this map alone
+/// is NOT the full set of declared type names — a type declared with an
+/// implicit/explicit `object` parent (e.g. `(:types loc)`) never appears as
+/// a key (its parent is "object", filtered out) or as a value (nothing is a
+/// subtype of it). Use `TypeDef::declared` (below) plus this map's values
+/// for that purpose — see `validate::declared_type_names`.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TypeDef {
-    pub parent: BTreeMap<Name, Name>,
+    pub parents: BTreeMap<Name, BTreeSet<Name>>,
     /// Every type name that appeared as a child in the `:types` list, in
-    /// source order, WITH duplicates preserved (unlike `parent`, which is a
-    /// map and silently collapses a repeated child onto its last-seen
-    /// parent). This is what makes "same type name declared twice" or "type
-    /// declared with an implicit `object` parent" detectable post-parse.
+    /// source order, WITH duplicates preserved (unlike `parents`, which is a
+    /// set-valued map and collapses repeated identical edges). This is what
+    /// makes "same type name declared twice" (identically or under several
+    /// parents) or "type declared with an implicit `object` parent"
+    /// detectable post-parse.
     pub declared: Vec<Name>,
 }
 
