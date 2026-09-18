@@ -38,6 +38,14 @@ schema = ["dep:schemars"]
 [dev-dependencies]
 criterion = "0.8"
 
+# Memory-ceiling stress suite (ticket fond-htn-30). `harness = false`: the
+# binary is its own runner — no-arg = always-on sampled subset, `-- --ignored`
+# = the full adversarial suite, and it re-execs itself per case as a child
+# process so peak RSS is measured per case (see tests/memory_stress.rs docs).
+[[test]]
+name = "memory_stress"
+harness = false
+
 [[bench]]
 name = "planning"
 harness = false
