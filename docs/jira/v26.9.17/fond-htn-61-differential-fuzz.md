@@ -23,3 +23,4 @@ Gates: `cargo test -p ferroplan --test differential_fuzz` exit 0 (offline mode: 
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T02:50:00Z | BLOCKED | test/differential-fuzz @ 75870de | — | all |
+| 2026-09-18T04:30:00Z | PARTIAL_ALIVE | test/differential-fuzz @ 3fbe480 | roundtrip gate (extraction) exit 0, digest byte-identical (410/500, sampled 40, solved 5, NoPlan 35); offline differential leg exit 0 (30.5 s: SOLVED=4 NOSOLUTION=88 TYPED_LIMIT=8) | ignored full oracle driver running; ledger; findings; gates 1+2 final |
