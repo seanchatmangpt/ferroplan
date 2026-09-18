@@ -22,3 +22,4 @@ Gates: `cargo test -p ferroplan --test surface_parity` exit 0; wasm leg via `CAR
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | test/surface-parity @ 6d14813 | — | all |
+| 2026-09-18T03:02:00Z | respawn-in-flight | test/surface-parity @ 75870de (wt-d49) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |

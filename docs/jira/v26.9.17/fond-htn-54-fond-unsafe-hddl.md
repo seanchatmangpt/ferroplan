@@ -22,3 +22,4 @@ Gates: `cargo test -p ferroplan --test fond_unsafe_hddl` exit 0 (findings ignore
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | test/fond-unsafe-hddl @ 6d14813 | — | all |
+| 2026-09-18T03:02:00Z | respawn-in-flight | test/fond-unsafe-hddl @ 75870de (wt-d54) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |

@@ -24,3 +24,4 @@ Gates: clippy exit 0 on target; wasip1 tests exit 0.
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | fix/wasip1-clippy @ 6d14813 | — | all |
+| 2026-09-18T03:02:00Z | respawn-in-flight | fix/wasip1-clippy @ 75870de (wt-d55) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |

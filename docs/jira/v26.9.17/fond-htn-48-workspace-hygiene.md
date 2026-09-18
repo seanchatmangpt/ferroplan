@@ -23,3 +23,4 @@ Gates: `cargo fmt --check` clean on the files you own; `cargo clippy --all-targe
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | chore/workspace-hygiene @ 6d14813 | — | all |
+| 2026-09-18T03:02:00Z | respawn-in-flight | chore/workspace-hygiene @ 75870de (wt-d48) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |

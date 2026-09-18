@@ -24,3 +24,4 @@ Gates: RESULTS.md committed with the curve + named term; reproducer exits 0 unde
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | bench/ipc2020-profile @ 6d14813 | — | all |
+| 2026-09-18T03:02:00Z | respawn-in-flight | bench/ipc2020-profile @ 75870de (wt-d53) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |
