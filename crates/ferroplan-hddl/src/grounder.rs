@@ -396,6 +396,16 @@ pub struct GroundMethod {
     /// way it already checks `GroundAction::precondition` before offering an
     /// execution move.
     pub precondition: GroundGoal,
+    /// The method's grounded `:effect` (ticket fond-htn-24), applied by
+    /// `translate::translate` to the world state at the moment this method
+    /// is chosen for decomposition, before any subtask executes — the same
+    /// guard-against-source-state application actions' conditional effects
+    /// get. Deterministic by construction: `ast::MethodDef::effect` refuses
+    /// `oneof` at parse time, so one `GroundEffectBranch` carries the whole
+    /// effect. `GroundEffectBranch::default()` (no add/del/conditionals)
+    /// for a method with no declared `:effect` — applying it is a no-op,
+    /// exactly the behavior every domain without the construct keeps.
+    pub effect: GroundEffectBranch,
     pub subtasks: Vec<GroundSubtask>,
     pub order: Vec<(String, String)>,
 }
@@ -404,16 +414,29 @@ pub struct GroundMethod {
 pub struct GroundedIR {
     pub actions: Vec<GroundAction>,
     pub methods: Vec<GroundMethod>,
-    /// Was `root_tasks: Vec<String>`. Reuses `GroundSubtask` (id = the
-    /// original `:htn` subtask id, task_name = its ground name) — the exact
-    /// same shape `GroundMethod::subtasks` already uses, for the same reason:
-    /// `translate.rs` needs the id to build stable task-network addresses.
-    pub root_subtasks: Vec<GroundSubtask>,
-    /// Order edges among `root_subtasks`, as raw ast subtask ids (before,
-    /// after) — same convention as `GroundMethod::order`.
-    pub root_order: Vec<(String, String)>,
+    /// The problem's ground root task network(s). Exactly one entry unless
+    /// the `:htn` section declares `:parameters` with more than one
+    /// admissible binding, in which case there is one entry per binding —
+    /// each an alternative existential instantiation of the same source
+    /// network (`translate` turns each into its own initial state, which
+    /// the FOND policy must cover from the start, matching the plural
+    /// `PlanningProblem::initial_states` the runtime already consumes).
+    pub root_networks: Vec<GroundRootNetwork>,
     pub initial_facts: BTreeSet<String>,
     pub goal: GoalDesc,
+}
+
+/// One fully-ground instantiation of the problem's root `:htn` network.
+/// `subtasks` reuses `GroundSubtask` (id = the original `:htn` subtask id,
+/// unique within this network; task_name = its ground name) — the exact same
+/// shape `GroundMethod::subtasks` already uses, for the same reason:
+/// `translate.rs` needs the id to build stable task-network addresses.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GroundRootNetwork {
+    pub subtasks: Vec<GroundSubtask>,
+    /// Order edges among `subtasks`, as raw ast subtask ids (before, after)
+    /// — same convention as `GroundMethod::order`.
+    pub order: Vec<(String, String)>,
 }
 
 pub(crate) fn atom_key(predicate: &str, args: &[String]) -> String {
@@ -609,18 +632,115 @@ fn collect_effect(
             let mut pos_cond = BTreeSet::new();
             let mut neg_cond = BTreeSet::new();
             flatten_goal(cond, binding, &mut pos_cond, &mut neg_cond)?;
-            let mut inner_branch = GroundEffectBranch::default();
-            collect_effect(inner, binding, &mut inner_branch)?;
-            if !inner_branch.conditional.is_empty() {
+            let mut add = BTreeSet::new();
+            let mut del = BTreeSet::new();
+            // Ticket fond-htn-24: a `when` body may itself be a `when`
+            // (depth 2), which flattens — `(when c1 (when c2 e))` grounds
+            // exactly like `(when (and c1 c2) e)`, a second
+            // `GroundConditional` whose condition conjoins the outer
+            // condition with the inner one. Deeper `when` nesting (depth
+            // >= 3) stays out of scope and keeps the existing typed
+            // refusal (see `collect_when_body`).
+            collect_when_body(
+                inner,
+                binding,
+                &mut pos_cond,
+                &mut neg_cond,
+                &mut add,
+                &mut del,
+                branch,
+                1,
+            )?;
+            branch.conditional.push(GroundConditional {
+                pos_cond,
+                neg_cond,
+                add,
+                del,
+            });
+            Ok(())
+        }
+        Effect::Oneof(_) => Err(GroundError::UnsupportedPrecondition(
+            "'oneof' is only permitted at the top of an action's effect".to_owned(),
+        )),
+        Effect::Increase(fluent, _) | Effect::Decrease(fluent, _) => Err(
+            GroundError::UnsupportedNumericFluent(fluent.predicate.clone()),
+        ),
+    }
+}
+
+/// Collect the body of a conditional effect under already-accumulated ground
+/// conditions (`pos_cond`/`neg_cond`): plain literals fold into `add`/`del`
+/// (the enclosing conditional's effects), `and` recurses conjunctively, and
+/// a nested `when` at depth 1 *flattens* — its condition is conjoined onto
+/// the accumulated one and the result is pushed as its own
+/// `GroundConditional` onto `branch.conditional`, which is exactly the
+/// classical PDDL conditional-effect identity
+/// `(when c1 (when c2 e)) == (when (and c1 c2) e)`. A `when` at depth >= 2
+/// (i.e. three or more condition levels) exceeds the corpus-needed scope and
+/// is refused with the same typed error the old no-nesting rule used, so
+/// the boundary stays loud and documented rather than silently widening.
+///
+/// `depth` is the number of `when` levels already enclosing this body (the
+/// direct body of a `when` is depth 1). Conditions are always evaluated
+/// against the SOURCE state by the translator (`translate`'s outcome
+/// application), so conjoining conditions is semantics-preserving: both the
+/// original nested form and the flattened form test every guard against the
+/// same pre-effect state.
+#[allow(clippy::too_many_arguments)]
+fn collect_when_body(
+    effect: &Effect,
+    binding: &BTreeMap<String, String>,
+    pos_cond: &mut BTreeSet<String>,
+    neg_cond: &mut BTreeSet<String>,
+    add: &mut BTreeSet<String>,
+    del: &mut BTreeSet<String>,
+    branch: &mut GroundEffectBranch,
+    depth: usize,
+) -> Result<(), GroundError> {
+    match effect {
+        Effect::Empty => Ok(()),
+        Effect::Literal(Literal::Pos(a)) => {
+            add.insert(subst_atom(a, binding)?);
+            Ok(())
+        }
+        Effect::Literal(Literal::Neg(a)) => {
+            del.insert(subst_atom(a, binding)?);
+            Ok(())
+        }
+        Effect::And(parts) => {
+            for p in parts {
+                collect_when_body(
+                    p, binding, pos_cond, neg_cond, add, del, branch, depth,
+                )?;
+            }
+            Ok(())
+        }
+        Effect::When(cond, inner) => {
+            if depth >= 2 {
                 return Err(GroundError::UnsupportedPrecondition(
                     "nested 'when' is out of scope".to_owned(),
                 ));
             }
+            let mut inner_pos = pos_cond.clone();
+            let mut inner_neg = neg_cond.clone();
+            flatten_goal(cond, binding, &mut inner_pos, &mut inner_neg)?;
+            let mut inner_add = BTreeSet::new();
+            let mut inner_del = BTreeSet::new();
+            collect_when_body(
+                inner,
+                binding,
+                &mut inner_pos,
+                &mut inner_neg,
+                &mut inner_add,
+                &mut inner_del,
+                branch,
+                depth + 1,
+            )?;
             branch.conditional.push(GroundConditional {
-                pos_cond,
-                neg_cond,
-                add: inner_branch.add,
-                del: inner_branch.del,
+                pos_cond: inner_pos,
+                neg_cond: inner_neg,
+                add: inner_add,
+                del: inner_del,
             });
             Ok(())
         }
@@ -737,6 +857,27 @@ pub fn compute_reachability(
         .iter()
         .map(|(_, bindings)| (0..bindings.len()).collect())
         .collect();
+    // Method `:effect`s (ticket fond-htn-24) add facts at decomposition
+    // time, so the relaxed fixpoint must fold them in the same way it folds
+    // action adds — otherwise a fact producible ONLY by a method effect
+    // would be missing from the relaxed set, and actions needing it could be
+    // wrongly pruned (an UNSOUND over-prune). Criterion for "this method
+    // instance may fire": its (relaxed) precondition is satisfiable — a
+    // deliberate over-approximation, consistent with this whole pre-pass's
+    // design (it does not model decomposition demand, only fact
+    // producibility; injecting a never-demanded method's adds merely
+    // under-prunes, which is the sound direction here). Conditional adds
+    // enter unconditionally, exactly like the action loop's `cond.add`
+    // handling below/above.
+    let per_method_bindings: Vec<(&MethodDef, Vec<BTreeMap<String, String>>)> = domain
+        .methods
+        .iter()
+        .map(|m| (m, enumerate_bindings(&m.params, objects_by_type)))
+        .collect();
+    let mut method_pending: Vec<BTreeSet<usize>> = per_method_bindings
+        .iter()
+        .map(|(_, bindings)| (0..bindings.len()).collect())
+        .collect();
 
     loop {
         let mut changed = false;
@@ -771,6 +912,31 @@ pub fn compute_reachability(
                             if facts.insert(a) {
                                 changed = true;
                             }
+                        }
+                    }
+                }
+            }
+        }
+        for (i, (method, bindings)) in per_method_bindings.iter().enumerate() {
+            let still_pending: Vec<usize> = method_pending[i].iter().copied().collect();
+            for bidx in still_pending {
+                check_wall_deadline(start, limits)?;
+                let binding = &bindings[bidx];
+                let precondition = ground_goal(&method.precondition, binding, objects_by_type)?;
+                if !relaxed_satisfiable(&precondition, &facts) {
+                    continue;
+                }
+                method_pending[i].remove(&bidx);
+                let outcome = ground_effect_branch(&method.effect, binding)?;
+                for a in outcome.add {
+                    if facts.insert(a) {
+                        changed = true;
+                    }
+                }
+                for cond in outcome.conditional {
+                    for a in cond.add {
+                        if facts.insert(a) {
+                            changed = true;
                         }
                     }
                 }
@@ -1056,6 +1222,7 @@ pub fn ground_methods(
                 .map(|e| (e.before.clone(), e.after.clone()))
                 .collect();
             let precondition = ground_goal(&method.precondition, &binding, objects_by_type)?;
+            let effect = ground_effect_branch(&method.effect, &binding)?;
             let args = method
                 .params
                 .iter()
@@ -1065,6 +1232,7 @@ pub fn ground_methods(
                 name: atom_key(&method.name, &args),
                 task_name: atom_key(&method.task.name, &task_args),
                 precondition,
+                effect,
                 subtasks,
                 order,
             });
@@ -1142,6 +1310,7 @@ pub fn ground_methods_reachable(
                 .map(|e| (e.before.clone(), e.after.clone()))
                 .collect();
             let precondition = ground_goal(&method.precondition, &binding, objects_by_type)?;
+            let effect = ground_effect_branch(&method.effect, &binding)?;
             let args = method
                 .params
                 .iter()
@@ -1151,6 +1320,7 @@ pub fn ground_methods_reachable(
                 name: atom_key(&method.name, &args),
                 task_name: atom_key(&method.task.name, &task_args),
                 precondition,
+                effect,
                 subtasks,
                 order,
             });
@@ -1182,38 +1352,62 @@ pub fn ground_initial_facts(problem: &Problem) -> Result<BTreeSet<String>, Groun
 }
 
 /// Was `ground_root_tasks`. Grounds the problem's root `:htn` task network
-/// into `(root_subtasks, root_order)`, preserving both subtask ids and the
-/// order edges among them — needed by `translate.rs` to build stable
-/// task-network addresses and restrict the BFS to actual decompositions of
-/// the root network, not just precondition-satisfying ground actions.
+/// into one [`GroundRootNetwork`] per admissible binding of the `:htn`'s own
+/// `:parameters` (ticket fond-htn-24), preserving subtask ids and the order
+/// edges among them — needed by `translate.rs` to build stable task-network
+/// addresses and restrict the BFS to actual decompositions of the root
+/// network, not just precondition-satisfying ground actions.
+///
+/// With no `:parameters` (the overwhelmingly common shape) there is exactly
+/// one, empty binding, so exactly one network comes back — byte-identical
+/// grounding to the pre-`params` behavior. With parameters, each binding is
+/// one existential instantiation: the same source subtask ids and order
+/// edges, with every variable argument replaced by that binding's object
+/// (constants pass through; typing was checked by
+/// `validate::check_root_network`, so every object a variable can bind to is
+/// well-typed for every position it occupies). `translate` gives each
+/// returned network its own initial state.
 #[allow(clippy::type_complexity)]
 pub fn ground_root_network(
     problem: &Problem,
-) -> Result<(Vec<GroundSubtask>, Vec<(String, String)>), GroundError> {
-    let subtasks = problem
-        .htn
-        .subtasks
-        .iter()
-        .map(|st| {
-            let args = st
-                .task
-                .args
+    objects_by_type: &BTreeMap<String, Vec<String>>,
+) -> Result<Vec<GroundRootNetwork>, GroundError> {
+    let bindings = enumerate_bindings(&problem.htn.params, objects_by_type);
+    bindings
+        .into_iter()
+        .map(|binding| {
+            let subtasks = problem
+                .htn
+                .subtasks
                 .iter()
-                .map(ground_term_const)
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok(GroundSubtask {
-                id: st.id.clone(),
-                task_name: atom_key(&st.task.name, &args),
-            })
+                .map(|st| {
+                    let args = st
+                        .task
+                        .args
+                        .iter()
+                        .map(|t| match t {
+                            Term::Const(c) => Ok(c.clone()),
+                            Term::Var(v) => binding
+                                .get(v)
+                                .cloned()
+                                .ok_or_else(|| GroundError::UnboundVariable(v.clone())),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Ok(GroundSubtask {
+                        id: st.id.clone(),
+                        task_name: atom_key(&st.task.name, &args),
+                    })
+                })
+                .collect::<Result<Vec<_>, GroundError>>()?;
+            let order = problem
+                .htn
+                .order
+                .iter()
+                .map(|e| (e.before.clone(), e.after.clone()))
+                .collect();
+            Ok(GroundRootNetwork { subtasks, order })
         })
-        .collect::<Result<Vec<_>, GroundError>>()?;
-    let order = problem
-        .htn
-        .order
-        .iter()
-        .map(|e| (e.before.clone(), e.after.clone()))
-        .collect();
-    Ok((subtasks, order))
+        .collect()
 }
 
 /// Ground a parsed `Domain`+`Problem` pair into a `GroundedIR`: every
@@ -1301,12 +1495,11 @@ pub fn ground(
         let methods = ground_methods(domain, &objects_by_type, limits)?;
         (actions, methods)
     };
-    let (root_subtasks, root_order) = ground_root_network(problem)?;
+    let root_networks = ground_root_network(problem, &objects_by_type)?;
     Ok(GroundedIR {
         actions,
         methods,
-        root_subtasks,
-        root_order,
+        root_networks,
         initial_facts,
         goal: expand_goal_quantifiers(&problem.goal, &BTreeMap::new(), &objects_by_type)?,
     })
@@ -1424,9 +1617,10 @@ mod tests {
                 .map(str::to_owned)
                 .collect()
         );
-        assert_eq!(ir.root_subtasks.len(), 1);
-        assert_eq!(ir.root_subtasks[0].task_name, "deliver(l1,l2)");
-        assert!(ir.root_order.is_empty());
+        assert_eq!(ir.root_networks.len(), 1);
+        assert_eq!(ir.root_networks[0].subtasks.len(), 1);
+        assert_eq!(ir.root_networks[0].subtasks[0].task_name, "deliver(l1,l2)");
+        assert!(ir.root_networks[0].order.is_empty());
         let m = ir
             .methods
             .iter()
@@ -2027,5 +2221,290 @@ mod tests {
         ));
         // Only x=l1 has a witness; x=l2 has none -- forall fails.
         assert!(!action_applicable(&finish, &facts(&["p(l1,l2)"])));
+    }
+
+    // -- conditional effects (ticket fond-htn-24) ---------------------------
+
+    /// The PANDA `panda-conditional-effect` shape: `when` clauses under an
+    /// action's `:effect`, including a `when`-in-`when`. The nested form
+    /// must flatten — `(when c1 (when c2 e))` grounds as a second
+    /// `GroundConditional` whose condition conjoins `c1` and `c2` — and the
+    /// remaining `when`s ground as plain guarded add/del sets.
+    const NESTED_WHEN_DOMAIN: &str = r#"(define (domain nested-when-d)
+      (:types object)
+      (:predicates (p ?x - object) (q ?x - object) (r ?x - object))
+      (:constants c1 - object)
+      (:task t1 :parameters (?a - object))
+      (:method m0
+        :parameters (?x - object)
+        :task (t1 ?x)
+        :subtasks (and (s0 (prim ?x))))
+      (:action prim
+        :parameters (?x - object)
+        :effect (and
+          (when (p ?x) (and (q ?x) (not (p ?x))))
+          (when (not (p ?x)) (when (q ?x) (r ?x))))))"#;
+
+    #[test]
+    fn nested_when_flattens_into_conjunctive_conditionals() {
+        let domain = parse_domain(NESTED_WHEN_DOMAIN).unwrap();
+        let problem = parse_problem(
+            r#"(define (problem nested-when-p)
+              (:domain nested-when-d)
+              (:objects c2 - object)
+              (:init (p c1))
+              (:goal (r c1))
+              (:htn :subtasks (and (task0 (t1 c1)))))"#,
+        )
+        .unwrap();
+        let ir = ground(&domain, &problem, &Default::default()).unwrap();
+        let action = ir
+            .actions
+            .iter()
+            .find(|a| a.name == "prim(c1)")
+            .expect("prim(c1) grounded");
+        assert_eq!(
+            action.outcomes.len(),
+            1,
+            "deterministic when-effect = exactly one outcome branch"
+        );
+        let branch = &action.outcomes[0];
+        // First `when`: (p ?x) => add q, del p.
+        let first = branch
+            .conditional
+            .iter()
+            .find(|c| c.add.contains("q(c1)"))
+            .expect("first when grounds as a conditional");
+        assert_eq!(first.pos_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert!(first.neg_cond.is_empty());
+        assert_eq!(first.del, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        // Flattened nested `when`: (not p) AND (q) => add r -- one
+        // conditional carrying BOTH guard literals, not two nested ones.
+        let flattened = branch
+            .conditional
+            .iter()
+            .find(|c| c.add.contains("r(c1)"))
+            .expect("nested when flattens into its own conditional");
+        assert_eq!(flattened.pos_cond, ["q(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(flattened.neg_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert!(flattened.del.is_empty());
+        // The outer shell of the nested `when` survives as a no-op
+        // conditional (guard `not p`, empty add/del) — harmless, evaluated
+        // against the source state by the translator like any other.
+        let outer = branch
+            .conditional
+            .iter()
+            .find(|c| c.add.is_empty() && c.del.is_empty())
+            .expect("outer when shell grounds as a no-op conditional");
+        assert_eq!(outer.neg_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(branch.conditional.len(), 3);
+    }
+
+    /// Deeper-than-corpus `when` nesting (three condition levels) keeps the
+    /// existing typed refusal — the flattening extension must not silently
+    /// widen into unbounded nesting.
+    #[test]
+    fn depth_three_nested_when_refuses_with_typed_error() {
+        let domain = parse_domain(
+            r#"(define (domain deep-when-d)
+              (:types object)
+              (:predicates (p ?x - object) (q ?x - object) (r ?x - object) (s ?x - object))
+              (:action prim
+                :parameters (?x - object)
+                :effect (when (p ?x) (when (q ?x) (when (r ?x) (s ?x)))))))"#,
+        )
+        .unwrap();
+        let problem = parse_problem(
+            r#"(define (problem deep-when-p)
+              (:domain deep-when-d)
+              (:objects c1 - object)
+              (:init)
+              (:goal (s c1))
+              (:htn :subtasks (and (task0 (prim c1)))))"#,
+        )
+        .unwrap();
+        let err = ground(&domain, &problem, &Default::default()).unwrap_err();
+        assert!(
+            matches!(err, GroundError::UnsupportedPrecondition(ref m) if m == "nested 'when' is out of scope"),
+            "expected the documented nested-'when' typed refusal, got {err:?}"
+        );
+    }
+
+    /// A method `:effect` (PANDA-style decomposition-time effect) grounds
+    /// into `GroundMethod::effect` with its `when` guards — including the
+    /// flattened nested shape — over the method's own binding.
+    #[test]
+    fn method_effect_grounds_with_conditional_guards() {
+        let domain = parse_domain(
+            r#"(define (domain method-effect-d)
+              (:types object)
+              (:predicates (p ?x - object) (q ?x - object) (r ?x - object))
+              (:constants c1 - object)
+              (:task t1 :parameters (?a - object))
+              (:method m0
+                :parameters (?x - object)
+                :task (t1 ?x)
+                :effect (and
+                  (when (p ?x) (q ?x))
+                  (when (not (p ?x)) (when (q ?x) (r ?x))))
+                :subtasks (and (s0 (t2 ?x))))
+              (:task t2 :parameters (?a - object))
+              (:method m1
+                :parameters (?x - object)
+                :task (t2 ?x)
+                :subtasks ()))"#,
+        )
+        .unwrap();
+        let problem = parse_problem(
+            r#"(define (problem method-effect-p)
+              (:domain method-effect-d)
+              (:objects)
+              (:init (p c1))
+              (:goal (r c1))
+              (:htn :parameters (?x - object)
+               :subtasks (and (task0 (t1 ?x)))))"#,
+        )
+        .unwrap();
+        let ir = ground(&domain, &problem, &Default::default()).unwrap();
+        let m = ir
+            .methods
+            .iter()
+            .find(|m| m.name == "m0(c1)")
+            .expect("m0(c1) grounded");
+        let cond = &m.effect.conditional;
+        // First `when` grounds directly; the nested `when` contributes its
+        // flattened conditional PLUS the no-op outer shell (see the action
+        // test above) — three entries total.
+        assert_eq!(cond.len(), 3, "both whens ground as conditionals");
+        assert_eq!(cond[0].pos_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(cond[0].add, ["q(c1)"].into_iter().map(str::to_owned).collect());
+        // Flattened: (not p) AND q => r.
+        assert_eq!(cond[1].pos_cond, ["q(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(cond[1].neg_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(cond[1].add, ["r(c1)"].into_iter().map(str::to_owned).collect());
+        // Outer shell of the nested when: guard `not p`, empty add/del.
+        assert!(cond[2].add.is_empty() && cond[2].del.is_empty());
+        assert_eq!(cond[2].neg_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert!(m.effect.add.is_empty() && m.effect.del.is_empty());
+    }
+
+    // -- root `:htn` network parameters (ticket fond-htn-24) -----------------
+
+    /// `(:htn :parameters ...)` binds existentially: one ground root network
+    /// per admissible binding (here, one per object of the parameter's
+    /// type), each an alternative instantiation of the same source network.
+    #[test]
+    fn htn_parameters_bind_one_root_network_per_admissible_binding() {
+        let domain = parse_domain(NESTED_WHEN_DOMAIN).unwrap();
+        let problem = parse_problem(
+            r#"(define (problem multi-binding-p)
+              (:domain nested-when-d)
+              (:objects c2 - object)
+              (:init)
+              (:goal (r c1))
+              (:htn :parameters (?x - object)
+               :subtasks (and (task0 (t1 ?x)))))"#,
+        )
+        .unwrap();
+        let ir = ground(&domain, &problem, &Default::default()).unwrap();
+        // Constants ∪ objects = {c1, c2}; one network per binding.
+        assert_eq!(ir.root_networks.len(), 2);
+        let names: Vec<&str> = ir
+            .root_networks
+            .iter()
+            .map(|n| n.subtasks[0].task_name.as_str())
+            .collect();
+        assert!(names.contains(&"t1(c1)") && names.contains(&"t1(c2)"));
+        // All networks preserve the source subtask id.
+        assert!(ir.root_networks.iter().all(|n| n.subtasks[0].id == "task0"));
+    }
+
+    /// No admissible binding (a parameter type with zero objects) grounds to
+    /// zero root networks — `translate` then produces zero initial states
+    /// and the pipeline refuses with a clean `NoPlan` rather than a fake
+    /// empty plan.
+    #[test]
+    fn empty_binding_domain_yields_zero_root_networks() {
+        // `vehicle` has zero constants and zero problem objects, so the
+        // `?x - vehicle` parameter has no admissible binding at all. (Note
+        // `object` would never do here: the domain's own constants always
+        // populate it.)
+        let domain = parse_domain(
+            r#"(define (domain empty-binding-d)
+              (:types loc vehicle)
+              (:predicates (p ?x - loc))
+              (:constants l1 - loc)
+              (:task t1 :parameters (?a - vehicle))
+              (:method m0
+                :parameters (?x - vehicle)
+                :task (t1 ?x)
+                :subtasks ()))"#,
+        )
+        .unwrap();
+        let problem = parse_problem(
+            r#"(define (problem no-binding-p)
+              (:domain empty-binding-d)
+              (:objects)
+              (:init)
+              (:goal (p l1))
+              (:htn :parameters (?x - vehicle)
+               :subtasks (and (task0 (t1 ?x)))))"#,
+        )
+        .unwrap();
+        let ir = ground(&domain, &problem, &Default::default()).unwrap();
+        assert!(ir.root_networks.is_empty());
+    }
+
+    /// A root-subtask variable NOT declared in the `:htn`'s `:parameters`
+    /// keeps the existing `NonGroundRootSubtaskArg` refusal; a declared
+    /// variable of an incompatible type gets `ArgumentTypeMismatch`.
+    #[test]
+    fn undeclared_or_illtyped_root_variables_still_refuse() {
+        // Undeclared variable.
+        let domain = parse_domain(NESTED_WHEN_DOMAIN).unwrap();
+        let problem = parse_problem(
+            r#"(define (problem undeclared-var-p)
+              (:domain nested-when-d)
+              (:objects c2 - object)
+              (:init)
+              (:goal (r c1))
+              (:htn :subtasks (and (task0 (t1 ?x)))))"#,
+        )
+        .unwrap();
+        let err = ground(&domain, &problem, &Default::default()).unwrap_err();
+        assert!(
+            err.to_string().contains("variable argument"),
+            "expected NonGroundRootSubtaskArg, got {err:?}"
+        );
+
+        // Declared but ill-typed: sibling types (vehicle is NOT a subtype
+        // of loc), so the declared variable cannot legally bind anywhere
+        // the callee expects.
+        let typed = parse_domain(
+            r#"(define (domain sibling-types-d)
+              (:types loc vehicle)
+              (:predicates (p ?x - loc))
+              (:task t1 :parameters (?a - loc))
+              (:method m0
+                :parameters (?x - loc)
+                :task (t1 ?x)
+                :subtasks ()))"#,
+        )
+        .unwrap();
+        let problem = parse_problem(
+            r#"(define (problem illtyped-var-p)
+              (:domain sibling-types-d)
+              (:objects l1 - loc v1 - vehicle)
+              (:init)
+              (:goal (p l1))
+              (:htn :parameters (?x - vehicle)
+               :subtasks (and (task0 (t1 ?x)))))"#,
+        )
+        .unwrap();
+        let err = ground(&typed, &problem, &Default::default()).unwrap_err();
+        assert!(
+            err.to_string().contains("is not a subtype of the declared parameter type"),
+            "expected ArgumentTypeMismatch, got {err:?}"
+        );
     }
 }

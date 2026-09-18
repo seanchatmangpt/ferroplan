@@ -27,16 +27,19 @@ The front-end crate is `crates/ferroplan-hddl`. In scope:
   (subtype -> parent, transitively resolved during grounding), `:constants`.
 - Predicates; abstract `:task` declarations; primitive `:action`s with a
   conjunctive precondition and effect; `:method`s with an optional
-  `:precondition` (the HDDL `:method-preconditions` construct) and a totally
-  or partially ordered subtask network (explicit `<` ordering edges).
+  `:precondition` (the HDDL `:method-preconditions` construct), a totally
+  or partially ordered subtask network (explicit `<` ordering edges), and a
+  `:effect` (below) applied at decomposition time.
 - Problem files with `:objects`, `:init`, `:goal`, and the initial `:htn`
-  task network.
+  task network — whose own `:parameters` are existentially bound: one ground
+  root network (hence one initial state) per admissible binding of those
+  variables over their declared types.
 - Precondition/goal connectives: `and`, `or`, `imply`, `not` (of a single
   atom in preconditions; of compound descriptions in `:goal` via DNF
   expansion), `forall`, `exists` (expanded at grounding time). `or`/`imply`/
   quantifiers are refused inside `when`-effect conditions.
-- Effects: literals, `and`, `when` (conditional), `oneof` (rules below), the
-  empty effect `()`.
+- Effects: literals, `and`, `when` (conditional, rules below), `oneof` (rules
+  below), the empty effect `()`.
 - The `(:probabilistic w1 e1 w2 e2 ...)` effect extension is accepted as pure
   syntactic sugar: a pure text pre-pass (`probabilistic::preprocess`) rewrites
   it into a standard `oneof` block plus a side-channel weight map, before
@@ -54,7 +57,24 @@ silently dropped:
   (`GroundError::UnsupportedConstraint` / `GroundError::UnsupportedNumericFluent`).
   `increase`/`decrease` effects are the same: parsed, never grounded.
 - Nested `oneof`, `oneof` under `when`, `oneof` in any goal-description
-  position: hard, typed parse errors (below).
+  position, and `oneof` in a method `:effect` (a decomposition effect is
+  deterministic): hard, typed parse errors (below).
+- `when` nested three or more condition levels deep (`(when c1 (when c2
+  (when c3 e)))`): typed ground error (`nested 'when' is out of scope`).
+
+### Conditional-effect (`when`) rules (landing semantics, ticket fond-htn-24)
+
+`when` is grounded to the depth the corpus needs and no further, with every
+boundary loud and typed:
+
+| Rule | Meaning |
+|---|---|
+| Action `:effect` | A `when`'s condition is a ground goal over the action's binding (flat literal conjunction — `or`/`imply`/quantifiers refused there); its body is a conjunctive add/delete set. |
+| Method `:effect` | Same grammar minus `oneof`, applied when the method is chosen for decomposition, before any subtask executes; guards evaluate against the pre-decomposition state. A method with no `:effect` behaves exactly as before (no-op). |
+| One level of `when`-in-`when` flattens | `(when c1 (when c2 e))` grounds identically to `(when (and c1 c2) e)` — a second conditional whose guard conjoins both conditions. Sound because every guard is evaluated against the same source state. |
+| Deeper nesting refused | A `when` at depth ≥ 3 keeps the existing typed refusal (`nested 'when' is out of scope`) rather than silently widening. |
+| Guarded outcomes | Translation evaluates every guard against the transition's SOURCE state per outcome and applies the guarded del-then-add — the same compilation the in-repo `ppddl` compiler uses (`crates/ferroplan/src/ppddl/compile/part06.rs`); one shared `apply_effect_branch` serves action outcomes and method decompositions. |
+| `when` inside a `oneof` branch | Still refused at parse time (deliberate deviation, table below). |
 
 ### `oneof` rules (landing semantics)
 

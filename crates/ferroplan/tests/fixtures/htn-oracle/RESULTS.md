@@ -74,3 +74,39 @@ Oracle artifact: `/tmp/fond-oracle/runs/20260917T215232Z-domain-problem-40622/ru
 probability 0.0000) while `--fixed-ld` returns the real empty-plan policy
 (`Task __noop`, `Method ε`) — the wave-context "treat flexible+NOSOLUTION
 carefully" quirk. Golden = SOLVED via fixed-ld; ferroplan agrees (SOLVED).
+
+## Addendum (2026-09-17, ticket fond-htn-24, branch `fix/ground-conditional-effects`)
+
+The two PANDA rows above are historical wave-3 records. Ticket fond-htn-24
+implemented conditional-effect grounding (action-level `when`, one
+`when`-in-`when` level flattened to a conjunctive guard; deeper nesting keeps
+the typed refusal), PANDA-style method `:effect` (applied at decomposition,
+guards against the source state), and existential binding of the root
+`:htn`'s own `:parameters` (one ground root network / initial state per
+admissible binding). Both rows are flipped out of `KNOWN_MISMATCHES` into the
+agreement gate (with the outcome-closure check), and their old `#[ignore]`d
+GROUND_ERROR demonstrations are now active SOLVED tripwires in
+`htn_oracle.rs`.
+
+Re-measured full sweep (serial, idle machine, same command as above; machine
+note: `Apple M3 Max`, macOS 25.2.0, debug build):
+
+```
+RESULTS|panda-conditional-effect|oracle=SOLVED|ferroplan=SOLVED|translation_ms=1|total_ms=0
+RESULTS|panda-method-effect|oracle=SOLVED|ferroplan=SOLVED|translation_ms=0|total_ms=0
+```
+
+(All other instances re-measured unchanged: the four translate-capacity
+mismatches remain TRANSLATE_ERROR at the same 10 s limit — those belong to
+their own tickets — and every strict-agreement instance stays SOLVED.) The
+mismatch count is now 4/21 admitted (translate capacity only); agreement
+16/21 strict + 1/21 open verdict.
+
+Reproduction note (証): at wave-3 the recorded ground errors were
+`nested 'when' is out of scope` (direct grounder call) and
+`unbound variable '?x'`; through the full `solve_hddl` pipeline both
+fixtures actually refused earlier, at validation, with
+`NonGroundRootSubtaskArg` — the root `:htn`'s `:parameters` were dropped at
+parse time, so `?x` could never bind. Both refusal layers are gone: the
+parameters now parse, validate (declared-variable check with the same
+subtype rule method variables get), and ground existentially.

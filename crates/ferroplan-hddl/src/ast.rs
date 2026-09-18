@@ -57,11 +57,28 @@
 //! `GroundError::UnsupportedPrecondition`, the same refusal `or`/`imply`
 //! already get in that position.
 //!
+//! Conditional effects (`when`) are represented at exactly the depth the
+//! corpus needs (ticket fond-htn-24): `when` under an action's `:effect` and
+//! under a method's `:effect` (`MethodDef::effect`, the PANDA-style
+//! decomposition-time method effect — deterministic only: `oneof` there is
+//! refused), with a condition that is a ground goal over the same binding and
+//! a conjunctive add/delete body. A `when` directly inside another `when`'s
+//! body is accepted and *flattened* — `(when c1 (when c2 e))` grounds
+//! identically to `(when (and c1 c2) e)` — while deeper `when` nesting
+//! (depth >= 3) is refused by the grounder with the existing typed
+//! `GroundError::UnsupportedPrecondition` ("nested 'when' is out of scope").
+//! A `when` inside a `oneof` branch remains refused at parse time (see
+//! below). The problem's root `:htn` network may declare `:parameters`
+//! (`TaskNetwork::params`): its variables are existentially bound over their
+//! declared types, one ground root network per admissible binding (see
+//! `grounder::ground_root_network`).
+//!
 //! Deliberately NOT represented at all (a parse of one of these must be a
 //! hard error, never a silent drop): temporal/durative actions, and any
 //! `oneof` outside the supported surface — a `oneof` nested under
 //! `and`/`when`/another `oneof`, a `oneof` in a precondition/method-
-//! condition/`:goal` position, a `oneof` with no branches, or a `when`
+//! condition/`:goal` position, a `oneof` in a method `:effect` (the effect is
+//! deterministic), a `oneof` with no branches, or a `when`
 //! inside a `oneof` branch (all refused with `ParseError::MalformedOneof`;
 //! see `lib.rs` for the full supported surface).
 
@@ -330,6 +347,16 @@ pub struct OrderEdge {
 /// any relative order; a fully-ordered network has one edge per adjacent pair.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TaskNetwork {
+    /// The network's own `:parameters` (ticket fond-htn-24). Populated for
+    /// the problem's root `:htn` network, where these variables are
+    /// existentially bound over their declared types — one ground root
+    /// network per admissible binding (see
+    /// `grounder::ground_root_network`). Always empty for a method network
+    /// (a method's variables are its own `MethodDef::params`; a `:parameters`
+    /// key inside a method's network body has always been accepted and
+    /// ignored by the parser and stays that way — grounding never reads it
+    /// here).
+    pub params: Vec<TypedParam>,
     /// The subtasks in this network, each with its own locally-unique id.
     pub subtasks: Vec<Subtask>,
     /// Strict "before must precede after" ordering constraints between
@@ -359,6 +386,17 @@ pub struct MethodDef {
     /// this field existed. See `grounder::GroundMethod::precondition` for the
     /// grounded form actually checked by `translate::translate`.
     pub precondition: GoalDesc,
+    /// The method's `:effect` (PANDA-style extension, ticket fond-htn-24):
+    /// applied to the world state at the moment the method is chosen for
+    /// decomposition, before any of its subtasks execute. Deterministic only —
+    /// the grammar here admits `and`/`when`/literals (a `when` body flattens
+    /// one level, per the module docs), never `oneof` (refused at parse time:
+    /// a non-deterministic decomposition effect has no corpus or literature
+    /// precedent to copy, so it is refused loudly rather than invented).
+    /// `Effect::Empty` when no `:effect` key is present — the previous,
+    /// silently-dropped behavior for every domain that doesn't use the
+    /// construct.
+    pub effect: Effect,
     /// The subtask network this method decomposes `task` into.
     pub network: TaskNetwork,
 }
