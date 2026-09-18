@@ -237,6 +237,50 @@ pub enum GroundGoal {
     Or(Vec<GroundGoal>),
 }
 
+impl GroundGoal {
+    /// Tail-destruction primitive behind the iterative [`Drop`] impl below:
+    /// move this node's children out, leaving a structurally-valid but
+    /// childless value behind (`Not(Box(Empty))`, `And/Or(vec![])`, or the
+    /// leaf itself). `Not` replaces *through* the `Box` rather than swapping
+    /// the box (no allocation); the `And`/`Or` arms `mem::take` the whole
+    /// child vector out at once; leaves contribute nothing.
+    fn take_children(&mut self) -> Vec<GroundGoal> {
+        match self {
+            GroundGoal::Not(inner) => {
+                vec![std::mem::replace(inner.as_mut(), GroundGoal::Empty)]
+            }
+            GroundGoal::And(parts) | GroundGoal::Or(parts) => std::mem::take(parts),
+            GroundGoal::Empty | GroundGoal::Atom(_) | GroundGoal::Eq(_, _) => Vec::new(),
+        }
+    }
+}
+
+/// Drop for [`GroundGoal`] never recurses. The derived drop glue would
+/// destroy a deep `Not`/`And`/`Or` chain one stack frame per nesting level —
+/// at adversarial (programmatic) depths the *drop path* overflows the stack
+/// exactly like the *evaluation* path did before its depth budget
+/// ([`DEFAULT_MAX_GOAL_DEPTH`]; ticket #42's tests had to `mem::forget`
+/// their 50k-deep fixtures to dodge this — ticket #59). Instead, children
+/// are moved out level by level onto an explicit heap worklist (the standard
+/// recursion-free `Drop` pattern), so a tree of ANY depth is destroyed in
+/// O(1) stack and O(n) heap work. The budget refusal and this drop path are
+/// independent defenses: evaluation refuses before the stack is exhausted,
+/// and the refused (or evaluated) value then drops without signal at any
+/// depth.
+impl Drop for GroundGoal {
+    fn drop(&mut self) {
+        let mut worklist: Vec<GroundGoal> = self.take_children();
+        while let Some(mut node) = worklist.pop() {
+            worklist.extend(node.take_children());
+            // `node` is now childless: its own drop is trivial, and every
+            // child it surrendered is processed by a later iteration — the
+            // walk the derived glue would have spent stack frames on happens
+            // on the heap here. Total work is bounded by the node count;
+            // the worklist drains fully before the loop exits.
+        }
+    }
+}
+
 /// Substitute `binding` into `goal`, producing a `GroundGoal` ready for
 /// `evaluate_ground_goal`. Handles the full `GoalDesc` grammar this crate
 /// supports in preconditions: `and`/`or`/`not`/`imply`/`forall`/`exists`/
@@ -2552,11 +2596,11 @@ mod tests {
     }
 
     /// Depth-50k via the default `evaluate_ground_goal` entry: typed
-    /// `GoalTooDeep`, exit 0, no signal. The chain is `mem::forget`-ed after
-    /// the assertions: recursive `Drop` of a 50k-deep `Box` chain is a
-    /// *drop-path* hazard outside this ticket's scope (the evaluation path
-    /// is what is budgeted here) and must not be able to abort the harness
-    /// after the evaluated property has already been witnessed.
+    /// `GoalTooDeep`, exit 0, no signal. Both 50k-deep fixtures then drop
+    /// NORMALLY at the end of the test — the iterative `Drop` impl on
+    /// `GroundGoal` destroys them in O(1) stack (ticket #59; pre-#59 they
+    /// had to be `mem::forget`-ed because the derived recursive drop
+    /// overflowed exactly like the un-budgeted evaluator).
     #[test]
     fn fifty_thousand_deep_not_goal_refuses_typed_never_aborts() {
         let goal = deep_not_chain(50_000, "p");
@@ -2582,8 +2626,9 @@ mod tests {
             matches!(err, GroundError::GoalTooDeep { .. }),
             "expected GoalTooDeep, got {err:?}"
         );
-        std::mem::forget(goal);
-        std::mem::forget(action);
+        // `goal` and `action` drop normally at scope end: 100k nodes total,
+        // zero stack recursion (the `Drop` impl above is the fix this test
+        // used to work around).
     }
 
     /// The old panic-hunt boundary itself: depth 10k used to *evaluate*
@@ -2594,9 +2639,11 @@ mod tests {
     /// than release frames, and this probe intentionally exercises the
     /// deep-but-bounded half of the measured boundary (the default-budget
     /// path stays shallow by refusing at depth 257, which the 50k test
-    /// demonstrates on the plain harness stack). Building and dropping the
-    /// 10k chain also happen on that thread, so the harness stack never
-    /// carries either.
+    /// demonstrates on the plain harness stack). The 10k chain is built,
+    /// evaluated, and dropped on that thread: the *evaluator* is what needs
+    /// the headroom in debug builds — building and dropping are iteration,
+    /// not recursion (see the `Drop` impl) — and keeping the whole probe on
+    /// one stack keeps the boundary measurement clean.
     #[test]
     fn ten_thousand_deep_goal_evaluates_within_a_raised_budget() {
         let result = std::thread::Builder::new()
@@ -2631,6 +2678,21 @@ mod tests {
             };
         }
         assert!(evaluate_ground_goal(&goal, &facts).unwrap());
+    }
+
+    /// Deep-but-legal: depth 250 sits inside the default 256 budget, so the
+    /// chain *evaluates* to a value on the plain harness stack and then
+    /// drops normally at scope end. The drop path must be safe at every
+    /// depth the evaluator can be handed — refused or not — which before
+    /// ticket #59 it was not (a legal 250-deep chain that evaluated fine
+    /// would still have overflowed on its way out).
+    #[test]
+    fn depth_250_goal_evaluates_then_drops_normally() {
+        let facts = facts(&["p"]);
+        // 250 nested Nots (even) over a PRESENT leaf: true.
+        assert!(evaluate_ground_goal(&deep_not_chain(250, "p"), &facts).unwrap());
+        // Same depth over an ABSENT leaf: false, still fully evaluated.
+        assert!(!evaluate_ground_goal(&deep_not_chain(250, "q"), &facts).unwrap());
     }
 
     /// Budget override: the same too-deep goal refuses just past a small
@@ -2673,10 +2735,9 @@ mod tests {
         let and_goal = GroundGoal::And(vec![GroundGoal::Atom("r".to_owned()), deep2]);
         assert!(!evaluate_ground_goal(&and_goal, &facts).unwrap());
         // Short-circuiting kept the *evaluation* shallow, but these fixtures
-        // still contain 50k-deep subtrees — same drop-path discipline as
-        // above.
-        std::mem::forget(or_goal);
-        std::mem::forget(and_goal);
+        // still contain 50k-deep subtrees — they drop normally at scope end
+        // (iterative `Drop`, ticket #59; the old `mem::forget` dodge is
+        // gone).
     }
 
     /// `relaxed_satisfiable` shares the recursion shape (via its
@@ -2695,12 +2756,9 @@ mod tests {
             }
             other => panic!("expected GoalTooDeep, got {other:?}"),
         }
-        // Same drop-path discipline as the 50k `Not` test above.
-        std::mem::forget(deep);
+        // `deep` drops normally at scope end (iterative `Drop`, ticket #59).
         // Shallow shape still evaluates: `Or` over an absent leaf stays
-        // false all the way down under the delete relaxation. (100-deep:
-        // drops recursively without incident — the forget discipline above
-        // is only needed for the 50k-deep adversarial fixtures.)
+        // false all the way down under the delete relaxation.
         assert!(!relaxed_satisfiable(&deep_or_chain(100, "p"), &facts).unwrap());
     }
 
