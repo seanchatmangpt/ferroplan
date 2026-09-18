@@ -210,9 +210,10 @@ pub fn adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) -> PlanningP
 /// default-preserving. The trade-off is that grounding and solving share one
 /// size knob at a fixed 10:1 ratio; should a caller ever need to raise the
 /// ground caps *independently* of the solver's state budget, the escape hatch
-/// is the other shape the ticket named — explicit optional fields, as the
-/// translate-side plumbing (ticket fond-htn-23) did with
-/// `max_composite_states`.
+/// is the other shape the ticket named — explicit optional fields. The
+/// translate-side plumbing (ticket fond-htn-65, superseding the
+/// never-landed ticket fond-htn-23 design) uses this same scaling shape —
+/// see [`MAX_STATES_PER_COMPOSITE_STATE`].
 const MAX_STATES_PER_GROUND_INSTANCE: usize = 10;
 
 /// Derive the grounding-phase limits [`solve_hddl_inner`] passes to
@@ -254,14 +255,68 @@ fn grounding_limits_from(limits: &PlannerLimits) -> ferroplan_hddl::grounder::Gr
     }
 }
 
+/// Composite-state budget per unit of [`PlannerLimits::max_states`] — the
+/// calibration constant of [`translate_limits_from`]. Chosen so that
+/// `PlannerLimits::default()` (`max_states = 100_000`) reproduces, exactly,
+/// the translate envelope `solve_hddl` has always applied
+/// (`TranslateLimits::default()`: 200 000 composite states, 10 s wall) — the
+/// ticket's "default behavior unchanged" requirement. Same shape as
+/// [`MAX_STATES_PER_GROUND_INSTANCE`] (the zero-new-fields scaling option):
+/// the caller declares one problem-size appetite and every capacity-carrying
+/// stage of the pipeline scales with it — here at a 2:1 ratio, because
+/// translate's composite BFS interns strictly more states than grounding
+/// emits ground instances (every ground action is re-explored per reachable
+/// composite state), so the historical envelope needed 2× the solver's
+/// state budget.
+const MAX_STATES_PER_COMPOSITE_STATE: usize = 2;
+
+/// Derive the translate-phase limits [`solve_hddl_inner`] passes to
+/// `ferroplan_hddl::translate::translate` from the caller's
+/// [`PlannerLimits`] — the translate-side half of the capacity plumbing
+/// (the grounding-side counterpart is [`grounding_limits_from`]; the two
+/// are independent seams in the same pipeline function). Supersedes the
+/// never-landed ticket fond-htn-23 design (a dedicated
+/// `PlannerLimits::max_composite_states` field) with the same
+/// zero-new-fields shape ticket fond-htn-43 shipped for grounding.
+///
+/// Mapping (all three fields are derived; nothing is hard-coded here):
+///
+/// - `max_states`: `Some(limits.max_states /
+///   MAX_STATES_PER_COMPOSITE_STATE)` — see that constant for why the ratio
+///   is 2. Raising `max_states` therefore raises translate's composite-state
+///   ceiling proportionally.
+/// - `max_wall`: `Some(max_wall_ms)` verbatim, with `max_wall_ms == 0`
+///   mapping to `None` (unbounded), matching `max_wall_ms`'s own documented
+///   convention and [`grounding_limits_from`]. Behavior note, same class as
+///   the grounding-side one: before this plumbing, a caller's
+///   `max_wall_ms` — however large — never lifted translate's *internal*
+///   10 s wall (the wave-4 sweep's 9 `LIMIT:translate-wall` refusals,
+///   ticket fond-htn-23's finding); now the caller's wall governs, and
+///   `0` really is unbounded, consistent with `solve_hddl`'s own watchdog.
+/// - `max_task_network_depth`: left at `TranslateLimits::default()`'s 64 —
+///   it bounds recursive-method pathology (a parse-shape property), not
+///   problem size, and is not a capacity knob this ticket plumbs.
+fn translate_limits_from(limits: &PlannerLimits) -> ferroplan_hddl::translate::TranslateLimits {
+    ferroplan_hddl::translate::TranslateLimits {
+        max_task_network_depth: ferroplan_hddl::translate::TranslateLimits::default()
+            .max_task_network_depth,
+        max_wall: if limits.max_wall_ms == 0 {
+            None
+        } else {
+            Some(Duration::from_millis(limits.max_wall_ms))
+        },
+        max_states: Some(limits.max_states / MAX_STATES_PER_COMPOSITE_STATE),
+    }
+}
+
 /// Parse, ground, and translate an HDDL domain+problem pair, then run it
 /// through the existing FOND solver. This is the real, sequential pipeline
 /// with no wall-clock guard of its own -- `ferroplan_hddl::grounder::ground`
 /// and `ferroplan_hddl::translate::translate` each already enforce their own
 /// wall-clock caps internally (`GroundingLimits::max_wall`, derived from the
 /// caller's `limits` by [`grounding_limits_from`]; `TranslateLimits::max_wall`
-/// at its own default, pending the translate-side plumbing of ticket
-/// fond-htn-23), `solve_planning_type` enforces `limits.max_wall_ms` inside
+/// likewise derived by [`translate_limits_from`]),
+/// `solve_planning_type` enforces `limits.max_wall_ms` inside
 /// `fond_policy`/`fond_policy_strong_cyclic`, and the grounding instance
 /// caps are likewise derived from `limits` (see [`grounding_limits_from`]) --
 /// but `ferroplan_hddl::parser::parse_domain`/`parse_problem` have no
@@ -279,11 +334,8 @@ fn solve_hddl_inner(
         .map_err(|e| HddlError::Parse(e.to_string()))?;
     let ir = ferroplan_hddl::grounder::ground(&domain, &problem, &grounding_limits_from(limits))
         .map_err(|e| HddlError::Ground(e.to_string()))?;
-    let translated = ferroplan_hddl::translate::translate(
-        &ir,
-        &ferroplan_hddl::translate::TranslateLimits::default(),
-    )
-    .map_err(|e| HddlError::Translate(e.to_string()))?;
+    let translated = ferroplan_hddl::translate::translate(&ir, &translate_limits_from(limits))
+        .map_err(|e| HddlError::Translate(e.to_string()))?;
     let planning_problem = adapt_problem(translated);
     let request = UniversalPlanningRequest {
         planning_type: PlanningType::Fond,
@@ -311,8 +363,8 @@ fn solve_hddl_inner(
 /// derived from this same `limits` (`GroundingLimits::max_wall`, see
 /// [`grounding_limits_from`]) and its instance caps are likewise
 /// `limits`-derived, `translate` carries its own internal wall-clock check
-/// (`TranslateLimits::max_wall`, defaulted from the same 10 s order of
-/// magnitude pending ticket fond-htn-23's plumbing), and
+/// (`TranslateLimits::max_wall`, likewise derived from `limits`, see
+/// [`translate_limits_from`]), and
 /// `fond_policy`/`fond_policy_strong_cyclic` check `limits.max_wall_ms`
 /// directly, so every phase past the parser also exits on its own within
 /// roughly one more `max_wall_ms`-scaled budget even if this watchdog has
