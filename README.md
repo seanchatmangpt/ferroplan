@@ -321,9 +321,10 @@ witnesses it:
   ground-instance counts exceed 1,000,000 — and the 17th (hiking) clears
   grounding only to refuse at the translate wall
   (`crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS-wavec.md`,
-  ticket fond-htn-43 addendum). Relevance pruning to bring these counts
-  under the default envelope is in flight
-  (`docs/jira/v26.9.17/fond-htn-60-grounding-prune.md`).
+  ticket fond-htn-43 addendum). Hierarchical task-relevance pruning has
+  landed as an opt-in flag (`GroundingLimits::prune_irrelevant`,
+  ticket fond-htn-60); flipping the default envelope awaits the
+  16-domain default-caps re-run.
 
 ## Configuration
 

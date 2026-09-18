@@ -253,15 +253,19 @@ plumbing (ticket 43, Section 3), and duplicate type declarations as
 union-of-parents (ticket 44, Section 1). Still open, each ticketed:
 translate capacity against the internal `TranslateLimits::default()` 10 s
 wall (ticket 23, below) and `probabilistic_policy`'s value iteration
-remaining `max_iterations`-gated (noted on the field). One residual defect
-is known: when the Phase-3 fixpoint closes with `reach == surviving`,
-`fond_policy_strong_cyclic` returns Phase-2 witness-first choices without
-rewriting them to committable advancing actions — the property scale-up's
-**FOUND_BUG_2** (a goal-unreachable loop can be returned where a
-committable advancing action exists; distinct from the fixed FOUND_BUG_1;
-shrunk reproducer `#[ignore]`d in
-`crates/ferroplan/tests/fond_property_scaleup.rs`; fix in flight, ticket
-fond-htn-57). This document describes the landed construction; the
+remaining `max_iterations`-gated (noted on the field). A second defect in this
+family — **FOUND_BUG_2**: when the Phase-3 fixpoint closed with
+`reach == surviving`, `fond_policy_strong_cyclic` returned Phase-2
+witness-first choices without rewriting them to committable advancing
+actions (a goal-unreachable loop could be returned where a committable
+advancing action exists; distinct from the fixed FOUND_BUG_1) — is
+**fixed**: Phase 3 now records reach-discovery ranks and rewrites every
+surviving non-goal state's choice to a committable advancing action at
+fixpoint close, pruning states with none (ticket fond-htn-57). The shrunk
+reproducer runs always-on and the 5,000-instance sweep's loop-policy
+carve-out was removed
+(`crates/ferroplan/tests/fond_property_scaleup.rs`; 0 mismatches,
+0 ignored). This document describes the landed construction; the
 open tickets bound what it currently guarantees.
 
 ## 3. Architecture
@@ -311,18 +315,27 @@ IPC-2023 instances (PCP_1, PO_Transport, Satellite-GTOHP, Transport) hit
 `TranslateError::Timeout` at that wall with ~10k composite states interned and
 more still queued (`crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md`,
 the `LIMIT:translate-wall` rows), while the external oracle solves each in
-under 1.3 s. Plumbling the caller budget (and a public composite-state budget)
-through into the translate caps is ticket 23, in flight; the paragraph above
-describes what the code does today, not what it is meant to do. Loud refusal
-at the wall stays lawful either way: the translator never silently truncates.
+under 1.3 s. Plumbing the caller budget (and a public composite-state budget)
+through into the translate caps **landed** (ticket fond-htn-65:
+`translate_limits_from` derives `TranslateLimits` from `PlannerLimits`,
+default-identical calibration; the 9 wave-4 `LIMIT:translate-wall`
+instances re-run at 60 s caller walls now bind at the cumulative
+pipeline watchdog, not the old 10 s translate wall —
+`crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS-wavec.md`, addendum 2).
+Loud refusal at the wall stays lawful either way: the translator never
+silently truncates.
 The grounded-caps mapping is measured at the raised end: under
 `max_states` 10,000,000 (ground caps 1,000,000), 16 of the 17 domains the
 default-cap sweep refused at 10,000 still refuse — their true ground-instance
 counts exceed 1,000,000 — and the 17th (hiking) clears grounding only to
 refuse at the translate wall
 (`crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS-wavec.md`, ticket
-fond-htn-43 addendum). Relevance pruning to bring those counts under the
-default envelope is ticket fond-htn-60, in flight.
+fond-htn-43 addendum). Hierarchical task-relevance pruning to bring those
+counts under the default envelope **landed as an opt-in flag**
+(`GroundingLimits::prune_irrelevant`, ticket fond-htn-60; provably-irrelevant
+instances only — the micro/oracle/canonical walls stayed green); flipping the
+DEFAULT envelope awaits the 16-domain default-caps re-run
+(`crates/ferroplan/tests/grounding_prune_ipc_rerun.rs`, `#[ignore]`d long-run).
 
 ### Capacity numbers
 
@@ -390,9 +403,10 @@ Two committed walls stress the pipeline beyond the hand-picked corpora:
   the solver returns Phase-2 witness-first choices — a goal-unreachable
   loop can be returned where a committable advancing action exists
   (882 of 3676 reference-solvable instances affected in the committed run;
-  ticket fond-htn-57). The shrunk two-state reproducer is `#[ignore]`d in
-  the same file as a live tripwire; the fix is in flight (ticket
-  fond-htn-57).
+  ticket fond-htn-57). The shrunk two-state reproducer runs **always-on**
+  in the same file as a live tripwire; the fix **landed** (choice rewrite
+  to advancing actions at fixpoint close; the sweep's carve-out for this
+  class was removed — any recurrence fails the sweep, ticket fond-htn-57).
 
 Dependency direction: `ferroplan-hddl` has zero dependency on `ferroplan`;
 `ferroplan` depends on `ferroplan-hddl`, never the reverse.

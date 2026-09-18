@@ -228,9 +228,11 @@ by the named commit, test file, or committed RESULTS record.
   re-run of the 17 ground-cap-refused IPC domains is committed
   (`crates/ferroplan/tests/ground_caps_ipc_addendum.rs`,
   `tests/fixtures/ipc-sweep/RESULTS-wavec.md`): 16 of 17 still refuse at
-  1,000,000-instance caps — true counts exceed 1M; relevance pruning to
-  bring them under the default envelope is in flight (ticket fond-htn-60)
-  — and the 17th progressed past grounding to the translate wall.
+  1,000,000-instance caps — true counts exceed 1M; hierarchical
+  task-relevance pruning has since landed as an opt-in flag
+  (`GroundingLimits::prune_irrelevant`, ticket fond-htn-60; flipping the
+  default envelope awaits the 16-domain default-caps re-run) — and the
+  17th progressed past grounding to the translate wall.
 - **Two stress walls landed.** The seeded 2000-case HDDL round-trip fuzz
   (`tests/hddl_fuzz_roundtrip.rs`, ticket fond-htn-31; branch
   `fuzz/hddl-roundtrip`, merged `8e54704`) completed with zero findings:
@@ -241,9 +243,51 @@ by the named commit, test file, or committed RESULTS record.
   against an independent label-correcting reference and **found
   FOUND_BUG_2** — strong-cyclic returns Phase-2 witness-first
   goal-unreachable loop choices when the Phase-3 region closes without a
-  choice rewrite (882 of 3676 reference-solvable instances); the shrunk
-  reproducer is `#[ignore]`d in the same file as a live tripwire, and the
-  fix is in flight (ticket fond-htn-57).
+  choice rewrite (882 of 3676 reference-solvable instances). **Fixed**
+  (ticket fond-htn-57): Phase 3 records reach-discovery ranks and rewrites
+  every surviving non-goal state's choice to a committable advancing
+  action at fixpoint close; the shrunk reproducer runs always-on and the
+  sweep's loop-policy carve-out was removed — the 5,000-instance sweep now
+  fails on any recurrence (0 mismatches on the landing run).
+- **Wave-6 hardening (landed on the integration line, coordinator lands to
+  main):**
+  - **Drop-retry re-decomposition seam fixed** (ticket fond-htn-58,
+    commit `4964b74`): after a no-change `oneof` outcome the translator
+    re-offers the pending abstract task instead of consuming the
+    decomposition offer once — the committed koala-contrast pin
+    `ORACLE_MISMATCH_micro_drop_retry` is now the always-on
+    `micro_drop_retry_agrees_with_oracle` agreement test
+    (`tests/fond_htn_oracle.rs`), goldens healed.
+  - **Iterative `Drop` for `GroundGoal`** (ticket fond-htn-59, commit
+    `304fa66`): any depth drops in O(1) stack via explicit-worklist tail
+    destruction — a refused depth-50k goal no longer SIGABRTs on the way
+    down; the `mem::forget` dodges in the depth-budget tests are gone.
+  - **Hierarchical task-relevance pruning** (ticket fond-htn-60, opt-in
+    `GroundingLimits::prune_irrelevant`): an iterative task-relevance
+    fixpoint keeps only actions/methods on some path from the initial task
+    network, so >1M-instance groundings can fit the caps; soundness
+    falsifiers re-pinned (count reduction only). The 16-domain default-caps
+    re-run harness is committed
+    (`tests/grounding_prune_ipc_rerun.rs`, `#[ignore]`d long-run).
+  - **TranslateLimits plumbing** (ticket fond-htn-65, commits `9bbe2c3` +
+    `6757249`): `translate_limits_from` derives the translate wall/state
+    budget from `PlannerLimits` (default-identical calibration,
+    `max_states` ÷ 2), and the 9 wave-4 `LIMIT:translate-wall` IPC
+    instances re-run at 60 s caller walls now bind at the cumulative
+    pipeline watchdog, not the old 10 s translate wall
+    (`tests/fixtures/ipc-sweep/RESULTS-wavec.md`, addendum 2).
+  - **Differential fuzz harness** (ticket fond-htn-61): the committed
+    generator's VALID draws run through both engines with a 100-pair
+    ledger and per-seed divergence minimization
+    (`tests/differential_fuzz.rs` + `tests/common/mod.rs`). The pre-hotfix
+    ledger harvest found 14 divergences/3 incomparable; after the wave-6
+    soundness fixes land, the live-vs-ledger tripwire correctly fires on
+    8 verdict flips (6× SOLVED→NOSOLUTION = false solves removed by
+    fond-htn-57, 2× NOSOLUTION→SOLVED = dead branches re-decomposed by
+    fond-htn-58) — the ledger is parked as
+    `tests/fixtures/differential-fuzz/ledger.pre-wave6-hotfix-harvest.json`
+    until the oracle harness is rebuilt and a fresh ≥80-consumable harvest
+    re-arms the tripwire.
 
 The parse-depth row of "Known limits" above (ticket fond-htn-22) is
 superseded by the parser depth budget in this block; the grounded-caps
