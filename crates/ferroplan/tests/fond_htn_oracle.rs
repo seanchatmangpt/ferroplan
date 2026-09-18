@@ -56,9 +56,16 @@
 //! Semantic (`ORACLE_MISMATCH_*` tests below):
 //! - `micro-drop-retry` (+ Transport, same shape): koala "flexible" allows
 //!   re-decomposition after a `oneof` outcome that dead-ends the task
-//!   network; ferroplan at this base treats the exhausted network + unsat
-//!   `:goal` as a dead terminal → `NoPlan`. Owned upstream by frozen branch
-//!   `fix/oneof-koala-semantics` (tip `4d40f99`, NOT merged into this base).
+//!   network; ferroplan advanced the task frontier past `drop` on BOTH
+//!   outcomes, so the empty branch landed in a terminal state where `:goal`
+//!   was unsatisfiable → `NoPlan`. HEALED by ticket fond-htn-58: translate
+//!   keeps the frontier un-advanced on a no-change outcome of a
+//!   nondeterministic action (the outcome self-loops on the source composite
+//!   state, re-offering the pending task), and the mismatch `#[ignore]`d pin
+//!   was promoted to the always-on `micro_drop_retry_agrees_with_oracle`
+//!   agreement test below. (Transport's harvested run itself stays a
+//!   resource-limit `error` at default limits — see below — but its
+//!   semantic shape is the one healed here.)
 //! - `micro-sense`: koala computes **strong** (acyclic) plans and refuses
 //!   the calibrate/retry loop (NOSOLUTION under `flexible` AND `fixed-ld`);
 //!   ferroplan's `fond_policy` strong fixpoint closes the fair loop →
@@ -75,9 +82,10 @@
 //! exceed the 10 s default `max_wall_ms` inside `solve_hddl`'s translate
 //! BFS; koala-Snake exceeds the default `max_ground_methods` (10000).
 //!
-//! Agreement: micro-overlap, koala-Satellite, koala-Depots, koala-Rover
-//! (Depots' and Rover's `oneof` failure branches do NOT dead-end their task
-//! networks, so no re-decomposition divergence surfaces there).
+//! Agreement: micro-overlap, micro-drop-retry, koala-Satellite, koala-Depots,
+//! koala-Rover (Depots' and Rover's `oneof` failure branches do NOT dead-end
+//! their task networks, so no re-decomposition divergence surfaces there;
+//! micro-drop-retry joined the agreeing set with ticket fond-htn-58).
 
 // The `ORACLE_MISMATCH_*` test names are mandated verbatim by ticket
 // fond-htn-04 scope 5; they are deliberately not snake_case.
@@ -438,17 +446,23 @@ fn external_corpus_koala_rover() {
 // Layer 3: harvested semantic disagreements (#[ignore]d per ticket scope 5)
 // ---------------------------------------------------------------------------
 
-/// DISAGREEMENT (drop-retry shape): koala "flexible" **re-decomposes** after
-/// the empty-branch outcome of `drop` (task network exhausted, package still
-/// in the truck) and finds a policy; ferroplan at this base advances the
-/// task frontier past `drop` on BOTH outcomes, so the empty branch lands in
-/// a terminal state where `:goal` is unsatisfiable → typed `NoPlan`.
-/// Owned by frozen branch `fix/oneof-koala-semantics` (tip `4d40f99`, not
-/// merged here); oracle side recorded in `oracle-goldens.json`
-/// (`micro-drop-retry`: SOLVED, 0.306 s).
+/// DISAGREEMENT (drop-retry shape), healed by ticket fond-htn-58: at base
+/// `75870de` the translator advanced the task frontier past a nondeterministic
+/// action on ALL outcomes, so the empty-branch outcome of `drop` (the
+/// koala-dialect `(and)` arm: facts unchanged) landed in a task-network-spent
+/// terminal state where `:goal` was unsatisfiable — a dead sink that pruned
+/// the whole region in both policy fixpoints → typed `NoPlan` while the
+/// oracle (koala "flexible") re-offered the decomposition after the no-change
+/// outcome and solved. The heal: `translate` keeps the frontier un-advanced
+/// on a no-change outcome of a multi-outcome action, so that outcome projects
+/// back onto the source composite state as a self-loop and the still-pending
+/// task is re-offered (the strong fixpoint still refuses the self-loop; the
+/// strong-cyclic fallback closes it — the retry is fair). Promoted from an
+/// `#[ignore]`d `ORACLE_MISMATCH_*` pin to this always-on agreement test:
+/// ferroplan must keep agreeing with the oracle (SOLVED, outcome-closed)
+/// from here on.
 #[test]
-#[ignore = "recorded oracle mismatch: koala flexible re-decomposition vs ferroplan dead-terminal (fix/oneof-koala-semantics)"]
-fn ORACLE_MISMATCH_micro_drop_retry() {
+fn micro_drop_retry_agrees_with_oracle() {
     let dir = Path::new(FIXTURE_DIR);
     let run = goldens()
         .into_iter()
@@ -456,13 +470,12 @@ fn ORACLE_MISMATCH_micro_drop_retry() {
         .expect("micro-drop-retry golden");
     let live = outcome_for_run(&run, Some(dir));
     assert_matches_golden(&run, &live, Some(dir));
+    assert_eq!(live, Outcome::Solved);
     assert_eq!(
-        golden_string(&run, "ferroplan"),
-        "NOSOLUTION",
-        "mismatch healed: if ferroplan now agrees with the oracle (SOLVED), \
-         update the goldens + close this test"
+        run["oracle"]["status"].as_str(),
+        Some("SOLVED"),
+        "if koala ever stops solving micro-drop-retry, re-harvest the goldens"
     );
-    assert_eq!(live, Outcome::NoPlan);
 }
 
 /// DISAGREEMENT (strong vs strong-cyclic): `micro-sense`'s calibrate/retry
