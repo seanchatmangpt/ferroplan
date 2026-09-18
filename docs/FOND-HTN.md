@@ -279,11 +279,38 @@ at the wall stays lawful either way: the translator never silently truncates.
 
 ### Capacity numbers
 
-<!-- WAVE4-NUMBERS: benchmark capacity numbers (tickets 26-28: criterion
-     bench, IPC full sweep, scaling ladder) slot in here at integration.
-     Per the wave-4 rules addenda every published number must carry its
-     command, seed, wall, and machine note. Intentionally empty until
-     measured numbers land — no invented figures. -->
+Wave-4 measured capacity (all numbers committed FACTS, reproduced from the
+cited in-repo files; machine for every row: Apple M3 Max, 16 cores, 48 GB,
+macOS 26.2):
+
+- **Criterion bench** (`crates/ferroplan/benches/BENCH-FOND.md`, ticket
+  fond-htn-26; `cargo bench -p ferroplan --bench fond -- --quick`, 10
+  samples, seed `0x5EED_2026_0917`): strong fixpoint `chain_200` mean
+  **15.53 ms ± 0.32**, `lattice_200` (20×10) mean **2.26 ms**, strong-cyclic
+  `mixed_ladder_200` mean **22.40 ms ± 0.06** (wall includes the preceding
+  strong-fixpoint NoPlan pass — production dispatch is strong first,
+  strong-cyclic on `NoPlan`). `solve_planning_type` dispatch floor on a
+  2-state chain: **899 ns ± 11 ns**. CI tripwires pin these shapes in
+  `tests/fond_threshold.rs` (release bound 50 ms / dev 1200 ms).
+- **IPC-2023 full sweep** (`crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS.md`,
+  ticket fond-htn-27; `cargo test -p ferroplan --test ipc_sweep -- --ignored`,
+  2026-09-18T00:21:12Z): **12/43 SOLVED** end-to-end, 0 NOPLAN. Refusal
+  histogram, 28 LIMIT refusals: `ground-actions` ×14, `translate-wall` ×9
+  (the pre-ticket-23 internal 10 s translate wall), `ground-methods` ×3,
+  `solve-wall` ×2; plus 3 `GAP:ground` validation refusals (duplicate type
+  declaration; variable-arg root task-network subtasks). No panics, no
+  garbage outcomes — every one of the 43 answers is an honest typed verdict.
+- **Scaling ladder** (`crates/ferroplan/tests/fixtures/scaling-ladder/RESULTS.md`,
+  ticket fond-htn-28; `cargo test -p ferroplan --test scaling_ladder --
+  --ignored`, seed 20260917, max RSS ~93 MiB): **zero refusals through
+  n=128** in both families (chain-world, transport-drop). Envelope: ground
+  linear in n (transport) / quadratic (chain's n²+n schemas); translate
+  linear in composite states but walls ≈×5 per doubling past n≈32
+  (per-state fact-set cloning, quadratic in n); solve is the steepest stage
+  at ≈×7.7–7.9 per doubling (≈ cubic — fixpoint rounds × full rescan) and is
+  the **projected capacity knee**: the 60 s solve bound first bites at
+  ≈n 200–210 (transport-drop) / ≈n 430 (chain-world). These are projections
+  from measured doubling factors, not observed refusals.
 
 Dependency direction: `ferroplan-hddl` has zero dependency on `ferroplan`;
 `ferroplan` depends on `ferroplan-hddl`, never the reverse.
