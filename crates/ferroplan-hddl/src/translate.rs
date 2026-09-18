@@ -35,7 +35,8 @@
 
 use crate::ast::{GoalDesc, Term};
 use crate::grounder::{
-    atom_key, evaluate_ground_goal, GroundEffectBranch, GroundMethod, GroundSubtask, GroundedIR,
+    atom_key, evaluate_ground_goal, GroundEffectBranch, GroundError, GroundMethod, GroundSubtask,
+    GroundedIR,
 };
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
@@ -114,6 +115,15 @@ pub enum TranslateError {
         states: usize,
         limit: usize,
     },
+    /// A ground method/action precondition check via
+    /// `grounder::evaluate_ground_goal` refused (today its single failure
+    /// mode is `GroundError::GoalTooDeep` — see `DEFAULT_MAX_GOAL_DEPTH`).
+    /// Carried verbatim rather than mirrored field-by-field so any future
+    /// evaluator refusal forwards without a lossy conversion; reachable only
+    /// via a hand-built `GroundedIR` whose preconditions out-nest the
+    /// evaluation budget, since grounding itself produces goals within the
+    /// parser's nesting budget.
+    Ground(GroundError),
 }
 
 impl fmt::Display for TranslateError {
@@ -146,6 +156,7 @@ impl fmt::Display for TranslateError {
                 f,
                 "translate memory limit exceeded: {states} states interned, limit {limit}"
             ),
+            Self::Ground(e) => write!(f, "ground goal evaluation failed during translate: {e}"),
         }
     }
 }
@@ -1042,7 +1053,9 @@ pub fn translate(
                     // unconstrained method-choice branching that made the
                     // real IPC2020 blocksworld fixture (fixtures/f) blow up
                     // combinatorially instead of solving.
-                    if !evaluate_ground_goal(&m.precondition, &cs.facts) {
+                    if !evaluate_ground_goal(&m.precondition, &cs.facts)
+                        .map_err(TranslateError::Ground)?
+                    {
                         continue;
                     }
                     for st in &m.subtasks {
@@ -1088,7 +1101,9 @@ pub fn translate(
             // real transition with real probability mass.
             if let Some(actions) = actions_by_name.get(task_name.as_str()) {
                 for action in actions {
-                    if !evaluate_ground_goal(&action.precondition, &cs.facts) {
+                    if !evaluate_ground_goal(&action.precondition, &cs.facts)
+                        .map_err(TranslateError::Ground)?
+                    {
                         continue;
                     }
                     if action.outcomes.is_empty() {

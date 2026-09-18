@@ -381,9 +381,9 @@ pub struct MethodDef {
     /// `(forall (?b - BLOCK) (done ?b))`). `GoalDesc::Empty` (this type's
     /// `Default`, matching `ActionDef::precondition`'s convention when no
     /// `:precondition` key is present) for a method with no declared
-    /// precondition — `evaluate_ground_goal(&GroundGoal::Empty, _)` always
-    /// holds, so an unconditional method decomposes exactly as it did before
-    /// this field existed. See `grounder::GroundMethod::precondition` for the
+    /// precondition — `evaluate_ground_goal(&GroundGoal::Empty, _)` is
+    /// always `Ok(true)`, so an unconditional method decomposes exactly as it
+    /// did before this field existed. See `grounder::GroundMethod::precondition` for the
     /// grounded form actually checked by `translate::translate`.
     pub precondition: GoalDesc,
     /// The method's `:effect` (PANDA-style extension, ticket fond-htn-24):
