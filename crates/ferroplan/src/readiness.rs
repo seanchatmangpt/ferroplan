@@ -299,7 +299,12 @@ pub fn capability_manifest() -> CapabilityManifest {
         ),
         // FOND policy capability (strong fixpoint + strong-cyclic dispatch).
         // Evidence ids are REAL test names — the `fond_policy*` tests in
-        // `crates/ferroplan/src/planning_runtime.rs`.
+        // `crates/ferroplan/src/planning_runtime.rs` and the always-on
+        // enumeration/reference guards in
+        // `crates/ferroplan/tests/fond_property.rs`. The `#[ignore]`d
+        // Fond tests of that file are deliberately NOT mapped: an ignored
+        // test runs on no CI rail, so naming it as required evidence would
+        // fabricate runnable-evidence claims.
         contract(
             "fp.core.fond",
             "crates/ferroplan",
@@ -313,13 +318,20 @@ pub fn capability_manifest() -> CapabilityManifest {
                 "fond.fond_policy_strong_cyclic_solves_the_retry_loop_domain",
                 "fond.fond_policy_strong_cyclic_solves_two_independent_retry_points",
                 "fond.fond_policy_still_solves_acyclic_strong_domains_directly",
+                "fond_property.fond_solver_matches_independent_policy_enumeration",
+                "fond_property.reference_oracle_agrees_with_hand_computed_semantics",
             ],
         ),
         // HDDL front-end capability (parse -> ground -> translate -> FOND
         // solve, plus the Eve `DecomposeHddl` bridge). Evidence ids are REAL
         // test names — the `eve_bridge_*`/`solve_hddl*` tests in
-        // `crates/ferroplan/src/hddl.rs` and
-        // `crates/ferroplan/tests/eve_genesis.rs`.
+        // `crates/ferroplan/src/hddl.rs`, the
+        // `crates/ferroplan/tests/eve_genesis.rs` tests, and the always-on
+        // golden-ledger guards in
+        // `crates/ferroplan/tests/fond_htn_oracle.rs`. That file's
+        // `#[ignore]`d external-corpus and ORACLE_MISMATCH_* repros are
+        // deliberately NOT mapped (not runnable CI evidence; their defect
+        // tickets own the re-mapping when the ignores come off).
         contract(
             "fp.core.hddl",
             "crates/ferroplan",
@@ -329,6 +341,8 @@ pub fn capability_manifest() -> CapabilityManifest {
             ReplayClass::Exact,
             SecurityClass::UntrustedInput,
             &[
+                "fond_htn_oracle.goldens_agreement_ledger_is_consistent",
+                "fond_htn_oracle.in_repo_fixtures_match_recorded_ferroplan_outcomes",
                 "hddl.eve_bridge_accepts_a_problem_whose_network_matches_the_eve_root_task",
                 "hddl.eve_bridge_refuses_a_problem_network_conflicting_with_the_eve_root_task",
                 "hddl.eve_bridge_reports_a_parse_error_for_a_malformed_eve_root_task",
@@ -1156,6 +1170,21 @@ mod tests {
         assert!(ids.contains("fp.core.explain"));
         assert!(ids.contains("fp.core.fond"));
         assert!(ids.contains("fp.core.hddl"));
+        // Canonical evidence counts for the two FOND-HTN capabilities: every
+        // id here must be a real test (script-verified by
+        // `scripts/verify_evidence_ids.py`). Bump both pins when a branch
+        // adds ids — the union with `docs/readiness-refresh` must land at
+        // 15 (fond) / 18 (hddl).
+        let evidence_of = |capability: &str| {
+            manifest
+                .capabilities
+                .iter()
+                .find(|contract| contract.id == capability)
+                .map(|contract| contract.required_evidence.len())
+                .unwrap_or(0)
+        };
+        assert_eq!(evidence_of("fp.core.fond"), 6);
+        assert_eq!(evidence_of("fp.core.hddl"), 10);
     }
 
     #[test]

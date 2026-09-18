@@ -24,3 +24,4 @@ Gates: `cargo test -p ferroplan --lib readiness` exit 0; `scripts/verify_evidenc
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | docs/readiness-finish @ 6d14813 | — | all |
+| 2026-09-18T01:12:30Z | PARTIAL_ALIVE | docs/readiness-finish @ wt-d46 (base observed 6fc8f01 = 6d14813 + ticket-cut docs commit; ticket file only exists at 6fc8f01+, so base left as-created, not moved) | oriented: ticket + both wave contexts + ticket-39 branch diff (90c2ae2..1576abc) read; ticket 39's 21 ids enumerated for disjointness: fond_canonical.* x10, fond_property.fond_property_FOUND_BUG_1_strong_cyclic_accepts_goal_unreachable_self_loop, fond_htn_micro.* x9, htn_oracle.solve_hddl_agrees_with_oracle_goldens_on_deterministic_htn_corpus | map fond_htn_oracle.rs + fond_property enumeration/reference ids; workflow heredoc; fmt touched set; gates |

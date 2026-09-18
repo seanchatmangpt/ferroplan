@@ -160,6 +160,22 @@ jobs:
           eve.need9-split
           eve.replay
           eve.unit
+          fond.fond_policy_alone_still_returns_no_plan_on_retry_loop
+          fond.fond_policy_strong_cyclic_solves_the_retry_loop_domain
+          fond.fond_policy_strong_cyclic_solves_two_independent_retry_points
+          fond.fond_policy_still_solves_acyclic_strong_domains_directly
+          fond_htn_oracle.goldens_agreement_ledger_is_consistent
+          fond_htn_oracle.in_repo_fixtures_match_recorded_ferroplan_outcomes
+          fond_property.fond_solver_matches_independent_policy_enumeration
+          fond_property.reference_oracle_agrees_with_hand_computed_semantics
+          hddl.eve_bridge_accepts_a_problem_whose_network_matches_the_eve_root_task
+          hddl.eve_bridge_refuses_a_problem_network_conflicting_with_the_eve_root_task
+          hddl.eve_bridge_reports_a_parse_error_for_a_malformed_eve_root_task
+          hddl.eve_bridge_splices_the_root_task_before_the_closing_paren_even_with_a_trailing_comment
+          hddl.rejects_malformed_hddl_with_a_parse_error
+          hddl.solve_hddl_from_eve_solves_a_deterministic_regime_micro_domain
+          hddl.solve_hddl_from_eve_solves_a_probabilistic_regime_micro_domain_hddl_half
+          hddl.solve_hddl_produces_correct_independent_results_under_concurrent_calls
           EOF
       - uses: actions/upload-artifact@v4
         with:
