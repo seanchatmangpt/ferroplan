@@ -1,0 +1,59 @@
+(define (domain solve-x)
+  (:predicates
+    (phase-preserve)
+    (phase-fence)
+    (phase-calculus)
+    (phase-exclusions)
+    (phase-falsifier)
+    (phase-extension)
+    (phase-operationalize)
+    (solved))
+
+  (:task solve :parameters ())
+
+  (:action preserve
+    :parameters ()
+    :precondition (phase-preserve)
+    :effect (and (not (phase-preserve)) (phase-fence)))
+
+  (:action fence
+    :parameters ()
+    :precondition (phase-fence)
+    :effect (and (not (phase-fence)) (phase-calculus)))
+
+  (:action calculus
+    :parameters ()
+    :precondition (phase-calculus)
+    :effect (and (not (phase-calculus)) (phase-exclusions)))
+
+  (:action exclusions
+    :parameters ()
+    :precondition (phase-exclusions)
+    :effect (and (not (phase-exclusions)) (phase-falsifier)))
+
+  (:action falsifier
+    :parameters ()
+    :precondition (phase-falsifier)
+    :effect (and (not (phase-falsifier)) (phase-extension)))
+
+  (:action extension
+    :parameters ()
+    :precondition (phase-extension)
+    :effect (and (not (phase-extension)) (phase-operationalize)))
+
+  (:action operationalize
+    :parameters ()
+    :precondition (phase-operationalize)
+    :effect (and (not (phase-operationalize)) (solved)))
+
+  (:method m-solve
+    :parameters ()
+    :task (solve)
+    :ordered-subtasks (and
+      (s1 (preserve))
+      (s2 (fence))
+      (s3 (calculus))
+      (s4 (exclusions))
+      (s5 (falsifier))
+      (s6 (extension))
+      (s7 (operationalize)))))
