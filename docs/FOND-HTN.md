@@ -25,6 +25,11 @@ The front-end crate is `crates/ferroplan-hddl`. In scope:
 
 - Typed parameters and objects, a single-level type hierarchy
   (subtype -> parent, transitively resolved during grounding), `:constants`.
+  A type may now be declared more than once in `:types`: the duplicate
+  declaration is accepted with a `ValidationWarning::DuplicateTypeDeclaration`
+  and the subtype relation becomes the union of the declared parents —
+  multi-inheritance, where a second declaration used to be a hard validation
+  refusal (ticket fond-htn-44; the PO_UM-Translog corpus shape).
 - Predicates; abstract `:task` declarations; primitive `:action`s with a
   conjunctive precondition and effect; `:method`s with an optional
   `:precondition` (the HDDL `:method-preconditions` construct), a totally
@@ -46,6 +51,18 @@ The front-end crate is `crates/ferroplan-hddl`. In scope:
   never-present marker, so that guarded effect can never fire); in `:goal`
   it folds at DNF expansion time. `(not (= …))` composes through the
   ordinary negation rules.
+- Goal evaluation is depth-budgeted: the recursive ground-goal evaluators
+  (`evaluate_ground_goal`/`evaluate_ground_goal_with_budget`,
+  `action_applicable`, `relaxed_satisfiable` —
+  `crates/ferroplan-hddl/src/grounder.rs`) refuse with
+  `GroundError::GoalTooDeep { depth, budget }` past a nesting budget of
+  `DEFAULT_MAX_GOAL_DEPTH` = 256 (override hatch:
+  `evaluate_ground_goal_with_budget`). Any goal *text* inside the parser's
+  256 nesting budget also evaluates inside this one, so the refusal is
+  reachable only through the programmatic surface — a hand-built
+  `GroundGoal`/`GroundedIR` — which had no bound at all until the
+  panic-hunt wave measured a depth-50k SIGABRT there (tickets fond-htn-42
+  and fond-htn-32).
 - Effects: literals, `and`, `when` (conditional, rules below), `oneof` (rules
   below), the empty effect `()`.
 - The `(:probabilistic w1 e1 w2 e2 ...)` effect extension is accepted as pure
@@ -186,12 +203,13 @@ extends coverage.
   wave-1 truncation dead-sink defect). Wall-clock checks still run every
   round, so `PlannerLimits::max_wall_ms` semantics are unchanged — for these
   structural fixpoints, caller round caps are advisory, not load-bearing.
-  The same pattern is landing for `fond_policy`'s least fixpoint (each
-  changing round admits ≥ 1 state, so the same `states + 1` bound applies) on
-  branch `fix/fond-loop-failsafes` (`7fea6cc`, awaiting integration); until
-  it merges, `fond_policy` remains gated by `max_iterations`
-  (default 512), which can reject solvable domains when set below the
-  fixpoint's convergence round.
+  The same pattern holds for `fond_policy`'s least fixpoint (each
+  changing round admits ≥ 1 state, so the same `states + 1` bound applies),
+  landed from branch `fix/fond-loop-failsafes` (`7fea6cc`): both FOND
+  fixpoints are now bounded by their own mathematics and
+  `PlannerLimits::max_iterations` is advisory for them. The one remaining
+  `max_iterations`-gated loop in the planner is `probabilistic_policy`'s
+  value iteration (Known gaps, below).
 
 ### Fairness
 
@@ -227,12 +245,23 @@ dead-sink is fixed — the structural `states + 1` failsafes plus the final
 outcome-closure check above; the dead tautological post-check in `fond_policy`
 is gone (kept as a debug-only tripwire asserting the admission invariant); and
 the depth-cache false-`NoPlan` in `contingent_policy` is fixed (commit
-`52c3501` lineage). Still open, each ticketed: `=` goal-literal evaluation
-(ticket 21), parse-phase depth budget (ticket 22), translate capacity against
-the hard-coded internal 10 s wall (ticket 23, below), conditional-effect
-grounding limits on some PANDA shapes (wave-3 ticket 05), and
-`probabilistic_policy`'s value iteration remaining `max_iterations`-gated
-(noted on the field). This document describes the landed construction; the
+`52c3501` lineage). Also landed since the audit: `=` goal-literal evaluation
+(ticket 21), the parser nesting depth budget (ticket 22, Section 3), 
+conditional-effect grounding (ticket 24 / wave-3 ticket 05, Section 1),
+the goal-evaluation depth budget (ticket 42, Section 1), the grounding-caps
+plumbing (ticket 43, Section 3), and duplicate type declarations as
+union-of-parents (ticket 44, Section 1). Still open, each ticketed:
+translate capacity against the internal `TranslateLimits::default()` 10 s
+wall (ticket 23, below) and `probabilistic_policy`'s value iteration
+remaining `max_iterations`-gated (noted on the field). One residual defect
+is known: when the Phase-3 fixpoint closes with `reach == surviving`,
+`fond_policy_strong_cyclic` returns Phase-2 witness-first choices without
+rewriting them to committable advancing actions — the property scale-up's
+**FOUND_BUG_2** (a goal-unreachable loop can be returned where a
+committable advancing action exists; distinct from the fixed FOUND_BUG_1;
+shrunk reproducer `#[ignore]`d in
+`crates/ferroplan/tests/fond_property_scaleup.rs`; fix in flight, ticket
+fond-htn-57). This document describes the landed construction; the
 open tickets bound what it currently guarantees.
 
 ## 3. Architecture
@@ -249,13 +278,16 @@ open tickets bound what it currently guarantees.
 | WASM | `crates/ferroplan-wasm/src/wasi_abi.rs` | Ops `hddl_solve` (HDDL text -> `UniversalPlan` JSON; per-stage error codes `FP_PARSE`/`FP_HDDL_GROUND`/`FP_HDDL_TRANSLATE`/`FP_MODEL`), `htn_plan` (JSON problem, forces `PlanningType::Hierarchical`), `fond_policy` (JSON problem, forces `PlanningType::Fond`). |
 | Eve | `crates/ferroplan/src/eve.rs` (`EveStage::DecomposeHddl`) | Stage sits between `ProjectGenesis` and `GovernUncertaintyPpddl`. Currently no consumer — the Eve bridge is in flight (wave ticket T10). |
 
-Boundedness: every phase after the parser enforces its own internal
-state/iteration/wall-clock limits with loud typed refusals
-(`TaskNetworkDepthExceeded`, `MemoryLimitExceeded`, `Timeout`,
-`LimitExceeded`). `solve_hddl` adds a watchdog thread over the *entire* call
-keyed off `limits.max_wall_ms` (the parser itself has no internal clock), so
-the caller never waits past budget even though a worker thread cannot be
-forcibly killed.
+Boundedness: every phase enforces its own internal state/iteration/
+wall-clock limits with loud typed refusals (`TaskNetworkDepthExceeded`,
+`MemoryLimitExceeded`, `Timeout`, `LimitExceeded`), and the parser bounds
+its recursion with a nesting-depth budget — `DEFAULT_MAX_PARSE_DEPTH` = 256,
+refused as `ParseError::NestingTooDeep` carrying the offending `(`'s
+line and column (ticket fond-htn-22; before the budget, a 1000-deep
+`(and …)` aborted the process). `solve_hddl` still adds a watchdog thread
+over the *entire* call keyed off `limits.max_wall_ms` (the parser has a
+depth budget but no internal clock), so the caller never waits past budget
+even though a worker thread cannot be forcibly killed.
 
 ### Budget knobs
 
@@ -266,21 +298,31 @@ and are stated exactly.
 | Knob | Location | Fields and defaults |
 |---|---|---|
 | `PlannerLimits` | `crates/ferroplan/src/planning_runtime.rs` (serde-visible via `UniversalPlanningRequest`) | `max_depth` 128 · `max_states` 100,000 · `max_iterations` 512 · `max_wall_ms` 10,000 ms — `max_wall_ms == 0` means unbounded; the wall deadline is checked once per fixpoint round, and `solve_hddl` keys its whole-call watchdog off the same field |
-| `GroundingLimits` | `crates/ferroplan-hddl/src/grounder.rs` | `max_ground_actions` 10,000 · `max_ground_methods` 10,000 · `prune_unreachable` `false` · `max_wall` `Some(10 s)` — `None` means unbounded; each grounding sub-phase checks the wall against its own start time, so total ground wall is a small multiple of the per-phase budget |
+| `GroundingLimits` | `crates/ferroplan-hddl/src/grounder.rs` | `max_ground_actions` 10,000 · `max_ground_methods` 10,000 · `prune_unreachable` `false` · `max_wall` `Some(10 s)` — `None` means unbounded; each grounding sub-phase checks the wall against its own start time, so total ground wall is a small multiple of the per-phase budget. **Caller mapping (ticket fond-htn-43):** `solve_hddl` builds this struct via `grounding_limits_from` (`crates/ferroplan/src/hddl.rs`) — `max_ground_actions`/`max_ground_methods` = `PlannerLimits::max_states` ÷ 10, `max_wall` = `Some(max_wall_ms)` with `0` → `None` (unbounded), `prune_unreachable` stays `false`. The ÷10 calibration is default-identical: the default `max_states` 100,000 reproduces exactly the 10,000/10,000 defaults above, so plain `Default::default()` callers see no change; raising `max_states` raises both ground caps proportionally |
 | `TranslateLimits` | `crates/ferroplan-hddl/src/translate.rs` | `max_task_network_depth` 64 · `max_wall` `Some(10 s)` · `max_states` `Some(200,000)` interned composite states — `None` means unbounded; both are checked once per state popped off the BFS queue |
 
 Honest caveat, current behavior (ticket 23 pending): `solve_hddl`'s pipeline
-(`solve_hddl_inner`, `crates/ferroplan/src/hddl.rs`) hard-codes
-`GroundingLimits::default()` and `TranslateLimits::default()`, so a caller's
+(`solve_hddl_inner`, `crates/ferroplan/src/hddl.rs`) now derives its
+grounding caps from the caller's `PlannerLimits` via `grounding_limits_from`
+(ticket fond-htn-43 — default-identical calibration, above), but still
+hard-codes `TranslateLimits::default()`, so a caller's
 `max_wall_ms` above 10 s **cannot** lift the internal translate wall — four
 IPC-2023 instances (PCP_1, PO_Transport, Satellite-GTOHP, Transport) hit
 `TranslateError::Timeout` at that wall with ~10k composite states interned and
 more still queued (`crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md`,
 the `LIMIT:translate-wall` rows), while the external oracle solves each in
 under 1.3 s. Plumbling the caller budget (and a public composite-state budget)
-through into the internal caps is ticket 23, in flight; the paragraph above
+through into the translate caps is ticket 23, in flight; the paragraph above
 describes what the code does today, not what it is meant to do. Loud refusal
 at the wall stays lawful either way: the translator never silently truncates.
+The grounded-caps mapping is measured at the raised end: under
+`max_states` 10,000,000 (ground caps 1,000,000), 16 of the 17 domains the
+default-cap sweep refused at 10,000 still refuse — their true ground-instance
+counts exceed 1,000,000 — and the 17th (hiking) clears grounding only to
+refuse at the translate wall
+(`crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS-wavec.md`, ticket
+fond-htn-43 addendum). Relevance pruning to bring those counts under the
+default envelope is ticket fond-htn-60, in flight.
 
 ### Capacity numbers
 
@@ -303,7 +345,9 @@ macOS 26.2):
   histogram, 28 LIMIT refusals: `ground-actions` ×14, `translate-wall` ×9
   (the pre-ticket-23 internal 10 s translate wall), `ground-methods` ×3,
   `solve-wall` ×2; plus 3 `GAP:ground` validation refusals (duplicate type
-  declaration; variable-arg root task-network subtasks). No panics, no
+  declaration; variable-arg root task-network subtasks — the
+  duplicate-declaration half is since accepted via union-of-parents,
+  ticket fond-htn-44; these rows record the sweep as it ran). No panics, no
   garbage outcomes — every one of the 43 answers is an honest typed verdict.
 - **Scaling ladder** (`crates/ferroplan/tests/fixtures/scaling-ladder/RESULTS.md`,
   ticket fond-htn-28; `cargo test -p ferroplan --test scaling_ladder --
@@ -316,6 +360,39 @@ macOS 26.2):
   the **projected capacity knee**: the 60 s solve bound first bites at
   ≈n 200–210 (transport-drop) / ≈n 430 (chain-world). These are projections
   from measured doubling factors, not observed refusals.
+
+### Fuzz and property walls
+
+Two committed walls stress the pipeline beyond the hand-picked corpora:
+
+- **Round-trip fuzz** (`crates/ferroplan/tests/hddl_fuzz_roundtrip.rs`,
+  ticket fond-htn-31): a seeded, dependency-free SplitMix64 generator draws
+  grammar-faithful domain+problem pairs from the SUPPORTED surface only
+  (~30% of draws carry grammatically-valid-but-semantically-odd mutations);
+  every case must run parse → validate → ground → translate with no panic
+  and only typed errors, a VALID (unmutated) draw must never fail to parse
+  or validate, ~10% of cases run end-to-end through `solve_hddl` with any
+  returned policy checked outcome-closed against an independently re-run
+  `translate`, and the whole sweep runs twice with identical outcome
+  vectors (determinism). The default 500-case sweep gates every test run;
+  the full 2000-case sweep (`-- --ignored`) completed with **zero
+  findings** — no panics, every refusal typed, and the file's
+  `KNOWN_FINDINGS` table is empty.
+- **Property at scale** (`crates/ferroplan/tests/fond_property_scaleup.rs`,
+  ticket fond-htn-33): 5000 generated FOND instances (3–12 states, up to 4
+  actions, a 25% decoy mixture rich in closed-but-goal-unreachable loops)
+  judged against an independent label-correcting reference — min–max value
+  iteration for strong, usability-constrained backward goal-reachability
+  for strong-cyclic — sharing no code, data layout, or loop structure with
+  the solver's fixpoints, plus a 320-instance enumeration cross-check of
+  the reference itself. This wall found **FOUND_BUG_2** (Known gaps,
+  Section 2): when the Phase-3 fixpoint closes with `reach == surviving`,
+  the solver returns Phase-2 witness-first choices — a goal-unreachable
+  loop can be returned where a committable advancing action exists
+  (882 of 3676 reference-solvable instances affected in the committed run;
+  ticket fond-htn-57). The shrunk two-state reproducer is `#[ignore]`d in
+  the same file as a live tripwire; the fix is in flight (ticket
+  fond-htn-57).
 
 Dependency direction: `ferroplan-hddl` has zero dependency on `ferroplan`;
 `ferroplan` depends on `ferroplan-hddl`, never the reverse.
