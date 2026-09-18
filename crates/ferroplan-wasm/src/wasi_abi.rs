@@ -32,8 +32,10 @@
 //!     `max_iterations`; any/all omitted fields fall back to their own
 //!     defaults). Errors distinguish the failing pipeline stage:
 //!     `FP_PARSE` (malformed HDDL), `FP_HDDL_GROUND` (grounding failed),
-//!     `FP_HDDL_TRANSLATE` (ground IR -> planning-runtime IR failed), or
-//!     `FP_MODEL` (the FOND solver itself rejected the translated problem).
+//!     `FP_HDDL_TRANSLATE` (ground IR -> planning-runtime IR failed),
+//!     `FP_HDDL_ROOT_MISMATCH` (an Eve handoff conflicts with the problem's
+//!     own `:htn` root network), or `FP_MODEL` (the FOND solver itself
+//!     rejected the translated problem).
 //!   - `readiness` `{}` -> capability manifest + fingerprint
 //!   - `version` `{}` -> `{"version": "..."}`
 //!   - `explain` `{domain, problem, plan}` (plan = a `Plan` object, not a
@@ -521,6 +523,10 @@ fn hddl_error_json(e: &HddlError) -> Value {
         HddlError::Translate(msg) => err_json(
             "FP_HDDL_TRANSLATE",
             &format!("HDDL translation error: {msg}"),
+        ),
+        HddlError::RootTaskMismatch { .. } => err_json(
+            "FP_HDDL_ROOT_MISMATCH",
+            &format!("HDDL root-task mismatch: {e}"),
         ),
         HddlError::Planner(pe) => err_json("FP_MODEL", &format!("planner error: {pe}")),
         HddlError::Timeout {
@@ -1334,5 +1340,397 @@ mod tests {
         assert!(malformed_problem["error"]["message"]
             .as_str()
             .is_some_and(|message| message.contains("HDDL parse error")));
+    }
+
+    // ------------------------------------------------------------------
+    // fond-htn-29 (wave v26.9.17): 40-thread mixed-workload concurrency
+    // stress through the dispatch surface.
+    //
+    // WHY HOST-SIDE DISPATCH, NOT ONE WASMTIME ENGINE PER THREAD:
+    // wasm32-wasip1 — this module's only real target — has no OS threads:
+    // `std::thread::spawn` inside the guest traps the whole instance (the
+    // same hazard `op_hddl_solve` documents for `solve_hddl`'s watchdog
+    // thread), and the wave's established gate (`wasmtime run` over
+    // `cargo test --target wasm32-wasip1`) executes tests inside ONE
+    // single-threaded guest, so a guest can never drive 40 workers itself.
+    // A per-thread wasmtime Engine on the host side was also rejected: it
+    // would stress wasmtime's loader, not ferroplan, and would drag a
+    // heavyweight `wasmtime` dev-dependency plus an in-test guest build
+    // into every host gate run. The production host (beam4pm/wasmex)
+    // already owns instance creation — one fresh instance per call — so
+    // the shared component that actually runs concurrently is THIS
+    // dispatch code: byte-for-byte the same Rust that compiles into the
+    // wasm guest. These tests drive it from 40 real host threads;
+    // `not(target_family = "wasm")` keeps them out of the wasip1 build,
+    // where threads cannot exist.
+    // ------------------------------------------------------------------
+    #[cfg(not(target_family = "wasm"))]
+    mod concurrency_stress {
+        use super::super::dispatch;
+        use super::{
+            retry_loop_problem_json, TRANSPORT_ONEOF_EMPTY_DOMAIN, TRANSPORT_ONEOF_EMPTY_PROBLEM,
+        };
+        use serde_json::{json, Value};
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        use std::time::{Duration, Instant};
+
+        /// Ticket scope: N=40 worker threads, 100 iterations per thread.
+        const THREADS: usize = 40;
+        const ITERS_PER_THREAD: usize = 100;
+        /// Ticket invariant: no deadlock, test wall <= 120 s.
+        const WALL_BUDGET: Duration = Duration::from_secs(120);
+
+        // -- fixtures (hand-authored here, same shapes as the single-threaded
+        // op tests above; no external corpus) --
+
+        /// fond_policy dead-end variant: `flip`'s second outcome lands in
+        /// `dead`, a non-goal sink, so the solver must refuse with a typed
+        /// NoPlan error envelope (identical input to
+        /// `fond_policy_op_reports_a_typed_no_plan_on_the_dead_end_variant`).
+        fn fond_dead_end_problem_json() -> String {
+            json!({
+                "states": [
+                    { "id": "s0" },
+                    { "id": "g", "facts": ["done"] },
+                    { "id": "dead" },
+                ],
+                "initial_states": ["s0"],
+                "goal": { "facts": ["done"] },
+                "transitions": [
+                    { "action": "flip", "from": "s0", "to": "g", "probability_ppm": 500_000 },
+                    { "action": "flip", "from": "s0", "to": "dead", "probability_ppm": 500_000 },
+                ],
+            })
+            .to_string()
+        }
+
+        /// htn_plan single-method two-level chain (identical input to
+        /// `htn_plan_op_preserves_the_decomposition_order_of_a_two_level_hierarchy`).
+        fn htn_chain_problem_json() -> String {
+            json!({
+                "tasks": [
+                    { "id": "top" },
+                    { "id": "mid" },
+                    { "id": "p1", "primitive_action": "a1" },
+                    { "id": "p2", "primitive_action": "a2" },
+                ],
+                "root_tasks": ["top"],
+                "methods": [
+                    { "id": "m-top", "task": "top", "subtasks": ["mid", "p2"] },
+                    { "id": "m-mid", "task": "mid", "subtasks": ["p1"] },
+                ],
+            })
+            .to_string()
+        }
+
+        // -- wire helpers --
+
+        /// One wire call: JSON bytes in, RAW response bytes out (no `Value`
+        /// round-trip), so byte-stability is asserted on exactly what a
+        /// beam4pm host would read out of linear memory.
+        fn call(req: &Value) -> Vec<u8> {
+            dispatch(&serde_json::to_vec(req).expect("request must serialize"))
+                .expect("dispatch must not Err for a well-formed request")
+        }
+
+        fn hddl_solve_request() -> Value {
+            json!({
+                "op": "hddl_solve",
+                "domain": TRANSPORT_ONEOF_EMPTY_DOMAIN,
+                "problem": TRANSPORT_ONEOF_EMPTY_PROBLEM,
+                "limits": { "max_wall_ms": 0 },
+            })
+        }
+
+        fn fond_retry_request() -> Value {
+            json!({
+                "op": "fond_policy",
+                "problem": retry_loop_problem_json(),
+                "limits": { "max_wall_ms": 0 },
+            })
+        }
+
+        fn fond_dead_end_request() -> Value {
+            json!({
+                "op": "fond_policy",
+                "problem": fond_dead_end_problem_json(),
+                "limits": { "max_wall_ms": 0 },
+            })
+        }
+
+        fn htn_chain_request() -> Value {
+            json!({
+                "op": "htn_plan",
+                "problem": htn_chain_problem_json(),
+                "limits": { "max_wall_ms": 0 },
+            })
+        }
+
+        // -- goldens --
+
+        struct Goldens {
+            hddl_solve: Vec<u8>,
+            fond_retry: Vec<u8>,
+            fond_dead_end: Vec<u8>,
+            htn_chain: Vec<u8>,
+        }
+
+        /// Single-threaded goldens, computed in the test's own thread BEFORE
+        /// any worker exists. The double-compute pre-flight falsifies
+        /// single-threaded nondeterminism first, so a later cross-thread
+        /// byte mismatch can only mean concurrency trouble, never an
+        /// unstable serializer hiding behind the thread count.
+        fn compute_goldens() -> Goldens {
+            let build = || Goldens {
+                hddl_solve: call(&hddl_solve_request()),
+                fond_retry: call(&fond_retry_request()),
+                fond_dead_end: call(&fond_dead_end_request()),
+                htn_chain: call(&htn_chain_request()),
+            };
+            let first = build();
+            let second = build();
+            assert_eq!(
+                first.hddl_solve, second.hddl_solve,
+                "single-threaded hddl_solve is not byte-stable -- a determinism finding on its own; golden comparison would be meaningless"
+            );
+            assert_eq!(
+                first.fond_retry, second.fond_retry,
+                "single-threaded fond_policy(retry) is not byte-stable"
+            );
+            assert_eq!(
+                first.fond_dead_end, second.fond_dead_end,
+                "single-threaded fond_policy(dead-end) is not byte-stable"
+            );
+            assert_eq!(
+                first.htn_chain, second.htn_chain,
+                "single-threaded htn_plan is not byte-stable"
+            );
+            first
+        }
+
+        /// Cross-contamination check: every worker response must equal the
+        /// pre-spawn single-threaded golden BYTE FOR BYTE. Any planner,
+        /// registry, or serializer state leaking between threads shows up
+        /// here as a divergence with the offending thread, iteration, and
+        /// op named.
+        fn assert_matches_golden(
+            actual: &[u8],
+            golden: &[u8],
+            thread: usize,
+            iter: usize,
+            op: &str,
+        ) {
+            if actual != golden {
+                panic!(
+                    "fond-htn-29 cross-thread divergence: thread {thread} iteration {iter} op {op} \
+                     expected {} bytes {:?}, got {} bytes {:?}",
+                    golden.len(),
+                    String::from_utf8_lossy(golden),
+                    actual.len(),
+                    String::from_utf8_lossy(actual)
+                );
+            }
+        }
+
+        /// Deadlock falsifier: the ticket bounds the test wall at 120 s and
+        /// Rust's harness has no per-test timeout, so a detached monitor
+        /// hard-exits the test binary if the budget blows — a hang must
+        /// fail the gate loudly, never wedge it.
+        fn arm_deadlock_watchdog(done: Arc<AtomicBool>) {
+            std::thread::spawn(move || {
+                let start = Instant::now();
+                while !done.load(Ordering::Relaxed) {
+                    if start.elapsed() > WALL_BUDGET {
+                        eprintln!(
+                            "fond-htn-29: concurrency stress exceeded the {WALL_BUDGET:?} wall \
+                             budget — deadlock falsifier tripped"
+                        );
+                        std::process::exit(101);
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+            });
+        }
+
+        /// The mixed workload: hddl_solve (micro Transport oneof-empty
+        /// FOND-HTN), fond_policy on the retry loop (strong-cyclic solve),
+        /// fond_policy on the dead-end variant (typed NoPlan refusal), and
+        /// htn_plan on the single-method chain — interleaved round-robin,
+        /// staggered by thread id so at any instant different threads sit in
+        /// different ops (including two DISTINCT fond inputs alternating, so
+        /// a cross-thread response mixup cannot pass unnoticed).
+        fn mixed_round_robin(thread: usize, goldens: &Goldens) {
+            for iter in 0..ITERS_PER_THREAD {
+                match (thread + iter) % 4 {
+                    0 => {
+                        let out = call(&hddl_solve_request());
+                        assert_matches_golden(
+                            &out,
+                            &goldens.hddl_solve,
+                            thread,
+                            iter,
+                            "hddl_solve",
+                        );
+                    }
+                    1 => {
+                        let out = call(&fond_retry_request());
+                        assert_matches_golden(
+                            &out,
+                            &goldens.fond_retry,
+                            thread,
+                            iter,
+                            "fond_policy/retry",
+                        );
+                    }
+                    2 => {
+                        let out = call(&fond_dead_end_request());
+                        assert_matches_golden(
+                            &out,
+                            &goldens.fond_dead_end,
+                            thread,
+                            iter,
+                            "fond_policy/dead-end",
+                        );
+                    }
+                    _ => {
+                        let out = call(&htn_chain_request());
+                        assert_matches_golden(&out, &goldens.htn_chain, thread, iter, "htn_plan");
+                    }
+                }
+            }
+        }
+
+        /// Ticket scope 1+2: 40 threads x 100 mixed round-robin iterations;
+        /// every result byte-matches the single-threaded golden; wall under
+        /// 120 s (watchdog enforced, then asserted post-hoc for the record).
+        #[test]
+        fn stress_forty_threads_mixed_round_robin_every_result_matches_the_single_threaded_golden()
+        {
+            let goldens = compute_goldens();
+            let done = Arc::new(AtomicBool::new(false));
+            arm_deadlock_watchdog(done.clone());
+            let started = Instant::now();
+            std::thread::scope(|scope| {
+                let goldens = &goldens;
+                for thread in 0..THREADS {
+                    scope.spawn(move || mixed_round_robin(thread, goldens));
+                }
+            });
+            let wall = started.elapsed();
+            done.store(true, Ordering::Relaxed);
+            assert!(
+                wall < WALL_BUDGET,
+                "stress wall {wall:?} must stay under the ticket's 120 s budget"
+            );
+        }
+
+        /// Ticket scope 3 (adversarial interleave): while 20 threads run the
+        /// full mixed solving workload, the other 20 hammer the dispatcher
+        /// with malformed traffic. Every fault must surface as a TYPED
+        /// outcome — a dispatch `Err` naming the failing stage, or parseable
+        /// JSON error-envelope bytes with the right code and
+        /// `retryable:false` — never a panic, never a silent success; and
+        /// after the error barrage each error thread must still get a
+        /// byte-perfect success, proving error traffic poisons nothing.
+        #[test]
+        fn stress_half_malformed_traffic_cannot_corrupt_the_adjacent_solving_threads() {
+            let goldens = compute_goldens();
+            let done = Arc::new(AtomicBool::new(false));
+            arm_deadlock_watchdog(done.clone());
+            let started = Instant::now();
+            std::thread::scope(|scope| {
+                let goldens = &goldens;
+                for thread in 0..THREADS {
+                    scope.spawn(move || {
+                        if thread % 2 == 0 {
+                            for iter in 0..ITERS_PER_THREAD {
+                                match iter % 4 {
+                                    0 => {
+                                        // truncated, non-JSON request bytes
+                                        let err = dispatch(b"{\"op\":")
+                                            .expect_err("truncated JSON must be a dispatch Err");
+                                        assert!(
+                                            err.contains("request JSON"),
+                                            "thread {thread} iter {iter}: Err must name the JSON \
+                                             parse stage: {err}"
+                                        );
+                                    }
+                                    1 => {
+                                        // unknown op: typed refusal envelope
+                                        let out = call(&json!({ "op": "no-such-op" }));
+                                        let v: Value = serde_json::from_slice(&out)
+                                            .expect("unknown-op refusal must still be JSON bytes");
+                                        assert_eq!(
+                                            v["error"]["code"],
+                                            json!("FP_UNKNOWN_OP"),
+                                            "thread {thread} iter {iter}: {v}"
+                                        );
+                                        assert_eq!(v["error"]["retryable"], json!(false), "{v}");
+                                    }
+                                    2 => {
+                                        // malformed HDDL domain text: FP_PARSE
+                                        let out = call(&json!({
+                                            "op": "hddl_solve",
+                                            "domain": "(define (domain broken",
+                                            "problem": TRANSPORT_ONEOF_EMPTY_PROBLEM,
+                                            "limits": { "max_wall_ms": 0 },
+                                        }));
+                                        let v: Value = serde_json::from_slice(&out).expect(
+                                            "a malformed-HDDL response must be JSON bytes, not a trap",
+                                        );
+                                        assert_eq!(
+                                            v["error"]["code"],
+                                            json!("FP_PARSE"),
+                                            "thread {thread} iter {iter}: {v}"
+                                        );
+                                        assert_eq!(v["error"]["retryable"], json!(false), "{v}");
+                                    }
+                                    _ => {
+                                        // fond_policy whose problem text is not
+                                        // PlanningProblem JSON: dispatch Err naming the field
+                                        let err = dispatch(
+                                            &serde_json::to_vec(&json!({
+                                                "op": "fond_policy",
+                                                "problem": "not a problem document {{{",
+                                                "limits": { "max_wall_ms": 0 },
+                                            }))
+                                            .expect("request must serialize"),
+                                        )
+                                        .expect_err(
+                                            "unparseable problem text must be a dispatch Err",
+                                        );
+                                        assert!(
+                                            err.contains("invalid PlanningProblem JSON"),
+                                            "thread {thread} iter {iter}: Err must name the \
+                                             failing field: {err}"
+                                        );
+                                    }
+                                }
+                            }
+                            // post-barrage liveness: the same thread that just
+                            // sent 100 malformed requests must still get a
+                            // byte-perfect success
+                            let out = call(&fond_retry_request());
+                            assert_matches_golden(
+                                &out,
+                                &goldens.fond_retry,
+                                thread,
+                                ITERS_PER_THREAD,
+                                "fond_policy/retry-after-errors",
+                            );
+                        } else {
+                            mixed_round_robin(thread, &goldens);
+                        }
+                    });
+                }
+            });
+            let wall = started.elapsed();
+            done.store(true, Ordering::Relaxed);
+            assert!(
+                wall < WALL_BUDGET,
+                "adversarial stress wall {wall:?} must stay under the ticket's 120 s budget"
+            );
+        }
     }
 }
