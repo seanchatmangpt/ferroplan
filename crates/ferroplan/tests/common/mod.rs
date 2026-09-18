@@ -190,9 +190,17 @@ pub fn generate(seed: u64, sizes: Sizes) -> Model {
 }
 
 /// Forced-VALID draw: the mutation switch is hard-off, so the draw is
-/// valid-by-construction (differential fuzz, ticket fond-htn-61).
+/// valid-by-construction (differential fuzz, ticket fond-htn-61). The root
+/// task network is clamped to 1-2 subtasks: every root branch must ground
+/// for the instance to be alive at all, and the external oracle's grounder
+/// emits an empty, unclassifiable instance when the whole network grounds
+/// to nothing.
 pub fn generate_valid(seed: u64, sizes: Sizes) -> Model {
-    generate_inner(seed, sizes, false)
+    let clamped = Sizes {
+        root_subs: sizes.root_subs.clamp(1, 2),
+        ..sizes
+    };
+    generate_inner(seed, clamped, false)
 }
 
 fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
@@ -239,7 +247,11 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
         let params: Vec<(String, usize)> = (0..n_params)
             .map(|p| (format!("v{p}"), rng.pick_idx(sizes.types)))
             .collect();
-        let n_pre = rng.range_usize(0, 3);
+        // actions[0] stays precondition-free: it is the guaranteed-live
+        // primitive leaf for the open first methods below (a random
+        // precondition pool starves the reachable fragment and the external
+        // oracle grounds the whole instance to nothing)
+        let n_pre = if i == 0 { 0 } else { rng.range_usize(0, 3) };
         let pre = pick_lits(&mut rng, &preds, &params, n_pre);
         let effect = if rng.chance(40) {
             // top-level oneof: 2..=4 branches, possibly empty and overlapping
@@ -293,10 +305,18 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
         .collect();
 
     // -- methods (1..=2 per task) -----------------------------------------
+    // The FIRST method of every task is open: no precondition, subtasks
+    // drawn only from precondition-free actions (falling back to an empty
+    // body when none is type-coverable). Without it, random preconditions
+    // starve the reachable fragment — every root branch dead-ends and the
+    // instance grounds to nothing.
     let mut methods: Vec<MethodM> = Vec::new();
     let mut meth_counter = 0usize;
     for (ti, (_, task_params)) in tasks.iter().enumerate() {
+        let mut first_of_task = true;
         for _ in 0..rng.range_usize(1, 2) {
+            let open = first_of_task;
+            first_of_task = false;
             let mc = bump(&mut meth_counter);
             let mut params = task_params.clone();
             if mutated && rng.chance(30) {
@@ -309,13 +329,28 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
                 let dup = (params[src].0.clone(), rng.pick_idx(sizes.types));
                 params.push(dup);
             }
-            let n_pre = rng.range_usize(0, 2);
+            let n_pre = if open { 0 } else { rng.range_usize(0, 2) };
             let pre = pick_lits(&mut rng, &preds, &params, n_pre);
-            let n_subs = rng.range_usize(1, sizes.subs);
+            let n_subs = if open { 1 } else { rng.range_usize(1, sizes.subs) };
             let mut subs = Vec::new();
             for si in 0..n_subs {
-                if let Some(call) = pick_call(&mut rng, &actions, &tasks, &params, Some(ti), false)
-                {
+                let call = pick_call(
+                    &mut rng,
+                    &actions,
+                    &tasks,
+                    &params,
+                    Some(ti),
+                    false,
+                    open,
+                )
+                .or_else(|| {
+                    if open {
+                        pick_call(&mut rng, &actions, &tasks, &params, Some(ti), false, false)
+                    } else {
+                        None
+                    }
+                });
+                if let Some(call) = call {
                     subs.push((format!("s{si}"), call));
                 }
             }
@@ -338,7 +373,7 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
         if near.subs.len() > 1 {
             near.subs.truncate(near.subs.len() - 1); // one-subtask-shorter body
         } else if let Some(call) =
-            pick_call(&mut rng, &actions, &tasks, &near.params, Some(near.task), false)
+            pick_call(&mut rng, &actions, &tasks, &near.params, Some(near.task), false, false)
         {
             if near.subs.is_empty() {
                 near.subs.push(("s0".to_owned(), call));
@@ -373,8 +408,7 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
 
     // -- problem: init / goal (ground, type-matched) -----------------------
     let obj_types: Vec<usize> = objects.iter().map(|(_, t)| *t).collect();
-    let n_init = rng.range_usize(0, 6);
-    let init = pick_ground_lits(&mut rng, &preds, &obj_types, n_init, singleton_type);
+    let init = dense_init(&mut rng, &preds, &obj_types, singleton_type);
     let n_goal = rng.range_usize(1, 3);
     let mut goal = pick_ground_lits(&mut rng, &preds, &obj_types, n_goal, singleton_type);
     if goal.is_empty() {
@@ -393,7 +427,7 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
             .enumerate()
             .map(|(i, (_, t))| (format!("ob{i}"), *t))
             .collect::<Vec<_>>();
-        if let Some(call) = pick_call(&mut rng, &actions, &tasks, &scope, None, true) {
+        if let Some(call) = pick_call(&mut rng, &actions, &tasks, &scope, None, true, false) {
             root.push((format!("r{ri}"), call));
         }
     }
@@ -559,10 +593,70 @@ fn pick_ground_lits(
     out
 }
 
+/// Dense initial state: sample ~30% of the type-consistent positive ground
+/// atoms (bounded per predicate) so method/action preconditions are widely
+/// satisfiable at the initial state. A sparse random init dead-ends most
+/// decomposition paths; the external oracle's grounder then emits an EMPTY
+/// instance (initial abstract task -1, unclassifiable by its serializer)
+/// instead of a verdict.
+fn dense_init(
+    rng: &mut Rng,
+    preds: &[(String, Vec<usize>)],
+    obj_types: &[usize],
+    singleton: Option<usize>,
+) -> Vec<LitO> {
+    let mut atoms: Vec<LitO> = Vec::new();
+    for (pi, (_, ts)) in preds.iter().enumerate() {
+        if ts.iter().any(|t| obj_types.iter().all(|ot| ot != t)) {
+            continue; // predicate needs a type no object carries
+        }
+        if singleton.map_or(false, |s| ts.iter().any(|t| t == &s)) {
+            continue; // singleton-type mutation keeps this type object-less
+        }
+        let mut combos: Vec<Vec<usize>> = vec![vec![]];
+        for t in ts {
+            let matching: Vec<usize> = obj_types
+                .iter()
+                .enumerate()
+                .filter(|(_, ot)| **ot == *t)
+                .map(|(i, _)| i)
+                .collect();
+            let mut next = Vec::new();
+            for c in &combos {
+                for &m in &matching {
+                    let mut c2 = c.clone();
+                    c2.push(m);
+                    next.push(c2);
+                }
+            }
+            combos = next;
+            if combos.len() > 40 {
+                combos.truncate(40); // bound per predicate
+            }
+        }
+        for args in combos {
+            if rng.chance(30) {
+                atoms.push(LitO {
+                    pred: pi,
+                    args,
+                    negated: false,
+                });
+            }
+        }
+        if atoms.len() > 100 {
+            break;
+        }
+    }
+    atoms
+}
+
 /// Pick a type-matched task/action call whose arguments come from `scope`
 /// (method params in method networks; the object list at the root).
 /// `root_scope` selects the `Arg::O` flavor for root-network calls.
 /// `own_task` (Some) allows recursive self-decomposition only occasionally.
+/// `no_pre_only` restricts action candidates to precondition-free actions
+/// and drops abstract-task candidates entirely (the open-method path: the
+/// decomposition branch must stay reachable from the initial state).
 fn pick_call(
     rng: &mut Rng,
     actions: &[ActionM],
@@ -570,6 +664,7 @@ fn pick_call(
     scope: &[(String, usize)],
     own_task: Option<usize>,
     root_scope: bool,
+    no_pre_only: bool,
 ) -> Option<CallM> {
     let arg_of = |i: usize| {
         if root_scope {
@@ -595,6 +690,9 @@ fn pick_call(
     };
     let mut cands: Vec<CallM> = Vec::new();
     for (ai, a) in actions.iter().enumerate() {
+        if no_pre_only && !a.pre.is_empty() {
+            continue;
+        }
         if scope_covers(&a.params) {
             cands.push(CallM {
                 action: Some(ai),
@@ -603,16 +701,18 @@ fn pick_call(
             });
         }
     }
-    for (ti, (_, tp)) in tasks.iter().enumerate() {
-        let recursive = own_task == Some(ti);
-        // recursion is legal but kept occasional: ~1 in 5 chances
-        if !recursive || rng.chance(20) {
-            if scope_covers(tp) {
-                cands.push(CallM {
-                    action: None,
-                    task: Some(ti),
-                    args: draw_args(rng, tp),
-                });
+    if !no_pre_only {
+        for (ti, (_, tp)) in tasks.iter().enumerate() {
+            let recursive = own_task == Some(ti);
+            // recursion is legal but kept occasional: ~1 in 5 chances
+            if !recursive || rng.chance(20) {
+                if scope_covers(tp) {
+                    cands.push(CallM {
+                        action: None,
+                        task: Some(ti),
+                        args: draw_args(rng, tp),
+                    });
+                }
             }
         }
     }
