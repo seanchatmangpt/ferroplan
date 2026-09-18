@@ -986,6 +986,7 @@ fn parse_tag(e: &ParseError) -> &'static str {
         ParseError::UnsupportedConstruct(_) => "UnsupportedConstruct",
         ParseError::MalformedOneof(_) => "MalformedOneof",
         ParseError::NestedProbabilisticBlock(_) => "NestedProbabilisticBlock",
+        ParseError::NestingTooDeep { .. } => "NestingTooDeep",
     }
 }
 
@@ -1020,6 +1021,7 @@ fn ground_tag(e: &GroundError) -> &'static str {
         GroundError::UnsupportedNumericFluent(_) => "UnsupportedNumericFluent",
         GroundError::UnsupportedConstraint(_) => "UnsupportedConstraint",
         GroundError::Timeout { .. } => "TIMEOUT",
+        GroundError::GoalTooDeep { .. } => "GoalTooDeep",
     }
 }
 
@@ -1031,6 +1033,8 @@ fn translate_tag(e: &TranslateError) -> &'static str {
         TranslateError::TaskNetworkDepthExceeded { .. } => "TaskNetworkDepthExceeded",
         TranslateError::Timeout { .. } => "TIMEOUT",
         TranslateError::MemoryLimitExceeded { .. } => "MemoryLimitExceeded",
+        TranslateError::MalformedTermEquality { .. } => "MalformedTermEquality",
+        TranslateError::Ground(_) => "Ground",
     }
 }
 
