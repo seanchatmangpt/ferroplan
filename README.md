@@ -217,6 +217,115 @@ world every tick), and **`plan::validate_plan`** (independently check a plan). S
 [`examples/`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan/examples) for `solve`, `parse`, `json_api`, and
 `replan` (`Session` vs. re-solving from scratch, with timings).
 
+## Hierarchical & non-deterministic planning
+
+Beyond flat classical PDDL, ferroplan plans **fully observable non-deterministic
+(FOND) problems written in a subset of HDDL** (Höller et al., IJCAI 2020) —
+hierarchical tasks plus non-deterministic effects — and returns a **policy**,
+not just a linear plan. The front-end crate
+[`ferroplan-hddl`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-hddl)
+parses, validates, grounds, and translates an HDDL domain+problem into an
+explicit state graph, which the FOND policy fixpoints then solve. The full
+language surface, semantics, deliberate deviations, and the external-oracle
+differential methodology are documented in
+[`docs/FOND-HTN.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/FOND-HTN.md);
+benchmark sweeps and reproducibility records in
+[`docs/BENCHMARKS.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/BENCHMARKS.md).
+
+**What's supported** — every claim pinned to the test or RESULTS file that
+witnesses it:
+
+- **HDDL subset** — typed parameters/objects (single-level type hierarchy),
+  abstract `:task`s, primitive `:action`s, `:method`s with preconditions and
+  totally/partially ordered subtask networks, a problem-level `(:htn ...)` root
+  network, and `and`/`or`/`imply`/`not`/`forall`/`exists` in goal descriptions
+  (`fixture_a_grounds_expected_counts`,
+  `translate_solves_the_real_blocksworld_fixture_fast_after_the_frontier_canonicalization_fix`;
+  the IPC-2023 corpus the parser accepts as-is is tabled in
+  `crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md`). Refused shapes
+  (`:durative-action`, numeric fluents, `:constraints`) fail loudly with typed
+  errors, never silently dropped.
+- **`oneof` rules** — `oneof` is legal in exactly one position: the entire
+  top-level `:effect` of an `:action`. One line per rule:
+  - a single-branch `oneof` degenerates to its deterministic effect;
+    genuinely non-deterministic branches carry their full outcome set;
+  - an empty branch survives as a real no-change outcome, and branches may
+    overlap (`hddl_solve_transport_oneof_with_empty_branch_solves_and_preserves_outcomes`);
+  - bare `(oneof)` is refused (`empty_oneof_is_cleanly_handled_never_panics`);
+  - `oneof` in a precondition, method condition, or goal is refused
+    (`oneof_in_precondition_is_typed_rejection`);
+  - nested `oneof` is refused (`nested_oneof_is_typed_malformed_oneof`);
+  - `when` inside a branch is refused — a loud typed error where a silently
+    weakened domain would mis-solve
+    (`when_inside_oneof_branch_is_cleanly_handled_never_panics`).
+  Weighted `(:probabilistic …)` effects are accepted as sugar rewritten into
+  `oneof` plus a weight map
+  (`rewrites_probabilistic_block_to_oneof_and_extracts_weights`).
+- **Strong and strong-cyclic FOND policies over the explicit state graph** — a
+  *strong* policy reaches the goal in a bounded number of steps under every
+  outcome (`faults_strong_policy_is_dag_to_goal`); *strong-cyclic* admits
+  unboundedly many retries via the greatest-fixpoint construction (Cimatti et
+  al., AIJ 2003), so retry-loop domains no strong plan can solve still get a
+  closed policy (`coffee_retry_loop_solves_cyclic_only`,
+  `tireworld_s_depot_retry_solves_cyclic_only`,
+  `triangle_tireworld_avoids_dead_end_route_solves_cyclic_only`), and genuinely
+  unsolvable domains return a typed `NoPlan`
+  (`tireworld_unsolvable_absorbing_failure_returns_typed_no_plan`). A randomized
+  property test cross-checks returned policies against an independent
+  enumeration (`fond_solver_matches_independent_policy_enumeration`), and a
+  committed differential corpus pins both solvers to recorded external-oracle
+  verdicts (`tireworld_is_cyclic_only_across_both_engines`,
+  `coffee_is_cyclic_only_across_both_engines`,
+  `river_unsafe_is_unsolvable_across_both_engines`; goldens:
+  `crates/ferroplan/tests/fixtures/fond-flat/oracle-goldens.json`).
+- **FOND-HTN policies** are outcome-closed over the composite (task network,
+  state) pair (Chen & Bercher, AAAI 2021): method choice is a per-state policy
+  decision, so execution can sense an outcome and re-decompose
+  (`sense_then_branch_decomposes_differently_per_sensed_outcome`,
+  `drop_retry_solves_with_a_real_no_change_retry_outcome`); dead-end branches
+  report a typed `NoPlan` (`both_branches_deadend_reports_typed_noplan`).
+- **Entry point** — `ferroplan::hddl::solve_hddl` runs parse → ground →
+  translate → FOND solve end-to-end under a wall-clock watchdog with typed,
+  stage-named errors
+  (`one_millisecond_budget_returns_typed_timeout_instead_of_hanging`). The
+  13-instance IPC-2023 hierarchical corpus runs one `#[test]` per instance
+  (`ipc2023_blocksworld_gtohp`, `ipc2023_depots`, `ipc2023_lamps`, …) with
+  every returned policy closure-checked, and the deterministic HTN corpus is
+  differential-tested against recorded oracle goldens
+  (`solve_hddl_agrees_with_oracle_goldens_on_deterministic_htn_corpus`; full
+  tables: `crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md`,
+  `crates/ferroplan/tests/fixtures/htn-oracle/RESULTS.md`).
+- **WASM ops** — `hddl_solve` (HDDL text → plan JSON with per-stage error
+  codes), `htn_plan` (deterministic hierarchical), and `fond_policy` (flat
+  FOND) in
+  [`ferroplan-wasm`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-wasm)
+  (`fond_policy_op_solves_the_retry_loop_with_a_closed_policy`,
+  `htn_plan_op_preserves_the_decomposition_order_of_a_two_level_hierarchy`,
+  `hddl_solve_malformed_hddl_text_is_a_typed_error_not_a_trap`).
+- **Eve bridge** — `solve_hddl_from_eve` feeds the Eve `DecomposeHddl` lifecycle
+  stage (a typed LLM-authored handoff) into the same HDDL pipeline
+  (`solve_hddl_from_eve_solves_a_deterministic_regime_micro_domain`).
+
+**Current limits** — stated bluntly; each is tracked with failing-case evidence:
+
+- **Translate capacity**: the HDDL→state-graph translate phase runs under a
+  hard-coded internal 10 s wall (`TranslateLimits::default()`) that a caller's
+  larger budget cannot raise; four IPC-2023 instances (PCP_1, PO_Transport,
+  Satellite-GTOHP, Transport) exceed it and exit with a typed limit error —
+  honest refusal, never silent truncation
+  (`crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md`; tracked in
+  `docs/jira/v26.9.17/fond-htn-23-translate-capacity.md`).
+- **Conditional-effect grounding**: `when` under an action `:effect` is parsed,
+  but grounding refuses nested conditionals — the two PANDA oracle pairs die
+  with `nested 'when' is out of scope` / `unbound variable '?x'`
+  (`crates/ferroplan/tests/fixtures/htn-oracle/RESULTS.md`, admitted-mismatches
+  table; tracked in `docs/jira/v26.9.17/fond-htn-24-ground-conditional-effects.md`).
+- **Parse depth**: the HDDL parser recurses per nesting level with no depth
+  budget — 1000-deep `(and …)` aborts the process (measured: depth 250 parses,
+  500 aborts), pinned by the `#[ignore]`d adversarial case
+  `deep_nesting_1000_and_does_not_overflow_or_hang` (tracked in
+  `docs/jira/v26.9.17/fond-htn-22-parse-depth-budget.md`).
+
 ## Configuration
 
 Every solver knob lives on one `Options` struct (library-first, `serde`-
