@@ -26,7 +26,9 @@
 use ferroplan::hddl::solve_hddl;
 use ferroplan::planning_runtime::PlannerLimits;
 use ferroplan_hddl::grounder::{ground, GroundError, GroundingLimits};
-use ferroplan_hddl::parser::{parse_domain, parse_problem, ParseError};
+use ferroplan_hddl::parser::{
+    parse_domain, parse_problem, ParseError, DEFAULT_MAX_PARSE_DEPTH,
+};
 use ferroplan_hddl::translate::{translate, TranslateLimits};
 use ferroplan_hddl::validate::{validate_domain, validate_problem, ValidationError};
 
@@ -552,32 +554,24 @@ fn infinite_decomposition_recursion_hits_translate_limits_never_hangs() {
     );
 }
 
-/// KNOWN DEFECT (found by this suite, recorded in ticket History) —
-/// TODO(parse-depth-budget): deep `(and (and ...))` nesting currently
-/// ABORTS the process with a stack overflow: the recursive-descent parser
-/// (`read_one`/`parse_goal` mutual recursion) has no depth bound. Measured
-/// on this branch: depth 250 survives parse+ground+translate+solve; depth
-/// 500 SIGABRTs inside `parse_domain` (libtest's 2MiB test-thread stack —
-/// any caller thread has a finite equivalent). A stack overflow is not a
-/// panic: `catch_unwind` cannot intercept it, so the process dies.
+/// Formerly the `#[ignore]`d KNOWN DEFECT (TODO parse-depth-budget): deep
+/// `(and (and ...))` nesting used to ABORT the process with a stack
+/// overflow — the recursive reader had no depth bound. Measured when the
+/// defect was filed: depth 250 parsed, depth 500 SIGABRTed inside
+/// `parse_domain`, depth 1000 killed the libtest harness outright (a stack
+/// overflow is not a panic: `catch_unwind` cannot intercept it).
 ///
-/// The ticket-sanctioned handling is `#[ignore]` + this TODO note, because
-/// the real fix — threading an explicit depth budget through the parser and
-/// returning a typed `ParseError` (e.g. `ParseError::NestingTooDeep`) — is
-/// NOT a one-line panic-to-error conversion and is therefore out of scope
-/// for this test-only ticket.
-///
-/// Intended contract once the parser gains a depth budget: running this
-/// test (with `--ignored`) must succeed — the 1000-deep pipeline terminates
-/// with a typed outcome (Ok or Err), never process death.
+/// Fixed by the parser depth budget (ticket
+/// `fond-htn-22-parse-depth-budget`): `read_one` refuses any form nested
+/// deeper than [`DEFAULT_MAX_PARSE_DEPTH`] (256) with a typed
+/// `ParseError::NestingTooDeep` carrying the offending `(`'s 1-based
+/// line/column, and the budget bounds every downstream recursive pass
+/// (goal/effect descent included). This test now runs un-ignored and
+/// asserts the ticket contract: the 1000-deep input is answered with the
+/// typed error at the parser boundary AND through the full `solve_hddl`
+/// pipeline, inside the wall-clock budget — never process death.
 #[test]
-#[ignore = "KNOWN DEFECT (TODO parse-depth-budget): 1000-deep (and ...) nesting SIGABRTs the process with a stack overflow in parse_domain (measured: depth 250 ok, depth 500 aborts); needs a parser depth budget returning a typed ParseError — out of scope for this test-only ticket"]
-fn deep_nesting_1000_and_does_not_overflow_or_hang() {
-    // A 1000-deep '(and (and ... ))' precondition. Intended contract: a
-    // typed outcome (Ok or Err) inside solve_hddl's wall-clock budget —
-    // never process death. Until the parser gains the depth budget (TODO
-    // in the doc comment above), running this #[ignore]d test aborts the
-    // process; that abort IS the demonstrated defect.
+fn deep_nesting_1000_and_returns_typed_nesting_error_never_aborts() {
     let domain_src = {
         let mut goal = "(at x1)".to_owned();
         for _ in 0..1000 {
@@ -593,17 +587,80 @@ fn deep_nesting_1000_and_does_not_overflow_or_hang() {
         )
     };
     let problem_src = problem_for("deep-nest", "move");
+
+    // Parser boundary: typed NestingTooDeep with the default budget and a
+    // real 1-based position payload pointing at the offending '('.
+    let err = no_panic("deep-nest-parse", || parse_domain(&domain_src))
+        .err()
+        .expect("1000-deep nesting must be refused with a typed error, never parsed or aborted");
+    match &err {
+        ParseError::NestingTooDeep { line, column, budget } => {
+            assert_eq!(*budget, DEFAULT_MAX_PARSE_DEPTH);
+            assert!(
+                *line >= 1 && *column >= 1,
+                "position payload must be a real 1-based position, got {line}:{column}"
+            );
+        }
+        other => panic!("expected NestingTooDeep, got {other:?}"),
+    }
+
+    // Full pipeline: solve_hddl surfaces the same typed refusal as a
+    // `HddlError::Parse` whose diagnostic names the depth violation — the
+    // process survives to run these assertions.
     let started = std::time::Instant::now();
     let result = no_panic("deep-nest-pipeline", || {
         solve_hddl(&domain_src, &problem_src, &default_planner_limits())
     });
     let elapsed = started.elapsed();
-    // Ok (tolerated) or Err (typed refusal) — both are clean; a stack
-    // overflow would have killed the test process before this line.
-    let _ = result;
+    let msg = result
+        .err()
+        .expect("pipeline must refuse the 1000-deep domain with a typed error, not abort")
+        .to_string();
+    assert!(
+        msg.to_lowercase().contains("nesting too deep"),
+        "pipeline diagnostic should carry the depth refusal, got: {msg}"
+    );
     assert!(
         elapsed < std::time::Duration::from_secs(30),
         "deep-nesting case took {elapsed:?} — suspiciously close to hanging"
+    );
+}
+
+/// The ticket falsifier: a 10 000-deep `(and ...)` input returns the typed
+/// error, exit 0, no signal. Reaching the final assertion at all proves the
+/// process was never killed by a signal — before the depth budget,
+/// 500-deep already aborted the process on this same 2 MiB libtest stack.
+#[test]
+fn ten_thousand_deep_and_returns_typed_error_exit_zero_no_signal() {
+    let domain_src = format!(
+        "(define (domain deep-nest)\n\
+         \x20 (:predicates (at ?x))\n\
+         \x20 (:action move\n\
+         \x20   :parameters (?x)\n\
+         \x20   :precondition {}(at x1){}\n\
+         \x20   :effect (at ?x)))\n",
+        "(and ".repeat(10_000),
+        ")".repeat(10_000),
+    );
+    let problem_src = problem_for("deep-nest", "move");
+
+    let err = no_panic("deep-nest-10k-parse", || parse_domain(&domain_src))
+        .err()
+        .expect("10 000-deep nesting must be refused with a typed error, never aborted");
+    assert!(
+        matches!(
+            &err,
+            ParseError::NestingTooDeep { budget, .. } if *budget == DEFAULT_MAX_PARSE_DEPTH
+        ),
+        "expected NestingTooDeep at the default budget, got {err:?}"
+    );
+
+    let result = no_panic("deep-nest-10k-pipeline", || {
+        solve_hddl(&domain_src, &problem_src, &default_planner_limits())
+    });
+    assert!(
+        result.is_err(),
+        "pipeline must refuse the 10 000-deep domain with a typed error, not abort"
     );
 }
 

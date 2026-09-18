@@ -1,9 +1,32 @@
 //! HDDL text -> AST: a tokenizer + generic S-expression reader, then a
 //! recursive-descent translation into `crate::ast` types.
+//!
+//! Every recursion in this module is bounded by a single s-expression
+//! nesting-depth budget ([`DEFAULT_MAX_PARSE_DEPTH`], overridable per call
+//! through `parse_domain_with_budget`/`parse_problem_with_budget`). The
+//! budget is enforced once, in `read_one` — the S-expression reader where
+//! unbounded input first becomes unbounded recursion — and transitively
+//! bounds every later recursive pass over the tree (`parse_goal`,
+//! `parse_effect`, `sexp_to_string`, and even the compiler-generated
+//! recursive `Drop` of the built nodes), because none of those passes can
+//! ever see a tree deeper than the reader accepted. Exceeding the budget is
+//! a typed [`ParseError::NestingTooDeep`] carrying the offending `(`'s
+//! line/column, never a stack overflow: measured before the budget existed,
+//! a 500-deep `(and ...)` precondition already SIGABRTed the process on an
+//! ordinary 2 MiB thread stack (ticket fond-htn-22).
 
 use crate::ast::*;
 use std::collections::BTreeMap;
 use std::fmt;
+
+/// The default s-expression nesting-depth budget for
+/// `parse_domain`/`parse_problem` (see the module docs for why one budget at
+/// the reader bounds the whole parser). Real-world HDDL corpora nest at most
+/// ~a dozen levels deep, so 256 leaves orders of magnitude of headroom while
+/// keeping worst-case recursion (a few hundred frames across every
+/// recursive pass) safely inside any thread stack, including the 2 MiB
+/// libtest default that measured the original overflow.
+pub const DEFAULT_MAX_PARSE_DEPTH: usize = 256;
 
 /// An error produced by `parse_domain`/`parse_problem`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +59,23 @@ pub enum ParseError {
     /// tokenizer (see that function's doc comment for why nesting can't be
     /// rewritten safely).
     NestedProbabilisticBlock(String),
+    /// An s-expression's nesting depth exceeded the parser's depth budget
+    /// ([`DEFAULT_MAX_PARSE_DEPTH`], overridable via
+    /// `parse_domain_with_budget`/`parse_problem_with_budget`). The parser
+    /// recurses once per nesting level (reader, goal/effect descent,
+    /// serialization, drop), so unbounded nesting is a stack overflow — a
+    /// process-killing SIGABRT, not a catchable panic — and is therefore
+    /// refused here, at the point the too-deep `(` is read, with a typed
+    /// error instead. `line`/`column` are the 1-based source position of the
+    /// offending `(`; `budget` is the depth budget that was exceeded.
+    NestingTooDeep {
+        /// 1-based line of the `(` whose nesting exceeded the budget.
+        line: usize,
+        /// 1-based column (in characters) of that `(` on its line.
+        column: usize,
+        /// The depth budget that was exceeded.
+        budget: usize,
+    },
 }
 
 impl fmt::Display for ParseError {
@@ -47,6 +87,11 @@ impl fmt::Display for ParseError {
             Self::NestedProbabilisticBlock(msg) => {
                 write!(f, "nested ':probabilistic' block: {msg}")
             }
+            Self::NestingTooDeep { line, column, budget } => write!(
+                f,
+                "nesting too deep: s-expression nesting at line {line}, column {column} \
+                 exceeds the parser depth budget of {budget}"
+            ),
         }
     }
 }
@@ -62,26 +107,57 @@ enum Sexp {
     List(Vec<Sexp>),
 }
 
-fn tokenize(src: &str) -> Vec<String> {
+/// A token plus the 1-based source position of its first character. The
+/// position rides along with the token (rather than being recomputed from an
+/// offset) so a depth-budget violation can be reported as
+/// [`ParseError::NestingTooDeep`] with a real line/column payload pointing
+/// at the offending `(`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Tok {
+    text: String,
+    line: usize,
+    column: usize,
+}
+
+fn tokenize(src: &str) -> Vec<Tok> {
     let mut tokens = Vec::new();
     let mut chars = src.chars().peekable();
+    let mut line = 1usize;
+    let mut column = 1usize;
     while let Some(&c) = chars.peek() {
         if c.is_whitespace() {
+            if c == '\n' {
+                line += 1;
+                column = 1;
+            } else {
+                column += 1;
+            }
             chars.next();
             continue;
         }
         if c == ';' {
+            // Comment: consume up to (not including) the newline; every
+            // consumed character still advances the column. The newline
+            // itself is left for the whitespace branch above so the line
+            // counter advances exactly once.
             while let Some(&c2) = chars.peek() {
                 if c2 == '\n' {
                     break;
                 }
                 chars.next();
+                column += 1;
             }
             continue;
         }
+        let (tok_line, tok_column) = (line, column);
         if c == '(' || c == ')' {
-            tokens.push(c.to_string());
+            tokens.push(Tok {
+                text: c.to_string(),
+                line: tok_line,
+                column: tok_column,
+            });
             chars.next();
+            column += 1;
             continue;
         }
         let mut s = String::new();
@@ -91,27 +167,51 @@ fn tokenize(src: &str) -> Vec<String> {
             }
             s.push(c2);
             chars.next();
+            column += 1;
         }
-        tokens.push(s);
+        tokens.push(Tok {
+            text: s,
+            line: tok_line,
+            column: tok_column,
+        });
     }
     tokens
 }
 
-fn read_one(tokens: &[String], pos: usize) -> Result<(Sexp, usize), ParseError> {
+/// Read one s-expression starting at `pos`. `depth` is the nesting depth of
+/// the form being read (the top-level call uses 0, so the outermost list is
+/// at depth 1); `budget` is the maximum allowed depth. Opening a list deeper
+/// than `budget` returns [`ParseError::NestingTooDeep`] positioned at that
+/// `(` — this is the single enforcement point that bounds every recursive
+/// pass in this module (see the module docs).
+fn read_one(
+    tokens: &[Tok],
+    pos: usize,
+    depth: usize,
+    budget: usize,
+) -> Result<(Sexp, usize), ParseError> {
     match tokens.get(pos) {
         None => Err(ParseError::Syntax("unexpected end of input".to_owned())),
-        Some(t) if t == "(" => {
+        Some(t) if t.text == "(" => {
+            let child_depth = depth + 1;
+            if child_depth > budget {
+                return Err(ParseError::NestingTooDeep {
+                    line: t.line,
+                    column: t.column,
+                    budget,
+                });
+            }
             let mut items = Vec::new();
             let mut p = pos + 1;
             loop {
                 match tokens.get(p) {
                     None => return Err(ParseError::Syntax("unbalanced parentheses".to_owned())),
-                    Some(t2) if t2 == ")" => {
+                    Some(t2) if t2.text == ")" => {
                         p += 1;
                         break;
                     }
                     _ => {
-                        let (item, next) = read_one(tokens, p)?;
+                        let (item, next) = read_one(tokens, p, child_depth, budget)?;
                         items.push(item);
                         p = next;
                     }
@@ -119,17 +219,17 @@ fn read_one(tokens: &[String], pos: usize) -> Result<(Sexp, usize), ParseError> 
             }
             Ok((Sexp::List(items), p))
         }
-        Some(t) if t == ")" => Err(ParseError::Syntax("unexpected ')'".to_owned())),
-        Some(t) => Ok((Sexp::Atom(t.clone()), pos + 1)),
+        Some(t) if t.text == ")" => Err(ParseError::Syntax("unexpected ')'".to_owned())),
+        Some(t) => Ok((Sexp::Atom(t.text.clone()), pos + 1)),
     }
 }
 
-fn read_top(src: &str) -> Result<Sexp, ParseError> {
+fn read_top(src: &str, budget: usize) -> Result<Sexp, ParseError> {
     let tokens = tokenize(src);
     if tokens.is_empty() {
         return Err(ParseError::Syntax("empty input".to_owned()));
     }
-    let (sexp, _) = read_one(&tokens, 0)?;
+    let (sexp, _) = read_one(&tokens, 0, 0, budget)?;
     Ok(sexp)
 }
 
@@ -896,9 +996,11 @@ fn parse_htn(rest: &[Sexp]) -> Result<TaskNetwork, ParseError> {
 /// `(domain <name>)` header, or an unknown domain section keyword;
 /// `ParseError::UnsupportedConstruct` for `:functions` or `:durative-action`
 /// (temporal/durative actions are a permanent non-goal — see `ast`'s module
-/// docs); and `ParseError::MalformedOneof` for a `oneof` construct outside
+/// docs); `ParseError::MalformedOneof` for a `oneof` construct outside
 /// the supported surface (see `EffectCtx`/`parse_effect` and
-/// `ParseError::MalformedOneof` for the exact position/branch rules).
+/// `ParseError::MalformedOneof` for the exact position/branch rules); and
+/// `ParseError::NestingTooDeep` when the s-expression nesting exceeds
+/// [`DEFAULT_MAX_PARSE_DEPTH`] (see `parse_domain_with_budget`).
 ///
 /// # Examples
 ///
@@ -920,6 +1022,18 @@ fn parse_htn(rest: &[Sexp]) -> Result<TaskNetwork, ParseError> {
 /// assert_eq!(domain.actions[0].name, "open-door");
 /// ```
 pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
+    parse_domain_with_budget(src, DEFAULT_MAX_PARSE_DEPTH)
+}
+
+/// `parse_domain` with an explicit s-expression nesting-depth budget instead
+/// of [`DEFAULT_MAX_PARSE_DEPTH`] — the test/override escape hatch for the
+/// budget enforced in `read_one` (see the module docs for why one budget at
+/// the reader bounds the whole parser). `max_depth` is the maximum allowed
+/// list-nesting depth: the outermost `(define ...)` list is depth 1, so
+/// `max_depth = 1` admits only a top-level form with no nested lists, and
+/// `max_depth = 0` refuses every input with a
+/// [`ParseError::NestingTooDeep`] at the first `(`.
+pub fn parse_domain_with_budget(src: &str, max_depth: usize) -> Result<Domain, ParseError> {
     // Pure text preprocessing pass, run before real tokenizing: rewrites any
     // koala-planner-style `(:probabilistic w1 e1 w2 e2 ...)` effect block
     // into a standard `(oneof e1 e2 ...)` block, handing back the declared
@@ -928,7 +1042,7 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
     // `cleaned` exactly as before -- `:probabilistic` never reaches the
     // tokenizer/recursive-descent grammar at all.
     let (cleaned, weight_map) = crate::probabilistic::preprocess(src)?;
-    let top = read_top(&cleaned)?;
+    let top = read_top(&cleaned, max_depth)?;
     let items = as_list(&top)?;
     if items.is_empty() {
         return Err(ParseError::Syntax("empty 'define' form".to_owned()));
@@ -1000,7 +1114,9 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
 /// # Errors
 ///
 /// Returns `ParseError::Syntax` for a malformed s-expression, a missing
-/// `(problem <name>)` header, or an unknown problem section keyword.
+/// `(problem <name>)` header, or an unknown problem section keyword; and
+/// `ParseError::NestingTooDeep` when the s-expression nesting exceeds
+/// [`DEFAULT_MAX_PARSE_DEPTH`] (see `parse_problem_with_budget`).
 ///
 /// # Examples
 ///
@@ -1030,7 +1146,14 @@ pub fn parse_domain(src: &str) -> Result<Domain, ParseError> {
 /// assert_eq!(problem.objects.len(), 1);
 /// ```
 pub fn parse_problem(src: &str) -> Result<Problem, ParseError> {
-    let top = read_top(src)?;
+    parse_problem_with_budget(src, DEFAULT_MAX_PARSE_DEPTH)
+}
+
+/// `parse_problem` with an explicit s-expression nesting-depth budget instead
+/// of [`DEFAULT_MAX_PARSE_DEPTH`] — the test/override escape hatch, with the
+/// same depth semantics as `parse_domain_with_budget`.
+pub fn parse_problem_with_budget(src: &str, max_depth: usize) -> Result<Problem, ParseError> {
+    let top = read_top(src, max_depth)?;
     let items = as_list(&top)?;
     if items.is_empty() {
         return Err(ParseError::Syntax("empty 'define' form".to_owned()));
@@ -1922,5 +2045,157 @@ mod tests {
         let result =
             result.expect("parse_problem must not panic on a valueless :constraints section");
         assert!(matches!(result, Err(ParseError::Syntax(_))));
+    }
+
+    // -----------------------------------------------------------------
+    // Nesting-depth budget (ticket fond-htn-22). Before the budget, the
+    // reader/goal/effect recursion was unbounded: a 500-deep `(and ...)`
+    // precondition SIGABRTed the process (stack overflow — not a catchable
+    // panic) on a 2 MiB thread stack. The budget is enforced once in
+    // `read_one` and bounds every recursive pass; these tests pin the
+    // default-budget behavior, the exact position payload, the override
+    // entry points, and the ticket's 10 000-deep falsifier.
+    // -----------------------------------------------------------------
+
+    /// Build a domain whose single action has a `depth`-deep
+    /// `(and (and ... (at x1)))` precondition. O(depth) string building.
+    fn deep_and_domain(depth: usize) -> String {
+        format!(
+            "(define (domain deep-nest)\n\
+             \x20 (:predicates (at ?x))\n\
+             \x20 (:action move\n\
+             \x20   :parameters (?x)\n\
+             \x20   :precondition {}(at x1){}\n\
+             \x20   :effect (at ?x)))\n",
+            "(and ".repeat(depth),
+            ")".repeat(depth),
+        )
+    }
+
+    #[test]
+    fn nesting_within_the_default_budget_still_parses() {
+        // Positive control: 100-deep (and ...) — the shape that used to be
+        // the cliff — is comfortably inside the 256 budget and must parse
+        // to a 100-deep And chain, unchanged.
+        let domain = parse_domain(&deep_and_domain(100))
+            .expect("100-deep (and ...) is inside the default budget");
+        let mut depth = 0usize;
+        let mut goal = &domain.actions[0].precondition;
+        while let GoalDesc::And(parts) = goal {
+            goal = &parts[0];
+            depth += 1;
+        }
+        assert_eq!(depth, 100);
+    }
+
+    #[test]
+    fn nesting_over_budget_is_typed_error_with_exact_position() {
+        // 20 nested lists, budget 8: parens 1..8 are inside the budget, the
+        // 9th '(' is the offender — line 1, column 9 (1-based, chars).
+        let src = format!("{}x{}", "(".repeat(20), ")".repeat(20));
+        let err = parse_domain_with_budget(&src, 8).unwrap_err();
+        assert_eq!(
+            err,
+            ParseError::NestingTooDeep {
+                line: 1,
+                column: 9,
+                budget: 8,
+            },
+            "expected the exact offending-paren position in the typed error"
+        );
+    }
+
+    #[test]
+    fn nesting_error_position_tracks_lines_not_just_columns() {
+        // One '(' per line: the 9th '(' sits on line 9, column 1 — the
+        // line/column payload must point THERE, not at the file start.
+        let src = format!("{}x", "(\n".repeat(8) + "(");
+        let err = parse_problem_with_budget(&src, 8).unwrap_err();
+        assert_eq!(
+            err,
+            ParseError::NestingTooDeep {
+                line: 9,
+                column: 1,
+                budget: 8,
+            }
+        );
+    }
+
+    #[test]
+    fn zero_budget_refuses_every_input_at_the_first_paren() {
+        let err = parse_domain_with_budget("(define (domain d))", 0).unwrap_err();
+        assert_eq!(
+            err,
+            ParseError::NestingTooDeep {
+                line: 1,
+                column: 1,
+                budget: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn thousand_deep_and_through_default_parse_domain_is_typed_error() {
+        // The adversarial suite's 1000-deep case, pinned at the parser
+        // boundary: a typed NestingTooDeep carrying the DEFAULT budget (the
+        // plain `parse_domain` entry point), not an abort.
+        let err = parse_domain(&deep_and_domain(1000)).unwrap_err();
+        match &err {
+            ParseError::NestingTooDeep { line, column, budget } => {
+                assert_eq!(*budget, DEFAULT_MAX_PARSE_DEPTH);
+                assert!(
+                    *line >= 1 && *column >= 1,
+                    "position payload must be a real 1-based position, got {line}:{column}"
+                );
+            }
+            other => panic!("expected NestingTooDeep, got {other:?}"),
+        }
+        assert!(
+            err.to_string().contains("nesting too deep"),
+            "diagnostic should name the depth violation, got: {err}"
+        );
+    }
+
+    #[test]
+    fn thousand_deep_goal_through_default_parse_problem_is_typed_error() {
+        // Same budget on the problem side: a deep `:goal` is refused
+        // identically (read_top is shared; parse_problem must not be a
+        // budget bypass).
+        let mut goal = "(at x1)".to_owned();
+        for _ in 0..1000 {
+            goal = format!("(and {goal})");
+        }
+        let src = format!(
+            "(define (problem deep-p)\n\
+             \x20 (:domain deep-nest)\n\
+             \x20 (:objects x1)\n\
+             \x20 (:init)\n\
+             \x20 (:goal {goal})\n\
+             \x20 (:htn :ordered-subtasks (move x1)))\n"
+        );
+        let err = parse_problem(&src).unwrap_err();
+        assert!(
+            matches!(
+                &err,
+                ParseError::NestingTooDeep { budget, .. } if *budget == DEFAULT_MAX_PARSE_DEPTH
+            ),
+            "expected NestingTooDeep at the default budget, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn ten_thousand_deep_input_returns_typed_error_no_signal() {
+        // The ticket falsifier: a 10 000-deep input returns the typed
+        // error, exit 0, no signal. Reaching the assertions at all proves
+        // no SIGABRT/SIGSEGV — before the budget, 500-deep already killed
+        // the process, so any budget regression dies here before this line.
+        let err = parse_domain(&deep_and_domain(10_000)).unwrap_err();
+        assert!(
+            matches!(
+                &err,
+                ParseError::NestingTooDeep { budget, .. } if *budget == DEFAULT_MAX_PARSE_DEPTH
+            ),
+            "expected NestingTooDeep at the default budget, got {err:?}"
+        );
     }
 }
