@@ -25,3 +25,4 @@ Gates: book builds (or documented unavailability + doc gate exit 0); one atomic 
 | 2026-09-17T23:50:00Z | BLOCKED | docs/book-fond-htn @ 90c2ae2 | — | all |
 | 2026-09-18T00:49:15Z | IN_PROGRESS | docs/book-fond-htn @ 6d14813 (wt-d38, clean) | orient done: FOND-HTN.md + wave contexts + book idiom read; mdbook 0.4x present, CI lane `mdbook build book` (pages.yml) | chapter, SUMMARY row, gate, commit |
 | 2026-09-18T00:52:05Z | ALIVE | docs/book-fond-htn @ e67a37d (wt-d38) | `mdbook build book` exit 0 (book/book/fond-htn.html rendered, 27 KB, eve-genesis link resolves); falsifier sweep: 0 "koala" in src+html, numbers anchored (79/320 planning_runtime.rs, 320/seed fond_property.rs, 18/12/0+1 oracle-harvest-full-summary.md, 14/6/1 htn-oracle RESULTS.md, 695/0 wave receipt); 1 atomic commit (2 files, +246) | none — integration is coordinator's (post-wave, serial) |
+| 2026-09-18T01:36:00Z | ALIVE | docs/book-fond-htn@e67a37d | — | integration pending |

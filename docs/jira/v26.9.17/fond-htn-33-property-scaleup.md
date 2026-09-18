@@ -24,3 +24,4 @@ Gates: `cargo test -p ferroplan --test fond_property_scaleup` exit 0.
 |---|---|---|---|---|
 | 2026-09-17T23:50:00Z | BLOCKED | test/property-scaleup @ 90c2ae2 | — | all |
 | 2026-09-18T00:57:30Z | PARTIAL_ALIVE | test/property-scaleup @ 6d14813 | worktree clean @ 6d14813 (base 90c2ae2); contexts+ticket read; solver contract read (dispatch L373, fond_policy L761, fond_policy_strong_cyclic L862, validate L415: FOND mass-range-only) | scale-up test file, gate run, commit |
+| 2026-09-18T01:36:00Z | respawn-in-flight | test/property-scaleup@6d14813 (wt-p33, uncommitted) | — | standing stays respawn-in-flight — finish-wave owns it |

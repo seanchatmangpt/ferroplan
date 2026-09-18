@@ -19,3 +19,4 @@ Gates: `cargo test -p ferroplan --test htn_oracle --test htn_ipc2023` exit 0; RE
 |---|---|---|---|---|
 | 2026-09-17T23:55:00Z | BLOCKED | none | — | all |
 | 2026-09-18T00:05:00Z | PARTIAL_ALIVE | fix/translate-capacity@6d14813 (worktree wt-a23) | orient: ticket+wave ctx read; worktree verified | (a) plumb max_wall_ms+budget into TranslateLimits; (b) profile composite-BFS; (c) RESULTS.md rows; gates |
+| 2026-09-18T01:36:00Z | respawn-in-flight | fix/translate-capacity@6d14813 (wt-a23, uncommitted) | — | standing stays respawn-in-flight — finish-wave owns it |

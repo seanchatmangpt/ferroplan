@@ -22,3 +22,4 @@ Gates: ≥ 30 new verdict records + extension summary exists; every record has a
 |---|---|---|---|---|
 | 2026-09-17T23:50:00Z | BLOCKED | none | — | all |
 | 2026-09-18T01:03:00Z | PARTIAL_ALIVE | none (main checkout read-only, /tmp work) | oriented: ledger has 31 recs (18 SOLVED/12 TIMEOUT@90s/1 UNSUPPORTED); TIMEOUT dozen identified; oracle binaries verified on disk | harvest 6x5 @120s; timeout-dozen rerun @300s; ferroplan solve_hddl cross-diff; extension summary |
+| 2026-09-18T01:36:00Z | respawn-in-flight | none (/tmp only) | — | standing stays respawn-in-flight — finish-wave owns it |

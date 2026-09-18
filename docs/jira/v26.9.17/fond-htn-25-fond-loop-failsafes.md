@@ -25,3 +25,4 @@ Gates: `cargo test -p ferroplan --lib planning_runtime && cargo test -p ferropla
 | 2026-09-17T23:50:00Z | BLOCKED | fix/fond-loop-failsafes @ 90c2ae2 | — | all |
 | 2026-09-17T23:56:54Z | PARTIAL_ALIVE | fix/fond-loop-failsafes @ 7fea6cc | gate1 `cargo test -p ferroplan --lib planning_runtime` exit 0 (14 passed; incl. new `fond_policy_converges_past_max_iterations_on_a_chain`, `fond_policy_still_rejects_the_dead_sink_reproducer`); gate2 `cargo test -p ferroplan --test planning_runtime --test fond_canonical` exit 0 (20 + 10 passed) | none in scope; note: `probabilistic_policy`'s value iteration is still `max_iterations`-gated (out of scope, documented on the field) |
 | 2026-09-17T23:56:54Z | ALIVE | fix/fond-loop-failsafes @ 7fea6cc | both gates exit 0 (recorded with pipefail) | none — awaiting coordinator integration |
+| 2026-09-18T01:36:00Z | ALIVE | fix/fond-loop-failsafes@7fea6cc | — | integration pending |
