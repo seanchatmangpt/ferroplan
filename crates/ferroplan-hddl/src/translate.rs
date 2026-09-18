@@ -553,8 +553,8 @@ fn apply_effect_branch(
         next_facts.insert(a.clone());
     }
     for cond in &branch.conditional {
-        let holds = cond.pos_cond.is_subset(source)
-            && cond.neg_cond.iter().all(|f| !source.contains(f));
+        let holds =
+            cond.pos_cond.is_subset(source) && cond.neg_cond.iter().all(|f| !source.contains(f));
         if holds {
             for d in &cond.del {
                 next_facts.remove(d);
@@ -747,10 +747,7 @@ fn total_order_ranks(f: &Frontier) -> Option<BTreeMap<&Addr, usize>> {
         // total order over 'pending' — the same condition this function
         // already answers with None below — so refuse via the existing None
         // path (raw-Addr marker fallback) instead of panicking.
-        match indeg.get_mut(after) {
-            Some(d) => *d += 1,
-            None => return None,
-        }
+        *indeg.get_mut(after)? += 1;
     }
     let mut ranks: BTreeMap<&Addr, usize> = BTreeMap::new();
     let mut remaining = indeg;
@@ -820,11 +817,8 @@ fn frontier_marker(f: &Frontier) -> String {
             encode_field(&f.pending[*addr], &mut out);
         }
         out.push(';');
-        let mut edges: Vec<(usize, usize)> = f
-            .order
-            .iter()
-            .map(|(b, a)| (ranks[b], ranks[a]))
-            .collect();
+        let mut edges: Vec<(usize, usize)> =
+            f.order.iter().map(|(b, a)| (ranks[b], ranks[a])).collect();
         edges.sort_unstable();
         for (b, a) in edges {
             encode_field(&b.to_string(), &mut out);
@@ -885,6 +879,11 @@ fn augmented_facts(cs: &CompositeState) -> BTreeSet<String> {
 /// probability-weighted transitions (`Transition::probability_ppm`, parts per
 /// million so they sum to `1_000_000` per source action) — proportionally to
 /// `GroundEffectBranch::probability_weight` when declared, evenly otherwise.
+/// A no-change outcome of a *nondeterministic* action keeps the task-network
+/// frontier un-advanced (the outcome projects onto the source composite state
+/// as a self-loop, re-offering the pending task so a strong-cyclic policy can
+/// retry it — ticket fond-htn-58; the execution-move loop carries the full
+/// rationale).
 /// Method-choice and execution-order branch points are encoded as ordinary
 /// `Transition`s (`"htn:decompose:..."` / `"htn:exec:..."`); task-network
 /// completion is folded into `State.facts` as a synthetic `"htn:done"` fact
@@ -1111,16 +1110,45 @@ pub fn translate(
                     }
                     let ppms = outcome_ppms(&action.outcomes);
                     // Which task executes is never itself uncertain — only
-                    // its *effect* is — so every oneof/weighted outcome of
-                    // this one execution shares the same frontier
-                    // component, computed once, and differs only in facts.
-                    let next_frontier = advance(&cs.frontier, &addr);
+                    // its *effect* is. The spent-network component is
+                    // computed once for the fact-changing outcomes; a
+                    // no-change outcome (below) keeps the source frontier
+                    // instead, so it differs from the source state in
+                    // nothing at all.
+                    let spent_frontier = advance(&cs.frontier, &addr);
                     for (i, branch) in action.outcomes.iter().enumerate() {
                         let mut next_facts = cs.facts.clone();
                         apply_effect_branch(&mut next_facts, &cs.facts, branch);
+                        // Ticket fond-htn-58: a no-change outcome of a
+                        // genuinely nondeterministic action (koala-dialect
+                        // empty `oneof` branch, `oneof` arm overlapping the
+                        // source state, ...) does NOT discharge the pending
+                        // task. The outcome projects back onto the exact
+                        // source composite state — a self-loop — so the
+                        // still-pending task (and every abstract ancestor
+                        // above it) is re-offered: nature may keep resolving
+                        // this branch, and the policy must be free to retry
+                        // the execution, which is exactly the strong-cyclic
+                        // retry loop the solver-side fixpoint then closes.
+                        // Spending the frontier on such an outcome instead
+                        // built a task-network-already-spent terminal that
+                        // dead-ended the whole region (the harvested
+                        // `micro-drop-retry` oracle mismatch: ferroplan
+                        // NoPlan where the oracle re-decomposes and solves).
+                        // A *deterministic* (single-outcome) no-change
+                        // execution still advances — with no outcome choice
+                        // there is nothing to retry, and not discharging the
+                        // task would strand networks behind a mandatory
+                        // no-op forever.
+                        let outcome_frontier =
+                            if action.outcomes.len() > 1 && next_facts == cs.facts {
+                                cs.frontier.clone()
+                            } else {
+                                spent_frontier.clone()
+                            };
                         let new_cs = CompositeState {
                             facts: next_facts,
-                            frontier: next_frontier.clone(),
+                            frontier: outcome_frontier,
                         };
                         let aug = augmented_facts(&new_cs);
                         let to_id = intern_state(&aug, &mut state_ids, &mut states);
@@ -1336,20 +1364,20 @@ mod tests {
     /// fixture F (the real IPC2020 blocksworld fixture named in the
     /// investigation that motivated `max_states`) previously interned
     /// >112,000 states before a 20s wall-clock budget cut it off, still
-    /// growing, no plateau — root cause was `frontier_marker` keying BFS
-    /// dedup on raw, ever-lengthening `Addr` strings (`child_addr` only ever
-    /// appends — see its doc comment) instead of the *structural* remaining
-    /// obligation, so two composite states that were genuinely the same
-    /// (same facts, same task-name sequence under this domain's fully
-    /// `:ordered-tasks` decomposition — e.g. two paths that both mark the
-    /// same already-`done` block done again, since `mark-done-table`'s
-    /// precondition never checks `(not (done ?b))`) never deduped, and the
-    /// address — hence the marker, hence memory — grew without bound along
-    /// that branch. With addresses canonicalized to rank whenever `order`
-    /// totally orders `pending` (true here, since every method in this
-    /// domain uses `:ordered-tasks`), the real reachable state space is
-    /// small: this now asserts real, fast, bounded completion instead of a
-    /// typed refusal.
+    /// > growing, no plateau — root cause was `frontier_marker` keying BFS
+    /// > dedup on raw, ever-lengthening `Addr` strings (`child_addr` only ever
+    /// > appends — see its doc comment) instead of the *structural* remaining
+    /// > obligation, so two composite states that were genuinely the same
+    /// > (same facts, same task-name sequence under this domain's fully
+    /// > `:ordered-tasks` decomposition — e.g. two paths that both mark the
+    /// > same already-`done` block done again, since `mark-done-table`'s
+    /// > precondition never checks `(not (done ?b))`) never deduped, and the
+    /// > address — hence the marker, hence memory — grew without bound along
+    /// > that branch. With addresses canonicalized to rank whenever `order`
+    /// > totally orders `pending` (true here, since every method in this
+    /// > domain uses `:ordered-tasks`), the real reachable state space is
+    /// > small: this now asserts real, fast, bounded completion instead of a
+    /// > typed refusal.
     #[test]
     fn translate_solves_the_real_blocksworld_fixture_fast_after_the_frontier_canonicalization_fix()
     {
@@ -1642,7 +1670,8 @@ mod tests {
         let domain = parse_domain(DOMAIN).unwrap();
         let problem = parse_problem(PROBLEM).unwrap();
         let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
-        let plan = translate(&ir, &TranslateLimits::default()).expect("disjunctive goal translates");
+        let plan =
+            translate(&ir, &TranslateLimits::default()).expect("disjunctive goal translates");
 
         assert!(plan.goal.facts.contains("goal:reached"));
         // A real, fully-decomposed reachable state with at(l2) (the whole
@@ -2018,9 +2047,10 @@ mod tests {
             "no exec transition may exist for a ground action whose precondition fails"
         );
         assert!(
-            !plan.states.iter().any(|s| ["p", "q", "r"]
+            !plan
+                .states
                 .iter()
-                .any(|f| s.facts.contains(&f.to_string()))),
+                .any(|s| ["p", "q", "r"].iter().any(|f| s.facts.contains(*f))),
             "no oneof branch effect may be reachable when the shared precondition fails"
         );
     }
@@ -2281,9 +2311,23 @@ mod tests {
             let to_real = real_facts(&to.facts);
             if to_real == source_real {
                 // The empty branch: real facts unchanged — the no-change
-                // outcome (only the task-network bookkeeping advanced).
+                // outcome. Since ticket fond-htn-58 the task-network frontier
+                // is NOT advanced on a no-change outcome of a
+                // nondeterministic action: the outcome projects back onto the
+                // exact source composite state (a self-loop) and the pending
+                // `toss` task stays re-offered for retry. The network must
+                // NOT read as spent here (`htn:done` absent) — advancing it
+                // instead built a dead terminal and pruned the whole region
+                // (the harvested `micro-drop-retry` oracle mismatch).
                 have_no_change = true;
-                assert!(to.facts.contains(htn_done_marker()));
+                assert_eq!(
+                    edge.to, decomposed.id,
+                    "no-change outcome must self-loop on the executing state"
+                );
+                assert!(
+                    !to.facts.contains(htn_done_marker()),
+                    "no-change outcome must leave the task network unspent (task re-offered)"
+                );
             } else {
                 let mut expected = source_real.clone();
                 expected.insert("heads".to_owned());
@@ -2294,6 +2338,75 @@ mod tests {
         assert!(
             have_no_change && have_heads,
             "expected one no-change outcome (empty branch) and one heads outcome"
+        );
+    }
+
+    /// The counter-case bounding fond-htn-58's re-offer rule: a
+    /// *deterministic* (single-outcome) no-change execution still discharges
+    /// its pending task. With no outcome choice there is nothing for nature
+    /// to keep resolving and nothing for a policy to retry — not advancing
+    /// would strand every network behind a mandatory no-op forever (the
+    /// trailing task would never become enabled). A later simplification of
+    /// the execution-move guard that drops the multi-outcome condition must
+    /// fail here.
+    #[test]
+    fn deterministic_no_change_execution_still_discharges_the_task() {
+        const DOMAIN: &str = "(define (domain noop-then-move)
+  (:predicates (at-a) (at-b))
+  (:task go :parameters ())
+  (:action pause
+    :parameters ()
+    :precondition ()
+    :effect (and))
+  (:action move
+    :parameters ()
+    :precondition (at-a)
+    :effect (and (not (at-a)) (at-b)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (pause)) (t2 (move)))))";
+        const PROBLEM: &str = "(define (problem noop-then-move-p1)
+  (:domain noop-then-move)
+  (:objects)
+  (:init (at-a))
+  (:goal (at-b))
+  (:htn :ordered-subtasks (and (g1 (go)))))";
+
+        let domain = parse_domain(DOMAIN).unwrap();
+        let problem = parse_problem(PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let plan = translate(&ir, &TranslateLimits::default())
+            .expect("deterministic no-op fixture translates");
+
+        let decomposed = plan
+            .transitions
+            .iter()
+            .find(|t| t.action.ends_with(":m-go"))
+            .map(|t| plan.states.iter().find(|s| s.id == t.to).unwrap())
+            .expect("initial state decomposes go via m-go");
+        let pause_edge = plan
+            .transitions
+            .iter()
+            .find(|t| t.from == decomposed.id && t.action.ends_with(":pause"))
+            .expect("pause executes at the decomposed state");
+        // The single no-change outcome must have ADVANCED the network: the
+        // target state must have moved past `pause` (its frontier marker
+        // differs from the source's) so `move` is enabled there — exactly
+        // the opposite of the nondeterministic no-change self-loop above.
+        let after_pause = plan
+            .states
+            .iter()
+            .find(|s| s.id == pause_edge.to)
+            .expect("post-pause state exists");
+        assert_ne!(
+            pause_edge.from, pause_edge.to,
+            "deterministic no-change execution must not self-loop"
+        );
+        assert!(
+            plan.transitions
+                .iter()
+                .any(|t| t.from == after_pause.id && t.action.ends_with(":move")),
+            "the trailing task must be enabled after a deterministic no-op"
         );
     }
 
@@ -2348,8 +2461,8 @@ mod tests {
         let domain = crate::parser::parse_domain(METHOD_EFFECT_DOMAIN).unwrap();
         let problem = crate::parser::parse_problem(&method_effect_problem(true)).unwrap();
         let ir = crate::grounder::ground(&domain, &problem, &Default::default()).unwrap();
-        let plan = translate(&ir, &TranslateLimits::default())
-            .expect("method-effect domain translates");
+        let plan =
+            translate(&ir, &TranslateLimits::default()).expect("method-effect domain translates");
         // Decomposition happened: some reachable state gained `q(c)`...
         assert!(
             plan.states.iter().any(|s| s.facts.contains("q(c)")),
@@ -2371,11 +2484,9 @@ mod tests {
     fn htn_parameter_bindings_become_one_initial_state_each() {
         let domain = crate::parser::parse_domain(METHOD_EFFECT_DOMAIN).unwrap();
         for (params, expected_initials) in [(true, 1usize), (false, 1)] {
-            let problem =
-                crate::parser::parse_problem(&method_effect_problem(params)).unwrap();
+            let problem = crate::parser::parse_problem(&method_effect_problem(params)).unwrap();
             let ir = crate::grounder::ground(&domain, &problem, &Default::default()).unwrap();
-            let plan = translate(&ir, &TranslateLimits::default())
-                .expect("problem translates");
+            let plan = translate(&ir, &TranslateLimits::default()).expect("problem translates");
             assert_eq!(
                 plan.initial_states.len(),
                 expected_initials,

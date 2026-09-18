@@ -24,3 +24,4 @@ Gates: `cargo test -p ferroplan --lib planning_runtime && cargo test -p ferropla
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T02:50:00Z | BLOCKED | fix/sc-choice-rewrite @ 75870de | — | all |
+| 2026-09-18T23:30:00Z | ALIVE | merged d00dcf8 into wave6/land-v26917 (merge 8f1a875, A7 landing branch wt-f5-04-land) | gates re-run in LANDING worktree post-merge: planning_runtime 15/15 exit 0; fond_property_scaleup 4/4 exit 0, 0 ignored, carve-out removed | none (A7) |

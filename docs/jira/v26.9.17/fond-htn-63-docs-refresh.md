@@ -23,3 +23,4 @@ Gates: `cargo test -p ferroplan --doc` exit 0; one atomic commit.
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T02:50:00Z | BLOCKED | docs/waves45-refresh @ 75870de | — | all |
+| 2026-09-18T23:30:00Z | ALIVE | merged cd4a7a9 into wave6/land-v26917 (merge f097293, A7); auto-merge clean | post-landing refresh committed 3d07d02: FOND-HTN/README/CHANGELOG 'in flight' notes updated to LANDED for 57/60/65 with one-line outcomes (60's default-envelope claim kept honestly partial) + wave-6 changelog bullets | none (A7) |

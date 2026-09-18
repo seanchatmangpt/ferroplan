@@ -24,3 +24,4 @@ Gates: `cargo test -p ferroplan-hddl && cargo test -p ferroplan --test htn_ipc20
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T02:50:00Z | BLOCKED | fix/grounding-prune @ 75870de | — | all |
+| 2026-09-18T23:30:00Z | PARTIAL_ALIVE | wt-h60 wip landed by A7 as b03ea19 on wave6/land-v26917 (branch fix/grounding-prune had no commits; uncommitted worktree diff applied + attributed) | gates re-run in landing worktree: ferroplan-hddl 178/178 exit 0; htn_ipc2023 13/13; htn_oracle 3/3 (6 documented ignores); ground_caps_plumbing + memory_stress re-pins green in the 62 sweep | remains: 16-domain default-caps re-run (grounding_prune_ipc_rerun #[ignore]d long-run) — corpus /tmp wiped on this machine, EXTERNAL_ABSENT; RESULTS-wavec.md append follows that re-run |

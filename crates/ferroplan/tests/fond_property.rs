@@ -681,10 +681,7 @@ fn fond_solver_matches_independent_policy_enumeration() {
     }
 
     // Generator + coverage self-checks (loop budget asserted).
-    assert!(
-        INSTANCES >= 300,
-        "ticket floor is 300+ instances, ran {INSTANCES}"
-    );
+    const _: () = assert!(INSTANCES >= 300, "ticket floor is 300+ instances");
     assert!(
         deterministic_groups > 0,
         "generator produced no deterministic (single-outcome) groups"

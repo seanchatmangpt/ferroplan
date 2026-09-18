@@ -140,7 +140,12 @@ fn ground_limits() -> grounder::GroundingLimits {
     grounder::GroundingLimits {
         max_ground_actions: 10_000_000,
         max_ground_methods: 10_000_000,
-        prune_unreachable: false, // match solve_hddl's Default-driven behavior
+        // Both pruning pre-passes deliberately OFF: this ladder measures the
+        // *full combinatorial* grounding (its rung sizes are ground-instance
+        // counts), not solve_hddl's pipeline — which since ticket fond-htn-60
+        // runs `prune_irrelevant = true` behind the same caps.
+        prune_unreachable: false,
+        prune_irrelevant: false,
         max_wall: Some(STAGE_WALL),
     }
 }
@@ -173,7 +178,9 @@ fn solve_limits() -> PlannerLimits {
 fn chain_world(n: usize) -> (String, String) {
     assert!(n >= 2, "chain-world needs at least 2 blocks");
     let mut domain = String::new();
-    domain.push_str(";; hand-authored, blocksworld-pattern total-order family (ticket fond-htn-28)\n");
+    domain.push_str(
+        ";; hand-authored, blocksworld-pattern total-order family (ticket fond-htn-28)\n",
+    );
     domain.push_str(";; generated parametrically by tests/scaling_ladder.rs::chain_world; no koala files vendored\n");
     domain.push_str(
         "(define (domain chain-world)\n\
@@ -246,7 +253,8 @@ fn transport_drop(n: usize, m: usize, seed: u64) -> (String, String) {
     // a self-drive (drive d→d would assert and retract `(at d)` in one
     // branch); the first destination also differs from the depot l0.
     let lcg = |x: u64| {
-        x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407)
+        x.wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407)
     };
     let mut x = seed;
     let mut dests: Vec<usize> = Vec::with_capacity(n);
@@ -266,9 +274,10 @@ fn transport_drop(n: usize, m: usize, seed: u64) -> (String, String) {
     let loc = |i: usize| format!("l{i}");
 
     let mut domain = String::new();
-    domain.push_str(";; hand-authored, transport-pattern failing-drop family (ticket fond-htn-28)\n");
+    domain
+        .push_str(";; hand-authored, transport-pattern failing-drop family (ticket fond-htn-28)\n");
     domain.push_str(";; generated parametrically by tests/scaling_ladder.rs::transport_drop; no koala files vendored\n");
-    domain.push_str(&format!(
+    domain.push_str(
         "(define (domain transport-drop)\n\
          \x20 (:types package loc)\n\
          \x20 (:predicates (at ?l - loc) (ready ?p - package) (holding ?p - package)\n\
@@ -298,7 +307,7 @@ fn transport_drop(n: usize, m: usize, seed: u64) -> (String, String) {
          \x20   :task (deliver ?p ?d)\n\
          \x20   :precondition (holding ?p)\n\
          \x20   :ordered-subtasks (and (t1 (drop ?p ?d)) (t2 (deliver ?p ?d))))\n",
-    ));
+    );
     // Per-package dispatch methods with ground route constants: truck moves
     // from the previous destination (or the depot l0) to this package's
     // destination, loads, then HANDS BACK to the (deliver ?p ?d) task — the
@@ -325,11 +334,17 @@ fn transport_drop(n: usize, m: usize, seed: u64) -> (String, String) {
     let packages: Vec<String> = (1..=n).map(|i| format!("p{i}")).collect();
     let locs: Vec<String> = (0..m).map(loc).collect();
     let init: Vec<String> = std::iter::once("(at l0)".to_owned())
-        .chain(packages.iter().enumerate().map(|(i, p)| {
-            format!("(ready {p}) (dest {p} {})", loc(dests[i]))
-        }))
+        .chain(
+            packages
+                .iter()
+                .enumerate()
+                .map(|(i, p)| format!("(ready {p}) (dest {p} {})", loc(dests[i]))),
+        )
         .collect();
-    let goal: Vec<String> = packages.iter().map(|p| format!("(delivered {p})")).collect();
+    let goal: Vec<String> = packages
+        .iter()
+        .map(|p| format!("(delivered {p})"))
+        .collect();
     let root: Vec<String> = packages
         .iter()
         .enumerate()
@@ -479,7 +494,10 @@ fn run_rung(family: Family, n: usize) -> Rung {
     let (domain_ast, problem_ast) = match parsed {
         Ok(x) => x,
         Err(e) => {
-            rung.outcome = Outcome::Refused { stage: "parse", reason: e };
+            rung.outcome = Outcome::Refused {
+                stage: "parse",
+                reason: e,
+            };
             return rung;
         }
     };
@@ -490,7 +508,10 @@ fn run_rung(family: Family, n: usize) -> Rung {
         Ok(ir) => ir,
         Err(e) => {
             rung.walls.ground_ms = t.elapsed().as_millis();
-            rung.outcome = Outcome::Refused { stage: "ground", reason: e.to_string() };
+            rung.outcome = Outcome::Refused {
+                stage: "ground",
+                reason: e.to_string(),
+            };
             return rung;
         }
     };
@@ -504,7 +525,10 @@ fn run_rung(family: Family, n: usize) -> Rung {
         Ok(f) => f,
         Err(e) => {
             rung.walls.translate_ms = t.elapsed().as_millis();
-            rung.outcome = Outcome::Refused { stage: "translate", reason: e.to_string() };
+            rung.outcome = Outcome::Refused {
+                stage: "translate",
+                reason: e.to_string(),
+            };
             return rung;
         }
     };
@@ -525,7 +549,10 @@ fn run_rung(family: Family, n: usize) -> Rung {
             policy_entries: plan.policy.len(),
         },
         Ok(_) => Outcome::NoPlan,
-        Err(e) => Outcome::Refused { stage: "solve", reason: e.to_string() },
+        Err(e) => Outcome::Refused {
+            stage: "solve",
+            reason: e.to_string(),
+        },
     };
     rung.walls.solve_ms = t.elapsed().as_millis();
     rung
@@ -615,8 +642,10 @@ fn write_results(all: &[Rung], stops: &[(Family, String)]) {
     md.push_str("# Scaling ladder results (ticket fond-htn-28) — MACHINE-WRITTEN\n\n");
     md.push_str("Generated by `crates/ferroplan/tests/scaling_ladder.rs` (hand-authored parametric generators; no koala files vendored — koala is an external test oracle only).\n\n");
     md.push_str("## Reproduction\n\n```text\n");
-    md.push_str("command:  cargo test -p ferroplan --test scaling_ladder -- --ignored --nocapture\n");
-    md.push_str(&format!("           (with SCALING_LADDER_RESULTS set to this file's path)\n"));
+    md.push_str(
+        "command:  cargo test -p ferroplan --test scaling_ladder -- --ignored --nocapture\n",
+    );
+    md.push_str("           (with SCALING_LADDER_RESULTS set to this file's path)\n");
     md.push_str(&format!("seed:      {SEED} (transport-drop destination LCG; state/transition counts are exact functions of family+n)\n"));
     md.push_str(&format!("machine:   {}\n", machine_note()));
     md.push_str(&format!("ended:     {}\n", utc_now()));
@@ -628,8 +657,10 @@ fn write_results(all: &[Rung], stops: &[(Family, String)]) {
     md.push_str("```\n\n");
     md.push_str("## Stage limits (the bounds the ladder ran under)\n\n```text\n");
     md.push_str("parse:     watchdog thread, 60 s (parser has no internal wall check — solve_hddl's own pattern)\n");
-    md.push_str("ground:    max_wall = 60 s, max_ground_actions = 10,000,000, max_ground_methods = 10,000,000, prune_unreachable = false\n");
-    md.push_str("translate: max_wall = 60 s, max_states = 2,000,000, max_task_network_depth = 4096\n");
+    md.push_str("ground:    max_wall = 60 s, max_ground_actions = 10,000,000, max_ground_methods = 10,000,000, prune_unreachable = false, prune_irrelevant = false\n");
+    md.push_str(
+        "translate: max_wall = 60 s, max_states = 2,000,000, max_task_network_depth = 4096\n",
+    );
     md.push_str("solve:     PlannerLimits { max_wall_ms = 60000, max_states = 2,000,000, max_iterations = 100,000, max_depth = 100,000 }, PlanningType::Fond (strong fixpoint, strong-cyclic fallback)\n");
     md.push_str("```\n\n");
     md.push_str("## Full sweep (no cherry-picking: every rung, including refusals)\n\n");
@@ -645,7 +676,9 @@ fn write_results(all: &[Rung], stops: &[(Family, String)]) {
         md.push_str(&format!("- `{}`: {why}\n", family.name()));
     }
     md.push('\n');
-    md.push_str("## Doubling factors (last two SOLVED rungs per family; linear doubling = 2.00)\n\n");
+    md.push_str(
+        "## Doubling factors (last two SOLVED rungs per family; linear doubling = 2.00)\n\n",
+    );
     md.push_str("| family | rung | parse | ground | translate | solve | g_acts | g_methods | states | transitions | states@prev | states@last |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n");
     let mut by_family: BTreeMap<&str, Vec<&Rung>> = Default::default();
     for r in all.iter().filter(|r| r.solved()) {
@@ -676,7 +709,9 @@ fn ci_heartbeat_n8_sampled_rung() {
                 && r.walls.ground_ms < 60_000
                 && r.walls.translate_ms < 60_000
                 && r.walls.solve_ms < 60_000,
-            "{} n=8 blew a stage budget: {:?}", family.name(), r.walls
+            "{} n=8 blew a stage budget: {:?}",
+            family.name(),
+            r.walls
         );
         assert!(
             r.solved(),
@@ -684,7 +719,11 @@ fn ci_heartbeat_n8_sampled_rung() {
             family.name(),
             r.outcome.label()
         );
-        assert!(r.states > 0, "{} n=8 must translate to a non-empty state space", family.name());
+        assert!(
+            r.states > 0,
+            "{} n=8 must translate to a non-empty state space",
+            family.name()
+        );
     }
 }
 
@@ -730,15 +769,15 @@ fn full_scaling_ladder() {
             if solved {
                 solved_rungs += 1;
             } else {
-                stops.push((
-                    family,
-                    format!("stopped at n={n}: {outcome} (stage knelt)"),
-                ));
+                stops.push((family, format!("stopped at n={n}: {outcome} (stage knelt)")));
                 break;
             }
         }
         if solved_rungs == LADDER.len() {
-            stops.push((family, "completed all rungs — no refusal on this ladder".to_owned()));
+            stops.push((
+                family,
+                "completed all rungs — no refusal on this ladder".to_owned(),
+            ));
         }
         assert!(
             solved_rungs >= 1,

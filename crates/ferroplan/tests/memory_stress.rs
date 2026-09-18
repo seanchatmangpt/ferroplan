@@ -73,9 +73,9 @@
 //! * `cargo test -p ferroplan --test memory_stress -- --ignored` — the full
 //!   7-case suite. Wave rule: the whole run stays under 120 s (asserted).
 
-use ferroplan::hddl::{solve_hddl, HddlError};
+use ferroplan::hddl::solve_hddl;
 use ferroplan::planning_runtime::{
-    solve_planning_type, PlanningProblem, PlannerError, PlannerLimits, State as RtState,
+    solve_planning_type, PlannerError, PlannerLimits, PlanningProblem, State as RtState,
     Transition as RtTransition, UniversalPlanningRequest,
 };
 use ferroplan::PlanningType;
@@ -140,10 +140,16 @@ struct CaseOutcome {
 
 impl CaseOutcome {
     fn refused(phase: &'static str, detail: String, naive_product: u64) -> Self {
-        Self { outcome: Outcome::Refused { phase, detail }, naive_product }
+        Self {
+            outcome: Outcome::Refused { phase, detail },
+            naive_product,
+        }
     }
     fn solved(detail: String, naive_product: u64) -> Self {
-        Self { outcome: Outcome::Solved { detail }, naive_product }
+        Self {
+            outcome: Outcome::Solved { detail },
+            naive_product,
+        }
     }
 }
 
@@ -320,8 +326,8 @@ fn gen_binding_ladder(seed: u64) -> (String, String, u64) {
             .collect::<Vec<_>>()
             .join(" ");
         preds.push_str(&format!(" (reached{arity}"));
-        for i in 0..arity {
-            preds.push_str(&format!(" ?x{i} - {}", types[i]));
+        for (i, t) in types.iter().enumerate().take(arity) {
+            preds.push_str(&format!(" ?x{i} - {t}"));
         }
         preds.push(')');
         let call_args = (0..arity)
@@ -503,8 +509,7 @@ fn gen_typing_chain(depth: usize, seed: u64) -> (String, String) {
     // builtin 'object' root (parse_typed_group would otherwise absorb a bare
     // leading name into the first subtype group as its sibling — and make
     // the chain self-ancestored).
-    let rank_to_name: Vec<String> =
-        chain_ids.iter().map(|id| format!("t{id}")).collect();
+    let rank_to_name: Vec<String> = chain_ids.iter().map(|id| format!("t{id}")).collect();
     let mut types_src = format!("{} - object", rank_to_name[0]);
     for k in 1..depth {
         types_src.push_str(&format!(" {} - {}", rank_to_name[k], rank_to_name[k - 1]));
@@ -549,7 +554,11 @@ fn gen_chain_problem(n_states: usize) -> PlanningProblem {
         if i == n_states - 1 {
             facts.insert(goal_fact.clone());
         }
-        states.push(RtState { id: format!("s{i}"), facts, fluents: Default::default() });
+        states.push(RtState {
+            id: format!("s{i}"),
+            facts,
+            fluents: Default::default(),
+        });
         if i + 1 < n_states {
             transitions.push(RtTransition {
                 action: "advance".to_owned(),
@@ -595,25 +604,30 @@ fn case_binding_product_8p() -> CaseOutcome {
     };
     let started = Instant::now();
     let err = ground(&domain, &problem, &limits)
-        .err()
-        .expect("binding-product-8p must be refused, not grounded");
+        .expect_err("binding-product-8p must be refused, not grounded");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, GroundError::LimitExceeded(_)),
         "expected typed GroundError::LimitExceeded, got {err:?}"
     );
-    // End-to-end: the same refusal must survive the solve_hddl watchdog
-    // wrapper as a typed HddlError::Ground (never a panic/kill).
+    // End-to-end (re-pinned by ticket fond-htn-60): the solve pipeline runs
+    // hierarchical task-relevance pruning, and `move8` is named by NO method
+    // or root subtask — the root task `run` decomposes (via `m-run`) to the
+    // empty network. So the 16.7M-instance schema is provably irrelevant,
+    // the relevance pass walks its bindings lazily (bounded, no OOM — the
+    // property this stress case guards) and keeps zero instances, and the
+    // honest end-to-end answer changed from a typed ground refusal to a
+    // solved empty-decomposition plan. Bounded exit, correct answer, still
+    // no panic/kill/OOM.
     let e2e = solve_hddl(&domain_src, &problem_src, &PlannerLimits::default())
-        .err()
-        .expect("end-to-end solve must refuse too");
+        .expect("end-to-end solve must stay bounded (solved via the empty decomposition)");
     assert!(
-        matches!(e2e, HddlError::Ground(_)),
-        "expected typed HddlError::Ground, got {e2e:?}"
+        e2e.solved,
+        "root task decomposes to the empty network: the plan must solve"
     );
     CaseOutcome::refused(
         "ground",
-        format!("{err} (end-to-end: {e2e})"),
+        format!("{err} (end-to-end since fond-htn-60: solved, relevant instances = 0)"),
         product,
     )
     .with_elapsed(elapsed)
@@ -634,8 +648,7 @@ fn case_binding_ladder_2to8() -> CaseOutcome {
     };
     let started = Instant::now();
     let err = ground(&domain, &problem, &limits)
-        .err()
-        .expect("binding-ladder must be refused, not grounded");
+        .expect_err("binding-ladder must be refused, not grounded");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, GroundError::LimitExceeded(_)),
@@ -647,7 +660,11 @@ fn case_binding_ladder_2to8() -> CaseOutcome {
 fn case_method_fanout_50x10() -> CaseOutcome {
     let seed = 0xFAA7;
     let (domain_src, problem_src, product) = gen_method_fanout(seed, true);
-    assert_eq!(product, 50u64.pow(10), "fan-out naive product must be 50^10");
+    assert_eq!(
+        product,
+        50u64.pow(10),
+        "fan-out naive product must be 50^10"
+    );
     assert!(product >= 10_000_000);
     let domain = parse_domain(&domain_src).expect("generated domain must parse");
     let problem = parse_problem(&problem_src).expect("generated problem must parse");
@@ -659,9 +676,7 @@ fn case_method_fanout_50x10() -> CaseOutcome {
         ..TranslateLimits::default()
     };
     let started = Instant::now();
-    let err = translate(&ir, &limits)
-        .err()
-        .expect("fan-out translate must be refused by max_states");
+    let err = translate(&ir, &limits).expect_err("fan-out translate must be refused by max_states");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, TranslateError::MemoryLimitExceeded { .. }),
@@ -690,8 +705,7 @@ fn case_fanout_dedup_50x10() -> CaseOutcome {
         ..TranslateLimits::default()
     };
     let err = translate(&ir, &limits)
-        .err()
-        .expect("identical-method fan-out must still terminate at a bound");
+        .expect_err("identical-method fan-out must still terminate at a bound");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, TranslateError::TaskNetworkDepthExceeded { .. }),
@@ -709,11 +723,7 @@ fn case_predicates_500() -> CaseOutcome {
     let elapsed = started.elapsed();
     assert!(plan.solved, "plan must be solved");
     assert!(!plan.policy.is_empty(), "policy must be non-empty");
-    CaseOutcome::solved(
-        format!("policy entries: {}", plan.policy.len()),
-        500,
-    )
-    .with_elapsed(elapsed)
+    CaseOutcome::solved(format!("policy entries: {}", plan.policy.len()), 500).with_elapsed(elapsed)
 }
 
 fn case_typing_chain_300() -> CaseOutcome {
@@ -725,11 +735,7 @@ fn case_typing_chain_300() -> CaseOutcome {
     let elapsed = started.elapsed();
     assert!(plan.solved, "plan must be solved");
     assert!(!plan.policy.is_empty(), "policy must be non-empty");
-    CaseOutcome::solved(
-        format!("policy entries: {}", plan.policy.len()),
-        300,
-    )
-    .with_elapsed(elapsed)
+    CaseOutcome::solved(format!("policy entries: {}", plan.policy.len()), 300).with_elapsed(elapsed)
 }
 
 fn case_planner_wall_bound() -> CaseOutcome {
@@ -744,8 +750,7 @@ fn case_planner_wall_bound() -> CaseOutcome {
         problem,
         limits: limits.clone(),
     })
-    .err()
-    .expect("1,000-state chain under a 100ms wall must be refused");
+    .expect_err("1,000-state chain under a 100ms wall must be refused");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, PlannerError::Timeout { .. }),
@@ -776,9 +781,7 @@ const WALL_BUDGET_MS_CAP: u128 = 120_000;
 fn child_main(case_name: &str) -> i32 {
     let case = find_case(case_name);
     let started = Instant::now();
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        (case.run)()
-    }));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (case.run)()));
     let elapsed_ms = started.elapsed().as_millis();
     let payload = match result {
         Ok(outcome) => {
@@ -812,7 +815,11 @@ fn child_main(case_name: &str) -> i32 {
         }
     };
     println!("{}", payload);
-    if payload["outcome"] == "panic" { 101 } else { 0 }
+    if payload["outcome"] == "panic" {
+        101
+    } else {
+        0
+    }
 }
 
 struct Report {
@@ -839,7 +846,12 @@ fn run_case_in_child(case: &Case) -> Report {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .unwrap_or_else(|e| panic!("memory_stress: failed to spawn child for {}: {e}", case.name));
+        .unwrap_or_else(|e| {
+            panic!(
+                "memory_stress: failed to spawn child for {}: {e}",
+                case.name
+            )
+        });
     let pid = child.id();
 
     // Peak-RSS sampler: ps every ~10ms until the child is reaped. Measured,
@@ -922,10 +934,7 @@ fn run_case_in_child(case: &Case) -> Report {
         );
     }
 
-    let stdout = child
-        .stdout
-        .take()
-        .expect("child stdout was piped");
+    let stdout = child.stdout.take().expect("child stdout was piped");
     let mut json_line = None;
     for line in BufReader::new(stdout).lines().map_while(Result::ok) {
         if line.trim_start().starts_with('{') {
@@ -933,10 +942,17 @@ fn run_case_in_child(case: &Case) -> Report {
         }
     }
     let json_line = json_line.unwrap_or_else(|| {
-        panic!("memory_stress: case '{}' produced no JSON report line", case.name)
+        panic!(
+            "memory_stress: case '{}' produced no JSON report line",
+            case.name
+        )
     });
-    let v: serde_json::Value = serde_json::from_str(&json_line)
-        .unwrap_or_else(|e| panic!("memory_stress: case '{}' bad JSON '{json_line}': {e}", case.name));
+    let v: serde_json::Value = serde_json::from_str(&json_line).unwrap_or_else(|e| {
+        panic!(
+            "memory_stress: case '{}' bad JSON '{json_line}': {e}",
+            case.name
+        )
+    });
     let outcome = v["outcome"]
         .as_str()
         .unwrap_or_else(|| panic!("case '{}': missing outcome", case.name))
@@ -944,8 +960,7 @@ fn run_case_in_child(case: &Case) -> Report {
     if outcome == "panic" {
         panic!(
             "memory_stress: case '{}' PANICKED in child (must return a typed outcome instead): {}",
-            case.name,
-            v["detail"]
+            case.name, v["detail"]
         );
     }
     assert!(
@@ -1000,7 +1015,11 @@ fn results_table(reports: &[Report]) -> String {
     out.push_str("| case | phase | typed outcome | latency (ms) |\n");
     out.push_str("|---|---|---|---|\n");
     for r in reports {
-        let typed = if r.outcome == "refused" { &r.detail } else { &r.outcome };
+        let typed = if r.outcome == "refused" {
+            &r.detail
+        } else {
+            &r.outcome
+        };
         out.push_str(&format!(
             "| {} | {} | {} | {} (parent wall {} ms) |\n",
             r.case, r.phase, typed, r.elapsed_ms, r.wall_ms
@@ -1017,7 +1036,9 @@ fn main() {
         std::process::exit(child_main(&case_name));
     }
 
-    let full = args.iter().any(|a| a == "--ignored" || a == "--include-ignored");
+    let full = args
+        .iter()
+        .any(|a| a == "--ignored" || a == "--include-ignored");
     let all = cases();
     let selected: Vec<&Case> = if full {
         all.iter().collect()
@@ -1031,7 +1052,11 @@ fn main() {
         "memory_stress: {} run — {} case(s): {}",
         if full { "FULL" } else { "sampled" },
         selected.len(),
-        selected.iter().map(|c| c.name).collect::<Vec<_>>().join(", ")
+        selected
+            .iter()
+            .map(|c| c.name)
+            .collect::<Vec<_>>()
+            .join(", ")
     );
     eprintln!(
         "memory_stress: method = child process under RLIMIT_AS {RLIMIT_AS_KB}KiB (backstop; \
@@ -1049,7 +1074,10 @@ fn main() {
     let solves = reports.iter().filter(|r| r.outcome == "solved").count();
     let table = results_table(&reports);
 
-    println!("\nmemory_stress results ({} run)", if full { "FULL" } else { "sampled" });
+    println!(
+        "\nmemory_stress results ({} run)",
+        if full { "FULL" } else { "sampled" }
+    );
     println!("{table}");
     println!(
         "summary: {} cases — {refusals} typed refusals, {solves} clean solves, 0 panics, \

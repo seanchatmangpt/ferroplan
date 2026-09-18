@@ -25,3 +25,4 @@ Gates: `cargo test -p ferroplan --test htn_oracle --test htn_ipc2023 && cargo te
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | chore/fixtures-dedupe @ 6d14813 | — | all |
+| 2026-09-18T03:02:00Z | respawn-in-flight | chore/fixtures-dedupe @ 75870de (wt-d56) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |

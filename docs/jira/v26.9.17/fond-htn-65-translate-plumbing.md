@@ -25,3 +25,4 @@ Gates: `cargo test -p ferroplan -p ferroplan-hddl` exit 0; addendum rows added.
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T02:50:00Z | BLOCKED | fix/translate-plumbing @ 75870de | — | all |
+| 2026-09-18T23:30:00Z | ALIVE | merged 6757249 into wave6/land-v26917 (merge f980212, A7) | gates re-run on the FULL merged line: `cargo test -p ferroplan -p ferroplan-hddl` 85 suites, 776 passed / 0 failed / 47 documented ignores, exit 0 (includes translate_plumbing 1/1 + translate_wall_ipc_addendum runner green, ~9 min) | none (A7) |

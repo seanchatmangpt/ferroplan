@@ -902,6 +902,12 @@ fn fond_policy(
 ///   outcomes into the region (retry loops qualify; pure loops do not),
 ///   then re-runs the Phase 2 prune since a removed state may have been
 ///   another state's witness. The alternation runs to a joint fixpoint.
+///   When the reachable core closes over the whole surviving set, every
+///   surviving state's choice is rewritten to a committable action with an
+///   outcome of strictly smaller reach-discovery rank (advancing) — the
+///   returned choices, not just the region, are reach-certified; returning
+///   the un-rewritten Phase 2 witnesses was the FOUND_BUG_2 defect class
+///   (a witness-first pure loop next to a committable retry action).
 ///
 /// Soundness/completeness of this construction for **strong-cyclic** (not
 /// strong) solutions relies on the standard fairness assumption: every
@@ -1035,6 +1041,15 @@ fn fond_policy_strong_cyclic(
     // state may have been another state's all-outcomes witness. The two
     // sweeps alternate to a joint fixpoint; each outer iteration removes
     // at least one state, bounded by the same `states + 1` failsafe.
+    // When the reach fixpoint CLOSES over the whole surviving set, the
+    // Phase 2 witnesses are still not necessarily the certified actions
+    // (FOUND_BUG_2, fond-htn-57: a state's alphabetically-first closed
+    // action can be a pure loop while a later action is the committable
+    // one), so every surviving non-goal state's choice is rewritten to an
+    // advancing committable action — one with an outcome of strictly
+    // smaller reach-discovery rank — before the loop breaks; the returned
+    // (surviving, choices) pair is then exactly the pair whose
+    // goal-reachability was certified.
     let mut phase3_rounds = 0_usize;
     loop {
         check_wall_deadline(start, limits)?;
@@ -1077,12 +1092,25 @@ fn fond_policy_strong_cyclic(
 
         // (b) committable backward reachability from the goal states:
         // grow `reach` with any surviving state having a committed action
-        // (all outcomes inside `surviving`) that touches `reach`.
+        // (all outcomes inside `surviving`) that touches `reach`. Each
+        // state's RANK is recorded at admission as one more than the
+        // smallest reach-outcome rank across its committable actions
+        // (goals are rank 0). The sweep admits states mid-round (a state
+        // inserted this round advances later states in the same round), so
+        // the raw round number is NOT a usable distance — the witness-min
+        // + 1 assignment is: it makes the rank strictly greater than some
+        // committable outcome's rank, which is exactly the progress
+        // measure the closing rewrite below demands (an action whose
+        // outcomes all stay put or move outward certifies nothing).
+        let mut ranks = BTreeMap::<String, usize>::new();
         let mut reach = surviving
             .iter()
             .filter(|id| problem.goal.holds(states[id.as_str()]))
             .cloned()
             .collect::<BTreeSet<_>>();
+        for goal_state in &reach {
+            ranks.insert(goal_state.clone(), 0);
+        }
         loop {
             let mut changed = false;
             for state in &problem.states {
@@ -1096,7 +1124,28 @@ fn fond_policy_strong_cyclic(
                         && outcomes.iter().any(|edge| reach.contains(&edge.to))
                 });
                 if advances {
+                    // `advances` guarantees at least one committable action
+                    // with a reach outcome, and every reach state carries a
+                    // rank, so `best` is always `Some` here; the fallback
+                    // rank 1 merely routes the impossible case into the
+                    // rewrite's defense-in-depth prune.
+                    let best = groups
+                        .iter()
+                        .filter_map(|((from, _action), outcomes)| {
+                            if *from != state.id
+                                || outcomes.is_empty()
+                                || !outcomes.iter().all(|edge| surviving.contains(&edge.to))
+                            {
+                                return None;
+                            }
+                            outcomes
+                                .iter()
+                                .filter_map(|edge| ranks.get(&edge.to).copied())
+                                .min()
+                        })
+                        .min();
                     reach.insert(state.id.clone());
+                    ranks.insert(state.id.clone(), best.map_or(1, |rank| rank + 1));
                     changed = true;
                 }
             }
@@ -1105,6 +1154,45 @@ fn fond_policy_strong_cyclic(
             }
         }
         if reach.len() == surviving.len() {
+            // Fixpoint closed: the region IS goal-reachable. Rewrite every
+            // surviving non-goal state's choice from the Phase 2 witness to
+            // a committable action with at least one outcome of strictly
+            // smaller rank (advancing toward the seeded goals). A state in
+            // `reach` entered along exactly such an edge, so a rewrite
+            // target always exists; if the impossible happens and one does
+            // not, the state cannot be in reach — prune it (defense in
+            // depth) and re-run the alternation, recomputing both the
+            // witness prune and this rewrite after the cascade.
+            let mut pruned = false;
+            for state in &problem.states {
+                if !surviving.contains(&state.id) || problem.goal.holds(state) {
+                    continue;
+                }
+                let state_rank = ranks.get(&state.id).copied();
+                let advancing = groups.iter().find(|((from, _action), outcomes)| {
+                    *from == state.id
+                        && !outcomes.is_empty()
+                        && outcomes.iter().all(|edge| surviving.contains(&edge.to))
+                        && state_rank.is_some_and(|rank| {
+                            outcomes
+                                .iter()
+                                .any(|edge| ranks.get(&edge.to).copied().is_some_and(|r| r < rank))
+                        })
+                });
+                match advancing {
+                    Some(((_, action), _)) => {
+                        choices.insert(state.id.clone(), (*action).to_owned());
+                    }
+                    None => {
+                        surviving.remove(&state.id);
+                        choices.remove(&state.id);
+                        pruned = true;
+                    }
+                }
+            }
+            if pruned {
+                continue;
+            }
             break;
         }
         surviving = reach;
@@ -2018,6 +2106,53 @@ mod tests {
             .collect::<Vec<_>>();
         a_outcomes.sort();
         assert_eq!(a_outcomes, vec!["a".to_owned(), "g".to_owned()]);
+    }
+
+    /// FOUND_BUG_2 regression pin (ticket fond-htn-57): a state whose
+    /// alphabetically FIRST closed action is a pure self-loop (`a_loop`)
+    /// while a later action is the committable retry (`z_retry`, outcomes
+    /// `{g, s0}`) — `BTreeMap` order hands the Phase 2 witness prune the
+    /// loop first. The fixpoint closes with `reach == surviving` because
+    /// `z_retry` certifies s0's goal-reachability, so the pre-57 solver
+    /// exited without rewriting `choices` and returned the goal-unreachable
+    /// self-loop policy. The choice rewrite must return `z_retry`.
+    #[test]
+    fn fond_policy_strong_cyclic_returns_advancing_action_when_loop_sorts_first() {
+        let problem = PlanningProblem {
+            states: vec![state("s0", &[]), state("g", &["done"])],
+            initial_states: vec!["s0".to_owned()],
+            goal: Goal {
+                facts: BTreeSet::from(["done".to_owned()]),
+                ..Goal::default()
+            },
+            transitions: vec![
+                // "a_loop" sorts before "z_retry", so the witness prune
+                // picks the pure self-loop first — exactly the ordering the
+                // defect exploited.
+                edge("a_loop", "s0", "s0", 1_000_000),
+                edge("z_retry", "s0", "g", 500_000),
+                edge("z_retry", "s0", "s0", 500_000),
+            ],
+            ..PlanningProblem::default()
+        };
+        let plan = fond_policy_strong_cyclic(&problem, &PlannerLimits::default())
+            .expect("strong-cyclic fixpoint solves the loop-first domain");
+        assert!(plan.solved);
+        assert_eq!(plan.policy.len(), 1);
+        let entry = &plan.policy[0];
+        assert_eq!(entry.state, "s0");
+        assert_eq!(
+            entry.action, "z_retry",
+            "the advancing retry action must be chosen over the \
+             alphabetically-first pure self-loop"
+        );
+        let mut outcomes = entry
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.state.clone())
+            .collect::<Vec<_>>();
+        outcomes.sort();
+        assert_eq!(outcomes, vec!["g".to_owned(), "s0".to_owned()]);
     }
 
     /// End-to-end proof (within the same module, over the private

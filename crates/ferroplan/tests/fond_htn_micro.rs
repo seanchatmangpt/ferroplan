@@ -219,9 +219,12 @@ fn assert_outcome_closed<'a>(plan: &'a UniversalPlan, flat: &'a FlatProblem) -> 
 
 /// Transport pattern: `drop`'s oneof is success vs an EMPTY branch. The empty
 /// branch must survive as a real, no-change outcome (no collapsing with the
-/// success branch), loop back into the initial composite state, and the
-/// resulting retry loop must solve — which only the strong-cyclic fallback
-/// can express (`fond_policy`'s least fixpoint cannot admit self-loops).
+/// success branch), loop back into the composite state where `drop` executes
+/// (ticket fond-htn-58: a no-change outcome of a nondeterministic action
+/// leaves the task frontier un-advanced, re-offering the pending task), and
+/// the resulting retry loop must solve — which only the strong-cyclic
+/// fallback can express (`fond_policy`'s least fixpoint cannot admit
+/// self-loops).
 #[test]
 fn drop_retry_solves_with_a_real_no_change_retry_outcome() {
     let (plan, flat, _elapsed) = solved(&DROP_RETRY);
@@ -264,10 +267,12 @@ fn drop_retry_solves_with_a_real_no_change_retry_outcome() {
         1,
         "exactly one outcome must be the success branch"
     );
-    // The empty branch re-enters the initial composite state: the retry loop.
+    // The empty branch re-enters the drop-executing composite state itself:
+    // the retry self-loop (ticket fond-htn-58 — the frontier is not advanced
+    // on a no-change outcome, so the pending task is re-offered in place).
     assert_eq!(
-        no_change[0].state, cc.initial,
-        "empty branch must loop back to the initial composite state"
+        no_change[0].state, drop.state,
+        "empty branch must loop back to the drop-executing composite state"
     );
     // The success branch genuinely changed the world (package delivered).
     assert!(

@@ -315,16 +315,16 @@ witnesses it:
   honest refusal, never silent truncation
   (`crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md`; tracked in
   `docs/jira/v26.9.17/fond-htn-23-translate-capacity.md`).
-- **Conditional-effect grounding**: `when` under an action `:effect` is parsed,
-  but grounding refuses nested conditionals — the two PANDA oracle pairs die
-  with `nested 'when' is out of scope` / `unbound variable '?x'`
-  (`crates/ferroplan/tests/fixtures/htn-oracle/RESULTS.md`, admitted-mismatches
-  table; tracked in `docs/jira/v26.9.17/fond-htn-24-ground-conditional-effects.md`).
-- **Parse depth**: the HDDL parser recurses per nesting level with no depth
-  budget — 1000-deep `(and …)` aborts the process (measured: depth 250 parses,
-  500 aborts), pinned by the `#[ignore]`d adversarial case
-  `deep_nesting_1000_and_does_not_overflow_or_hang` (tracked in
-  `docs/jira/v26.9.17/fond-htn-22-parse-depth-budget.md`).
+- **Grounding scale (>1M instances)**: grounding caps are caller-scalable
+  (ticket fond-htn-43's plumbing), but raised to 1,000,000 ground
+  actions/methods, 16 IPC-2023 domains still refuse — their true
+  ground-instance counts exceed 1,000,000 — and the 17th (hiking) clears
+  grounding only to refuse at the translate wall
+  (`crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS-wavec.md`,
+  ticket fond-htn-43 addendum). Hierarchical task-relevance pruning has
+  landed as an opt-in flag (`GroundingLimits::prune_irrelevant`,
+  ticket fond-htn-60); flipping the default envelope awaits the
+  16-domain default-caps re-run.
 
 ## Configuration
 

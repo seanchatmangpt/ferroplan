@@ -22,3 +22,4 @@ Gates: your sweep completed with zero UNEXPECTED failures (expected: documented 
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T02:50:00Z | BLOCKED | test/final-sweep @ 75870de | — | all |
+| 2026-09-18T23:30:00Z | ALIVE | sweep on A7 landing branch wave6/land-v26917 @ 809fce5 (ticket deviation (a): stands in for main; coordinator lands) | `cargo test --no-fail-fast -p ferroplan -p ferroplan-hddl -- --include-ignored`: 817 passed / 6 failed / 0 ignored, exit 101 — ALL 6 = EXTERNAL_ABSENT class (oracle spawn ENOENT x3, /tmp corpus ENOENT x2, fond_flat_oracle oracle ENOENT x1), zero unexpected; wasm lib 9/9 exit 0; fond_threshold --release 3/3 exit 0; doc 1/1 exit 0; verify_evidence_ids exit 0; bench fond --quick 76 benches exit 0; _WAVE6-SWEEP.md committed 3d07d02 | none (A7) |

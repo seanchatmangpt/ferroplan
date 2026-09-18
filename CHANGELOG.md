@@ -195,6 +195,105 @@ recorded verdicts do.
   deterministic fixtures return `NoPlan`; the mismatch goldens are
   committed. Ticket fond-htn-21.
 
+### Finished hardening
+
+Landed across the closing waves of this cycle; every claim below is backed
+by the named commit, test file, or committed RESULTS record.
+
+- **Duplicate (multi-inheritance) type declarations are accepted**
+  (ticket fond-htn-44; branch `fix/duplicate-type-dedup`, merged `0f39d2d`):
+  a type declared more than once in `:types` is no longer a validation
+  refusal — a `ValidationWarning::DuplicateTypeDeclaration` names it and
+  the subtype relation becomes the union of the declared parents
+  (`crates/ferroplan-hddl/src/validate.rs`; the PO_UM-Translog corpus
+  shape was the affected case).
+- **Goal evaluation and parsing are depth-budgeted** (tickets fond-htn-42
+  and fond-htn-22): ground-goal evaluation refuses past a nesting budget
+  of `DEFAULT_MAX_GOAL_DEPTH` = 256 with `GroundError::GoalTooDeep`
+  (`crates/ferroplan-hddl/src/grounder.rs`; branch `fix/goal-eval-recursion`,
+  merged `f0b8b9c` — before it, a hand-built depth-50k `GroundGoal`
+  SIGABRTed the process), and the parser bounds s-expression nesting at
+  `DEFAULT_MAX_PARSE_DEPTH` = 256 with `ParseError::NestingTooDeep`
+  carrying the offending `(`'s line/column (`crates/ferroplan-hddl/src/parser.rs`;
+  branch `fix/parse-depth-budget`, merged `982ce3e` — the 1000-deep
+  `(and …)` process abort is gone, pinned by
+  `deep_nesting_1000_and_returns_typed_nesting_error_never_aborts`).
+- **Grounding caps are caller-plumbable** (ticket fond-htn-43; branch
+  `fix/ground-caps-plumbing`, merged `833994f`): `solve_hddl` derives
+  `GroundingLimits` from the caller's `PlannerLimits`
+  (`grounding_limits_from`, `crates/ferroplan/src/hddl.rs`) — ground
+  action/method caps = `max_states` ÷ 10, calibrated so the default
+  100,000 reproduces the historical 10,000/10,000 envelope exactly, and
+  `max_wall` follows `max_wall_ms` (`0` → unbounded). The raised-caps
+  re-run of the 17 ground-cap-refused IPC domains is committed
+  (`crates/ferroplan/tests/ground_caps_ipc_addendum.rs`,
+  `tests/fixtures/ipc-sweep/RESULTS-wavec.md`): 16 of 17 still refuse at
+  1,000,000-instance caps — true counts exceed 1M; hierarchical
+  task-relevance pruning has since landed as an opt-in flag
+  (`GroundingLimits::prune_irrelevant`, ticket fond-htn-60; flipping the
+  default envelope awaits the 16-domain default-caps re-run) — and the
+  17th progressed past grounding to the translate wall.
+- **Two stress walls landed.** The seeded 2000-case HDDL round-trip fuzz
+  (`tests/hddl_fuzz_roundtrip.rs`, ticket fond-htn-31; branch
+  `fuzz/hddl-roundtrip`, merged `8e54704`) completed with zero findings:
+  no panics, every refusal typed, determinism holds across the double
+  run, and the file's `KNOWN_FINDINGS` table is empty. The 5000-instance
+  property scale-up (`tests/fond_property_scaleup.rs`, ticket fond-htn-33;
+  branch `test/property-scaleup`, merged `2377802`) judged the solver
+  against an independent label-correcting reference and **found
+  FOUND_BUG_2** — strong-cyclic returns Phase-2 witness-first
+  goal-unreachable loop choices when the Phase-3 region closes without a
+  choice rewrite (882 of 3676 reference-solvable instances). **Fixed**
+  (ticket fond-htn-57): Phase 3 records reach-discovery ranks and rewrites
+  every surviving non-goal state's choice to a committable advancing
+  action at fixpoint close; the shrunk reproducer runs always-on and the
+  sweep's loop-policy carve-out was removed — the 5,000-instance sweep now
+  fails on any recurrence (0 mismatches on the landing run).
+- **Wave-6 hardening (landed on the integration line, coordinator lands to
+  main):**
+  - **Drop-retry re-decomposition seam fixed** (ticket fond-htn-58,
+    commit `4964b74`): after a no-change `oneof` outcome the translator
+    re-offers the pending abstract task instead of consuming the
+    decomposition offer once — the committed koala-contrast pin
+    `ORACLE_MISMATCH_micro_drop_retry` is now the always-on
+    `micro_drop_retry_agrees_with_oracle` agreement test
+    (`tests/fond_htn_oracle.rs`), goldens healed.
+  - **Iterative `Drop` for `GroundGoal`** (ticket fond-htn-59, commit
+    `304fa66`): any depth drops in O(1) stack via explicit-worklist tail
+    destruction — a refused depth-50k goal no longer SIGABRTs on the way
+    down; the `mem::forget` dodges in the depth-budget tests are gone.
+  - **Hierarchical task-relevance pruning** (ticket fond-htn-60, opt-in
+    `GroundingLimits::prune_irrelevant`): an iterative task-relevance
+    fixpoint keeps only actions/methods on some path from the initial task
+    network, so >1M-instance groundings can fit the caps; soundness
+    falsifiers re-pinned (count reduction only). The 16-domain default-caps
+    re-run harness is committed
+    (`tests/grounding_prune_ipc_rerun.rs`, `#[ignore]`d long-run).
+  - **TranslateLimits plumbing** (ticket fond-htn-65, commits `9bbe2c3` +
+    `6757249`): `translate_limits_from` derives the translate wall/state
+    budget from `PlannerLimits` (default-identical calibration,
+    `max_states` ÷ 2), and the 9 wave-4 `LIMIT:translate-wall` IPC
+    instances re-run at 60 s caller walls now bind at the cumulative
+    pipeline watchdog, not the old 10 s translate wall
+    (`tests/fixtures/ipc-sweep/RESULTS-wavec.md`, addendum 2).
+  - **Differential fuzz harness** (ticket fond-htn-61): the committed
+    generator's VALID draws run through both engines with a 100-pair
+    ledger and per-seed divergence minimization
+    (`tests/differential_fuzz.rs` + `tests/common/mod.rs`). The pre-hotfix
+    ledger harvest found 14 divergences/3 incomparable; after the wave-6
+    soundness fixes land, the live-vs-ledger tripwire correctly fires on
+    8 verdict flips (6× SOLVED→NOSOLUTION = false solves removed by
+    fond-htn-57, 2× NOSOLUTION→SOLVED = dead branches re-decomposed by
+    fond-htn-58) — the ledger is parked as
+    `tests/fixtures/differential-fuzz/ledger.pre-wave6-hotfix-harvest.json`
+    until the oracle harness is rebuilt and a fresh ≥80-consumable harvest
+    re-arms the tripwire.
+
+The parse-depth row of "Known limits" above (ticket fond-htn-22) is
+superseded by the parser depth budget in this block; the grounded-caps
+mapping likewise supersedes the hard-coded-caps behavior the
+"Translate capacity" row describes for the grounding stage only.
+
 ## [0.27.1] - 2026-09-11 — A budget the caller can set, and withdraw
 
 No engine change. Coverage is unchanged from 0.27.0 (5,122/8,444) because
