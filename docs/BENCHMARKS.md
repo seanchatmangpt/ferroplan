@@ -1,7 +1,7 @@
 # FOND-HTN benchmarks — canonical consolidation
 
 One canonical table of **every committed FOND-HTN result** as of
-2026-09-17 (wave 3 + wave-4 start). This file consolidates only
+2026-09-18 (wave 3 + wave 4 integrated). This file consolidates only
 already-committed numbers: every row cites its source file, nothing is
 recomputed, re-measured, or smoothed. No new measurements were run to
 produce this page.
@@ -24,15 +24,16 @@ produce this page.
 | FOND-HTN oracle harvest (7 koala domains × 5 + 1 negative case) | 31 | — | 18 | 12 (`TIMEOUT`, 90 s wall) | 1 `UNSUPPORTED` (parse-stage negative case) | [`crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full.json`](../crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full.json) + [summary](../crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full-summary.md) |
 | FOND-HTN golden agreement ledger (micro + external cases) | 10 | 5 | 9 | 3 (ferroplan `error`, resource-limit) | 3 admitted semantic divergences (pinned by tests) | [`crates/ferroplan/tests/fixtures/fond-htn/oracle-goldens.json`](../crates/ferroplan/tests/fixtures/fond-htn/oracle-goldens.json) |
 | flat-FOND three-way (8 hand-authored domains) | 8 | 7 | 2 | 5 (oracle `TIMEOUT` on cyclic-only — koala-side signature) | 0 (8/8 three-way class agreement) | [`crates/ferroplan/tests/fixtures/fond-flat/oracle-goldens.json`](../crates/ferroplan/tests/fixtures/fond-flat/oracle-goldens.json) + 8 × `verdict.json` |
-| IPC full sweep (wave-4) | pending wave-4 | — | — | — | — | `crates/ferroplan/tests/fixtures/ipc-sweep/` — absent at consolidation time |
-| Scaling ladder (wave-4) | pending wave-4 | — | — | — | — | `crates/ferroplan/tests/fixtures/scaling-ladder/` — absent at consolidation time |
-| FOND criterion bench (wave-4) | pending wave-4 | — | — | — | — | `benches/BENCH-FOND.md` — absent at consolidation time |
+| IPC full sweep (wave-4, 43 domains × 1 problem) | 43 | 12 | — | 28 (`LIMIT:*`: 14 ground-actions, 9 translate-wall, 3 ground-methods, 2 solve-wall) | 3 `GAP:ground` (typed validation refusals) | [`crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS.md`](../crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS.md) |
+| Scaling ladder (wave-4, 2 families × 6 rungs) | 12 | 12 | — | 0 — no refusal through n=128 | 0 | [`crates/ferroplan/tests/fixtures/scaling-ladder/RESULTS.md`](../crates/ferroplan/tests/fixtures/scaling-ladder/RESULTS.md) |
+| FOND criterion bench (wave-4, seeded micro-domains) | 10 benchmarks | — | — | — | — | [`crates/ferroplan/benches/BENCH-FOND.md`](../crates/ferroplan/benches/BENCH-FOND.md) |
 
 "solved (oracle)" is blank where the corpus records no oracle column
-(row 2: ferroplan-only suite; the oracle side of those same instances is
-row 1) or where the corpus is an oracle-side harvest with no ferroplan
-column (row 3). A "—" under a pending-wave-4 row means the bench has not
-been run yet, not zero.
+(rows 2, 6, 7: ferroplan-only suites; the oracle side of the shared
+HTN instances is row 1), where the corpus is an oracle-side harvest
+with no ferroplan column (row 3), or where the entry is a wall-clock
+benchmark rather than a verdict corpus (row 8 — the criterion bench's
+facts are means ± stddev, see corpus 8).
 
 ## Corpus 1 — HTN differential: ferroplan vs oracle, 21 instances
 
@@ -194,6 +195,94 @@ cargo test -p ferroplan --test fond_flat_oracle
 cargo test -p ferroplan --test fond_flat_oracle -- --ignored
 ```
 
+## Corpus 6 — IPC-2023 full sweep: `solve_hddl` staged, 43 domains
+
+Source: [`crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS.md`](../crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS.md)
+(ticket `fond-htn-27`). All 43 IPC-2023 hierarchical-track domains,
+verbatim competition data (`domain.hddl` + first-listed problem each),
+staged per-stage budgets (parse 10 s outer; ground/translate =
+`GroundingLimits`/`TranslateLimits::default()` — the exact budgets
+`solve_hddl_inner` passes; solve `max_wall_ms = 30000`), each stage under
+an anti-hang watchdog. Recorded 2026-09-18T00:21:12Z, Apple M3 Max.
+
+| outcome | count |
+|---|---|
+| SOLVED (typed, policy produced) | 12 |
+| `LIMIT:ground-actions` (max 10 000 exceeded) | 14 |
+| `LIMIT:translate-wall` (internal 10 000 ms wall — pre-ticket-23 budget) | 9 |
+| `LIMIT:ground-methods` (max 10 000 exceeded) | 3 |
+| `LIMIT:solve-wall` (30 s planner budget) | 2 |
+| `GAP:ground` (typed validation refusal: duplicate type decl ×1; variable-arg root task-network subtask ×2) | 3 |
+
+0 NOPLAN · 0 panics · 0 hangs past a watchdog — the sweep test exits 0
+iff all 43 outcomes are honest typed answers. Full per-domain table and
+verbatim refusal strings in the source file.
+
+Reproduce:
+
+```sh
+# gate (sampled 6-domain heartbeat):
+cargo test -p ferroplan --test ipc_sweep
+# full 43-domain sweep (this table):
+cargo test -p ferroplan --test ipc_sweep -- --ignored
+```
+
+## Corpus 7 — scaling ladder: 2 families × 6 rungs, n up to 128
+
+Source: [`crates/ferroplan/tests/fixtures/scaling-ladder/RESULTS.md`](../crates/ferroplan/tests/fixtures/scaling-ladder/RESULTS.md)
+(ticket `fond-htn-28`; machine-written by `crates/ferroplan/tests/scaling_ladder.rs`,
+seed 20260917, max RSS ~93 MiB, two runs byte-identical in structural
+counts, walls within ~±3%). Stage bounds: 60 s per stage, 2 M states.
+
+| family | rungs | refused | solve wall at n=128 | solve share of rung wall |
+|---|---|---|---|---|
+| chain-world | 4→128 (6) | 0 | 1626 ms | 76% |
+| transport-drop | 4→128 (6) | 0 | 14 668 ms | 93% |
+
+**Zero refusals through n=128 — the ladder did not stop.** Measured
+shape: ground linear in n (transport; quadratic for chain's n²+n
+schemas), translate linear in composite states with walls ≈×5 per
+doubling past n≈32, solve ≈×7.7–7.9 per doubling (≈ cubic). Projected
+capacity knee = the solve fixpoint: the 60 s solve bound first bites at
+≈n 200–210 (transport-drop) / ≈n 430 (chain-world) — projections from
+measured doubling factors, not observed refusals.
+
+Reproduce:
+
+```sh
+cargo test -p ferroplan --test scaling_ladder -- --ignored --nocapture
+```
+
+## Corpus 8 — FOND criterion bench: seeded micro-domain baselines
+
+Source: [`crates/ferroplan/benches/BENCH-FOND.md`](../crates/ferroplan/benches/BENCH-FOND.md)
+(ticket `fond-htn-26`; `cargo bench -p ferroplan --bench fond -- --quick`,
+10 samples per benchmark, seed `0x5EED_2026_0917` — identical instances
+replay from the seed; Apple M3 Max, 2026-09-18T00:12Z). Means ± stddev,
+release profile:
+
+| benchmark | mean |
+|---|---|
+| strong_fixpoint_chain_10 / _50 / _200 | 9.13 µs / 396.6 µs / 15.53 ms |
+| strong_fixpoint_lattice_10 / _50 / _200 | 6.98 µs / 114.5 µs / 2.26 ms |
+| strong_cyclic_mixed_ladder_10 / _50 / _200 | 22.2 µs / 698.0 µs / 22.40 ms |
+| solve_planning_type_dispatch_tiny_chain (dispatch floor) | 899 ns |
+
+Strong-cyclic walls include the preceding strong-fixpoint NoPlan pass
+(production dispatch is strong first, strong-cyclic on `NoPlan`).
+Structural + wall tripwires pin these shapes in
+[`crates/ferroplan/tests/fond_threshold.rs`](../crates/ferroplan/tests/fond_threshold.rs)
+(release bound 50 ms / dev 1200 ms, both green at the recording commit
+`17b8cc7`). Per-fixture `solve_hddl` micro walls (7 fixtures, parse-
+dominated, solve-only ≈ 33–47 µs) are in the source file.
+
+Reproduce:
+
+```sh
+cargo bench -p ferroplan --bench fond -- --quick   # matches the table
+cargo test -p ferroplan --test fond_threshold      # CI tripwires
+```
+
 ## How to read a verdict
 
 Verdict classes appearing in the committed sources, and what each one
@@ -247,7 +336,7 @@ are the outcome classes and (for SOLVED rows) policy closure.
 - IPC/competition fixture files are canonical competition data;
   hand-authored fixtures carry provenance comments in their
   `verdict.json`/headers.
-- Pending wave-4 benches (`ipc-sweep/`, `scaling-ladder/`,
-  `benches/BENCH-FOND.md`) will be appended here as new corpus rows —
-  with their own repro commands — when their RESULTS files land. They
-  are deliberately absent from the counted rows above.
+- Wave-4 corpus rows 6–8 (`ipc-sweep/`, `scaling-ladder/`,
+  `benches/BENCH-FOND.md`) were appended at wave-4 integration
+  (2026-09-18) from their committed RESULTS files, with their own repro
+  commands. Earlier rows were consolidated at wave-3 close.
