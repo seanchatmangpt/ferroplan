@@ -10,8 +10,8 @@ deliberate deviations from the reference dialect.
 Planner output is a candidate policy. It has no execution authority; BRCE
 remains the exclusive consequential path.
 
-Landing state for the `oneof` surface is the frozen branch
-`fix/oneof-koala-semantics` (tip `4d40f99`), which pins the reference-aligned
+The `oneof` surface described below landed on main from the frozen branch
+`fix/oneof-koala-semantics` (tip `4d40f99`) and pins the reference-aligned
 refusal rules described below. Sections of this document describing behavior
 of the external reference planner rely on the wave context
 (`docs/jira/v26.9.17/_FOND-HTN-WAVE-CONTEXT.md`), never on the reference
@@ -136,12 +136,57 @@ precisely on domains whose only solutions contain retry loops. Reference:
 Cimatti et al. (AIJ 2003), the standard two-phase symbolic model checking
 construction.
 
-Ferroplan: `fond_policy_strong_cyclic` (same file) — Phase 1 weak/OR backward
-reachability, Phase 2 greatest-fixpoint prune with policy extraction. The
+Ferroplan: `fond_policy_strong_cyclic` (same file) runs three phases. The
 `Fond` dispatch arm of `solve_planning_type` tries `fond_policy` first and
 falls back to `fond_policy_strong_cyclic` only on `NoPlan`, so domains
 `fond_policy` already solves are unchanged; the strong-cyclic solver strictly
 extends coverage.
+
+- **Phase 3 — committable goal-reachability, alternating with the witness
+  prune.** The Phase 2 greatest fixpoint alone over-keeps: a state whose only
+  closed action is a self-loop survives the prune with no path to the goal,
+  and a closed policy over that region reaches the goal under *no* outcome
+  resolution — not a strong-cyclic solution. Phase 3 therefore alternates two
+  sweeps to a joint fixpoint: (a) the witness prune to its own fixpoint over
+  the surviving set, then (b) committable backward reachability from the goal
+  states — a surviving state enters only along an edge whose action commits
+  *all* its outcomes into the region *and* at least one outcome lands closer
+  to a goal. Retry loops qualify (their committed action advances toward the
+  goal before retrying); pure self-loops do not. When the reachable core
+  stops short of the surviving set, the set shrinks to it and both sweeps
+  re-run — a pruned state may have been another state's all-outcomes witness.
+  The solver finishes with an outcome-closure check computed on the *final*
+  (surviving set, choices) pair — every surviving non-goal state must hold a
+  choice whose every outcome lands in a goal state or another surviving state
+  with a choice — so a witness validated early in a round cannot survive a
+  prune later in the same round.
+- **The FOUND_BUG_1 lineage, guarded always-on.** The property wave's
+  independent policy enumeration caught the pre-Phase-3 solver accepting
+  79/320 generated instances with a goal-unreachable self-loop policy. The
+  fix landed in this Phase-3 hardening, and the reproducer
+  `fond_property_FOUND_BUG_1_strong_cyclic_accepts_goal_unreachable_self_loop`
+  in `crates/ferroplan/tests/fond_property.rs` runs on every test pass,
+  asserting `Err(NoPlan)` on the 3-state self-loop-vs-unsafe-branch instance
+  (the `FOUND_BUG_*` spelling is kept greppable by ticket convention). The
+  same file's main property test no longer carves goal-unreachable regions
+  out as a known-defect class: they gate.
+- **Loop-bound policy.** Every structural fixpoint above (Phase 1 admission,
+  Phase 2/3 prune alternation) is bounded by its own termination argument,
+  *not* by the caller's `PlannerLimits::max_iterations`: each changing round
+  admits or prunes at least one state, so each loop converges within
+  `states + 1` changing rounds plus one confirming round. That `states + 1`
+  failsafe breach surfaces as `Err(Timeout)` — never a silently truncated
+  policy. `max_iterations` used to gate the prune; truncating a greatest
+  fixpoint mid-convergence left stale witnesses in the returned policy (the
+  wave-1 truncation dead-sink defect). Wall-clock checks still run every
+  round, so `PlannerLimits::max_wall_ms` semantics are unchanged — for these
+  structural fixpoints, caller round caps are advisory, not load-bearing.
+  The same pattern is landing for `fond_policy`'s least fixpoint (each
+  changing round admits ≥ 1 state, so the same `states + 1` bound applies) on
+  branch `fix/fond-loop-failsafes` (`7fea6cc`, awaiting integration); until
+  it merges, `fond_policy` remains gated by `max_iterations`
+  (default 512), which can reject solvable domains when set below the
+  fixpoint's convergence round.
 
 ### Fairness
 
@@ -172,11 +217,18 @@ full outcome set of its chosen action (`PolicyOutcome` per edge).
 
 ### Known gaps
 
-The wave-1 audit (see the wave context) records: strong-cyclic truncation
-dead-sink, a dead tautological post-check in `fond_policy`, and a depth-cache
-false-`NoPlan` in `contingent_policy`. These are tracked by the wave's
-correctness tickets; this document describes the landed construction, and the
-audit bounds what it currently guarantees.
+Of the wave-1 audit items (see the wave context), the strong-cyclic truncation
+dead-sink is fixed — the structural `states + 1` failsafes plus the final
+outcome-closure check above; the dead tautological post-check in `fond_policy`
+is gone (kept as a debug-only tripwire asserting the admission invariant); and
+the depth-cache false-`NoPlan` in `contingent_policy` is fixed (commit
+`52c3501` lineage). Still open, each ticketed: `=` goal-literal evaluation
+(ticket 21), parse-phase depth budget (ticket 22), translate capacity against
+the hard-coded internal 10 s wall (ticket 23, below), conditional-effect
+grounding limits on some PANDA shapes (wave-3 ticket 05), and
+`probabilistic_policy`'s value iteration remaining `max_iterations`-gated
+(noted on the field). This document describes the landed construction; the
+open tickets bound what it currently guarantees.
 
 ## 3. Architecture
 
@@ -199,6 +251,39 @@ state/iteration/wall-clock limits with loud typed refusals
 keyed off `limits.max_wall_ms` (the parser itself has no internal clock), so
 the caller never waits past budget even though a worker thread cannot be
 forcibly killed.
+
+### Budget knobs
+
+Three limit structs bound the pipeline. Defaults are what a plain
+`Default::default()` caller gets; `0` / `None` conventions differ per struct
+and are stated exactly.
+
+| Knob | Location | Fields and defaults |
+|---|---|---|
+| `PlannerLimits` | `crates/ferroplan/src/planning_runtime.rs` (serde-visible via `UniversalPlanningRequest`) | `max_depth` 128 · `max_states` 100,000 · `max_iterations` 512 · `max_wall_ms` 10,000 ms — `max_wall_ms == 0` means unbounded; the wall deadline is checked once per fixpoint round, and `solve_hddl` keys its whole-call watchdog off the same field |
+| `GroundingLimits` | `crates/ferroplan-hddl/src/grounder.rs` | `max_ground_actions` 10,000 · `max_ground_methods` 10,000 · `prune_unreachable` `false` · `max_wall` `Some(10 s)` — `None` means unbounded; each grounding sub-phase checks the wall against its own start time, so total ground wall is a small multiple of the per-phase budget |
+| `TranslateLimits` | `crates/ferroplan-hddl/src/translate.rs` | `max_task_network_depth` 64 · `max_wall` `Some(10 s)` · `max_states` `Some(200,000)` interned composite states — `None` means unbounded; both are checked once per state popped off the BFS queue |
+
+Honest caveat, current behavior (ticket 23 pending): `solve_hddl`'s pipeline
+(`solve_hddl_inner`, `crates/ferroplan/src/hddl.rs`) hard-codes
+`GroundingLimits::default()` and `TranslateLimits::default()`, so a caller's
+`max_wall_ms` above 10 s **cannot** lift the internal translate wall — four
+IPC-2023 instances (PCP_1, PO_Transport, Satellite-GTOHP, Transport) hit
+`TranslateError::Timeout` at that wall with ~10k composite states interned and
+more still queued (`crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md`,
+the `LIMIT:translate-wall` rows), while the external oracle solves each in
+under 1.3 s. Plumbling the caller budget (and a public composite-state budget)
+through into the internal caps is ticket 23, in flight; the paragraph above
+describes what the code does today, not what it is meant to do. Loud refusal
+at the wall stays lawful either way: the translator never silently truncates.
+
+### Capacity numbers
+
+<!-- WAVE4-NUMBERS: benchmark capacity numbers (tickets 26-28: criterion
+     bench, IPC full sweep, scaling ladder) slot in here at integration.
+     Per the wave-4 rules addenda every published number must carry its
+     command, seed, wall, and machine note. Intentionally empty until
+     measured numbers land — no invented figures. -->
 
 Dependency direction: `ferroplan-hddl` has zero dependency on `ferroplan`;
 `ferroplan` depends on `ferroplan-hddl`, never the reverse.
@@ -252,11 +337,13 @@ binding rules are in the wave context (Section 6 below).
 | Goal = empty task network (TN-emptiness only) | Goal = `htn:done` synthetic fact (TN frontier empty) AND the domain `:goal` facts — a real HTN solution requires the *entire* network reduced to executed primitives with `:goal` as an additional requirement on the final facts, never `:goal` holding on a half-decomposed state | Implemented |
 | Method preconditions compiled away | `MethodDef.precondition` retained as a first-class AST node; grounded form checked by `translate` — an unconditional method decomposes exactly as before | Implemented; stricter than the reference dialect |
 | `when` inside a `oneof` branch parsed, then silently dropped downstream | `ParseError::MalformedOneof` — loud refusal; ferroplan never accepts a shape it would silently weaken | Deliberate deviation (Section 1) |
-| `oneof` position surface (entire top-level `:effect`, `k >= 1`) | Same surface, landing on frozen `fix/oneof-koala-semantics` (`4d40f99`); earlier permissive behavior (`oneof` under a top-level `and`, silent goal-position mis-parse) refused | Implemented (aligned) |
+| `oneof` position surface (entire top-level `:effect`, `k >= 1`) | Same surface, landed on main from frozen `fix/oneof-koala-semantics` (`4d40f99`); earlier permissive behavior (`oneof` under a top-level `and`, silent goal-position mis-parse) refused | Implemented (aligned) |
 | `:probabilistic w e ...` weighted-effect extension with side-channel weight map | `probabilistic::preprocess` — same shape in Rust: text pre-pass, weights per enclosing `:action` name, raw source text preserved | Implemented |
 | Fixed vs flexible method commitment (commit the decomposition up front vs. allow commitment to vary with the execution branch) | Method choice is an explicit OR-branchpoint (`htn:decompose:<addr>:<method>`) inside the composite state space: the policy commits per composite state and may choose differently in different states — the flexible end of the spectrum, in the (TN, state)-policy sense of Chen & Bercher | Implemented (policy-level flexibility; no up-front commitment) |
 | Flexible / fixed-ld / fixed oracle solving modes | Differential-testing inputs only — verdict classes to compare against, not ferroplan modes | External oracle only |
-| Problem objects typed by an undeclared type (the oracle corpus's AssemblyHierarchical declares no `FaultyPort` type while its problems type objects `faultyCable-* - FaultyPort`) | The reference parser accepts the files and exits 0, silently dropping the undeclared objects from its parsed model (2 problem references → 0 in the model; recorded verbatim in `crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full.json`) | Deliberate deviation — ferroplan rejects loudly at validation (`UndefinedType` on the object's type annotation). Kept over parity: a silently-weakened model can mis-solve; a typed refusal cannot. Ferroplan's rejection is confirmed correct by the same harvest records |
+| Problem objects typed by an undeclared type (the oracle corpus's AssemblyHierarchical declares no `FaultyPort` type while its problems type objects `faultyCable-* - FaultyPort`; reference parser *and* grounder exit 0 with no diagnostic — harvest evidence, ticket fond-htn-02: 2 problem references to the undeclared type became 0 objects in the parsed model, recorded verbatim in `crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full.json`) | `ValidationError::UndefinedType` at validation, before grounding (`crates/ferroplan-hddl/src/validate.rs`) — ferroplan rejects loudly what the reference silently drops. Kept over parity: a silently-weakened model can mis-solve; a typed refusal cannot. Ferroplan's rejection is confirmed correct by the same harvest records | Deliberate deviation — parity divergence |
+| Strong-cyclic decision procedure (retry-loop policies) | `fond_policy` -> `fond_policy_strong_cyclic` fallback decides both strong and strong-cyclic classes | Parity divergence: the oracle is strong-only as a decision procedure — all five canonical cyclic-only domains TIMEOUT under both `--flexible` and `--fixed-ld` while ferroplan returns outcome-closed strong-cyclic policies (frozen evidence: `crates/ferroplan/tests/fixtures/fond-flat/oracle-goldens.json`, ticket fond-htn-06). Oracle TIMEOUT on a retry-style domain is the expected signature, never overruled by ferroplan without a cross-check |
+| `Success probability: <n>` output line | — | Not a probability: the number is a solved-leaf count (Section 4) |
 
 ## 6. Compliance box
 
