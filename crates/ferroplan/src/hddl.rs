@@ -189,13 +189,73 @@ fn adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) -> PlanningProbl
     }
 }
 
+/// Ground-instance budget per unit of [`PlannerLimits::max_states`] — the
+/// calibration constant of [`grounding_limits_from`]. Chosen so that
+/// `PlannerLimits::default()` (`max_states = 100_000`) reproduces, exactly,
+/// the grounding envelope `solve_hddl` has always applied
+/// (`GroundingLimits::default()`: 10_000 ground actions, 10_000 ground
+/// methods) — the ticket's "default behavior unchanged" requirement. The
+/// ticket (fond-htn-43) offered two shapes for exposing the grounding caps:
+/// scale them off `max_states`, or add new optional `PlannerLimits` fields.
+/// This constant is the scaling shape (zero new fields — the least-API-noise
+/// option), with the calibration making the scaling *also*
+/// default-preserving. The trade-off is that grounding and solving share one
+/// size knob at a fixed 10:1 ratio; should a caller ever need to raise the
+/// ground caps *independently* of the solver's state budget, the escape hatch
+/// is the other shape the ticket named — explicit optional fields, as the
+/// translate-side plumbing (ticket fond-htn-23) did with
+/// `max_composite_states`.
+const MAX_STATES_PER_GROUND_INSTANCE: usize = 10;
+
+/// Derive the grounding-phase limits [`solve_hddl_inner`] passes to
+/// `ferroplan_hddl::grounder::ground` from the caller's [`PlannerLimits`] —
+/// the grounding-side half of the capacity plumbing (the translate-side
+/// counterpart is ticket fond-htn-23's `TranslateLimits` plumbing; the two
+/// are independent seams in the same pipeline function).
+///
+/// Mapping (all three fields are derived; nothing is hard-coded here):
+///
+/// - `max_ground_actions` / `max_ground_methods`: `limits.max_states`
+///   divided by [`MAX_STATES_PER_GROUND_INSTANCE`] — see that constant for
+///   why the ratio is 10. Raising `max_states` therefore raises both ground
+///   caps proportionally: the caller declares one problem-size appetite and
+///   every capacity-carrying stage of the pipeline (ground instance counts,
+///   translate's composite states, the solver's state budget) scales with it.
+/// - `max_wall`: `Some(max_wall_ms)` verbatim, with `max_wall_ms == 0`
+///   mapping to `None` (unbounded), matching `max_wall_ms`'s own documented
+///   convention. Behavior note: before this plumbing, a caller with
+///   `max_wall_ms == 0` still got grounding's *internal* default 10 s wall as
+///   an independent backstop; now unbounded really is unbounded — consistent
+///   with `solve_hddl`'s own watchdog, which also treats `0` as opting out
+///   entirely (it skips the spawned thread). Callers that want a bound must
+///   say so, in one place.
+/// - `prune_unreachable`: left `false` — reachability pruning is a semantics
+///   choice (it changes ground-instance counts), not a capacity knob, and is
+///   not this ticket's seam.
+fn grounding_limits_from(limits: &PlannerLimits) -> ferroplan_hddl::grounder::GroundingLimits {
+    let instance_budget = limits.max_states / MAX_STATES_PER_GROUND_INSTANCE;
+    ferroplan_hddl::grounder::GroundingLimits {
+        max_ground_actions: instance_budget,
+        max_ground_methods: instance_budget,
+        prune_unreachable: false,
+        max_wall: if limits.max_wall_ms == 0 {
+            None
+        } else {
+            Some(Duration::from_millis(limits.max_wall_ms))
+        },
+    }
+}
+
 /// Parse, ground, and translate an HDDL domain+problem pair, then run it
 /// through the existing FOND solver. This is the real, sequential pipeline
 /// with no wall-clock guard of its own -- `ferroplan_hddl::grounder::ground`
 /// and `ferroplan_hddl::translate::translate` each already enforce their own
-/// `GroundingLimits::max_wall`/`TranslateLimits::max_wall` internally (see
-/// those crates' modules), and `solve_planning_type` enforces
-/// `limits.max_wall_ms` inside `fond_policy`/`fond_policy_strong_cyclic` --
+/// wall-clock caps internally (`GroundingLimits::max_wall`, derived from the
+/// caller's `limits` by [`grounding_limits_from`]; `TranslateLimits::max_wall`
+/// at its own default, pending the translate-side plumbing of ticket
+/// fond-htn-23), `solve_planning_type` enforces `limits.max_wall_ms` inside
+/// `fond_policy`/`fond_policy_strong_cyclic`, and the grounding instance
+/// caps are likewise derived from `limits` (see [`grounding_limits_from`]) --
 /// but `ferroplan_hddl::parser::parse_domain`/`parse_problem` have no
 /// iteration or wall-clock concept at all. `solve_hddl` (below) wraps this
 /// function in a watchdog so the parser (or any future phase that similarly
@@ -209,7 +269,7 @@ fn solve_hddl_inner(
         .map_err(|e| HddlError::Parse(e.to_string()))?;
     let problem = ferroplan_hddl::parser::parse_problem(problem_src)
         .map_err(|e| HddlError::Parse(e.to_string()))?;
-    let ir = ferroplan_hddl::grounder::ground(&domain, &problem, &Default::default())
+    let ir = ferroplan_hddl::grounder::ground(&domain, &problem, &grounding_limits_from(limits))
         .map_err(|e| HddlError::Ground(e.to_string()))?;
     let translated = ferroplan_hddl::translate::translate(
         &ir,
@@ -239,13 +299,16 @@ fn solve_hddl_inner(
 /// finished. That is the property a BEAM/wasmex caller actually needs (its
 /// own call never blocks past the budget) even though the orphaned worker
 /// thread is not synchronously reclaimed. The worker thread is not left
-/// truly unbounded either, though: `ground`/`translate` each carry their own
-/// internal wall-clock check (`GroundingLimits::max_wall`/
-/// `TranslateLimits::max_wall`, both defaulted from the same 10s order of
-/// magnitude) and `fond_policy`/`fond_policy_strong_cyclic` check
-/// `limits.max_wall_ms` directly, so every phase past the parser also exits
-/// on its own within roughly one more `max_wall_ms`-scaled budget even if
-/// this watchdog has already returned. The one phase with no such internal
+/// truly unbounded either, though: `ground` carries the wall-clock check
+/// derived from this same `limits` (`GroundingLimits::max_wall`, see
+/// [`grounding_limits_from`]) and its instance caps are likewise
+/// `limits`-derived, `translate` carries its own internal wall-clock check
+/// (`TranslateLimits::max_wall`, defaulted from the same 10 s order of
+/// magnitude pending ticket fond-htn-23's plumbing), and
+/// `fond_policy`/`fond_policy_strong_cyclic` check `limits.max_wall_ms`
+/// directly, so every phase past the parser also exits on its own within
+/// roughly one more `max_wall_ms`-scaled budget even if this watchdog has
+/// already returned. The one phase with no such internal
 /// check is the parser itself (`ferroplan_hddl::parser`, which -- see the
 /// timeout/thread-safety audit this responds to -- has no
 /// iteration/wall-clock concept), so an adversarial input that makes
