@@ -277,7 +277,7 @@ fn transport_drop(n: usize, m: usize, seed: u64) -> (String, String) {
     domain
         .push_str(";; hand-authored, transport-pattern failing-drop family (ticket fond-htn-28)\n");
     domain.push_str(";; generated parametrically by tests/scaling_ladder.rs::transport_drop; no koala files vendored\n");
-    domain.push_str(&format!(
+    domain.push_str(
         "(define (domain transport-drop)\n\
          \x20 (:types package loc)\n\
          \x20 (:predicates (at ?l - loc) (ready ?p - package) (holding ?p - package)\n\
@@ -307,7 +307,7 @@ fn transport_drop(n: usize, m: usize, seed: u64) -> (String, String) {
          \x20   :task (deliver ?p ?d)\n\
          \x20   :precondition (holding ?p)\n\
          \x20   :ordered-subtasks (and (t1 (drop ?p ?d)) (t2 (deliver ?p ?d))))\n",
-    ));
+    );
     // Per-package dispatch methods with ground route constants: truck moves
     // from the previous destination (or the depot l0) to this package's
     // destination, loads, then HANDS BACK to the (deliver ?p ?d) task — the
@@ -645,9 +645,7 @@ fn write_results(all: &[Rung], stops: &[(Family, String)]) {
     md.push_str(
         "command:  cargo test -p ferroplan --test scaling_ladder -- --ignored --nocapture\n",
     );
-    md.push_str(&format!(
-        "           (with SCALING_LADDER_RESULTS set to this file's path)\n"
-    ));
+    md.push_str("           (with SCALING_LADDER_RESULTS set to this file's path)\n");
     md.push_str(&format!("seed:      {SEED} (transport-drop destination LCG; state/transition counts are exact functions of family+n)\n"));
     md.push_str(&format!("machine:   {}\n", machine_note()));
     md.push_str(&format!("ended:     {}\n", utc_now()));

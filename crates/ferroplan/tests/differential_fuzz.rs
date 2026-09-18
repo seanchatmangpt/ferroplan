@@ -47,10 +47,10 @@
 //!    * `oracle-rejected` — koala could not consume the input at all
 //!      (PARSE_ERROR / ERROR); counts against the ≥ 80 oracle-consumable
 //!      gate, never as a divergence.
-//!    The full 100-pair ledger is written to
-//!    `tests/fixtures/differential-fuzz/ledger.json` (oracle verdicts are
-//!    facts — committing them is the point) and the run asserts
-//!    ≥ 80 oracle-consumable pairs.
+//!      The full 100-pair ledger is written to
+//!      `tests/fixtures/differential-fuzz/ledger.json` (oracle verdicts are
+//!      facts — committing them is the point) and the run asserts
+//!      ≥ 80 oracle-consumable pairs.
 //!
 //! Oracle verdicts are cached under `/tmp/differential-fuzz-w61/` keyed by
 //! seed + mode + timeout + a hash of the exact input texts, so minimization

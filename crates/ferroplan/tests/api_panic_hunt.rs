@@ -83,9 +83,9 @@ use ferroplan::eve::{
 };
 use ferroplan::hddl::solve_hddl;
 use ferroplan::planning_runtime::{
-    Agent, Method as UMethod, PlannerError, PlannerLimits, PlanningProblem, QueueState, RdfTriple,
-    State as UState, Task as UTask, Tool, Transition as UTransition, UniversalPlanningRequest,
-    WorkflowEdge,
+    Agent, Goal, Method as UMethod, PlannerError, PlannerLimits, PlanningProblem, QueueState,
+    RdfTriple, State as UState, Task as UTask, Tool, Transition as UTransition,
+    UniversalPlanningRequest, WorkflowEdge,
 };
 use ferroplan::planning_types::{route_planning_request, PlanningRequest, PlanningType};
 use ferroplan::ppddl::{
@@ -702,32 +702,37 @@ fn t07_solve_hddl_garbage_never_panics() {
 /// runs real solver code under garbage limits (U4/U5) — unreachable goals
 /// keep every arm short-circuited but still exercising its loops.
 fn tiny_valid_problems() -> Vec<(String, PlanningProblem)> {
-    let mut base = PlanningProblem::default();
-    base.states = vec![
-        UState {
-            id: "s0".to_owned(),
-            facts: BTreeSet::new(),
-            fluents: BTreeMap::new(),
-        },
-        UState {
-            id: "s1".to_owned(),
+    let base = PlanningProblem {
+        states: vec![
+            UState {
+                id: "s0".to_owned(),
+                facts: BTreeSet::new(),
+                fluents: BTreeMap::new(),
+            },
+            UState {
+                id: "s1".to_owned(),
+                facts: ["f".to_owned()].into_iter().collect(),
+                fluents: BTreeMap::new(),
+            },
+        ],
+        initial_states: vec!["s0".to_owned()],
+        goal: Goal {
             facts: ["f".to_owned()].into_iter().collect(),
-            fluents: BTreeMap::new(),
+            ..Goal::default()
         },
-    ];
-    base.initial_states = vec!["s0".to_owned()];
-    base.goal.facts = ["f".to_owned()].into_iter().collect();
-    base.transitions = vec![UTransition {
-        action: "a".to_owned(),
-        from: "s0".to_owned(),
-        to: "s1".to_owned(),
-        cost: 1,
-        duration: 1,
-        reward: 0,
-        probability_ppm: 1_000_000,
-        observation: None,
-        requires: BTreeSet::new(),
-    }];
+        transitions: vec![UTransition {
+            action: "a".to_owned(),
+            from: "s0".to_owned(),
+            to: "s1".to_owned(),
+            cost: 1,
+            duration: 1,
+            reward: 0,
+            probability_ppm: 1_000_000,
+            observation: None,
+            requires: BTreeSet::new(),
+        }],
+        ..PlanningProblem::default()
+    };
     let mut workflow = base.clone();
     workflow.tasks = vec![UTask {
         id: "t0".to_owned(),
@@ -802,81 +807,90 @@ fn t08_solve_planning_type_all18_empty_and_garbage_never_panics() {
     // refused by validate_problem itself (typed) — include it to prove the
     // refusal path for every type; a second problem passes validation but
     // has garbage ids inside the reachable graph.
-    let mut dangling = PlanningProblem::default();
-    dangling.initial_states = vec!["\u{1F980}".to_owned()];
-    dangling.transitions = vec![UTransition {
-        action: "define".to_owned(),
-        from: "\u{1F980}".to_owned(),
-        to: "ghost".to_owned(),
-        cost: 1,
-        duration: 1,
-        reward: 0,
-        probability_ppm: 1_000_000,
-        observation: None,
-        requires: BTreeSet::new(),
-    }];
-    dangling.goal.facts = [":htn".to_owned()].into_iter().collect();
-
-    let mut rich = PlanningProblem::default();
-    rich.states = vec![
-        UState {
-            id: "\u{1F980}".to_owned(),
-            facts: BTreeSet::new(),
-            fluents: BTreeMap::new(),
-        },
-        UState {
-            id: "define".to_owned(),
+    let dangling = PlanningProblem {
+        initial_states: vec!["\u{1F980}".to_owned()],
+        transitions: vec![UTransition {
+            action: "define".to_owned(),
+            from: "\u{1F980}".to_owned(),
+            to: "ghost".to_owned(),
+            cost: 1,
+            duration: 1,
+            reward: 0,
+            probability_ppm: 1_000_000,
+            observation: None,
+            requires: BTreeSet::new(),
+        }],
+        goal: Goal {
             facts: [":htn".to_owned()].into_iter().collect(),
-            fluents: BTreeMap::new(),
+            ..Goal::default()
         },
-    ];
-    rich.initial_states = vec!["\u{1F980}".to_owned()];
-    rich.goal.facts = [":htn".to_owned()].into_iter().collect();
-    rich.unsafe_states = ["define".to_owned()].into_iter().collect();
-    rich.soft_goal_facts = BTreeMap::from([("soft".to_owned(), u64::MAX)]);
-    rich.transitions = vec![UTransition {
-        action: "and".to_owned(),
-        from: "\u{1F980}".to_owned(),
-        to: "define".to_owned(),
-        cost: u64::MAX,
-        duration: u64::MAX,
-        reward: i64::MAX,
-        probability_ppm: 1_000_000,
-        observation: Some("\u{200B}".to_owned()),
-        requires: BTreeSet::new(),
-    }];
-    rich.tasks = vec![UTask {
-        id: "oneof".to_owned(),
-        primitive_action: Some("and".to_owned()),
-        requires: BTreeSet::new(),
-    }];
-    rich.root_tasks = vec!["oneof".to_owned()];
-    rich.methods = vec![UMethod {
-        id: "m".to_owned(),
-        task: "oneof".to_owned(),
-        subtasks: vec!["ghost".to_owned()],
-    }];
-    rich.workflow_edges = vec![WorkflowEdge {
-        before: "oneof".to_owned(),
-        after: "oneof".to_owned(),
-    }];
-    rich.queues = vec![QueueState {
-        id: "q".to_owned(),
-        current_wip: u64::MAX,
-        max_wip: u64::MAX,
-    }];
-    rich.agents = vec![Agent {
-        id: "ag".to_owned(),
-        capabilities: ["\u{0}".to_owned()].into_iter().collect(),
-        capacity: u64::MAX,
-        current_wip: u64::MAX,
-    }];
-    rich.tools = vec![Tool::default()];
-    rich.rdf = vec![RdfTriple {
-        subject: "\u{202E}".to_owned(),
-        predicate: "define".to_owned(),
-        object: "\u{1F980}".to_owned(),
-    }];
+        ..PlanningProblem::default()
+    };
+
+    let rich = PlanningProblem {
+        states: vec![
+            UState {
+                id: "\u{1F980}".to_owned(),
+                facts: BTreeSet::new(),
+                fluents: BTreeMap::new(),
+            },
+            UState {
+                id: "define".to_owned(),
+                facts: [":htn".to_owned()].into_iter().collect(),
+                fluents: BTreeMap::new(),
+            },
+        ],
+        initial_states: vec!["\u{1F980}".to_owned()],
+        goal: Goal {
+            facts: [":htn".to_owned()].into_iter().collect(),
+            ..Goal::default()
+        },
+        unsafe_states: ["define".to_owned()].into_iter().collect(),
+        soft_goal_facts: BTreeMap::from([("soft".to_owned(), u64::MAX)]),
+        transitions: vec![UTransition {
+            action: "and".to_owned(),
+            from: "\u{1F980}".to_owned(),
+            to: "define".to_owned(),
+            cost: u64::MAX,
+            duration: u64::MAX,
+            reward: i64::MAX,
+            probability_ppm: 1_000_000,
+            observation: Some("\u{200B}".to_owned()),
+            requires: BTreeSet::new(),
+        }],
+        tasks: vec![UTask {
+            id: "oneof".to_owned(),
+            primitive_action: Some("and".to_owned()),
+            requires: BTreeSet::new(),
+        }],
+        root_tasks: vec!["oneof".to_owned()],
+        methods: vec![UMethod {
+            id: "m".to_owned(),
+            task: "oneof".to_owned(),
+            subtasks: vec!["ghost".to_owned()],
+        }],
+        workflow_edges: vec![WorkflowEdge {
+            before: "oneof".to_owned(),
+            after: "oneof".to_owned(),
+        }],
+        queues: vec![QueueState {
+            id: "q".to_owned(),
+            current_wip: u64::MAX,
+            max_wip: u64::MAX,
+        }],
+        agents: vec![Agent {
+            id: "ag".to_owned(),
+            capabilities: ["\u{0}".to_owned()].into_iter().collect(),
+            capacity: u64::MAX,
+            current_wip: u64::MAX,
+        }],
+        tools: vec![Tool::default()],
+        rdf: vec![RdfTriple {
+            subject: "\u{202E}".to_owned(),
+            predicate: "define".to_owned(),
+            object: "\u{1F980}".to_owned(),
+        }],
+    };
 
     for ptype in PlanningType::ALL {
         for (ucase, problem) in [("U3-dangling", &dangling), ("U2-rich-garbage", &rich)] {
@@ -1256,9 +1270,11 @@ fn t15_serde_json_deep_and_hostile_garbage_never_panics() {
         || serde_json::from_str::<UniversalPlanningRequest>(confused).is_err(),
     );
     // Serde round-trip of a garbage-filled request must not panic either.
-    let mut rich = PlanningProblem::default();
-    rich.initial_states = vec!["\u{1F980}".to_owned()];
-    rich.soft_goal_facts = BTreeMap::from([("\u{200B}".to_owned(), u64::MAX)]);
+    let rich = PlanningProblem {
+        initial_states: vec!["\u{1F980}".to_owned()],
+        soft_goal_facts: BTreeMap::from([("\u{200B}".to_owned(), u64::MAX)]),
+        ..PlanningProblem::default()
+    };
     let request = UniversalPlanningRequest {
         planning_type: PlanningType::Fond,
         problem: rich,
@@ -1307,7 +1323,7 @@ fn deep_goal_chain(op: fn(Box<GroundGoal>) -> GroundGoal, depth: usize) -> Groun
 #[ignore = "KNOWN FINDING (fond-htn-32): evaluate_ground_goal has no recursion budget — depth 10k Not-chain evaluates, depth 50k SIGABRTs the process (measured); same class as the ticket-22 parser recursion, different target (goal-tree evaluation). Needs an explicit-stack rewrite, out of scope for this test-only ticket"]
 #[test]
 fn finding_evaluate_ground_goal_deep_not_chain_50k_aborts() {
-    let goal = deep_goal_chain(|g| GroundGoal::Not(g), 50_000);
+    let goal = deep_goal_chain(GroundGoal::Not, 50_000);
     let facts = BTreeSet::new();
     // If this line executes at all, the finding is fixed: any outcome that
     // is not process death satisfies the contract.

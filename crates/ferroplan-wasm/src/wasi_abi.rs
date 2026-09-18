@@ -331,11 +331,8 @@ fn dispatch(input: &[u8]) -> Result<Vec<u8>, String> {
         "session_world_bytes" => op_session_world_bytes(&req)?,
         "session_mind_bytes" => op_session_mind_bytes(&req)?,
         other => {
-            return Ok(serde_json::to_vec(&err_json(
-                "FP_UNKNOWN_OP",
-                &format!("unknown op `{other}`"),
-            ))
-            .map_err(|e| e.to_string())?)
+            return serde_json::to_vec(&err_json("FP_UNKNOWN_OP", &format!("unknown op `{other}`")))
+                .map_err(|e| e.to_string())
         }
     };
     serde_json::to_vec(&response).map_err(|e| e.to_string())
@@ -1720,7 +1717,7 @@ mod tests {
                                 "fond_policy/retry-after-errors",
                             );
                         } else {
-                            mixed_round_robin(thread, &goldens);
+                            mixed_round_robin(thread, goldens);
                         }
                     });
                 }

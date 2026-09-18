@@ -73,7 +73,7 @@
 //! * `cargo test -p ferroplan --test memory_stress -- --ignored` — the full
 //!   7-case suite. Wave rule: the whole run stays under 120 s (asserted).
 
-use ferroplan::hddl::{solve_hddl, HddlError};
+use ferroplan::hddl::solve_hddl;
 use ferroplan::planning_runtime::{
     solve_planning_type, PlannerError, PlannerLimits, PlanningProblem, State as RtState,
     Transition as RtTransition, UniversalPlanningRequest,
@@ -326,8 +326,8 @@ fn gen_binding_ladder(seed: u64) -> (String, String, u64) {
             .collect::<Vec<_>>()
             .join(" ");
         preds.push_str(&format!(" (reached{arity}"));
-        for i in 0..arity {
-            preds.push_str(&format!(" ?x{i} - {}", types[i]));
+        for (i, t) in types.iter().enumerate().take(arity) {
+            preds.push_str(&format!(" ?x{i} - {t}"));
         }
         preds.push(')');
         let call_args = (0..arity)
@@ -604,8 +604,7 @@ fn case_binding_product_8p() -> CaseOutcome {
     };
     let started = Instant::now();
     let err = ground(&domain, &problem, &limits)
-        .err()
-        .expect("binding-product-8p must be refused, not grounded");
+        .expect_err("binding-product-8p must be refused, not grounded");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, GroundError::LimitExceeded(_)),
@@ -649,8 +648,7 @@ fn case_binding_ladder_2to8() -> CaseOutcome {
     };
     let started = Instant::now();
     let err = ground(&domain, &problem, &limits)
-        .err()
-        .expect("binding-ladder must be refused, not grounded");
+        .expect_err("binding-ladder must be refused, not grounded");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, GroundError::LimitExceeded(_)),
@@ -678,9 +676,7 @@ fn case_method_fanout_50x10() -> CaseOutcome {
         ..TranslateLimits::default()
     };
     let started = Instant::now();
-    let err = translate(&ir, &limits)
-        .err()
-        .expect("fan-out translate must be refused by max_states");
+    let err = translate(&ir, &limits).expect_err("fan-out translate must be refused by max_states");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, TranslateError::MemoryLimitExceeded { .. }),
@@ -709,8 +705,7 @@ fn case_fanout_dedup_50x10() -> CaseOutcome {
         ..TranslateLimits::default()
     };
     let err = translate(&ir, &limits)
-        .err()
-        .expect("identical-method fan-out must still terminate at a bound");
+        .expect_err("identical-method fan-out must still terminate at a bound");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, TranslateError::TaskNetworkDepthExceeded { .. }),
@@ -755,8 +750,7 @@ fn case_planner_wall_bound() -> CaseOutcome {
         problem,
         limits: limits.clone(),
     })
-    .err()
-    .expect("1,000-state chain under a 100ms wall must be refused");
+    .expect_err("1,000-state chain under a 100ms wall must be refused");
     let elapsed = started.elapsed();
     assert!(
         matches!(err, PlannerError::Timeout { .. }),

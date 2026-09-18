@@ -13,6 +13,7 @@
 //! - `c7c2c4d` added `TranslateLimits::max_states` + one regression test.
 //! - `9a41178` added typed refusals for constraints/numeric fluents and
 //!   nested probabilistic blocks.
+//!
 //! This file adds the *breadth* corpus of malformed shapes (unbalanced
 //! parens, keyword typos, ordering pathologies, oneof-placement violations,
 //! recursion bombs, deep nesting, zero-length/binary files, unicode ids) as
@@ -25,7 +26,7 @@
 
 use ferroplan::hddl::solve_hddl;
 use ferroplan::planning_runtime::PlannerLimits;
-use ferroplan_hddl::grounder::{ground, GroundError, GroundingLimits};
+use ferroplan_hddl::grounder::{ground, GroundingLimits};
 use ferroplan_hddl::parser::{parse_domain, parse_problem, ParseError, DEFAULT_MAX_PARSE_DEPTH};
 use ferroplan_hddl::translate::{translate, TranslateLimits};
 use ferroplan_hddl::validate::{validate_domain, validate_problem, ValidationError};
@@ -524,7 +525,7 @@ fn infinite_decomposition_recursion_hits_translate_limits_never_hangs() {
 ";
     let started = std::time::Instant::now();
     let domain = parse_domain(domain_src).expect("recursive domain parses");
-    let problem = parse_problem(&problem_src).expect("companion problem parses");
+    let problem = parse_problem(problem_src).expect("companion problem parses");
     let ir = no_panic("recursion-ground", || {
         ground(&domain, &problem, &GroundingLimits::default())
     })
@@ -550,7 +551,7 @@ fn infinite_decomposition_recursion_hits_translate_limits_never_hangs() {
     // solve_hddl refuses cleanly (typed Err) — no panic, no hang, the whole
     // call bounded by PlannerLimits::max_wall_ms.
     let result = no_panic("recursion-solve", || {
-        solve_hddl(domain_src, &problem_src, &default_planner_limits())
+        solve_hddl(domain_src, problem_src, &default_planner_limits())
     });
     assert!(
         result.is_err(),
@@ -599,9 +600,9 @@ fn deep_nesting_1000_and_returns_typed_nesting_error_never_aborts() {
 
     // Parser boundary: typed NestingTooDeep with the default budget and a
     // real 1-based position payload pointing at the offending '('.
-    let err = no_panic("deep-nest-parse", || parse_domain(&domain_src))
-        .err()
-        .expect("1000-deep nesting must be refused with a typed error, never parsed or aborted");
+    let err = no_panic("deep-nest-parse", || parse_domain(&domain_src)).expect_err(
+        "1000-deep nesting must be refused with a typed error, never parsed or aborted",
+    );
     match &err {
         ParseError::NestingTooDeep {
             line,
@@ -626,8 +627,7 @@ fn deep_nesting_1000_and_returns_typed_nesting_error_never_aborts() {
     });
     let elapsed = started.elapsed();
     let msg = result
-        .err()
-        .expect("pipeline must refuse the 1000-deep domain with a typed error, not abort")
+        .expect_err("pipeline must refuse the 1000-deep domain with a typed error, not abort")
         .to_string();
     assert!(
         msg.to_lowercase().contains("nesting too deep"),
@@ -658,8 +658,7 @@ fn ten_thousand_deep_and_returns_typed_error_exit_zero_no_signal() {
     let problem_src = problem_for("deep-nest", "move");
 
     let err = no_panic("deep-nest-10k-parse", || parse_domain(&domain_src))
-        .err()
-        .expect("10 000-deep nesting must be refused with a typed error, never aborted");
+        .expect_err("10 000-deep nesting must be refused with a typed error, never aborted");
     assert!(
         matches!(
             &err,

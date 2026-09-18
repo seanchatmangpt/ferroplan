@@ -722,7 +722,7 @@ fn dense_init(
 ) -> Vec<LitO> {
     let mut atoms: Vec<LitO> = Vec::new();
     for (pi, (_, ts)) in preds.iter().enumerate() {
-        if singleton.map_or(false, |s| ts.iter().any(|t| t == &s)) {
+        if singleton.is_some_and(|s| ts.iter().any(|t| t == &s)) {
             continue; // singleton-type mutation keeps this type object-less
         }
         for args in atom_combos(ts, obj_types, 40) {
@@ -796,14 +796,12 @@ fn pick_call(
         for (ti, (_, tp)) in tasks.iter().enumerate() {
             let recursive = own_task == Some(ti);
             // recursion is legal but kept occasional: ~1 in 5 chances
-            if !recursive || rng.chance(20) {
-                if scope_covers(tp) {
-                    cands.push(CallM {
-                        action: None,
-                        task: Some(ti),
-                        args: draw_args(rng, tp),
-                    });
-                }
+            if (!recursive || rng.chance(20)) && scope_covers(tp) {
+                cands.push(CallM {
+                    action: None,
+                    task: Some(ti),
+                    args: draw_args(rng, tp),
+                });
             }
         }
     }

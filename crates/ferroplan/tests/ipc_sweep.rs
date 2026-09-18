@@ -57,9 +57,7 @@ use ferroplan::planning_runtime::{
 use ferroplan::planning_types::PlanningType;
 use ferroplan_hddl::grounder::{self, GroundError, GroundedIR, GroundingLimits};
 use ferroplan_hddl::parser;
-use ferroplan_hddl::translate::{
-    self, PlanningProblem as IrProblem, TranslateError, TranslateLimits,
-};
+use ferroplan_hddl::translate::{PlanningProblem as IrProblem, TranslateError, TranslateLimits};
 use std::sync::mpsc::RecvTimeoutError;
 use std::time::{Duration, Instant};
 
@@ -485,7 +483,7 @@ fn run_domain(entry: &Entry) -> DomainResult {
                 StageError::Parse(msg) => msg.clone(),
                 other => format!("{other:?}"),
             };
-            let mut r = DomainResult {
+            let r = DomainResult {
                 parse_ms: wall_ms,
                 ..blank
             };

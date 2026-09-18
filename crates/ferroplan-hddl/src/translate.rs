@@ -747,10 +747,7 @@ fn total_order_ranks(f: &Frontier) -> Option<BTreeMap<&Addr, usize>> {
         // total order over 'pending' — the same condition this function
         // already answers with None below — so refuse via the existing None
         // path (raw-Addr marker fallback) instead of panicking.
-        match indeg.get_mut(after) {
-            Some(d) => *d += 1,
-            None => return None,
-        }
+        *indeg.get_mut(after)? += 1;
     }
     let mut ranks: BTreeMap<&Addr, usize> = BTreeMap::new();
     let mut remaining = indeg;
@@ -1367,20 +1364,20 @@ mod tests {
     /// fixture F (the real IPC2020 blocksworld fixture named in the
     /// investigation that motivated `max_states`) previously interned
     /// >112,000 states before a 20s wall-clock budget cut it off, still
-    /// growing, no plateau — root cause was `frontier_marker` keying BFS
-    /// dedup on raw, ever-lengthening `Addr` strings (`child_addr` only ever
-    /// appends — see its doc comment) instead of the *structural* remaining
-    /// obligation, so two composite states that were genuinely the same
-    /// (same facts, same task-name sequence under this domain's fully
-    /// `:ordered-tasks` decomposition — e.g. two paths that both mark the
-    /// same already-`done` block done again, since `mark-done-table`'s
-    /// precondition never checks `(not (done ?b))`) never deduped, and the
-    /// address — hence the marker, hence memory — grew without bound along
-    /// that branch. With addresses canonicalized to rank whenever `order`
-    /// totally orders `pending` (true here, since every method in this
-    /// domain uses `:ordered-tasks`), the real reachable state space is
-    /// small: this now asserts real, fast, bounded completion instead of a
-    /// typed refusal.
+    /// > growing, no plateau — root cause was `frontier_marker` keying BFS
+    /// > dedup on raw, ever-lengthening `Addr` strings (`child_addr` only ever
+    /// > appends — see its doc comment) instead of the *structural* remaining
+    /// > obligation, so two composite states that were genuinely the same
+    /// > (same facts, same task-name sequence under this domain's fully
+    /// > `:ordered-tasks` decomposition — e.g. two paths that both mark the
+    /// > same already-`done` block done again, since `mark-done-table`'s
+    /// > precondition never checks `(not (done ?b))`) never deduped, and the
+    /// > address — hence the marker, hence memory — grew without bound along
+    /// > that branch. With addresses canonicalized to rank whenever `order`
+    /// > totally orders `pending` (true here, since every method in this
+    /// > domain uses `:ordered-tasks`), the real reachable state space is
+    /// > small: this now asserts real, fast, bounded completion instead of a
+    /// > typed refusal.
     #[test]
     fn translate_solves_the_real_blocksworld_fixture_fast_after_the_frontier_canonicalization_fix()
     {
@@ -2050,9 +2047,10 @@ mod tests {
             "no exec transition may exist for a ground action whose precondition fails"
         );
         assert!(
-            !plan.states.iter().any(|s| ["p", "q", "r"]
+            !plan
+                .states
                 .iter()
-                .any(|f| s.facts.contains(&f.to_string()))),
+                .any(|s| ["p", "q", "r"].iter().any(|f| s.facts.contains(*f))),
             "no oneof branch effect may be reachable when the shared precondition fails"
         );
     }
