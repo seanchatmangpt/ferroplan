@@ -23,5 +23,9 @@ Gates: `cargo test -p ferroplan --lib planning_runtime && cargo test -p ferropla
 ## History
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
+
 | 2026-09-18T02:50:00Z | BLOCKED | fix/sc-choice-rewrite @ 75870de | — | all |
+| 2026-09-18T03:05:00Z | ALIVE | fix/sc-choice-rewrite @ 55e1997 | ticket+contexts read; reproducer+phase-3 traced | impl, tests, docs, gates |
+| 2026-09-18T03:25:00Z | BUILD_BROKEN | fix/sc-choice-rewrite @ 55e1997 | gate2 fond_property_scaleup exit 101: instance 1/5000 NoPlan-vs-reference-solvable — sweep-round ranks not a usable distance (mid-round admission cascade), defense prune collapsed region to {s2}; fix: rank = witness-min+1 | re-gate all |
+| 2026-09-18T03:40:00Z | ALIVE | fix/sc-choice-rewrite @ d00dcf8 | g1 lib planning_runtime exit 0 (15/15); g2 scaleup exit 0 (4/4, 0 ignored, 5000 instances, valid-ok=3676 noplan=1324, 0 mismatches, carve-out removed); g3 fond_property+fond_canonical exit 0 (3/3, 10/10); extra: full ferroplan lib exit 0 (159/159, 2 pre-existing heavy ignores), ferroplan-hddl exit 0 (9/9) | none |
 | 2026-09-18T23:30:00Z | ALIVE | merged d00dcf8 into wave6/land-v26917 (merge 8f1a875, A7 landing branch wt-f5-04-land) | gates re-run in LANDING worktree post-merge: planning_runtime 15/15 exit 0; fond_property_scaleup 4/4 exit 0, 0 ignored, carve-out removed | none (A7) |

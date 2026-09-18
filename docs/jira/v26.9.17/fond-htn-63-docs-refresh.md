@@ -22,5 +22,8 @@ Gates: `cargo test -p ferroplan --doc` exit 0; one atomic commit.
 ## History
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
+
 | 2026-09-18T02:50:00Z | BLOCKED | docs/waves45-refresh @ 75870de | — | all |
+| 2026-09-18T03:05:00Z | ALIVE | docs/waves45-refresh @ 55e1997 | worktree clean, branch exclusive to wt-h63; ticket+contexts read | scope 1-4 |
+| 2026-09-18T03:40:00Z | ALIVE | docs/waves45-refresh @ cd4a7a9 | `cargo test -p ferroplan --doc` exit 0 (1 passed/0 failed); `scripts/verify_evidence_ids.py` exit 0 (106 ids verifiable); manual claim cross-check 10/10 vs committed constants/RESULTS-wavec/test files (no verify_doc_claims.py at base); one atomic commit cd4a7a9, 3 files, +165/-34 | none — final: FOND-HTN.md (knobs table +caps mapping, 22/42/44 refreshes, walls subsection, Known gaps re-enumerated, 57/60 noted in flight), README (2 fixed limits struck, >1M note added), CHANGELOG (Finished-hardening block). Observed outside scope: CHANGELOG Known-limits rows for tickets 21/24 now describe pre-fix behavior (supersession note added; full rewrite left to a future docs ticket). Ticket-file History rows carried through finish-wave per convention. |
 | 2026-09-18T23:30:00Z | ALIVE | merged cd4a7a9 into wave6/land-v26917 (merge f097293, A7); auto-merge clean | post-landing refresh committed 3d07d02: FOND-HTN/README/CHANGELOG 'in flight' notes updated to LANDED for 57/60/65 with one-line outcomes (60's default-envelope claim kept honestly partial) + wave-6 changelog bullets | none (A7) |
