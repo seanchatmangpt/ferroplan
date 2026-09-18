@@ -22,6 +22,16 @@
 //! a synthetic `"htn:done"` fact folded into `State.facts` and required by
 //! `Goal.facts` — both facts `fond_policy`'s existing, unmodified
 //! all-outcomes-winning fixpoint already knows how to consume.
+//!
+//! Conditional effects (ticket fond-htn-24) compile as *guarded outcomes*:
+//! each transition's effect branch (an action outcome, or a method's
+//! decomposition-time `:effect`) applies del-then-add with every `when`
+//! guard evaluated against the branch's SOURCE state — `apply_effect_branch`
+//! below is the single shared implementation, mirroring the in-repo `ppddl`
+//! compiler's conditional-effect handling. A problem whose `:htn` declares
+//! `:parameters` grounds to one root network per admissible binding, and
+//! each becomes its own initial state (`PlanningProblem::initial_states`,
+//! plural downstream as well).
 
 use crate::ast::{GoalDesc, Term};
 use crate::grounder::{
@@ -510,6 +520,41 @@ fn intern_state(
     id
 }
 
+/// Apply one grounded effect branch to `next_facts`: deletes first, then
+/// adds (so an add wins over a delete of the same fact), then each
+/// conditional effect whose ground guard — evaluated against `source`, the
+/// branch's PRE-effect state, never against the partially-updated
+/// `next_facts` — holds, applied del-then-add the same way. This is the
+/// guarded-outcome compilation of conditional effects (ticket fond-htn-24),
+/// the same evaluate-guards-against-source-state semantics the in-repo
+/// `ppddl` compiler uses for `when` inside probabilistic outcomes. Shared by
+/// action-outcome application and method-decomposition application so the
+/// two can never drift.
+fn apply_effect_branch(
+    next_facts: &mut BTreeSet<String>,
+    source: &BTreeSet<String>,
+    branch: &GroundEffectBranch,
+) {
+    for d in &branch.del {
+        next_facts.remove(d);
+    }
+    for a in &branch.add {
+        next_facts.insert(a.clone());
+    }
+    for cond in &branch.conditional {
+        let holds = cond.pos_cond.is_subset(source)
+            && cond.neg_cond.iter().all(|f| !source.contains(f));
+        if holds {
+            for d in &cond.del {
+                next_facts.remove(d);
+            }
+            for a in &cond.add {
+                next_facts.insert(a.clone());
+            }
+        }
+    }
+}
+
 // --- HTN-decomposition-aware search state -----------------------------
 
 /// A structural position in the (partially decomposed) task-network tree.
@@ -897,33 +942,53 @@ pub fn translate(
             m
         });
 
-    let initial_frontier = {
-        let pending: BTreeMap<Addr, String> = ir
-            .root_subtasks
-            .iter()
-            .map(|st: &GroundSubtask| (child_addr("r", &st.id), st.task_name.clone()))
-            .collect();
-        let order: BTreeSet<(Addr, Addr)> = ir
-            .root_order
-            .iter()
-            .map(|(b, a)| (child_addr("r", b), child_addr("r", a)))
-            .collect();
-        Frontier { pending, order }
-    };
+    // One initial composite state per ground root network (ticket
+    // fond-htn-24): with `:htn :parameters` there is one network per
+    // admissible existential binding, and each is an alternative starting
+    // point the policy must cover — exactly what the plural
+    // `PlanningProblem::initial_states` already models downstream.
+    let initial_frontiers: Vec<Frontier> = ir
+        .root_networks
+        .iter()
+        .map(|net| {
+            let pending: BTreeMap<Addr, String> = net
+                .subtasks
+                .iter()
+                .map(|st: &GroundSubtask| (child_addr("r", &st.id), st.task_name.clone()))
+                .collect();
+            let order: BTreeSet<(Addr, Addr)> = net
+                .order
+                .iter()
+                .map(|(b, a)| (child_addr("r", b), child_addr("r", a)))
+                .collect();
+            Frontier { pending, order }
+        })
+        .collect();
 
     let mut state_ids: BTreeMap<BTreeSet<String>, String> = BTreeMap::new();
     let mut states: Vec<State> = Vec::new();
     let mut transitions: Vec<Transition> = Vec::new();
 
-    let initial_cs = CompositeState {
-        facts: ir.initial_facts.clone(),
-        frontier: initial_frontier,
-    };
-    let initial_aug = augmented_facts(&initial_cs);
-    let initial_id = intern_state(&initial_aug, &mut state_ids, &mut states);
-    let mut visited: BTreeSet<BTreeSet<String>> = BTreeSet::from([initial_aug]);
-    let mut queue: VecDeque<(CompositeState, String)> =
-        VecDeque::from([(initial_cs, initial_id.clone())]);
+    let mut initial_states: Vec<String> = Vec::new();
+    let mut visited: BTreeSet<BTreeSet<String>> = BTreeSet::new();
+    let mut queue: VecDeque<(CompositeState, String)> = VecDeque::new();
+    for frontier in initial_frontiers {
+        let initial_cs = CompositeState {
+            facts: ir.initial_facts.clone(),
+            frontier,
+        };
+        let initial_aug = augmented_facts(&initial_cs);
+        // Two bindings can collapse onto the same composite state only when
+        // they ground the network identically (e.g. a declared parameter no
+        // subtask references); intern_state dedups the state, so dedup the
+        // initial list too.
+        if !visited.insert(initial_aug.clone()) {
+            continue;
+        }
+        let initial_id = intern_state(&initial_aug, &mut state_ids, &mut states);
+        initial_states.push(initial_id.clone());
+        queue.push_back((initial_cs, initial_id));
+    }
 
     while let Some((cs, from_id)) = queue.pop_front() {
         if let Err(e) = check_wall_deadline(start, limits) {
@@ -991,8 +1056,17 @@ pub fn translate(
                         }
                     }
                     let new_frontier = refine(&cs.frontier, &addr, m);
+                    // The method's `:effect` (ticket fond-htn-24) applies at
+                    // the moment this decomposition is chosen — guards are
+                    // evaluated against the SOURCE state (`cs.facts`), the
+                    // same guarded-outcome application actions' effects get
+                    // via `apply_effect_branch`. A method without `:effect`
+                    // carries a default (empty) branch, so this is a no-op
+                    // for every domain without the construct.
+                    let mut next_facts = cs.facts.clone();
+                    apply_effect_branch(&mut next_facts, &cs.facts, &m.effect);
                     let new_cs = CompositeState {
-                        facts: cs.facts.clone(),
+                        facts: next_facts,
                         frontier: new_frontier,
                     };
                     let aug = augmented_facts(&new_cs);
@@ -1028,24 +1102,7 @@ pub fn translate(
                     let next_frontier = advance(&cs.frontier, &addr);
                     for (i, branch) in action.outcomes.iter().enumerate() {
                         let mut next_facts = cs.facts.clone();
-                        for d in &branch.del {
-                            next_facts.remove(d);
-                        }
-                        for a in &branch.add {
-                            next_facts.insert(a.clone());
-                        }
-                        for cond in &branch.conditional {
-                            let holds = cond.pos_cond.is_subset(&cs.facts)
-                                && cond.neg_cond.iter().all(|f| !cs.facts.contains(f));
-                            if holds {
-                                for d in &cond.del {
-                                    next_facts.remove(d);
-                                }
-                                for a in &cond.add {
-                                    next_facts.insert(a.clone());
-                                }
-                            }
-                        }
+                        apply_effect_branch(&mut next_facts, &cs.facts, branch);
                         let new_cs = CompositeState {
                             facts: next_facts,
                             frontier: next_frontier.clone(),
@@ -1166,15 +1223,17 @@ pub fn translate(
         .collect();
     let mut root_tasks = Vec::new();
     let mut seen_root_tasks = BTreeSet::new();
-    for st in &ir.root_subtasks {
-        if seen_root_tasks.insert(st.task_name.clone()) {
-            root_tasks.push(st.task_name.clone());
+    for net in &ir.root_networks {
+        for st in &net.subtasks {
+            if seen_root_tasks.insert(st.task_name.clone()) {
+                root_tasks.push(st.task_name.clone());
+            }
         }
     }
 
     Ok(PlanningProblem {
         states,
-        initial_states: vec![initial_id],
+        initial_states,
         goal,
         transitions,
         tasks,
@@ -1490,6 +1549,11 @@ mod tests {
                 args: vec![Term::Const("l1".to_owned())],
             }))),
             initial_facts: BTreeSet::new(),
+            // One empty root network: post-fond-htn-24 an IR with NO root
+            // network grounds to zero initial states (there is nothing to
+            // start from), while an empty network yields the lone trivial
+            // (`htn:done`) state this goal-compilation test exercises.
+            root_networks: vec![crate::grounder::GroundRootNetwork::default()],
             ..GroundedIR::default()
         };
         let plan = translate(&ir, &TranslateLimits::default())
@@ -1525,6 +1589,9 @@ mod tests {
         let ir = GroundedIR {
             goal: GoalDesc::Not(Box::new(GoalDesc::And(vec![atom("at"), atom("holding")]))),
             initial_facts: BTreeSet::new(),
+            // See `accepts_bare_negative_goal_atom`: one empty root network
+            // so the IR has its lone trivial initial state.
+            root_networks: vec![crate::grounder::GroundRootNetwork::default()],
             ..GroundedIR::default()
         };
         let plan = translate(&ir, &TranslateLimits::default())
@@ -2213,5 +2280,121 @@ mod tests {
             have_no_change && have_heads,
             "expected one no-change outcome (empty branch) and one heads outcome"
         );
+    }
+
+    // -- method `:effect` + `:htn` parameters (ticket fond-htn-24) ----------
+
+    const METHOD_EFFECT_DOMAIN: &str = r#"
+        (define (domain method-effect-t)
+          (:types object)
+          (:predicates (p ?x - object) (q ?x - object) (r ?x - object))
+          (:constants c - object)
+          (:task t1 :parameters (?a - object))
+          (:method m0
+            :parameters (?x - object)
+            :task (t1 ?x)
+            :effect (and
+              (when (p ?x) (q ?x))
+              (when (q ?x) (r ?x)))
+            :subtasks ()))"#;
+
+    fn method_effect_problem(htn_params: bool) -> String {
+        if htn_params {
+            r#"
+            (define (problem method-effect-p)
+              (:domain method-effect-t)
+              (:objects)
+              (:init (p c))
+              (:goal (q c))
+              (:htn :parameters (?x - object)
+               :subtasks (and (task0 (t1 ?x)))))"#
+        } else {
+            r#"
+            (define (problem method-effect-p)
+              (:domain method-effect-t)
+              (:objects)
+              (:init (p c))
+              (:goal (q c))
+              (:htn :subtasks (and (task0 (t1 c)))))"#
+        }
+        .to_owned()
+    }
+
+    /// A method's `:effect` applies at the moment of decomposition, with
+    /// every `when` guard evaluated against the SOURCE state — not against
+    /// the partially-updated result. Here the source is `{p(c)}`: the first
+    /// guard `p` fires (adds `q(c)`), but the second guard `q` must be
+    /// tested against the source (where `q` does NOT yet hold), so `r(c)`
+    /// must NOT appear in the successor. That is exactly the
+    /// guarded-outcome compilation actions' conditional effects already get
+    /// (ticket fond-htn-24), shared via `apply_effect_branch`.
+    #[test]
+    fn method_effect_applies_at_decomposition_with_source_state_guards() {
+        let domain = crate::parser::parse_domain(METHOD_EFFECT_DOMAIN).unwrap();
+        let problem = crate::parser::parse_problem(&method_effect_problem(true)).unwrap();
+        let ir = crate::grounder::ground(&domain, &problem, &Default::default()).unwrap();
+        let plan = translate(&ir, &TranslateLimits::default())
+            .expect("method-effect domain translates");
+        // Decomposition happened: some reachable state gained `q(c)`...
+        assert!(
+            plan.states.iter().any(|s| s.facts.contains("q(c)")),
+            "decomposition must apply the method effect (q(c) added)"
+        );
+        // ...but the second guard saw the SOURCE state, so `r(c)` nowhere.
+        assert!(
+            plan.states.iter().all(|s| !s.facts.contains("r(c)")),
+            "second when-guard must be evaluated against the source state, \
+             not the effect-updated one"
+        );
+    }
+
+    /// `(:htn :parameters ...)` with more than one admissible binding gives
+    /// one initial state per binding (each an alternative existential
+    /// instantiation of the same source network); with an explicitly ground
+    /// network there is exactly one, as before.
+    #[test]
+    fn htn_parameter_bindings_become_one_initial_state_each() {
+        let domain = crate::parser::parse_domain(METHOD_EFFECT_DOMAIN).unwrap();
+        for (params, expected_initials) in [(true, 1usize), (false, 1)] {
+            let problem =
+                crate::parser::parse_problem(&method_effect_problem(params)).unwrap();
+            let ir = crate::grounder::ground(&domain, &problem, &Default::default()).unwrap();
+            let plan = translate(&ir, &TranslateLimits::default())
+                .expect("problem translates");
+            assert_eq!(
+                plan.initial_states.len(),
+                expected_initials,
+                "params={params}"
+            );
+        }
+        // Two objects of the parameter's type -> two bindings -> two
+        // initial states with distinct frontier task names.
+        let domain2 = crate::parser::parse_domain(
+            r#"
+            (define (domain two-objects-t)
+              (:types object)
+              (:predicates (p ?x - object))
+              (:constants c1 c2 - object)
+              (:task t1 :parameters (?a - object))
+              (:method m0
+                :parameters (?x - object)
+                :task (t1 ?x)
+                :subtasks ()))"#,
+        )
+        .unwrap();
+        let problem2 = crate::parser::parse_problem(
+            r#"
+            (define (problem two-objects-p)
+              (:domain two-objects-t)
+              (:objects)
+              (:init)
+              (:goal (p c1))
+              (:htn :parameters (?x - object)
+               :subtasks (and (task0 (t1 ?x)))))"#,
+        )
+        .unwrap();
+        let ir2 = crate::grounder::ground(&domain2, &problem2, &Default::default()).unwrap();
+        let plan2 = translate(&ir2, &TranslateLimits::default()).expect("translates");
+        assert_eq!(plan2.initial_states.len(), 2);
     }
 }

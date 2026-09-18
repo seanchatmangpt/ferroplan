@@ -15,7 +15,8 @@
 //!   `:types` or is the built-in `object` (`UndefinedType`); the `:types`
 //!   parent relation is acyclic (`CyclicTypeHierarchy`).
 //! - Predicates: every predicate referenced in an action precondition or
-//!   effect (including `when` conditions), a method precondition, `:init`, or
+//!   effect (including `when` conditions), a method precondition or `:effect`
+//!   (including its `when` conditions), `:init`, or
 //!   `:goal` was declared — or is the built-in `=` (`UndefinedPredicate`);
 //!   every such use passes the declared argument count
 //!   (`PredicateArityMismatch`).
@@ -26,13 +27,17 @@
 //!   (`UnknownTaskOrAction`); every task call passes the callee's declared
 //!   parameter count (`ArityMismatch`).
 //! - Arguments: a variable used in a method head, a method subtask argument,
-//!   or a method precondition is one of that method's parameters
+//!   a method precondition, or a method `:effect` is one of that method's
+//!   parameters
 //!   (`UnknownMethodVariable`); a constant used in `:init`, `:goal`, or a
 //!   root `:htn` subtask names a declared domain constant or problem object
 //!   (`UnknownConstant`); an argument's type is the same as, or a subtype
 //!   of, the callee's declared parameter type under the `:types` hierarchy
-//!   (`ArgumentTypeMismatch`); `:init` atoms and root `:htn` subtask
-//!   arguments are ground (`NonGroundInitAtom`, `NonGroundRootSubtaskArg`).
+//!   (`ArgumentTypeMismatch`); `:init` atoms are ground
+//!   (`NonGroundInitAtom`), and a root `:htn` subtask argument is either
+//!   ground or a variable declared in the `:htn`'s own `:parameters` — the
+//!   grounder existentially binds those over their declared types (an
+//!   undeclared variable stays `NonGroundRootSubtaskArg`).
 //! - Ordering constraints: every edge names subtask ids of its own network
 //!   (`UndefinedOrderRef` — this closes the koala gap where a dangling order
 //!   id is silently ignored), and the edges are acyclic — in method networks
@@ -511,7 +516,7 @@ fn effect_atoms<'a>(effect: &'a Effect, out: &mut Vec<&'a AtomicFormula>) {
 }
 
 /// Every atomic formula used anywhere in the domain's action preconditions/
-/// effects and method preconditions.
+/// effects and method preconditions/`:effect`s.
 fn domain_atoms(domain: &Domain) -> Vec<&AtomicFormula> {
     let mut atoms = Vec::new();
     for action in &domain.actions {
@@ -520,6 +525,7 @@ fn domain_atoms(domain: &Domain) -> Vec<&AtomicFormula> {
     }
     for method in &domain.methods {
         goal_desc_atoms(&method.precondition, &mut atoms);
+        effect_atoms(&method.effect, &mut atoms);
     }
     atoms
 }
@@ -876,11 +882,55 @@ fn check_method_precondition_vars(
     }
 }
 
+/// Every variable used anywhere inside a method's `:effect` — literal atoms
+/// and `when`-condition atoms alike — is one of the method's parameters (or
+/// quantifier-bound inside a condition, via
+/// `check_method_precondition_vars`). Structural mirror of
+/// `check_method_precondition_vars`, which it reuses for `when` conditions.
+/// `Effect::Oneof` cannot be produced for a method effect
+/// (`parse_method_def` parses `:effect` in `EffectCtx::Nested`, which
+/// refuses `oneof`) but is handled defensively by recursing into branches.
+fn check_method_effect_vars(
+    effect: &Effect,
+    scope: &BTreeMap<&str, &str>,
+    method: &MethodDef,
+) -> Result<(), ValidationError> {
+    match effect {
+        Effect::Empty => Ok(()),
+        Effect::Literal(Literal::Pos(atom)) | Effect::Literal(Literal::Neg(atom)) => {
+            for arg in &atom.args {
+                if let Term::Var(var) = arg {
+                    if !scope.contains_key(var.as_str()) {
+                        return Err(ValidationError::UnknownMethodVariable {
+                            method: method.name.clone(),
+                            var: var.clone(),
+                        });
+                    }
+                }
+            }
+            Ok(())
+        }
+        Effect::And(es) | Effect::Oneof(es) => {
+            for e in es {
+                check_method_effect_vars(e, scope, method)?;
+            }
+            Ok(())
+        }
+        Effect::When(condition, inner) => {
+            check_method_precondition_vars(condition, scope, method)?;
+            check_method_effect_vars(inner, scope, method)
+        }
+        // Numeric effects are lexed/parsed but refused at grounding time
+        // (`GroundError::UnsupportedNumericFluent`); nothing to check here.
+        Effect::Increase(_, _) | Effect::Decrease(_, _) => Ok(()),
+    }
+}
+
 /// All method-level checks for one method: the head names a declared
 /// compound task with matching arity and well-typed arguments; every subtask
 /// resolves, matches arity, and has well-declared, well-typed arguments; the
-/// ordering constraints are well-founded; the precondition's variables are
-/// the method's own (or quantifier-bound).
+/// ordering constraints are well-founded; the precondition's and `:effect`'s
+/// variables are the method's own (or quantifier-bound).
 fn check_method(domain: &Domain, method: &MethodDef) -> Result<(), ValidationError> {
     let task_def = match domain.tasks.iter().find(|t| t.name == method.task.name) {
         Some(task) => task,
@@ -923,7 +973,8 @@ fn check_method(domain: &Domain, method: &MethodDef) -> Result<(), ValidationErr
         )?;
     }
     check_network_ordering(&method.network, Some(&method.name))?;
-    check_method_precondition_vars(&method.precondition, &scope, method)
+    check_method_precondition_vars(&method.precondition, &scope, method)?;
+    check_method_effect_vars(&method.effect, &scope, method)
 }
 
 /// The compound tasks that have NO method chain reducing them to primitive
@@ -1179,6 +1230,21 @@ fn check_root_network(
     problem: &Problem,
     consts: &BTreeMap<&str, &str>,
 ) -> Result<(), ValidationError> {
+    // The root `:htn` network's own `:parameters` (ticket fond-htn-24): a
+    // subtask argument may be one of these variables, in which case the
+    // grounder existentially binds it over its declared type (one ground
+    // root network per admissible binding). A variable NOT declared there
+    // stays the same `NonGroundRootSubtaskArg` refusal as before. Declared
+    // variables get the same subtype check `check_method_task_call_args`
+    // applies to method variables: the variable's declared type must be the
+    // callee parameter type or a subtype of it, so EVERY object the
+    // grounder can bind the variable to is a well-typed argument.
+    let htn_params: BTreeMap<&str, &str> = problem
+        .htn
+        .params
+        .iter()
+        .map(|p| (p.var.as_str(), p.type_name.as_str()))
+        .collect();
     for subtask in &problem.htn.subtasks {
         let params = callee_params(domain, &subtask.task.name).ok_or_else(|| {
             ValidationError::UnknownTaskOrAction(subtask.task.name.clone())
@@ -1192,10 +1258,21 @@ fn check_root_network(
         }
         for (position, (arg, param)) in subtask.task.args.iter().zip(params).enumerate() {
             match arg {
-                Term::Var(_) => {
-                    return Err(ValidationError::NonGroundRootSubtaskArg {
-                        id: subtask.id.clone(),
-                    })
+                Term::Var(var) => {
+                    let Some(&found) = htn_params.get(var.as_str()) else {
+                        return Err(ValidationError::NonGroundRootSubtaskArg {
+                            id: subtask.id.clone(),
+                        });
+                    };
+                    let expected = param.type_name.as_str();
+                    if !is_subtype(domain, found, expected) {
+                        return Err(ValidationError::ArgumentTypeMismatch {
+                            callee: subtask.task.name.clone(),
+                            position,
+                            expected: expected.to_owned(),
+                            found: found.to_owned(),
+                        });
+                    }
                 }
                 Term::Const(constant) => {
                     check_const_arg(
@@ -1286,8 +1363,10 @@ pub fn validate_problem_with_warnings(
 
 /// Run problem-level static checks against `domain`: the root `:htn` network
 /// is non-empty (`MissingTaskNetwork`), every root subtask resolves to a
-/// declared task or action with matching arity and ground, well-typed
-/// constant arguments, every object was declared with a declared type, every
+/// declared task or action with matching arity and well-typed arguments —
+/// each either ground or a variable declared in the `:htn`'s own
+/// `:parameters` (existentially bound at grounding time) — every object was
+/// declared with a declared type, every
 /// `:init`/`:goal` atom uses a declared predicate with matching arity over
 /// declared ground terms, the root ordering constraints name real subtask
 /// ids acyclically, and every type referenced by a `forall`/`exists`

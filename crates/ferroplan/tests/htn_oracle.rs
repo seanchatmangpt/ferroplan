@@ -62,8 +62,6 @@ const KNOWN_MISMATCHES: &[(&str, &str)] = &[
     ("PO_Transport", "translate wall-clock limit (10s default): 41859+ states still queued; oracle SOLVED in 0.338s"),
     ("Satellite-GTOHP", "translate wall-clock limit (10s default): 19266+ states still queued; oracle SOLVED in 1.229s"),
     ("Transport", "translate wall-clock limit (10s default): 44286+ states still queued; oracle SOLVED in 0.327s"),
-    ("panda-conditional-effect", "grounder refuses action-level conditional effects — Ground error `unsupported construct: nested 'when' is out of scope`; oracle solves it in 0.301s (the curated corpus's own predicted honest limitation)"),
-    ("panda-method-effect", "grounder cannot ground a method-`:effect` + `when` domain with zero primitive actions — Ground error `unbound variable '?x'`; oracle solves it in 0.284s"),
 ];
 
 fn fixtures_dir() -> std::path::PathBuf {
@@ -418,18 +416,44 @@ mismatch_demo!(
     "TRANSLATE_ERROR",
     "oracle SOLVED; ferroplan translate exceeds its internal 10s wall limit"
 );
-mismatch_demo!(
-    mismatch_panda_conditional_effect_ground_refusal,
-    "panda-conditional-effect",
-    "GROUND_ERROR",
-    "oracle SOLVED; ferroplan grounder refuses action-level `when` conditional effects"
-);
-mismatch_demo!(
-    mismatch_panda_method_effect_ground_refusal,
-    "panda-method-effect",
-    "GROUND_ERROR",
-    "oracle SOLVED; ferroplan grounder refuses method-level `:effect`/`when` (zero-action domain)"
-);
+
+// ---------------------------------------------------------------------------
+// Former admitted mismatches, fixed by ticket fond-htn-24 (conditional-effect
+// grounding + method `:effect` + `:htn`-parameter existential binding): the
+// two rows were flipped OUT of KNOWN_MISMATCHES and their old #[ignore]d
+// GROUND_ERROR demonstrations became these ACTIVE tripwires — they now assert
+// the agreement side (SOLVED with a closed policy, which the main gate's
+// `assert_outcome_closed` also runs for them since they left the mismatch
+// list). A regression back to a ground refusal fails here immediately.
+// ---------------------------------------------------------------------------
+
+/// `panda-conditional-effect`: action `:effect` carrying `when` clauses,
+/// including a `when`-in-`when` (flattened to a conjunctive guard at
+/// grounding time). Oracle: SOLVED in 0.301s.
+#[test]
+fn panda_conditional_effect_solves_in_agreement_with_oracle() {
+    let (status, detail) = observe("panda-conditional-effect");
+    assert_eq!(
+        status, "SOLVED",
+        "panda-conditional-effect: expected SOLVED (fond-htn-24 conditional-effect \
+         grounding), got {status}: {detail}"
+    );
+    println!("panda-conditional-effect: {status}: {detail}");
+}
+
+/// `panda-method-effect`: method `:effect` + `when` domain with zero
+/// primitive actions; the root `:htn` network binds its `:parameters`
+/// existentially (`?x` -> the sole object `c`). Oracle: SOLVED in 0.284s.
+#[test]
+fn panda_method_effect_solves_in_agreement_with_oracle() {
+    let (status, detail) = observe("panda-method-effect");
+    assert_eq!(
+        status, "SOLVED",
+        "panda-method-effect: expected SOLVED (fond-htn-24 method-effect + htn-\
+         parameter grounding), got {status}: {detail}"
+    );
+    println!("panda-method-effect: {status}: {detail}");
+}
 
 /// Bonus evidence (not a mismatch — the oracle's own verdict is the open
 /// ERROR class): on shop3-port-loan-noplan koala's pipeline crashes in its

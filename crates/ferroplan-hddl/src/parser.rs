@@ -748,7 +748,11 @@ fn parse_task_network(map: &BTreeMap<String, &Sexp>) -> Result<TaskNetwork, Pars
                 after: w[1].id.clone(),
             })
             .collect();
-        return Ok(TaskNetwork { subtasks, order });
+        return Ok(TaskNetwork {
+            params: vec![],
+            subtasks,
+            order,
+        });
     }
     if let Some(s) = map.get(":subtasks").or_else(|| map.get(":tasks")) {
         let subtasks = parse_subtasks(s)?;
@@ -756,8 +760,16 @@ fn parse_task_network(map: &BTreeMap<String, &Sexp>) -> Result<TaskNetwork, Pars
             Some(o) => parse_order_edges(o)?,
             None => vec![],
         };
-        return Ok(TaskNetwork { subtasks, order });
+        return Ok(TaskNetwork {
+            params: vec![],
+            subtasks,
+            order,
+        });
     }
+    // A network with neither an explicit nor an ordered subtask list. NOTE:
+    // deliberately does NOT read `:parameters` — see `parse_htn` for why
+    // (a method's keyed map carries the method's own params under the same
+    // key); `parse_htn` assigns `params` after this returns.
     Ok(TaskNetwork::default())
 }
 
@@ -827,19 +839,44 @@ fn parse_method_def(rest: &[Sexp]) -> Result<MethodDef, ParseError> {
         Some(s) => parse_goal(s)?,
         None => GoalDesc::Empty,
     };
+    // The method's `:effect` (PANDA-style decomposition-time effect, ticket
+    // fond-htn-24). Parsed in `EffectCtx::Nested`, not `Top`: `Top` is the
+    // one context where `oneof` is legal, and a *method* effect must stay
+    // deterministic — `Nested` admits exactly `and`/`when`/literals (with a
+    // `when` body flattening one level at grounding time) and refuses a
+    // top-level or nested `oneof` with the existing `MalformedOneof` error,
+    // rather than the old silently-dropped behavior.
+    let effect = match map.get(":effect") {
+        Some(s) => parse_effect(s, EffectCtx::Nested)?,
+        None => Effect::Empty,
+    };
     let network = parse_task_network(&map)?;
     Ok(MethodDef {
         name,
         params,
         task,
         precondition,
+        effect,
         network,
     })
 }
 
 fn parse_htn(rest: &[Sexp]) -> Result<TaskNetwork, ParseError> {
     let map = keyed_map(rest)?;
-    parse_task_network(&map)
+    // The root `:htn` network's own `:parameters` (ticket fond-htn-24): its
+    // variables are existentially bound by the grounder (one ground root
+    // network per admissible binding — see
+    // `grounder::ground_root_network`). Read here, NOT inside
+    // `parse_task_network`, because a method's keyed map carries the
+    // *method's* `:parameters` under the same key — a method network's
+    // `params` stays empty (see `ast::TaskNetwork::params`).
+    let params = match map.get(":parameters") {
+        Some(s) => parse_typed_params(as_list(s)?)?,
+        None => vec![],
+    };
+    let mut network = parse_task_network(&map)?;
+    network.params = params;
+    Ok(network)
 }
 
 /// Parse a full `(define (domain ...) ...)` HDDL text into an `ast::Domain`.
