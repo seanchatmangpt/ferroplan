@@ -35,6 +35,14 @@ The front-end crate is `crates/ferroplan-hddl`. In scope:
   atom in preconditions; of compound descriptions in `:goal` via DNF
   expansion), `forall`, `exists` (expanded at grounding time). `or`/`imply`/
   quantifiers are refused inside `when`-effect conditions.
+- The built-in `=` term-equality predicate (arity 2, no declaration needed):
+  evaluated over ground terms — state-independent, so it never consults the
+  fact set. In action/method preconditions it grounds to a dedicated
+  equality node; in `when`-effect conditions it folds statically (a
+  constantly-false equality pins the condition with a synthetic
+  never-present marker, so that guarded effect can never fire); in `:goal`
+  it folds at DNF expansion time. `(not (= …))` composes through the
+  ordinary negation rules.
 - Effects: literals, `and`, `when` (conditional), `oneof` (rules below), the
   empty effect `()`.
 - The `(:probabilistic w1 e1 w2 e2 ...)` effect extension is accepted as pure
@@ -228,6 +236,7 @@ binding rules are in the wave context (Section 6 below).
 | `:probabilistic w e ...` weighted-effect extension with side-channel weight map | `probabilistic::preprocess` — same shape in Rust: text pre-pass, weights per enclosing `:action` name, raw source text preserved | Implemented |
 | Fixed vs flexible method commitment (commit the decomposition up front vs. allow commitment to vary with the execution branch) | Method choice is an explicit OR-branchpoint (`htn:decompose:<addr>:<method>`) inside the composite state space: the policy commits per composite state and may choose differently in different states — the flexible end of the spectrum, in the (TN, state)-policy sense of Chen & Bercher | Implemented (policy-level flexibility; no up-front commitment) |
 | Flexible / fixed-ld / fixed oracle solving modes | Differential-testing inputs only — verdict classes to compare against, not ferroplan modes | External oracle only |
+| Problem objects typed by an undeclared type (the oracle corpus's AssemblyHierarchical declares no `FaultyPort` type while its problems type objects `faultyCable-* - FaultyPort`) | The reference parser accepts the files and exits 0, silently dropping the undeclared objects from its parsed model (2 problem references → 0 in the model; recorded verbatim in `crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full.json`) | Deliberate deviation — ferroplan rejects loudly at validation (`UndefinedType` on the object's type annotation). Kept over parity: a silently-weakened model can mis-solve; a typed refusal cannot. Ferroplan's rejection is confirmed correct by the same harvest records |
 
 ## 6. Compliance box
 

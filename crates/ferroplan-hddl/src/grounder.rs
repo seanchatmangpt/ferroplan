@@ -200,11 +200,20 @@ pub struct GroundEffectBranch {
 /// `GoalDesc::Imply` has no dedicated variant here: `ground_goal` lowers
 /// `(imply a b)` to `Or(Not(a), b)` at grounding time (classical material
 /// implication — vacuously true when `a` doesn't hold), so `evaluate_ground_goal`
-/// only ever needs to know about `And`/`Or`/`Not`/`Atom`/`Empty`.
+/// only ever needs to know about `And`/`Or`/`Not`/`Atom`/`Empty`/`Eq`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GroundGoal {
     Empty,
     Atom(String),
+    /// The built-in term-equality predicate `(= x y)`, with both terms already
+    /// substituted to ground constants. State-independent by definition —
+    /// unlike `Atom`, evaluation never consults the fact set (`Eq(x, y)`
+    /// holds iff `x == y`) — so it must be lowered to its own variant rather
+    /// than collapsed into an `Atom` fact key that no fact set could ever
+    /// contain (the pre-fix behavior that made a positive `(= …)` in an
+    /// action/method precondition permanently false and `(not (= …))`
+    /// vacuously true; see `evaluate_ground_goal`).
+    Eq(String, String),
     Not(Box<GroundGoal>),
     And(Vec<GroundGoal>),
     Or(Vec<GroundGoal>),
@@ -222,6 +231,14 @@ fn ground_goal(
 ) -> Result<GroundGoal, GroundError> {
     Ok(match goal {
         GoalDesc::Empty => GroundGoal::Empty,
+        GoalDesc::Atom(a) if a.predicate == "=" => {
+            // Built-in term equality: substitute both terms and carry them as
+            // `GroundGoal::Eq` — a state-independent comparison, never a fact
+            // lookup (see the `Eq` variant's docs for why `Atom` is wrong
+            // here).
+            let (x, y) = subst_eq_args(a, binding)?;
+            GroundGoal::Eq(x, y)
+        }
         GoalDesc::Atom(a) => GroundGoal::Atom(subst_atom(a, binding)?),
         GoalDesc::Not(inner) => {
             GroundGoal::Not(Box::new(ground_goal(inner, binding, objects_by_type)?))
@@ -345,10 +362,19 @@ fn expand_goal_quantifiers(
 /// `evaluate_ground_goal` on an `And`-of-`Atom`/`Not(Atom)` formula, but
 /// `Or`/`Imply` cannot be represented as a flat positive/negative literal
 /// set, so any precondition using them must be evaluated recursively instead.
+///
+/// `Eq` is the built-in term-equality `(= x y)` over ground constants: it is
+/// state-independent, so it is decided by direct comparison and never by a
+/// fact-set lookup (an `Atom`-style lowering could never hold — there is no
+/// `(= x y)` fact unless a pathological domain declares one — which is
+/// exactly the gap that made solvable domains like the `micro-recurse`
+/// fixture return `NoPlan`; `not (= …)` fell out vacuously true by the same
+/// token).
 pub fn evaluate_ground_goal(goal: &GroundGoal, facts: &BTreeSet<String>) -> bool {
     match goal {
         GroundGoal::Empty => true,
         GroundGoal::Atom(a) => facts.contains(a),
+        GroundGoal::Eq(x, y) => x == y,
         GroundGoal::Not(inner) => !evaluate_ground_goal(inner, facts),
         GroundGoal::And(parts) => parts.iter().all(|p| evaluate_ground_goal(p, facts)),
         GroundGoal::Or(parts) => parts.iter().any(|p| evaluate_ground_goal(p, facts)),
@@ -526,6 +552,26 @@ fn subst_atom(
     Ok(atom_key(&atom.predicate, &args))
 }
 
+/// Substitute `binding` into the two argument terms of a built-in `=`
+/// (term-equality) atom, producing the pair of ground constants to compare.
+/// Arity is enforced here even though `validate` (which `ground` runs first)
+/// already pins `=` at arity 2: `ground_goal` is also reachable from tests
+/// and future callers that skip validation, and a wrong-arity `=` must be a
+/// loud typed error, never a silent mis-comparison.
+fn subst_eq_args(
+    atom: &AtomicFormula,
+    binding: &BTreeMap<String, String>,
+) -> Result<(String, String), GroundError> {
+    if atom.args.len() != 2 {
+        return Err(GroundError::UnsupportedPrecondition(
+            "'=' (term equality) takes exactly two arguments".to_owned(),
+        ));
+    }
+    let x = subst_term(&atom.args[0], binding)?;
+    let y = subst_term(&atom.args[1], binding)?;
+    Ok((x, y))
+}
+
 /// Like `subst_atom`, but keeps the AST shape (`Term::Const` args) instead
 /// of collapsing straight to a ground atom-key string. Used by
 /// `expand_goal_quantifiers`, which must hand back an `ast::GoalDesc` (see
@@ -546,6 +592,22 @@ fn subst_atom_ast(
     })
 }
 
+/// A synthetic condition key standing in for a `when`-condition literal that
+/// is *constantly false* after grounding (e.g. `(= ?x a)` under a binding
+/// where `?x ↦ b`, or `(not (= ?x a))` where `?x ↦ a`). The flat
+/// `GroundConditional` pos/neg sets can only express "fact present/absent",
+/// never "impossible", so a constantly-false condition is pinned by requiring
+/// this key to hold — and it never can: the `:` cannot appear in a real
+/// `atom_key` (predicate/object names are plain HDDL identifiers; the same
+/// no-collision argument `translate::negation_marker` documents), and no code
+/// path inserts a `never:`-prefixed fact anywhere. The guarded effect
+/// therefore can never fire — the exact semantics of a constantly-false
+/// condition — instead of the pre-fix behavior where a folded-`=`-to-`Atom`
+/// key was merely *incidentally* absent from facts.
+fn unsatisfiable_when_marker(x: &str, y: &str) -> String {
+    format!("never:(= {x} {y})")
+}
+
 fn flatten_goal(
     goal: &GoalDesc,
     binding: &BTreeMap<String, String>,
@@ -554,11 +616,33 @@ fn flatten_goal(
 ) -> Result<(), GroundError> {
     match goal {
         GoalDesc::Empty => Ok(()),
+        GoalDesc::Atom(a) if a.predicate == "=" => {
+            // Built-in term equality over ground terms is state-independent:
+            // constantly-true contributes nothing to the flat condition;
+            // constantly-false is pinned with the never-present marker so the
+            // guarded effect can never fire (see the marker's docs).
+            let (x, y) = subst_eq_args(a, binding)?;
+            if x != y {
+                pos.insert(unsatisfiable_when_marker(&x, &y));
+            }
+            Ok(())
+        }
         GoalDesc::Atom(a) => {
             pos.insert(subst_atom(a, binding)?);
             Ok(())
         }
         GoalDesc::Not(inner) => match inner.as_ref() {
+            GoalDesc::Atom(a) if a.predicate == "=" => {
+                let (x, y) = subst_eq_args(a, binding)?;
+                if x == y {
+                    // `(not (= x x))` is constantly false: pin the whole
+                    // condition with the never-present marker.
+                    pos.insert(unsatisfiable_when_marker(&x, &y));
+                }
+                // `(not (= x y))` with x != y is constantly true: contributes
+                // nothing.
+                Ok(())
+            }
             GoalDesc::Atom(a) => {
                 neg.insert(subst_atom(a, binding)?);
                 Ok(())
@@ -682,6 +766,11 @@ fn relaxed_satisfiable(goal: &GroundGoal, facts: &BTreeSet<String>) -> bool {
     match goal {
         GroundGoal::Empty => true,
         GroundGoal::Atom(a) => facts.contains(a),
+        // Term equality is state-independent, so the relaxed answer is the
+        // exact answer — compare, don't relax to `true` (relaxing an
+        // always-false `(= x y)` here would keep an unreachable action in the
+        // reachability fixpoint; sound but needlessly imprecise).
+        GroundGoal::Eq(x, y) => x == y,
         GroundGoal::Not(_) => true,
         GroundGoal::And(parts) => parts.iter().all(|p| relaxed_satisfiable(p, facts)),
         GroundGoal::Or(parts) => parts.iter().any(|p| relaxed_satisfiable(p, facts)),
@@ -2027,5 +2116,208 @@ mod tests {
         ));
         // Only x=l1 has a witness; x=l2 has none -- forall fails.
         assert!(!action_applicable(&finish, &facts(&["p(l1,l2)"])));
+    }
+
+    // -- `=` built-in term equality (ticket fond-htn-21) --------------------
+    //
+    // d2faf4d taught parse+validate to accept the built-in `=` but left
+    // `evaluate_ground_goal` without an `=` arm: the atom was folded into an
+    // ordinary fact key that no fact set could contain, so a positive `(= …)`
+    // in an action/method precondition could never hold (and `(not (= …))`
+    // was vacuously true). These tests pin the state-independent `Eq`
+    // lowering end-to-end through grounding and evaluation.
+
+    const EQ_DOMAIN: &str = r#"(define (domain eq-d)
+      (:requirements :typing :equality :method-preconditions)
+      (:types loc)
+      (:constants r - object a b - loc)
+      (:predicates (at ?r - object ?l - loc) (adjacent ?x - loc ?y - loc))
+      (:task go :parameters (?s - loc ?g - loc))
+      (:action mark :parameters (?l - loc)
+        :precondition (not (= ?l b))
+        :effect (and (at r ?l)))
+      (:method m-arrived
+        :parameters (?s - loc ?g - loc)
+        :task (go ?s ?g)
+        :precondition (= ?s ?g)
+        :ordered-subtasks ())
+      (:method m-step
+        :parameters (?s - loc ?g - loc ?n - loc)
+        :task (go ?s ?g)
+        :precondition (adjacent ?s ?n)
+        :ordered-subtasks (and (t1 (mark ?n)))))"#;
+
+    fn eq_problem(htn: &str) -> Problem {
+        let src = format!(
+            r#"(define (problem eq-p)
+              (:domain eq-d)
+              (:objects)
+              (:init (adjacent a b))
+              (:goal ())
+              {htn})"#
+        );
+        parse_problem(&src).expect("eq problem parses")
+    }
+
+    fn ground_eq_ir() -> GroundedIR {
+        let domain = parse_domain(EQ_DOMAIN).unwrap();
+        let problem = eq_problem("(:htn :subtasks (and (r1 (go a b))))");
+        ground(&domain, &problem, &GroundingLimits::default()).unwrap()
+    }
+
+    #[test]
+    fn evaluate_ground_goal_term_equality_is_state_independent() {
+        let empty: BTreeSet<String> = BTreeSet::new();
+        let eq = |x: &str, y: &str| GroundGoal::Eq(x.to_owned(), y.to_owned());
+        // (= a a) is true and (= a b) is false regardless of the fact set —
+        // including against facts that a mis-folded atom key could never be
+        // in.
+        assert!(evaluate_ground_goal(&eq("a", "a"), &empty));
+        assert!(!evaluate_ground_goal(&eq("a", "b"), &empty));
+        assert!(evaluate_ground_goal(&eq("a", "a"), &facts(&["at(r,a)"])));
+        assert!(!evaluate_ground_goal(&eq("a", "b"), &facts(&["at(r,a)"])));
+        // `(not (= a b))` is true, `(not (= a a))` false — via the ordinary
+        // `Not` arm, no special case.
+        assert!(evaluate_ground_goal(
+            &GroundGoal::Not(Box::new(eq("a", "b"))),
+            &empty
+        ));
+        assert!(!evaluate_ground_goal(
+            &GroundGoal::Not(Box::new(eq("a", "a"))),
+            &empty
+        ));
+        // The relaxed (delete-relaxation reachability) answer is the exact
+        // answer: term equality consults no facts at all.
+        assert!(relaxed_satisfiable(&eq("a", "a"), &empty));
+        assert!(!relaxed_satisfiable(&eq("a", "b"), &empty));
+    }
+
+    #[test]
+    fn term_equality_grounds_to_eq_not_an_atom_fact_key() {
+        let ir = ground_eq_ir();
+        let find_method = |name: &str| {
+            ir.methods
+                .iter()
+                .find(|m| m.name == name)
+                .unwrap_or_else(|| panic!("{name} ground instance present"))
+                .clone()
+        };
+        // Positive `=` in a *method* precondition (the exact micro-recurse
+        // m-arrived shape) lowers to `Eq`, not to a dead atom key.
+        assert_eq!(
+            find_method("m-arrived(a,a)").precondition,
+            eq_goal("a", "a")
+        );
+        assert_eq!(
+            find_method("m-arrived(a,b)").precondition,
+            eq_goal("a", "b")
+        );
+        // … and evaluates true exactly when the terms coincide, against any
+        // fact set.
+        assert!(evaluate_ground_goal(
+            &find_method("m-arrived(a,a)").precondition,
+            &facts(&[])
+        ));
+        assert!(!evaluate_ground_goal(
+            &find_method("m-arrived(a,b)").precondition,
+            &facts(&[])
+        ));
+
+        let find_action = |name: &str| {
+            ir.actions
+                .iter()
+                .find(|a| a.name == name)
+                .unwrap_or_else(|| panic!("{name} ground instance present"))
+                .clone()
+        };
+        // `(not (= …))` in an *action* precondition lowers to `Not(Eq)`.
+        assert_eq!(
+            find_action("mark(a)").precondition,
+            GroundGoal::Not(Box::new(eq_goal("a", "b")))
+        );
+        assert_eq!(
+            find_action("mark(b)").precondition,
+            GroundGoal::Not(Box::new(eq_goal("b", "b")))
+        );
+        assert!(action_applicable(&find_action("mark(a)"), &facts(&[])));
+        assert!(!action_applicable(&find_action("mark(b)"), &facts(&[])));
+    }
+
+    fn eq_goal(x: &str, y: &str) -> GroundGoal {
+        GroundGoal::Eq(x.to_owned(), y.to_owned())
+    }
+
+    /// `when`-conditions fold `=` statically: a constantly-true literal
+    /// vanishes from the flat condition, a constantly-false one pins the
+    /// whole condition with the never-present `never:` marker so the guarded
+    /// effect can never fire — replacing the pre-fix behavior where the
+    /// literal became a fact key that was merely *incidentally* absent
+    /// (making `(not (= x x))` fire its branch unconditionally).
+    const EQ_WHEN_DOMAIN: &str = r#"(define (domain eq-when-d)
+      (:types loc)
+      (:constants a b - loc)
+      (:predicates (p) (q))
+      (:task go :parameters (?x - loc))
+      (:action probe :parameters (?x - loc)
+        :precondition ()
+        :effect (and (when (= ?x a) (p)) (when (not (= ?x a)) (q))))
+      (:method m-go
+        :parameters (?x - loc)
+        :task (go ?x)
+        :ordered-subtasks (and (t1 (probe ?x)))))"#;
+
+    #[test]
+    fn term_equality_in_when_conditions_folds_statically() {
+        let domain = parse_domain(EQ_WHEN_DOMAIN).unwrap();
+        let problem_src = r#"(define (problem eq-when-p)
+              (:domain eq-when-d)
+              (:objects)
+              (:init)
+              (:goal ())
+              (:htn :subtasks (and (r1 (go a)) (r2 (go b)))))"#;
+        let problem = parse_problem(problem_src).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let probe = |name: &str| {
+            ir.actions
+                .iter()
+                .find(|a| a.name == name)
+                .unwrap_or_else(|| panic!("{name} ground instance present"))
+                .clone()
+        };
+        let probe_a = probe("probe(a)");
+        let probe_b = probe("probe(b)");
+        assert_eq!(probe_a.outcomes.len(), 1);
+        let branch_a = &probe_a.outcomes[0];
+        // Adds ride on the conditional branches (`collect_effect`), never on
+        // the outer branch.
+        assert!(branch_a.add.is_empty() && branch_a.del.is_empty());
+        // (= a a) folded away; (not (= a a)) is constantly false -> marker.
+        assert_eq!(branch_a.conditional.len(), 2);
+        assert_eq!(branch_a.conditional[0].add, facts(&["p"]));
+        assert!(
+            branch_a.conditional[0].pos_cond.is_empty()
+                && branch_a.conditional[0].neg_cond.is_empty(),
+            "constantly-true `(= a a)` contributes no condition"
+        );
+        assert_eq!(branch_a.conditional[1].add, facts(&["q"]));
+        assert_eq!(
+            branch_a.conditional[1].pos_cond,
+            facts(&["never:(= a a)"]),
+            "constantly-false `(not (= a a))` pins the never-present marker"
+        );
+        // Mirror image for ?x = b.
+        let branch_b = &probe_b.outcomes[0];
+        assert_eq!(branch_b.conditional.len(), 2);
+        assert_eq!(
+            branch_b.conditional[0].pos_cond,
+            facts(&["never:(= b a)"]),
+            "constantly-false `(= b a)` pins the never-present marker"
+        );
+        assert_eq!(branch_b.conditional[1].add, facts(&["q"]));
+        assert!(
+            branch_b.conditional[1].pos_cond.is_empty()
+                && branch_b.conditional[1].neg_cond.is_empty(),
+            "constantly-true `(not (= a b))` contributes no condition"
+        );
     }
 }

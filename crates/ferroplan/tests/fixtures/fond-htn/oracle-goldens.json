@@ -32,10 +32,10 @@
       "domain": "micro-recurse/domain.hddl",
       "problem": "micro-recurse/problem.hddl",
       "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.212, "run": "/tmp/fond-oracle/runs/20260917T214757Z-domain-problem-31678"},
-      "ferroplan": "NOSOLUTION",
-      "divergence": "semantic",
-      "agreement": false,
-      "note": "ferroplan gap: positive '=' term-equality in a method :precondition never evaluates true. Base d2faf4d only exempted '=' from the validator (check_undefined_predicates); grounder.rs evaluate_ground_goal (Atom -> facts.contains) has no '=' case, so the ground atom for (= ?s ?goal) is never in facts, m-arrived is never offered, every travel dead-ends -> typed NoPlan. '(not (= ...))' is vacuously true by the same token. koala evaluates '=' and solves"
+      "ferroplan": "SOLVED",
+      "divergence": null,
+      "agreement": true,
+      "note": "Healed (ticket fond-htn-21, branch fix/eq-goal-evaluation): grounder.rs now lowers the built-in '=' to GroundGoal::Eq (state-independent term equality over ground constants), so m-arrived's (:precondition (= ?s ?goal)) evaluates true when the terms coincide, m-arrived is offered, and the deterministic fixture solves; 'when'-condition '=' folds statically (constantly-false conditions pin a never-present 'never:' marker) and ':goal' '=' folds at DNF time. Oracle verdict unchanged (SOLVED, flexible). Pre-fix, for the record: '=' was exempted from the validator only (base d2faf4d); evaluate_ground_goal (Atom -> facts.contains) folded it into a dead atom key, m-arrived was never offered, every travel dead-ended -> typed NoPlan while koala solved. Mismatch test promoted to always-on agreement test micro_recurse_agrees_with_oracle"
     },
     {
       "id": "micro-sense",

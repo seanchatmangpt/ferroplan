@@ -37,7 +37,7 @@
 //! | `(:task …)` domain sections (all 6) | SUPPORTED | `parse_domain` `":task"` arm → `parse_task_def` |
 //! | bare subtask lists, no `(and …)` wrapper (Snake `:htn :subtasks (hunt)`) | SUPPORTED | `parse_subtasks` — unwrapped list = single entry; bare unlabeled calls get synthetic `t{i}` ids |
 //! | method `:precondition`, incl. `not`, `forall` (Snake, Childsnack, Depots, Rover) | SUPPORTED | `parse_method_def` (`map.get(":precondition")` → full `GoalDesc` grammar via `parse_goal`); grounded into `grounder::GroundMethod::precondition` and enforced by `translate` before offering a decomposition branch |
-//! | `=` term-equality in preconditions (Snake `move-base`, `strike`; micro-recurse) | PARSE+VALIDATE-SUPPORTED, EVALUATION UNSUPPORTED | `parse_goal` folds `=` into `GoalDesc::Atom`; base commit `d2faf4d` exempted `=` from `check_undefined_predicates` — but `grounder::evaluate_ground_goal` has no `=` case (`Atom` → `facts.contains`), so a positive `(= …)` can never hold and `(not (= …))` is vacuously true. Harvested consequence: `micro-recurse` NoPlan vs oracle SOLVED |
+//! | `=` term-equality in preconditions (Snake `move-base`, `strike`; micro-recurse) | SUPPORTED (parse, validate, evaluation) | `parse_goal` folds `=` into `GoalDesc::Atom`; `check_undefined_predicates` exempts `=` (arity 2); `grounder::ground_goal` lowers it to `GroundGoal::Eq` — state-independent term equality over ground constants (`evaluate_ground_goal`/`relaxed_satisfiable`: `Eq(x, y) ⇒ x == y`). `when`-conditions fold it statically (a constantly-false equality pins the never-present `never:` condition marker); `:goal` folds it at DNF time (ticket fond-htn-21; healed the harvested `micro-recurse` mismatch) |
 //! | method `:constraints` (Satellite methods; Rover `:htn :constraints ()`) | PARSE-SUPPORTED, SEMANTICS IGNORED | `keyed_map` accepts any `:keyword` and `parse_method_def`/`parse_htn` never read `:constraints` — no `ConstraintDef` is produced from methods, so the constraint can never influence search (no error, silent drop) |
 //! | `oneof` at top level of an action `:effect` (all 6 domains) | SUPPORTED | `parse_effect(…, allow_oneof = true)` from `parse_action_def`; `oneof` arm |
 //! | `oneof` empty branch (`()` koala-dialect / `(and)`) (Transport, Snake) | SUPPORTED | empty sexp → `Effect::Empty` in `parse_effect`; both lex as an empty effect branch |
@@ -63,9 +63,11 @@
 //!   the calibrate/retry loop (NOSOLUTION under `flexible` AND `fixed-ld`);
 //!   ferroplan's `fond_policy` strong fixpoint closes the fair loop →
 //!   `SOLVED`. Both sound under their own semantics.
-//! - `micro-recurse`: positive `=` term-equality never evaluates true in
-//!   `evaluate_ground_goal` (parse/validate accept it; evaluation does not)
-//!   → ferroplan `NoPlan` on a deterministically solvable problem.
+//! - `micro-recurse`: positive `=` term-equality never evaluated true in
+//!   `evaluate_ground_goal` (parse/validate accepted it; evaluation did not)
+//!   → ferroplan `NoPlan` on a deterministically solvable problem. HEALED by
+//!   ticket fond-htn-21: the mismatch `#[ignore]`d pin was promoted to the
+//!   always-on `micro_recurse_agrees_with_oracle` agreement test below.
 //!
 //! Resource-limit divergences (no semantic verdict on the ferroplan side at
 //! `PlannerLimits::default()`; recorded in the goldens as `"error"` with the
@@ -481,18 +483,20 @@ fn ORACLE_MISMATCH_micro_sense() {
     );
 }
 
-/// DISAGREEMENT (`=` evaluation gap): `micro-recurse` is fully deterministic
-/// and solvable (koala SOLVES it), but ferroplan's m-arrived method carries
-/// `:precondition (= ?s ?goal)`; `grounder::evaluate_ground_goal` folds `=`
-/// into an ordinary atom lookup that can never hold, so the method is never
-/// offered and every `travel` decomposition dead-ends → typed `NoPlan`.
-/// Base `d2faf4d` only exempted `=` from the validator
-/// (`check_undefined_predicates`); evaluation is the missing half. If this
-/// test ever fails because ferroplan now solves the fixture, update the
-/// goldens and close this test — that is the `=`-evaluation fix landing.
+/// DISAGREEMENT (`=` evaluation gap), healed by ticket fond-htn-21: at base
+/// `d2faf4d` the parser and validator accepted the built-in `=` term-equality
+/// predicate but `grounder::evaluate_ground_goal` had no `=` arm, so
+/// `micro-recurse`'s m-arrived method (`:precondition (= ?s ?goal)`) was
+/// never offered and every `travel` decomposition dead-ended → typed
+/// `NoPlan` while the oracle SOLVED. The fix lowers ground `=` to
+/// `GroundGoal::Eq` — state-independent term equality over ground constants
+/// — in the precondition, method-condition, `when`-condition, and `:goal`
+/// paths, so the deterministic fixture now solves. Promoted from an
+/// `#[ignore]`d `ORACLE_MISMATCH_*` pin to this always-on agreement test:
+/// ferroplan must keep agreeing with the oracle (SOLVED, outcome-closed)
+/// from here on.
 #[test]
-#[ignore = "recorded oracle mismatch: '=' term-equality accepted at parse/validate but never evaluated true in evaluate_ground_goal"]
-fn ORACLE_MISMATCH_micro_recurse() {
+fn micro_recurse_agrees_with_oracle() {
     let dir = Path::new(FIXTURE_DIR);
     let run = goldens()
         .into_iter()
@@ -500,8 +504,7 @@ fn ORACLE_MISMATCH_micro_recurse() {
         .expect("micro-recurse golden");
     let live = outcome_for_run(&run, Some(dir));
     assert_matches_golden(&run, &live, Some(dir));
-    assert_eq!(golden_string(&run, "ferroplan"), "NOSOLUTION");
-    assert_eq!(live, Outcome::NoPlan);
+    assert_eq!(live, Outcome::Solved);
     assert_eq!(
         run["oracle"]["status"].as_str(),
         Some("SOLVED"),
