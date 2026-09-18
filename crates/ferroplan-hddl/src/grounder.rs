@@ -69,6 +69,19 @@ pub enum GroundError {
     /// constraint's modal-operator keyword (e.g. "always", "sometime-after")
     /// is carried for a precise refusal. See `ast`'s module docs.
     UnsupportedConstraint(String),
+    /// The ground goal formula handed to `evaluate_ground_goal`/
+    /// `evaluate_ground_goal_with_budget`/`action_applicable` (or a
+    /// precondition fed to `relaxed_satisfiable` during
+    /// `compute_reachability`) nests deeper than the goal-depth budget
+    /// (see `DEFAULT_MAX_GOAL_DEPTH` for why the budget exists). A loud,
+    /// typed refusal rather than a stack overflow: the evaluator recurses
+    /// per `GroundGoal::Not`/`And`/`Or` level, and the panic-hunt finding
+    /// (day v26.9.17, ticket #32) measured depth-10k evaluating fine and
+    /// depth-50k SIGABRTing the process — an abort, which — unlike a
+    /// panic — `catch_unwind` cannot catch. `depth` is the nesting level
+    /// at which the budget was exceeded (root = 1); `budget` is the limit
+    /// that was exceeded.
+    GoalTooDeep { depth: usize, budget: usize },
     /// `GroundingLimits::max_wall` elapsed before grounding finished. A
     /// loud, precise wall-clock refusal — same "loud refusal, not silent
     /// truncation" discipline as `LimitExceeded` — for the case a
@@ -103,6 +116,11 @@ impl fmt::Display for GroundError {
             Self::UnsupportedConstraint(kind) => write!(
                 f,
                 "':constraints' entry '{kind}' is not supported by this grounder (constraint-GD semantics are out of scope)"
+            ),
+            Self::GoalTooDeep { depth, budget } => write!(
+                f,
+                "ground goal nesting too deep: depth {depth} exceeds budget {budget} \
+                 (raise via evaluate_ground_goal_with_budget)"
             ),
             Self::Timeout {
                 elapsed_ms,
@@ -339,27 +357,94 @@ fn expand_goal_quantifiers(
     })
 }
 
+/// Default maximum `GroundGoal` nesting depth the evaluators
+/// (`evaluate_ground_goal`/`evaluate_ground_goal_with_budget`'s default,
+/// `action_applicable`, `relaxed_satisfiable`) recurse over before refusing
+/// with `GroundError::GoalTooDeep`. Aligned with the parser's nesting
+/// budget (day v26.9.17 ticket #22, `DEFAULT_MAX_PARSE_DEPTH = 256`): any
+/// goal *text* within the parser budget therefore also evaluates within
+/// this budget, so the refusal is only reachable through the programmatic
+/// surface — a `GroundGoal`/`GroundAction`/`GroundedIR` built by hand —
+/// which is exactly the caller this budget protects (panic-hunt finding,
+/// ticket #32: the programmatic path had no bound at all; depth-50k
+/// SIGABRTed the process).
+pub const DEFAULT_MAX_GOAL_DEPTH: usize = 256;
+
 /// Evaluate a fully-ground goal formula against a ground fact set. This is
 /// the general-purpose replacement for the old flat
 /// "pos-subset-and-no-neg-overlap" applicability check: that check is exactly
 /// `evaluate_ground_goal` on an `And`-of-`Atom`/`Not(Atom)` formula, but
 /// `Or`/`Imply` cannot be represented as a flat positive/negative literal
 /// set, so any precondition using them must be evaluated recursively instead.
-pub fn evaluate_ground_goal(goal: &GroundGoal, facts: &BTreeSet<String>) -> bool {
-    match goal {
-        GroundGoal::Empty => true,
-        GroundGoal::Atom(a) => facts.contains(a),
-        GroundGoal::Not(inner) => !evaluate_ground_goal(inner, facts),
-        GroundGoal::And(parts) => parts.iter().all(|p| evaluate_ground_goal(p, facts)),
-        GroundGoal::Or(parts) => parts.iter().any(|p| evaluate_ground_goal(p, facts)),
+///
+/// Recursion is depth-budgeted: nesting deeper than
+/// [`DEFAULT_MAX_GOAL_DEPTH`] refuses with [`GroundError::GoalTooDeep`]
+/// instead of overflowing the stack (the same connective short-circuiting as
+/// before is preserved — `And`/`Or` stop at the first decisive part, so a
+/// shallow-decisive formula over a deep subtree still evaluates without
+/// walking the deep part). Use [`evaluate_ground_goal_with_budget`] to set a
+/// different budget.
+pub fn evaluate_ground_goal(
+    goal: &GroundGoal,
+    facts: &BTreeSet<String>,
+) -> Result<bool, GroundError> {
+    evaluate_ground_goal_with_budget(goal, facts, DEFAULT_MAX_GOAL_DEPTH)
+}
+
+/// `evaluate_ground_goal` with an explicit depth budget instead of
+/// [`DEFAULT_MAX_GOAL_DEPTH`] — the override hatch for callers that
+/// legitimately hold deeper (still trusted, already-ground) formulas.
+/// A budget of `0` refuses every goal (the root alone is depth 1).
+pub fn evaluate_ground_goal_with_budget(
+    goal: &GroundGoal,
+    facts: &BTreeSet<String>,
+    budget: usize,
+) -> Result<bool, GroundError> {
+    fn eval(
+        goal: &GroundGoal,
+        facts: &BTreeSet<String>,
+        depth: usize,
+        budget: usize,
+    ) -> Result<bool, GroundError> {
+        if depth > budget {
+            return Err(GroundError::GoalTooDeep { depth, budget });
+        }
+        Ok(match goal {
+            GroundGoal::Empty => true,
+            GroundGoal::Atom(a) => facts.contains(a),
+            GroundGoal::Not(inner) => !eval(inner, facts, depth + 1, budget)?,
+            GroundGoal::And(parts) => {
+                for p in parts {
+                    if !eval(p, facts, depth + 1, budget)? {
+                        return Ok(false);
+                    }
+                }
+                true
+            }
+            GroundGoal::Or(parts) => {
+                for p in parts {
+                    if eval(p, facts, depth + 1, budget)? {
+                        return Ok(true);
+                    }
+                }
+                false
+            }
+        })
     }
+    eval(goal, facts, 1, budget)
 }
 
 /// Whether `action` is applicable in a state with exactly `facts` true —
 /// i.e. whether its (ground, possibly `or`/`imply`-bearing) precondition
 /// holds. Thin wrapper over `evaluate_ground_goal` kept here so callers don't
-/// need to reach into `GroundAction::precondition` themselves.
-pub fn action_applicable(action: &GroundAction, facts: &BTreeSet<String>) -> bool {
+/// need to reach into `GroundAction::precondition` themselves. Depth-budgeted
+/// exactly like `evaluate_ground_goal` (see [`DEFAULT_MAX_GOAL_DEPTH`]);
+/// needs a custom budget, call `evaluate_ground_goal_with_budget` on
+/// `&action.precondition` directly.
+pub fn action_applicable(
+    action: &GroundAction,
+    facts: &BTreeSet<String>,
+) -> Result<bool, GroundError> {
     evaluate_ground_goal(&action.precondition, facts)
 }
 
@@ -678,14 +763,41 @@ fn ground_effect(
 /// by treating something as reachable when it isn't, but can never
 /// over-prune a genuinely reachable action) at the cost of some pruning
 /// precision on domains that lean on negative preconditions.
-fn relaxed_satisfiable(goal: &GroundGoal, facts: &BTreeSet<String>) -> bool {
-    match goal {
-        GroundGoal::Empty => true,
-        GroundGoal::Atom(a) => facts.contains(a),
-        GroundGoal::Not(_) => true,
-        GroundGoal::And(parts) => parts.iter().all(|p| relaxed_satisfiable(p, facts)),
-        GroundGoal::Or(parts) => parts.iter().any(|p| relaxed_satisfiable(p, facts)),
+fn relaxed_satisfiable(goal: &GroundGoal, facts: &BTreeSet<String>) -> Result<bool, GroundError> {
+    fn sat(
+        goal: &GroundGoal,
+        facts: &BTreeSet<String>,
+        depth: usize,
+        budget: usize,
+    ) -> Result<bool, GroundError> {
+        if depth > budget {
+            return Err(GroundError::GoalTooDeep { depth, budget });
+        }
+        Ok(match goal {
+            GroundGoal::Empty => true,
+            GroundGoal::Atom(a) => facts.contains(a),
+            // `not` never recurses here (treated as always satisfiable), so
+            // it contributes no depth growth on this path.
+            GroundGoal::Not(_) => true,
+            GroundGoal::And(parts) => {
+                for p in parts {
+                    if !sat(p, facts, depth + 1, budget)? {
+                        return Ok(false);
+                    }
+                }
+                true
+            }
+            GroundGoal::Or(parts) => {
+                for p in parts {
+                    if sat(p, facts, depth + 1, budget)? {
+                        return Ok(true);
+                    }
+                }
+                false
+            }
+        })
     }
+    sat(goal, facts, 1, DEFAULT_MAX_GOAL_DEPTH)
 }
 
 /// Result of the delete-relaxation reachability pre-pass (`compute_reachability`):
@@ -746,7 +858,7 @@ pub fn compute_reachability(
                 check_wall_deadline(start, limits)?;
                 let binding = &bindings[bidx];
                 let precondition = ground_goal(&action.precondition, binding, objects_by_type)?;
-                if !relaxed_satisfiable(&precondition, &facts) {
+                if !relaxed_satisfiable(&precondition, &facts)? {
                     continue;
                 }
                 pending[i].remove(&bidx);
@@ -1324,6 +1436,16 @@ mod tests {
     const FIXTURE_E_DOMAIN: &str = include_str!("../fixtures/e/domain.hddl");
     const FIXTURE_E_PROBLEM: &str = include_str!("../fixtures/e/problem.hddl");
 
+    /// Bool-facing wrapper over the (now depth-budgeted, `Result`-returning)
+    /// `action_applicable` for the fixture assertions below: every goal in
+    /// these fixtures is far shallower than `DEFAULT_MAX_GOAL_DEPTH`, so the
+    /// `Err` arm is unreachable here and unwrapping keeps the assertion
+    /// bodies readable.
+    fn applicable(action: &GroundAction, facts: &BTreeSet<String>) -> bool {
+        action_applicable(action, facts)
+            .expect("fixture precondition must evaluate within the default goal-depth budget")
+    }
+
     /// Deterministic (no reliance on real elapsed wall time from a slow
     /// operation): backdates `start` by a fixed offset larger than the
     /// configured `max_wall`, so `check_wall_deadline` must observe
@@ -1511,21 +1633,21 @@ mod tests {
         let (enter, _signal) = ground_fixture_d();
         // Neither `open(l1)` nor `unlocked(l1)` holds: the `or` fails, so
         // `enter` is not applicable even though `at(l1)` holds.
-        assert!(!action_applicable(&enter, &facts(&["at(l1)"])));
+        assert!(!applicable(&enter, &facts(&["at(l1)"])));
         // `open(l1)` alone satisfies the `or`.
-        assert!(action_applicable(&enter, &facts(&["at(l1)", "open(l1)"])));
+        assert!(applicable(&enter, &facts(&["at(l1)", "open(l1)"])));
         // `unlocked(l1)` alone also satisfies the `or`.
-        assert!(action_applicable(
+        assert!(applicable(
             &enter,
             &facts(&["at(l1)", "unlocked(l1)"])
         ));
         // Both satisfy it a fortiori.
-        assert!(action_applicable(
+        assert!(applicable(
             &enter,
             &facts(&["at(l1)", "open(l1)", "unlocked(l1)"])
         ));
         // Missing `at(l1)` entirely: not applicable regardless of the `or`.
-        assert!(!action_applicable(
+        assert!(!applicable(
             &enter,
             &facts(&["open(l1)", "unlocked(l1)"])
         ));
@@ -1537,20 +1659,20 @@ mod tests {
         // (imply (open ?l) (unlocked ?l)): `open(l1)` false makes the
         // implication vacuously true, so `signal` is applicable on `at(l1)`
         // alone, with neither `open` nor `unlocked` present.
-        assert!(action_applicable(&signal, &facts(&["at(l1)"])));
+        assert!(applicable(&signal, &facts(&["at(l1)"])));
     }
 
     #[test]
     fn imply_precondition_is_false_when_antecedent_holds_and_consequent_does_not() {
         let (_enter, signal) = ground_fixture_d();
         // `open(l1)` true, `unlocked(l1)` false: the implication is violated.
-        assert!(!action_applicable(&signal, &facts(&["at(l1)", "open(l1)"])));
+        assert!(!applicable(&signal, &facts(&["at(l1)", "open(l1)"])));
     }
 
     #[test]
     fn imply_precondition_holds_when_both_antecedent_and_consequent_hold() {
         let (_enter, signal) = ground_fixture_d();
-        assert!(action_applicable(
+        assert!(applicable(
             &signal,
             &facts(&["at(l1)", "open(l1)", "unlocked(l1)"])
         ));
@@ -1562,7 +1684,7 @@ mod tests {
         // `open(l1)` false, `unlocked(l1)` true: antecedent false is already
         // sufficient (vacuous truth), consequent being true too changes
         // nothing — still applicable.
-        assert!(action_applicable(
+        assert!(applicable(
             &signal,
             &facts(&["at(l1)", "unlocked(l1)"])
         ));
@@ -1952,12 +2074,12 @@ mod tests {
             other => panic!("expected an 'and' ground goal, got {other:?}"),
         }
         // Only 2 of 3 locations visited: the conjunction fails.
-        assert!(!action_applicable(
+        assert!(!applicable(
             &finish,
             &facts(&["visited(l1)", "visited(l2)"])
         ));
         // All 3 visited: the conjunction holds.
-        assert!(action_applicable(
+        assert!(applicable(
             &finish,
             &facts(&["visited(l1)", "visited(l2)", "visited(l3)"])
         ));
@@ -1980,9 +2102,9 @@ mod tests {
             other => panic!("expected an 'or' ground goal, got {other:?}"),
         }
         // No location visited: the disjunction fails.
-        assert!(!action_applicable(&finish, &facts(&[])));
+        assert!(!applicable(&finish, &facts(&[])));
         // Any one object satisfying the body is enough.
-        assert!(action_applicable(&finish, &facts(&["visited(l2)"])));
+        assert!(applicable(&finish, &facts(&["visited(l2)"])));
     }
 
     #[test]
@@ -1993,7 +2115,7 @@ mod tests {
         let problem = forall_problem("");
         let finish = ground_finish_action(FORALL_DOMAIN, &problem);
         assert_eq!(finish.precondition, GroundGoal::And(vec![]));
-        assert!(action_applicable(&finish, &facts(&[])));
+        assert!(applicable(&finish, &facts(&[])));
     }
 
     #[test]
@@ -2001,7 +2123,7 @@ mod tests {
         let problem = forall_problem("");
         let finish = ground_finish_action(EXISTS_DOMAIN, &problem);
         assert_eq!(finish.precondition, GroundGoal::Or(vec![]));
-        assert!(!action_applicable(&finish, &facts(&[])));
+        assert!(!applicable(&finish, &facts(&[])));
     }
 
     const NESTED_QUANTIFIER_DOMAIN: &str = r#"(define (domain nested-quantifier-d)
@@ -2021,11 +2143,199 @@ mod tests {
         let finish = ground_finish_action(NESTED_QUANTIFIER_DOMAIN, &problem);
         // p(l1,l2) covers x=l1; p(l2,l1) covers x=l2. Neither x has both
         // witnesses in the same fact, but each x has at least one.
-        assert!(action_applicable(
+        assert!(applicable(
             &finish,
             &facts(&["p(l1,l2)", "p(l2,l1)"])
         ));
         // Only x=l1 has a witness; x=l2 has none -- forall fails.
-        assert!(!action_applicable(&finish, &facts(&["p(l1,l2)"])));
+        assert!(!applicable(&finish, &facts(&["p(l1,l2)"])));
+    }
+
+    // ---- goal-evaluation depth budget (ticket #42; finding from #32) ----
+    //
+    // The panic-hunt reproducer class, re-homed here: `evaluate_ground_goal`
+    // (and `action_applicable` via it) used to recurse over
+    // `Not`/`And`/`Or` with no depth budget — depth 10k evaluated, depth 50k
+    // SIGABRTed the process (a stack overflow aborts the harness, which
+    // `catch_unwind` cannot catch, so the only correct outcome is a typed
+    // refusal BEFORE the stack is exhausted). The text path is bounded by
+    // the parser's nesting budget (ticket #22); these tests exercise the
+    // programmatic pub API, which can carry arbitrarily deep `GroundGoal`s.
+    //
+    // Wave-4 falsifier discipline: the depth-50k tests must pass with exit 0
+    // and no signal — a stack overflow here fails the whole harness, not
+    // just the assertion.
+
+    /// Build a `k`-deep `Not` chain iteratively (construction must not
+    /// itself recurse — that would reproduce the bug in the test setup).
+    fn deep_not_chain(k: usize, leaf: &str) -> GroundGoal {
+        let mut goal = GroundGoal::Atom(leaf.to_owned());
+        for _ in 0..k {
+            goal = GroundGoal::Not(Box::new(goal));
+        }
+        goal
+    }
+
+    /// Same, over `Or` (the arm `relaxed_satisfiable` recurses through;
+    /// its `Not` arm is non-recursive, see its match below).
+    fn deep_or_chain(k: usize, leaf: &str) -> GroundGoal {
+        let mut goal = GroundGoal::Atom(leaf.to_owned());
+        for _ in 0..k {
+            goal = GroundGoal::Or(vec![goal]);
+        }
+        goal
+    }
+
+    /// Depth-50k via the default `evaluate_ground_goal` entry: typed
+    /// `GoalTooDeep`, exit 0, no signal. The chain is `mem::forget`-ed after
+    /// the assertions: recursive `Drop` of a 50k-deep `Box` chain is a
+    /// *drop-path* hazard outside this ticket's scope (the evaluation path
+    /// is what is budgeted here) and must not be able to abort the harness
+    /// after the evaluated property has already been witnessed.
+    #[test]
+    fn fifty_thousand_deep_not_goal_refuses_typed_never_aborts() {
+        let goal = deep_not_chain(50_000, "p");
+        let facts = BTreeSet::new();
+        let err = evaluate_ground_goal(&goal, &facts).unwrap_err();
+        match err {
+            GroundError::GoalTooDeep { depth, budget } => {
+                // Root at depth 1; the first level past the default budget.
+                assert_eq!(depth, DEFAULT_MAX_GOAL_DEPTH + 1);
+                assert_eq!(budget, DEFAULT_MAX_GOAL_DEPTH);
+            }
+            other => panic!("expected GoalTooDeep, got {other:?}"),
+        }
+        // `action_applicable` shares the recursion shape, so it carries the
+        // same budget — the panic-hunt finding named both entry points.
+        let action = GroundAction {
+            name: "deep-pre".to_owned(),
+            precondition: deep_not_chain(50_000, "q"),
+            outcomes: vec![GroundEffectBranch::default()],
+        };
+        let err = action_applicable(&action, &facts).unwrap_err();
+        assert!(
+            matches!(err, GroundError::GoalTooDeep { .. }),
+            "expected GoalTooDeep, got {err:?}"
+        );
+        std::mem::forget(goal);
+        std::mem::forget(action);
+    }
+
+    /// The old panic-hunt boundary itself: depth 10k used to *evaluate*
+    /// (only 50k aborted). It still evaluates — under an explicitly raised
+    /// budget — and the parity value matches the closed form (even `Not`
+    /// count over an absent leaf = `false`). Runs on a thread with an
+    /// explicit 64 MiB stack: debug-build evaluator frames are far larger
+    /// than release frames, and this probe intentionally exercises the
+    /// deep-but-bounded half of the measured boundary (the default-budget
+    /// path stays shallow by refusing at depth 257, which the 50k test
+    /// demonstrates on the plain harness stack). Building and dropping the
+    /// 10k chain also happen on that thread, so the harness stack never
+    /// carries either.
+    #[test]
+    fn ten_thousand_deep_goal_evaluates_within_a_raised_budget() {
+        let result = std::thread::Builder::new()
+            .stack_size(64 * 1024 * 1024)
+            .spawn(|| {
+                let goal = deep_not_chain(10_000, "p");
+                let facts = BTreeSet::new();
+                evaluate_ground_goal_with_budget(&goal, &facts, 20_000)
+                    .expect("within 20k budget")
+            })
+            .expect("spawn deep-stack probe thread")
+            .join()
+            .expect("probe thread must not panic");
+        assert!(!result);
+    }
+
+    /// Depth-100 legal goal evaluates fine under the DEFAULT budget — the
+    /// budget is a safety net aligned with the parser's 256, not a behavior
+    /// change for anything text-reachable.
+    #[test]
+    fn depth_100_goal_evaluates_fine_under_default_budget() {
+        let facts = facts(&["p"]);
+        // 100 nested Nots over a true leaf: even count -> true.
+        assert!(evaluate_ground_goal(&deep_not_chain(100, "p"), &facts).unwrap());
+        // Mixed And/Or ladder, 100 levels deep, deciding true.
+        let mut goal = GroundGoal::Atom("p".to_owned());
+        for i in 0..100 {
+            goal = if i % 2 == 0 {
+                GroundGoal::And(vec![GroundGoal::Empty, goal])
+            } else {
+                GroundGoal::Or(vec![goal, GroundGoal::Empty])
+            };
+        }
+        assert!(evaluate_ground_goal(&goal, &facts).unwrap());
+    }
+
+    /// Budget override: the same too-deep goal refuses just past a small
+    /// custom budget, then evaluates fine once the budget covers it —
+    /// proving the budget (not the formula) drives the refusal.
+    #[test]
+    fn budget_override_moves_the_refusal_point() {
+        let goal = deep_not_chain(20, "p");
+        let facts = BTreeSet::new();
+        let err = evaluate_ground_goal_with_budget(&goal, &facts, 10).unwrap_err();
+        assert_eq!(
+            err,
+            GroundError::GoalTooDeep {
+                depth: 11,
+                budget: 10
+            }
+        );
+        assert!(
+            !evaluate_ground_goal_with_budget(&goal, &facts, 64).unwrap(),
+            "20 negations of an ABSENT leaf: false, even flip count preserves it"
+        );
+        // Budget 0 refuses the root itself: documented edge of the contract.
+        let shallow = GroundGoal::Atom("p".to_owned());
+        assert_eq!(
+            evaluate_ground_goal_with_budget(&shallow, &facts, 0).unwrap_err(),
+            GroundError::GoalTooDeep { depth: 1, budget: 0 }
+        );
+    }
+
+    /// Short-circuit parity: a shallow decisive part decides the formula
+    /// without ever descending into an over-budget subtree — same laziness
+    /// the pre-budget `.all()`/`.any()` evaluators had.
+    #[test]
+    fn shallow_decisive_part_never_visits_too_deep_subtree() {
+        let facts = facts(&["p"]);
+        let deep = deep_not_chain(50_000, "q");
+        let or_goal = GroundGoal::Or(vec![GroundGoal::Atom("p".to_owned()), deep]);
+        assert!(evaluate_ground_goal(&or_goal, &facts).unwrap());
+        let deep2 = deep_not_chain(50_000, "q");
+        let and_goal = GroundGoal::And(vec![GroundGoal::Atom("r".to_owned()), deep2]);
+        assert!(!evaluate_ground_goal(&and_goal, &facts).unwrap());
+        // Short-circuiting kept the *evaluation* shallow, but these fixtures
+        // still contain 50k-deep subtrees — same drop-path discipline as
+        // above.
+        std::mem::forget(or_goal);
+        std::mem::forget(and_goal);
+    }
+
+    /// `relaxed_satisfiable` shares the recursion shape (via its
+    /// `And`/`Or` arms — `Not` is non-recursive there), so it carries the
+    /// same typed refusal, and `compute_reachability` propagates it (its
+    /// only failure route to `GroundError` beyond the pre-existing ones).
+    #[test]
+    fn relaxed_satisfiable_refuses_too_deep_goal_typed() {
+        let facts = BTreeSet::new();
+        let deep = deep_or_chain(50_000, "p");
+        let err = relaxed_satisfiable(&deep, &facts).unwrap_err();
+        match err {
+            GroundError::GoalTooDeep { depth, budget } => {
+                assert_eq!(depth, DEFAULT_MAX_GOAL_DEPTH + 1);
+                assert_eq!(budget, DEFAULT_MAX_GOAL_DEPTH);
+            }
+            other => panic!("expected GoalTooDeep, got {other:?}"),
+        }
+        // Same drop-path discipline as the 50k `Not` test above.
+        std::mem::forget(deep);
+        // Shallow shape still evaluates: `Or` over an absent leaf stays
+        // false all the way down under the delete relaxation. (100-deep:
+        // drops recursively without incident — the forget discipline above
+        // is only needed for the 50k-deep adversarial fixtures.)
+        assert!(!relaxed_satisfiable(&deep_or_chain(100, "p"), &facts).unwrap());
     }
 }
