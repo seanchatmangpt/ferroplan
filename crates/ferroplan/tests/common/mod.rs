@@ -841,11 +841,14 @@ pub fn render_with_provenance(
             } else {
                 d.push_str(&format!(" :subtasks (and {body})"));
                 // chain orderings over explicit ids (acyclic by construction);
-                // parser accepts `(before after)` pairs and `(< b a)` forms
+                // every edge carries the explicit `<` operator — the form both
+                // consumers accept (ferroplan's `parse_order_edges` takes
+                // `(< a b)`/`(a < b)`/bare adjacency pairs; the external
+                // pandaPI oracle requires `<`)
                 let edges = m
                     .subs
                     .windows(2)
-                    .map(|w| format!("({} {})", w[0].0, w[1].0))
+                    .map(|w| format!("(< {} {})", w[0].0, w[1].0))
                     .collect::<Vec<_>>()
                     .join(" ");
                 d.push_str(&format!(" :ordering (and {edges})"));
