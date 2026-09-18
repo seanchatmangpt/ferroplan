@@ -116,7 +116,15 @@ impl From<PlannerError> for HddlError {
 /// (that crate's own, dependency-free ground-IR shape) to this crate's
 /// `planning_runtime::PlanningProblem`. The two shapes are intentionally
 /// parallel, so this is a straight structural mapping, not a reinterpretation.
-fn adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) -> PlanningProblem {
+///
+/// Public so the staged IPC sweep runner (`tests/ipc_sweep.rs`) can time the
+/// solve stage in isolation: parse/ground/translate are timed through the
+/// public `ferroplan_hddl` pipeline, and the translated IR then enters the
+/// solver through the same `adapt_problem` + `solve_planning_type` pair
+/// `solve_hddl_inner` uses — byte-identical semantics, per-stage walls. This
+/// exposes no new behavior: it is the same pure struct mapping
+/// `solve_hddl` runs internally.
+pub fn adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) -> PlanningProblem {
     PlanningProblem {
         states: p
             .states
