@@ -1202,7 +1202,7 @@ mod tests {
         // id here must be a real test (script-verified by
         // `scripts/verify_evidence_ids.py`). Bump both pins when a branch
         // adds ids — the union with `docs/readiness-refresh` must land at
-        // 15 (fond) / 18 (hddl).
+        // 17 (fond) / 20 (hddl).
         let evidence_of = |capability: &str| {
             manifest
                 .capabilities
@@ -1211,8 +1211,8 @@ mod tests {
                 .map(|contract| contract.required_evidence.len())
                 .unwrap_or(0)
         };
-        assert_eq!(evidence_of("fp.core.fond"), 6);
-        assert_eq!(evidence_of("fp.core.hddl"), 10);
+        assert_eq!(evidence_of("fp.core.fond"), 17);
+        assert_eq!(evidence_of("fp.core.hddl"), 20);
     }
 
     #[test]
