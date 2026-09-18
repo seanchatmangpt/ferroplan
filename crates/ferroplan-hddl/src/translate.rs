@@ -59,6 +59,14 @@ pub enum TranslateError {
     /// *preconditions* already supported via `grounder::GroundGoal`/
     /// `evaluate_ground_goal`.
     UnsupportedGoalConnective(String),
+    /// A `=` (term-equality) atom in `:goal` with an argument count other
+    /// than two reached `to_dnf`. In practice unreachable — `validate` pins
+    /// the built-in `=` at arity 2 and `ground` validates before translating
+    /// — kept as a loud defensive refusal for a `GroundedIR` constructed
+    /// directly, rather than silently mis-folding a malformed comparison.
+    MalformedTermEquality {
+        found: usize,
+    },
     UnboundVariable(String),
     /// A pending task-network address exceeded
     /// `TranslateLimits::max_task_network_depth` while decomposing — refused
@@ -107,6 +115,10 @@ impl fmt::Display for TranslateError {
             Self::UnsupportedGoalConnective(head) => write!(
                 f,
                 "'{head}' in ':goal' is out of scope (supported only in action preconditions)"
+            ),
+            Self::MalformedTermEquality { found } => write!(
+                f,
+                "'=' (term equality) in ':goal' takes exactly two arguments, found {found}"
             ),
             Self::UnboundVariable(v) => write!(f, "unbound variable '?{v}' in goal"),
             Self::TaskNetworkDepthExceeded { addr, limit } => write!(
@@ -242,6 +254,23 @@ fn ground_atom_key(a: &crate::ast::AtomicFormula) -> Result<String, TranslateErr
     Ok(atom_key(&a.predicate, &args))
 }
 
+/// The two ground constants of a `=` (term-equality) atom in `:goal`, for the
+/// state-independent fold in `to_dnf`. Mirrors `ground_atom_key`'s term
+/// handling; arity is pinned defensively (see
+/// `TranslateError::MalformedTermEquality`).
+fn ground_eq_args(a: &crate::ast::AtomicFormula) -> Result<(String, String), TranslateError> {
+    if a.args.len() != 2 {
+        return Err(TranslateError::MalformedTermEquality {
+            found: a.args.len(),
+        });
+    }
+    let ground = |t: &Term| match t {
+        Term::Const(c) => Ok(c.clone()),
+        Term::Var(v) => Err(TranslateError::UnboundVariable(v.clone())),
+    };
+    Ok((ground(&a.args[0])?, ground(&a.args[1])?))
+}
+
 /// The synthetic fact key standing in for "the ground atom `fact` is
 /// currently absent". `fond_policy`/`Goal::holds` in `ferroplan`'s
 /// `planning_runtime` only support goal membership as a positive-fact
@@ -290,6 +319,24 @@ type Clause = (BTreeSet<String>, BTreeSet<String>);
 fn to_dnf(goal: &GoalDesc, negate: bool) -> Result<Vec<Clause>, TranslateError> {
     match goal {
         GoalDesc::Empty => Ok(vec![(BTreeSet::new(), BTreeSet::new())]),
+        GoalDesc::Atom(a) if a.predicate == "=" => {
+            // Built-in term equality over ground constants (the grounder has
+            // already substituted every variable away) is state-independent,
+            // so it folds out at DNF-build time instead of compiling to a
+            // fact key no fact set could ever contain. A literal that holds
+            // contributes the empty clause — the identity for the cartesian
+            // `And` combination; a literal that doesn't makes its clause
+            // unsatisfiable, which in the disjunction simply drops out (an
+            // empty clause vector propagates through `cartesian_and` as the
+            // annihilator, and `Or` concatenation keeps the surviving
+            // clauses).
+            let (x, y) = ground_eq_args(a)?;
+            if (x == y) != negate {
+                Ok(vec![(BTreeSet::new(), BTreeSet::new())])
+            } else {
+                Ok(Vec::new())
+            }
+        }
         GoalDesc::Atom(a) => {
             let key = ground_atom_key(a)?;
             let mut pos = BTreeSet::new();
@@ -1894,6 +1941,191 @@ mod tests {
                 .any(|f| s.facts.contains(&f.to_string()))),
             "no oneof branch effect may be reachable when the shared precondition fails"
         );
+    }
+
+    // -- `=` built-in term equality (ticket fond-htn-21) --------------------
+
+    /// A method `:precondition` carrying `(= …)` / `(not (= …))` gates
+    /// decomposition: only the method whose ground equality *holds* is ever
+    /// offered as a decomposition branch. `(= a a)` true, `(= a b)` false,
+    /// `(not (= a b))` true — the exact triples ticket fond-htn-21 names.
+    #[test]
+    fn method_precondition_term_equality_gates_decomposition() {
+        const DOMAIN: &str = "(define (domain eq-gate)
+  (:requirements :typing :equality :method-preconditions)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action mark-p :parameters () :precondition () :effect (p))
+  (:action mark-q :parameters () :precondition () :effect (q))
+  (:method m-eq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (= ?x a)
+    :ordered-subtasks (and (t1 (mark-p))))
+  (:method m-neq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (not (= ?x a))
+    :ordered-subtasks (and (t1 (mark-q)))))";
+        let problem_for = |object: &str| {
+            format!(
+                "(define (problem eq-gate-p)
+  (:domain eq-gate)
+  (:objects {object} - loc)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go {object}))))
+  (:init)
+  (:goal ()))"
+            )
+        };
+
+        let run = |problem_src: String| {
+            let domain = parse_domain(DOMAIN).unwrap();
+            let problem = parse_problem(&problem_src).unwrap();
+            let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+            translate(&ir, &TranslateLimits::default())
+                .unwrap_or_else(|e| panic!("eq-gate translates: {e}"))
+        };
+
+        // go(a): `(= a a)` holds, so only m-eq decomposes and only p lands.
+        // (Ground method names carry their binding, e.g. `m-eq(a)`, so the
+        // method is matched by its `:m-eq(` name prefix, not a suffix.)
+        let plan = run(problem_for("a"));
+        assert!(
+            plan.transitions
+                .iter()
+                .all(|t| !t.action.starts_with("htn:decompose:") || t.action.contains(":m-eq(")),
+            "only the `(= …)`-true method may decompose go(a)"
+        );
+        assert!(plan.states.iter().any(|s| s.facts.contains("p")));
+        assert!(
+            !plan.states.iter().any(|s| s.facts.contains("q")),
+            "`(not (= a a))` is false: m-neq must never decompose go(a)"
+        );
+
+        // go(b): `(= b a)` is false, `(not (= b a))` is true — mirrored.
+        let plan = run(problem_for("b"));
+        assert!(
+            plan.transitions
+                .iter()
+                .all(|t| !t.action.starts_with("htn:decompose:") || t.action.contains(":m-neq(")),
+            "only the `(not (= …))`-true method may decompose go(b)"
+        );
+        assert!(plan.states.iter().any(|s| s.facts.contains("q")));
+        assert!(!plan.states.iter().any(|s| s.facts.contains("p")));
+    }
+
+    /// `when`-condition `(= …)` folds statically: a constantly-false equality
+    /// pins its branch's condition with the grounder's never-present
+    /// `never:` marker, so the guarded effect never fires — and the marker
+    /// itself never leaks into any state's facts.
+    #[test]
+    fn when_condition_term_equality_never_fires_a_constantly_false_branch() {
+        const DOMAIN: &str = "(define (domain eq-when)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action probe :parameters (?x - loc)
+    :precondition ()
+    :effect (and
+      (when (= ?x a) (and (not (q)) (p)))
+      (when (not (= ?x a)) (and (not (p)) (q)))))
+  (:method m-go
+    :parameters (?x - loc)
+    :task (go ?x)
+    :ordered-subtasks (and (t1 (probe ?x)))))";
+        const PROBLEM: &str = "(define (problem eq-when-p)
+  (:domain eq-when)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go a)) (g2 (go b))))
+  (:init)
+  (:goal ()))";
+        let domain = parse_domain(DOMAIN).unwrap();
+        let problem = parse_problem(PROBLEM).unwrap();
+        let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let plan = translate(&ir, &TranslateLimits::default()).unwrap();
+        let facts_by_transition = |suffix: &str| {
+            let t = plan
+                .transitions
+                .iter()
+                .find(|t| t.action.starts_with("htn:exec:") && t.action.ends_with(suffix))
+                .unwrap_or_else(|| panic!("transition htn:exec:*{suffix} present"));
+            plan.states
+                .iter()
+                .find(|s| s.id == t.to)
+                .expect("outcome state exists")
+                .facts
+                .clone()
+        };
+        let after_a = facts_by_transition(":probe(a)");
+        let after_b = facts_by_transition(":probe(b)");
+        assert!(after_a.contains("p") && !after_a.contains("q"));
+        assert!(after_b.contains("q") && !after_b.contains("p"));
+        // The never-present condition marker is bookkeeping only.
+        assert!(
+            !plan
+                .states
+                .iter()
+                .any(|s| s.facts.iter().any(|f| f.starts_with("never:"))),
+            "the synthetic `never:` condition marker must never enter state facts"
+        );
+    }
+
+    /// `:goal`-position `(= …)` folds at DNF time: a constantly-true
+    /// equality (or a constantly-true `(not (= …))`) contributes no fact
+    /// requirement; a constantly-false one makes the goal unsatisfiable —
+    /// never a fact key that no state could ever carry.
+    #[test]
+    fn goal_term_equality_folds_at_dnf_time() {
+        const DOMAIN: &str = "(define (domain eq-goal)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p))
+  (:task go :parameters ())
+  (:method m-go
+    :task (go)
+    :ordered-subtasks ()))";
+        let problem_for = |goal: &str| {
+            format!(
+                "(define (problem eq-goal-p)
+  (:domain eq-goal)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal {goal}))"
+            )
+        };
+        let run = |goal: &str| {
+            let domain = parse_domain(DOMAIN).unwrap();
+            let problem = parse_problem(&problem_for(goal)).unwrap();
+            let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+            translate(&ir, &TranslateLimits::default())
+                .unwrap_or_else(|e| panic!("eq-goal translates: {e}"))
+        };
+        let goal_holding_states = |plan: &PlanningProblem| {
+            plan.states
+                .iter()
+                .filter(|s| plan.goal.facts.is_subset(&s.facts))
+                .count()
+        };
+
+        // `(= a a)` and `(not (= a b))` fold away: the goal reduces to
+        // TN-completion (`htn:done`), which the completed root decomposition
+        // reaches — and no `=`-derived fact key is ever required.
+        for goal in ["(= a a)", "(not (= a b))"] {
+            let plan = run(goal);
+            assert!(
+                goal_holding_states(&plan) > 0,
+                "goal {goal} must fold to a vacuous requirement, reachable at TN completion"
+            );
+            assert!(!plan.goal.facts.iter().any(|f| f.contains("=")));
+        }
+        // `(= a b)` is constantly false: the goal is unsatisfiable — no
+        // state may be goal-holding.
+        let plan = run("(= a b)");
+        assert_eq!(goal_holding_states(&plan), 0);
     }
 
     /// The empty `()` branch (a legal branch shape) must survive to a
