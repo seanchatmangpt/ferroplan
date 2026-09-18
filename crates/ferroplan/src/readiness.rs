@@ -298,8 +298,13 @@ pub fn capability_manifest() -> CapabilityManifest {
             ],
         ),
         // FOND policy capability (strong fixpoint + strong-cyclic dispatch).
-        // Evidence ids are REAL test names — the `fond_policy*` tests in
-        // `crates/ferroplan/src/planning_runtime.rs`.
+        // Evidence ids are REAL test names, script-verified by
+        // `scripts/verify_evidence_ids.py`: the `fond_policy*` tests in
+        // `crates/ferroplan/src/planning_runtime.rs`, the always-on
+        // FOUND_BUG_1 goal-reachability reproducer in
+        // `crates/ferroplan/tests/fond_property.rs` (fond-htn-15 spelling
+        // kept for grep lineage), and the canonical flat-FOND suite
+        // `crates/ferroplan/tests/fond_canonical.rs`.
         contract(
             "fp.core.fond",
             "crates/ferroplan",
@@ -313,13 +318,28 @@ pub fn capability_manifest() -> CapabilityManifest {
                 "fond.fond_policy_strong_cyclic_solves_the_retry_loop_domain",
                 "fond.fond_policy_strong_cyclic_solves_two_independent_retry_points",
                 "fond.fond_policy_still_solves_acyclic_strong_domains_directly",
+                "fond_canonical.boolean_strong_policy_is_dag_to_goal",
+                "fond_canonical.coffee_retry_loop_solves_cyclic_only",
+                "fond_canonical.faults_strong_policy_is_dag_to_goal",
+                "fond_canonical.flip_dead_end_variant_returns_typed_no_plan",
+                "fond_canonical.flip_self_loop_solves_strong_cyclic_with_closed_policy",
+                "fond_canonical.islands_bridge_retry_solves_cyclic_only",
+                "fond_canonical.tireworld_s_depot_retry_solves_cyclic_only",
+                "fond_canonical.tireworld_unsolvable_absorbing_failure_returns_typed_no_plan",
+                "fond_canonical.triangle_tireworld_avoids_dead_end_route_solves_cyclic_only",
+                "fond_canonical.wall_bounce_retry_solves_cyclic_only",
+                "fond_property.fond_property_FOUND_BUG_1_strong_cyclic_accepts_goal_unreachable_self_loop",
             ],
         ),
         // HDDL front-end capability (parse -> ground -> translate -> FOND
         // solve, plus the Eve `DecomposeHddl` bridge). Evidence ids are REAL
-        // test names — the `eve_bridge_*`/`solve_hddl*` tests in
+        // test names, script-verified by `scripts/verify_evidence_ids.py`:
+        // the `eve_bridge_*`/`solve_hddl*` tests in
         // `crates/ferroplan/src/hddl.rs` and
-        // `crates/ferroplan/tests/eve_genesis.rs`.
+        // `crates/ferroplan/tests/eve_genesis.rs`, the FOND-HTN micro-domain
+        // suite `crates/ferroplan/tests/fond_htn_micro.rs`, and the
+        // external-oracle differential agreement test
+        // `crates/ferroplan/tests/htn_oracle.rs`.
         contract(
             "fp.core.hddl",
             "crates/ferroplan",
@@ -329,6 +349,15 @@ pub fn capability_manifest() -> CapabilityManifest {
             ReplayClass::Exact,
             SecurityClass::UntrustedInput,
             &[
+                "fond_htn_micro.both_branches_deadend_reports_typed_noplan",
+                "fond_htn_micro.drop_retry_solves_with_a_real_no_change_retry_outcome",
+                "fond_htn_micro.every_fixture_completes_within_its_wall_budget",
+                "fond_htn_micro.grow_loop_recursive_method_terminates_within_budget",
+                "fond_htn_micro.one_millisecond_budget_returns_typed_timeout_instead_of_hanging",
+                "fond_htn_micro.plain_chain_baseline_solves_with_single_outcome_entries",
+                "fond_htn_micro.sense_then_branch_decomposes_differently_per_sensed_outcome",
+                "fond_htn_micro.supervisor_fail_routes_failure_through_the_second_method",
+                "fond_htn_micro.tray_dirty_overlapping_branches_each_recover_via_their_own_method",
                 "hddl.eve_bridge_accepts_a_problem_whose_network_matches_the_eve_root_task",
                 "hddl.eve_bridge_refuses_a_problem_network_conflicting_with_the_eve_root_task",
                 "hddl.eve_bridge_reports_a_parse_error_for_a_malformed_eve_root_task",
@@ -337,6 +366,7 @@ pub fn capability_manifest() -> CapabilityManifest {
                 "hddl.solve_hddl_from_eve_solves_a_deterministic_regime_micro_domain",
                 "hddl.solve_hddl_from_eve_solves_a_probabilistic_regime_micro_domain_hddl_half",
                 "hddl.solve_hddl_produces_correct_independent_results_under_concurrent_calls",
+                "htn_oracle.solve_hddl_agrees_with_oracle_goldens_on_deterministic_htn_corpus",
             ],
         ),
         contract(
