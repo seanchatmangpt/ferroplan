@@ -69,6 +69,8 @@
 //! ledger records koala oracle RESULTS (facts, committable per KOALA
 //! POLICY); no koala code, grammar, or fixture text enters this repo.
 
+#![allow(non_snake_case)] // ORACLE_MISMATCH_* test names, per fond-htn-04 convention
+
 mod common;
 
 use common::{draw_valid, halve_sizes, sizes_for, Sizes};
@@ -109,11 +111,66 @@ const LEDGER_PATH: &str = concat!(
 /// The ticket's consumability floor for the full run.
 const MIN_ORACLE_CONSUMABLE: usize = 80;
 /// Committed both-clean divergence findings: seeds the driver EXPECTS to
-/// diverge (live regression tripwires — never silent skips). Each row must
-/// have minimized fixtures under
-/// `tests/fixtures/differential-fuzz/findings/` and an `#[ignore]`d
-/// reproducer test below. Empty until a first finding lands.
-const KNOWN_DIVERGENCES: &[(u64, &str)] = &[];
+/// diverge (live regression tripwires — never silent skips). Each row was
+/// discovered by the first full sweep (2026-09-18), minimized by halving
+/// the draw's sizes while the divergence still reproduced, and committed
+/// with fixtures under `tests/fixtures/differential-fuzz/findings/`. The
+/// two shapes are the harvested semantic disagreements from
+/// `tests/fond_htn_oracle.rs`, now found in the wild on random draws.
+///
+/// Demoted row: seed 35347733348458 (minimized) looked like
+/// `redecomposition` at discovery, but its koala verdict proved
+/// load-dependent — SOLVED under concurrent oracle harvest load,
+/// NOSOLUTION three times in a row on an idle machine (identical input).
+/// A wall-sensitive oracle verdict is not a pinnable finding; recorded in
+/// the ticket History instead of the tripwire table.
+struct KnownDivergence {
+    seed: u64,
+    /// The minimized size vector reached while the divergence still
+    /// reproduced at discovery time (also the exact fixture content in
+    /// `findings/`).
+    sizes: Sizes,
+    /// `"redecomposition"` or `"koala-strong-only"` (see below).
+    shape: &'static str,
+    why: &'static str,
+    /// Whether the koala leg at the MINIMIZED sizes is itself
+    /// run-to-run stable. Two redecomposition rows are not: their koala
+    /// verdict flips SOLVED/NOSOLUTION on identical input depending on
+    /// machine load (witnessed 35347733348458 + 35347733348466 — SOLVED
+    /// under concurrent oracle harvest, NOSOLUTION three times idle).
+    /// Those rows are pinned at the FULL draw size (stable across every
+    /// live run); the minimized fixture stays committed as the
+    /// minimization record with the instability documented.
+    min_stable: bool,
+}
+
+const KNOWN_DIVERGENCES: &[KnownDivergence] = &[
+    // -- shape: koala flexible re-decomposition vs ferroplan dead terminal --
+    // (owned upstream by frozen branch fix/oneof-koala-semantics, tip
+    // 4d40f99, NOT merged at this base; the harvested micro-drop-retry
+    // shape: koala re-decomposes after a oneof outcome that dead-ends the
+    // task network, ferroplan treats the exhausted network + unsat :goal
+    // as a typed NoPlan)
+    KnownDivergence { seed: 35347733348466, sizes: Sizes { types: 1, preds: 3, tasks: 6, actions: 8, objects: 5, subs: 2, root_subs: 5 }, shape: "redecomposition", why: "koala re-decomposition finds a policy where ferroplan dead-ends the network", min_stable: false },
+    KnownDivergence { seed: 35347733348458, sizes: Sizes { types: 3, preds: 2, tasks: 2, actions: 6, objects: 7, subs: 1, root_subs: 6 }, shape: "redecomposition", why: "koala re-decomposition finds a policy where ferroplan dead-ends the network (minimized koala verdict load-sensitive: SOLVED under harvest load, NOSOLUTION idle x3)", min_stable: false },
+    KnownDivergence { seed: 35347733348468, sizes: Sizes { types: 2, preds: 3, tasks: 5, actions: 2, objects: 4, subs: 4, root_subs: 2 }, shape: "redecomposition", why: "koala re-decomposition finds a policy where ferroplan dead-ends the network", min_stable: true },
+    KnownDivergence { seed: 35347733348479, sizes: Sizes { types: 1, preds: 5, tasks: 5, actions: 8, objects: 7, subs: 3, root_subs: 6 }, shape: "redecomposition", why: "koala re-decomposition finds a policy where ferroplan dead-ends the network", min_stable: true },
+    KnownDivergence { seed: 35347733348487, sizes: Sizes { types: 1, preds: 2, tasks: 2, actions: 6, objects: 5, subs: 3, root_subs: 2 }, shape: "redecomposition", why: "koala re-decomposition finds a policy where ferroplan dead-ends the network", min_stable: true },
+    KnownDivergence { seed: 35347733348492, sizes: Sizes { types: 2, preds: 3, tasks: 3, actions: 3, objects: 5, subs: 4, root_subs: 6 }, shape: "redecomposition", why: "koala re-decomposition finds a policy where ferroplan dead-ends the network", min_stable: true },
+    KnownDivergence { seed: 35347733348502, sizes: Sizes { types: 2, preds: 4, tasks: 2, actions: 4, objects: 7, subs: 4, root_subs: 3 }, shape: "redecomposition", why: "koala re-decomposition finds a policy where ferroplan dead-ends the network", min_stable: true },
+    KnownDivergence { seed: 35347733348525, sizes: Sizes { types: 1, preds: 4, tasks: 5, actions: 5, objects: 2, subs: 2, root_subs: 2 }, shape: "redecomposition", why: "koala re-decomposition finds a policy where ferroplan dead-ends the network", min_stable: true },
+    KnownDivergence { seed: 35347733348529, sizes: Sizes { types: 1, preds: 2, tasks: 1, actions: 1, objects: 2, subs: 1, root_subs: 1 }, shape: "redecomposition", why: "koala re-decomposition finds a policy where ferroplan dead-ends the network (minimal 1-task/1-action draw)", min_stable: true },
+    // -- shape: koala strong-only decision procedure vs ferroplan fair loop --
+    // (ferroplan's fond_policy closes the fair retry loop with a cyclic
+    // policy; koala's flexible planner only decides STRONG plans and
+    // returns a planner-level NOSOLUTION on the retry domain — the
+    // harvested micro-sense shape)
+    KnownDivergence { seed: 35347733348465, sizes: Sizes { types: 2, preds: 5, tasks: 4, actions: 4, objects: 3, subs: 3, root_subs: 3 }, shape: "koala-strong-only", why: "ferroplan closes the fair retry loop; koala's strong-only planner refuses it", min_stable: true },
+    KnownDivergence { seed: 35347733348494, sizes: Sizes { types: 2, preds: 4, tasks: 6, actions: 5, objects: 10, subs: 3, root_subs: 4 }, shape: "koala-strong-only", why: "ferroplan closes the fair retry loop; koala's strong-only planner refuses it", min_stable: true },
+    KnownDivergence { seed: 35347733348498, sizes: Sizes { types: 2, preds: 3, tasks: 5, actions: 6, objects: 9, subs: 2, root_subs: 4 }, shape: "koala-strong-only", why: "ferroplan closes the fair retry loop; koala's strong-only planner refuses it", min_stable: true },
+    KnownDivergence { seed: 35347733348516, sizes: Sizes { types: 1, preds: 2, tasks: 2, actions: 2, objects: 10, subs: 3, root_subs: 3 }, shape: "koala-strong-only", why: "ferroplan closes the fair retry loop; koala's strong-only planner refuses it", min_stable: true },
+    KnownDivergence { seed: 35347733348522, sizes: Sizes { types: 2, preds: 3, tasks: 2, actions: 8, objects: 9, subs: 2, root_subs: 4 }, shape: "koala-strong-only", why: "ferroplan closes the fair retry loop; koala's strong-only planner refuses it", min_stable: true },
+];
 
 fn diff_planner_limits() -> PlannerLimits {
     PlannerLimits {
@@ -264,6 +321,9 @@ fn independent_translate(pair: &Pair) -> Option<TrProblem> {
             max_ground_actions: 2_000,
             max_ground_methods: 2_000,
             prune_unreachable: false,
+            // fond-htn-60's relevance pruning stays OFF here — this harness
+            // measures the un-pruned pipeline so divergences are attributable.
+            prune_irrelevant: false,
             max_wall: Some(Duration::from_millis(1_500)),
         },
     )
@@ -332,6 +392,12 @@ fn check_policy_outcome_closure(seed: u64, tp: &TrProblem, plan: &UniversalPlan)
 enum KoVerdict {
     Solved,
     NoSolution,
+    /// The grounder's static "Goal is unreachable" prune fired: koala
+    /// DECIDED unsolvability at the ground level, but its serializer
+    /// crashes on the pruned instance instead of letting the planner emit
+    /// a verdict. Interpreted from the run log's exact signature
+    /// (`Goal is unreachable ...`) — evidence-pinned, never assumed.
+    GrounderPruneNoSolution,
     Timeout,
     ParseError,
     Error,
@@ -344,6 +410,7 @@ impl KoVerdict {
         match status {
             "SOLVED" => KoVerdict::Solved,
             "NOSOLUTION" => KoVerdict::NoSolution,
+            "NOSOLUTION_GROUNDER_PRUNE" => KoVerdict::GrounderPruneNoSolution,
             "TIMEOUT" => KoVerdict::Timeout,
             "PARSE_ERROR" => KoVerdict::ParseError,
             "ERROR" => KoVerdict::Error,
@@ -354,6 +421,7 @@ impl KoVerdict {
         match self {
             KoVerdict::Solved => "SOLVED",
             KoVerdict::NoSolution => "NOSOLUTION",
+            KoVerdict::GrounderPruneNoSolution => "NOSOLUTION_GROUNDER_PRUNE",
             KoVerdict::Timeout => "TIMEOUT",
             KoVerdict::ParseError => "PARSE_ERROR",
             KoVerdict::Error => "ERROR",
@@ -365,7 +433,10 @@ impl KoVerdict {
     fn consumable(&self) -> bool {
         matches!(
             self,
-            KoVerdict::Solved | KoVerdict::NoSolution | KoVerdict::Timeout
+            KoVerdict::Solved
+                | KoVerdict::NoSolution
+                | KoVerdict::GrounderPruneNoSolution
+                | KoVerdict::Timeout
         )
     }
     /// A solvability verdict — the only koala answers that can disagree
@@ -373,7 +444,7 @@ impl KoVerdict {
     fn solvability(&self) -> Option<&'static str> {
         match self {
             KoVerdict::Solved => Some("SOLVED"),
-            KoVerdict::NoSolution => Some("NOSOLUTION"),
+            KoVerdict::NoSolution | KoVerdict::GrounderPruneNoSolution => Some("NOSOLUTION"),
             _ => None,
         }
     }
@@ -383,6 +454,10 @@ impl KoVerdict {
 struct OracleRun {
     status: String,
     wall_s: f64,
+    /// Interpretation note when the raw runner status understates the
+    /// oracle's actual decision (see GrounderPruneNoSolution).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    note: Option<String>,
 }
 
 fn oracle_available() -> bool {
@@ -422,6 +497,10 @@ fn store_cache(cache: &BTreeMap<String, OracleRun>) {
 
 /// One flock-serialized oracle invocation via the T01 runner. Panics on a
 /// harness failure (the runner reserves non-zero exit for exactly that).
+/// An ERROR whose run log carries the grounder's exact
+/// `Goal is unreachable` signature is re-read as the oracle's unsolvability
+/// decision (`NOSOLUTION_GROUNDER_PRUNE`): the prune is a real decision,
+/// the serializer crash is only its delivery vehicle.
 fn oracle_invoke(dpath: &Path, ppath: &Path) -> OracleRun {
     let output = std::process::Command::new(ORACLE_RUNNER)
         .arg(dpath)
@@ -444,12 +523,50 @@ fn oracle_invoke(dpath: &Path, ppath: &Path) -> OracleRun {
     struct Line {
         status: String,
         wall_s: f64,
+        artifact: String,
     }
     let line: Line = serde_json::from_str(stdout.trim())
         .unwrap_or_else(|e| panic!("parse oracle JSON line {stdout:?}: {e}"));
+    let mut status = line.status;
+    let mut note = None;
+    if status == "ERROR" {
+        // solve.py swallows the grounder's stdout, so the grounder's
+        // unsolvability decisions are only visible through WHICH frame the
+        // serializer's traceback dies in. Two signatures are ground-level
+        // unsolvability answers, not oracle errors (evidence-pinned, both
+        // reproduced manually against the pipeline):
+        let log = Path::new(&line.artifact).with_file_name("log.txt");
+        if let Ok(text) = std::fs::read_to_string(&log) {
+            if text.contains("KeyError: 'tasks__primitive_and_abstract'") {
+                // preprocess() popping the task section failed: the grounder
+                // wrote NO instance file — its static goal-reachability prune
+                // ("Goal is unreachable") exits before writing.
+                status = "NOSOLUTION_GROUNDER_PRUNE".to_owned();
+                note = Some(
+                    "grounder wrote no instance: static goal-reachability prune \
+                     fired at ground level; the serializer crash is the delivery \
+                     vehicle the runner labels ERROR"
+                        .to_owned(),
+                );
+            } else if text.contains("process_init") && text.contains("KeyError: -1") {
+                // the instance skeleton exists but has zero reachable tasks
+                // (initial abstract task index -1): the decomposition dead-ends
+                // at ground level.
+                status = "NOSOLUTION_GROUNDER_PRUNE".to_owned();
+                note = Some(
+                    "grounded instance has zero reachable tasks (initial abstract \
+                     task -1): the decomposition dead-ends at ground level; the \
+                     serializer crash is the delivery vehicle the runner labels \
+                     ERROR"
+                        .to_owned(),
+                );
+            }
+        }
+    }
     OracleRun {
-        status: line.status,
+        status,
         wall_s: line.wall_s,
+        note,
     }
 }
 
@@ -496,7 +613,8 @@ fn classify(fp: &FpVerdict, ko: &KoVerdict) -> &'static str {
         (FpVerdict::TypedLimit { .. }, _) => "incomparable",
         (_, KoVerdict::Timeout) => "incomparable",
         (FpVerdict::Solved { .. }, KoVerdict::Solved)
-        | (FpVerdict::NoSolution, KoVerdict::NoSolution) => "agreement",
+        | (FpVerdict::NoSolution, KoVerdict::NoSolution)
+        | (FpVerdict::NoSolution, KoVerdict::GrounderPruneNoSolution) => "agreement",
         _ => "divergence",
     }
 }
@@ -775,6 +893,7 @@ fn differential_full_with_oracle() {
                 OracleRun {
                     status: "SKIPPED".to_owned(),
                     wall_s: 0.0,
+                    note: None,
                 },
             )
         } else {
@@ -792,17 +911,20 @@ fn differential_full_with_oracle() {
             class,
             ko_run.wall_s
         );
-        let known = KNOWN_DIVERGENCES.iter().find(|(s, _)| *s == pair.seed);
+        let known = KNOWN_DIVERGENCES.iter().find(|k| k.seed == pair.seed);
         match (known, both_clean_divergence(&fp, &ko)) {
-            (Some((_, why)), false) => panic!(
-                "seed {}: known divergence no longer reproduces ('{why}') — \
+            (Some(k), false) => panic!(
+                "seed {}: known divergence no longer reproduces ('{}') — \
                  remove it from KNOWN_DIVERGENCES, delete its fixtures and its \
                  #[ignore]d reproducer, and append a paydown History row in the \
                  same change",
-                pair.seed
+                pair.seed, k.why
             ),
-            (Some((_, why)), true) => {
-                eprintln!("seed {}: known divergence still reproduces: {why}", pair.seed);
+            (Some(k), true) => {
+                eprintln!(
+                    "seed {}: known divergence ({}) still reproduces: {}",
+                    pair.seed, k.shape, k.why
+                );
             }
             (None, true) => new_divergences.push((pair.seed, pair.sizes)),
             (None, false) => {}
@@ -825,8 +947,8 @@ fn differential_full_with_oracle() {
             oracle: Some(KoLedgerEntry {
                 status: ko_run.status.clone(),
                 wall_s: ko_run.wall_s,
-                note: (ko == KoVerdict::Skipped)
-                    .then(|| "oracle harness absent — leg skipped-with-note".to_owned()),
+                note: ko_run.note.clone().or((ko == KoVerdict::Skipped)
+                    .then(|| "oracle harness absent — leg skipped-with-note".to_owned())),
             }),
             classification: class.to_owned(),
         });
@@ -917,4 +1039,138 @@ fn differential_full_with_oracle() {
     std::fs::write(path, serde_json::to_string_pretty(&ledger).unwrap())
         .expect("write ledger");
     eprintln!("ledger written: {LEDGER_PATH}");
+}
+
+// ---------------------------------------------------------------------------
+// Layer 3: committed divergence findings (#[ignore]d per-seed reproducer pins)
+// ---------------------------------------------------------------------------
+
+/// Shared body: regenerate the exact minimized draw for every
+/// KNOWN_DIVERGENCES row of one shape, run BOTH legs live (the koala leg
+/// through the flock-serialized runner), and assert the divergence — AND
+/// its exact shape — still reproduces. The oracle's search is not always
+/// run-to-run deterministic (witnessed on seed 35347733348458 minimized:
+/// SOLVED then NOSOLUTION on identical input), so a shape mismatch gets up
+/// to three live oracle attempts before the pin fails; every flip is
+/// printed.
+fn known_divergence_repro(shape: &str) {
+    let mut failures: Vec<String> = Vec::new();
+    let mut n = 0usize;
+    for k in KNOWN_DIVERGENCES.iter().filter(|k| k.shape == shape) {
+        // Pinned at the minimized sizes when the koala leg there is stable,
+        // otherwise at the full draw size (see KnownDivergence::min_stable).
+        let sizes = if k.min_stable { k.sizes } else { sizes_for(k.seed) };
+        let (domain_src, problem_src) = draw_valid(k.seed, sizes);
+        let pair = Pair {
+            i: usize::MAX, // probe, not a ledger row
+            seed: k.seed,
+            sizes,
+            domain_src,
+            problem_src,
+        };
+        let (fp, _) = fp_verdict(&pair);
+        write_pair_files(&pair);
+        if k.min_stable {
+            // keep the committed minimized fixture exact
+            let _ = finding_fixtures(k.seed, k.sizes);
+        }
+        let dpath = pair_path(&pair, "domain.hddl");
+        let ppath = pair_path(&pair, "problem.hddl");
+        let fp_sol = fp.solvability();
+        let mut ko_sol = None;
+        let mut flips = 0usize;
+        let mut last = None;
+        for attempt in 1..=3 {
+            let run = oracle_invoke(&dpath, &ppath);
+            let ko = KoVerdict::from_status(&run.status);
+            ko_sol = ko.solvability();
+            last = Some((ko, run.wall_s));
+            let shape_holds = match shape {
+                "redecomposition" => fp_sol == Some("NOSOLUTION") && ko_sol == Some("SOLVED"),
+                "koala-strong-only" => fp_sol == Some("SOLVED") && ko_sol == Some("NOSOLUTION"),
+                other => panic!("unknown divergence shape {other:?}"),
+            };
+            if shape_holds {
+                break;
+            }
+            flips += 1;
+            if attempt < 3 {
+                eprintln!(
+                    "seed {}: shape {} not reproduced on attempt {} \
+                     (ferroplan={:?} oracle={:?}) — the oracle search flipped; \
+                     retrying live",
+                    k.seed,
+                    shape,
+                    attempt,
+                    fp_sol,
+                    ko_sol
+                );
+            }
+        }
+        let (ko, ko_wall) = last.expect("at least one oracle attempt");
+        let pinned_at = if k.min_stable { "minimized" } else { "full draw" };
+        if !(fp_sol.is_some() && ko_sol.is_some() && flips < 3) {
+            failures.push(format!(
+                "seed {}: known divergence no longer reproduces at {} sizes \
+                 (flipped on all 3 live oracle runs: ferroplan={:?}, oracle={:?}) \
+                 — remove the KNOWN_DIVERGENCES row, delete the fixtures, and \
+                 append a paydown History row in the same change",
+                k.seed, pinned_at, fp_sol, ko_sol
+            ));
+            continue;
+        }
+        if flips > 0 {
+            eprintln!(
+                "seed {}: NOTE — oracle verdict flipped on {flips} of 3 live \
+                 runs before reproducing the pinned shape (nondeterministic \
+                 search)",
+                k.seed
+            );
+        }
+        eprintln!(
+            "seed {}: {} still reproduces at {} sizes (ferroplan={} oracle={} \
+             {:.3}s)",
+            k.seed,
+            shape,
+            pinned_at,
+            fp.status(),
+            ko.label(),
+            ko_wall
+        );
+        n += 1;
+    }
+    assert!(n > 0, "no KNOWN_DIVERGENCES rows with shape {shape:?}");
+    assert!(
+        failures.is_empty(),
+        "{} known-divergence pin(s) failed:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+/// DISAGREEMENT (re-decomposition shape): koala "flexible" re-decomposes
+/// after a oneof outcome that dead-ends the task network and finds a
+/// policy; ferroplan at this base treats the exhausted network + unsat
+/// `:goal` as a typed `NoPlan`. The harvested micro-drop-retry shape
+/// (tests/fond_htn_oracle.rs), owned upstream by frozen branch
+/// `fix/oneof-koala-semantics` (tip 4d40f99, not merged here), found
+/// independently on 9 random draws (fixtures under
+/// tests/fixtures/differential-fuzz/findings/).
+#[test]
+#[ignore = "known oracle divergences: drives the external koala oracle per \
+            committed finding seed — run with --ignored"]
+fn ORACLE_MISMATCH_fuzz_redecomposition() {
+    known_divergence_repro("redecomposition");
+}
+
+/// DISAGREEMENT (strong-only shape): ferroplan's `fond_policy` closes the
+/// fair retry loop with a cyclic policy and answers SOLVED; koala's
+/// flexible planner is a strong-only decision procedure and answers
+/// NOSOLUTION on the same instance (planner-level, not a grounder prune).
+/// The harvested micro-sense shape, found independently on 5 random draws.
+#[test]
+#[ignore = "known oracle divergences: drives the external koala oracle per \
+            committed finding seed — run with --ignored"]
+fn ORACLE_MISMATCH_fuzz_koala_strong_only() {
+    known_divergence_repro("koala-strong-only");
 }

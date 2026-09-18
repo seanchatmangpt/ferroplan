@@ -439,7 +439,7 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
         s
     };
     let dead_goal = rng.chance(10);
-    let mut goal: Vec<LitO> = if dead_goal {
+    let goal: Vec<LitO> = if dead_goal {
         let n_goal = rng.range_usize(1, 3);
         pick_ground_lits(&mut rng, &preds, &obj_types, n_goal, singleton_type)
     } else {
