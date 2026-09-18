@@ -2184,11 +2184,7 @@ mod tests {
     #[test]
     fn fond_policy_strong_cyclic_rejects_goal_unreachable_self_loop_with_unsafe_branch() {
         let problem = PlanningProblem {
-            states: vec![
-                state("s0", &[]),
-                state("g", &["done"]),
-                state("u", &[]),
-            ],
+            states: vec![state("s0", &[]), state("g", &["done"]), state("u", &[])],
             initial_states: vec!["s0".to_owned()],
             goal: Goal {
                 facts: BTreeSet::from(["done".to_owned()]),
@@ -2217,11 +2213,7 @@ mod tests {
     #[test]
     fn fond_policy_strong_cyclic_rejects_goal_unreachable_self_loop_with_dead_branch() {
         let problem = PlanningProblem {
-            states: vec![
-                state("s0", &[]),
-                state("g", &["done"]),
-                state("z", &[]),
-            ],
+            states: vec![state("s0", &[]), state("g", &["done"]), state("z", &[])],
             initial_states: vec!["s0".to_owned()],
             goal: Goal {
                 facts: BTreeSet::from(["done".to_owned()]),

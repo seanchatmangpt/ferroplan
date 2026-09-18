@@ -138,7 +138,10 @@ impl<'a> Closure<'a> {
     /// (grounded action/method names like `:drop(d1)` / `:op-fast()` are
     /// unique per fixture here).
     fn entry_action_containing(&self, needle: &str) -> Option<&'a PolicyEntry> {
-        self.by_state.values().copied().find(|e| e.action.contains(needle))
+        self.by_state
+            .values()
+            .copied()
+            .find(|e| e.action.contains(needle))
     }
 }
 
@@ -163,11 +166,8 @@ fn assert_outcome_closed<'a>(plan: &'a UniversalPlan, flat: &'a FlatProblem) -> 
         .iter()
         .map(|s| (s.id.as_str(), &s.facts))
         .collect();
-    let by_state: BTreeMap<&str, &PolicyEntry> = plan
-        .policy
-        .iter()
-        .map(|e| (e.state.as_str(), e))
-        .collect();
+    let by_state: BTreeMap<&str, &PolicyEntry> =
+        plan.policy.iter().map(|e| (e.state.as_str(), e)).collect();
     let goal = &flat.goal.facts;
     let initial: &str = flat.initial_states[0].as_str();
 
@@ -178,9 +178,9 @@ fn assert_outcome_closed<'a>(plan: &'a UniversalPlan, flat: &'a FlatProblem) -> 
         if !reached.insert(state) {
             continue;
         }
-        let facts = states.get(state).unwrap_or_else(|| {
-            panic!("policy outcome names unknown flat state '{state}'")
-        });
+        let facts = states
+            .get(state)
+            .unwrap_or_else(|| panic!("policy outcome names unknown flat state '{state}'"));
         if goal.is_subset(facts) {
             reached_goal = true;
             continue;
@@ -259,7 +259,11 @@ fn drop_retry_solves_with_a_real_no_change_retry_outcome() {
         1,
         "exactly one outcome must be the no-change (empty-branch) outcome"
     );
-    assert_eq!(changed.len(), 1, "exactly one outcome must be the success branch");
+    assert_eq!(
+        changed.len(),
+        1,
+        "exactly one outcome must be the success branch"
+    );
     // The empty branch re-enters the initial composite state: the retry loop.
     assert_eq!(
         no_change[0].state, cc.initial,
@@ -285,7 +289,11 @@ fn tray_dirty_overlapping_branches_each_recover_via_their_own_method() {
     let place = cc
         .entry_action_containing(":place")
         .expect("policy must choose the place action");
-    assert_eq!(place.outcomes.len(), 2, "two overlapping branches, no collapsing");
+    assert_eq!(
+        place.outcomes.len(),
+        2,
+        "two overlapping branches, no collapsing"
+    );
     assert_ne!(
         place.outcomes[0].state, place.outcomes[1].state,
         "the two branches must land in distinct states"
@@ -323,7 +331,11 @@ fn sense_then_branch_decomposes_differently_per_sensed_outcome() {
     let sense = cc
         .entry_action_containing(":sense-mode")
         .expect("policy must choose the sensing action");
-    assert_eq!(sense.outcomes.len(), 2, "two sensed branches, no collapsing");
+    assert_eq!(
+        sense.outcomes.len(),
+        2,
+        "two sensed branches, no collapsing"
+    );
     assert_ne!(sense.outcomes[0].state, sense.outcomes[1].state);
     let mut saw_fast = false;
     let mut saw_slow = false;
@@ -346,7 +358,10 @@ fn sense_then_branch_decomposes_differently_per_sensed_outcome() {
             panic!("sensed outcome carries neither mode fact: {facts:?}")
         }
     }
-    assert!(saw_fast && saw_slow, "both sensed branches must remain alive");
+    assert!(
+        saw_fast && saw_slow,
+        "both sensed branches must remain alive"
+    );
 }
 
 /// Snake pattern: `build` decomposes via `grow`, which re-invokes `build` as
@@ -394,7 +409,11 @@ fn supervisor_fail_routes_failure_through_the_second_method() {
     let attempt = cc
         .entry_action_containing(":attempt")
         .expect("policy must choose the attempt action");
-    assert_eq!(attempt.outcomes.len(), 2, "success/failure branches, no collapsing");
+    assert_eq!(
+        attempt.outcomes.len(),
+        2,
+        "success/failure branches, no collapsing"
+    );
     let failed = attempt
         .outcomes
         .iter()
@@ -477,7 +496,11 @@ fn both_branches_deadend_reports_typed_noplan() {
         .iter()
         .filter(|t| t.action.contains(":force-door"))
         .collect();
-    assert_eq!(force.len(), 2, "both oneof branches must exist as transitions");
+    assert_eq!(
+        force.len(),
+        2,
+        "both oneof branches must exist as transitions"
+    );
     for edge in force {
         let target = flat
             .states
@@ -527,7 +550,10 @@ fn every_fixture_completes_within_its_wall_budget() {
         match result {
             Ok(plan) => {
                 assert!(plan.solved, "{name}: Ok plan must be marked solved");
-                assert!(solvable, "{name}: solved, but fixture is deliberately unsolvable");
+                assert!(
+                    solvable,
+                    "{name}: solved, but fixture is deliberately unsolvable"
+                );
             }
             Err(HddlError::Planner(PlannerError::NoPlan)) => {
                 assert!(!solvable, "{name}: NoPlan, but fixture should solve");

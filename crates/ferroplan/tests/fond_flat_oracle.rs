@@ -133,9 +133,10 @@ fn load_verdict(domain: &str) -> Verdict {
 }
 
 fn load_goldens() -> Goldens {
-    let raw = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
-        "tests/fixtures/fond-flat/oracle-goldens.json",
-    ))
+    let raw = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/fond-flat/oracle-goldens.json"),
+    )
     .expect("read oracle-goldens.json");
     serde_json::from_str(&raw).expect("parse oracle-goldens.json")
 }
@@ -143,8 +144,8 @@ fn load_goldens() -> Goldens {
 fn load_explicit_problem(domain: &str) -> PlanningProblem {
     let raw = std::fs::read_to_string(fixture_dir(domain).join("problem.json"))
         .unwrap_or_else(|e| panic!("{domain}: read problem.json: {e}"));
-    let problem: PlanningProblem = serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("{domain}: parse problem.json: {e}"));
+    let problem: PlanningProblem =
+        serde_json::from_str(&raw).unwrap_or_else(|e| panic!("{domain}: parse problem.json: {e}"));
     assert!(
         (4..=12).contains(&problem.states.len()),
         "{domain}: explicit fixture must be tiny (4-12 states), got {}",
@@ -164,7 +165,10 @@ fn load_hddl(domain: &str) -> (String, String) {
 /// Classify one explicit-path run of the Fond dispatcher. The dispatcher
 /// tries the acyclic strong fixpoint first and falls back to strong-cyclic
 /// only when strong fails, so the stamped note IS the class evidence.
-fn classify_explicit(domain: &str, problem: &PlanningProblem) -> (FondClass, ferroplan::planning_runtime::UniversalPlan) {
+fn classify_explicit(
+    domain: &str,
+    problem: &PlanningProblem,
+) -> (FondClass, ferroplan::planning_runtime::UniversalPlan) {
     let request = UniversalPlanningRequest {
         planning_type: PlanningType::Fond,
         problem: problem.clone(),
@@ -191,7 +195,11 @@ fn classify_explicit(domain: &str, problem: &PlanningProblem) -> (FondClass, fer
 }
 
 /// Classify one HDDL-path run (same dispatcher behind `solve_hddl`).
-fn classify_hddl(domain: &str, domain_src: &str, problem_src: &str) -> (FondClass, ferroplan::planning_runtime::UniversalPlan) {
+fn classify_hddl(
+    domain: &str,
+    domain_src: &str,
+    problem_src: &str,
+) -> (FondClass, ferroplan::planning_runtime::UniversalPlan) {
     match solve_hddl(domain_src, problem_src, &PlannerLimits::default()) {
         Ok(plan) => {
             let note = plan
@@ -207,7 +215,9 @@ fn classify_hddl(domain: &str, domain_src: &str, problem_src: &str) -> (FondClas
             };
             (class, plan)
         }
-        Err(HddlError::Planner(PlannerError::NoPlan)) => (FondClass::Unsolvable, Default::default()),
+        Err(HddlError::Planner(PlannerError::NoPlan)) => {
+            (FondClass::Unsolvable, Default::default())
+        }
         Err(other) => panic!("{domain}: hddl pipeline failed unexpectedly: {other:?}"),
     }
 }
@@ -220,11 +230,12 @@ fn classify_hddl(domain: &str, domain_src: &str, problem_src: &str) -> (FondClas
 /// policy state exists in the mirrored problem.
 fn mirrored_hddl_problem(domain_src: &str, problem_src: &str) -> PlanningProblem {
     let domain = ferroplan_hddl::parser::parse_domain(domain_src).expect("mirror: parse domain");
-    let problem = ferroplan_hddl::parser::parse_problem(problem_src).expect("mirror: parse problem");
+    let problem =
+        ferroplan_hddl::parser::parse_problem(problem_src).expect("mirror: parse problem");
     let ir = ferroplan_hddl::grounder::ground(&domain, &problem, &Default::default())
         .expect("mirror: ground");
-    let translated = ferroplan_hddl::translate::translate(&ir, &Default::default())
-        .expect("mirror: translate");
+    let translated =
+        ferroplan_hddl::translate::translate(&ir, &Default::default()).expect("mirror: translate");
     // Field-for-field mirror of `ferroplan::hddl::adapt_problem` for the
     // fields the closure check consumes (states/goal/transitions; the
     // adapter leaves unsafe_states empty and cost/duration are policy-
@@ -283,16 +294,10 @@ fn assert_outcome_closed(
         !plan.policy.is_empty(),
         "{domain}/{path}: solvable domain must produce a non-empty policy"
     );
-    let states: BTreeMap<&str, &ferroplan::planning_runtime::State> = problem
-        .states
-        .iter()
-        .map(|s| (s.id.as_str(), s))
-        .collect();
-    let policy: BTreeMap<&str, &ferroplan::planning_runtime::PolicyEntry> = plan
-        .policy
-        .iter()
-        .map(|e| (e.state.as_str(), e))
-        .collect();
+    let states: BTreeMap<&str, &ferroplan::planning_runtime::State> =
+        problem.states.iter().map(|s| (s.id.as_str(), s)).collect();
+    let policy: BTreeMap<&str, &ferroplan::planning_runtime::PolicyEntry> =
+        plan.policy.iter().map(|e| (e.state.as_str(), e)).collect();
     let mut queue: VecDeque<&str> = problem.initial_states.iter().map(String::as_str).collect();
     let mut seen: BTreeSet<&str> = queue.iter().copied().collect();
     while let Some(id) = queue.pop_front() {
@@ -341,10 +346,9 @@ fn assert_oracle_signature(domain: &str, verdict: &Verdict, goldens: &Goldens) {
                 entry.flexible.status, "TIMEOUT",
                 "{domain}: oracle flexible must diverge (no finite strong plan tree) on a cyclic-only domain"
             );
-            let fixed_ld = entry
-                .fixed_ld
-                .as_ref()
-                .unwrap_or_else(|| panic!("{domain}: cyclic-only domains need the fixed-ld cross-check recorded"));
+            let fixed_ld = entry.fixed_ld.as_ref().unwrap_or_else(|| {
+                panic!("{domain}: cyclic-only domains need the fixed-ld cross-check recorded")
+            });
             assert_eq!(
                 fixed_ld.status, "TIMEOUT",
                 "{domain}: oracle fixed-ld cross-check must also diverge on a cyclic-only domain"

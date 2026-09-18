@@ -381,7 +381,10 @@ fn htn_method(id: &str, task: &str, subtasks: &[&str]) -> PlanningMethod {
     PlanningMethod {
         id: id.to_owned(),
         task: task.to_owned(),
-        subtasks: subtasks.iter().map(|subtask| (*subtask).to_owned()).collect(),
+        subtasks: subtasks
+            .iter()
+            .map(|subtask| (*subtask).to_owned())
+            .collect(),
     }
 }
 
@@ -422,8 +425,7 @@ fn hierarchical_backtracks_past_dead_end_first_method_to_second_method() {
     assert!(result
         .notes
         .iter()
-        .any(|note| note.contains("method backtracking")
-            && note.contains("no state semantics")));
+        .any(|note| note.contains("method backtracking") && note.contains("no state semantics")));
 }
 
 /// (b) Three-level hierarchy requiring backtracking at TWO distinct choice

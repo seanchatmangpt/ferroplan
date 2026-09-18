@@ -100,8 +100,11 @@ fn unbalanced_parens_are_typed_syntax_errors() {
             fx!("unbalanced-parens-unclosed-problem.hddl"),
         ),
     ] {
-        let err = no_panic(case, || parse_domain(src).err().or_else(|| parse_problem(src).err()));
-        let err = err.unwrap_or_else(|| panic!("adversarial case '{case}': expected a parse error"));
+        let err = no_panic(case, || {
+            parse_domain(src).err().or_else(|| parse_problem(src).err())
+        });
+        let err =
+            err.unwrap_or_else(|| panic!("adversarial case '{case}': expected a parse error"));
         assert!(
             matches!(err, ParseError::Syntax(_)),
             "case '{case}': expected ParseError::Syntax, got {err:?}"
@@ -115,7 +118,9 @@ fn unbalanced_parens_are_typed_syntax_errors() {
 
 #[test]
 fn empty_define_form_is_typed_syntax_error() {
-    let err = no_panic("empty-define-form", || parse_domain(fx!("empty-define-form.hddl")));
+    let err = no_panic("empty-define-form", || {
+        parse_domain(fx!("empty-define-form.hddl"))
+    });
     match err {
         Err(ParseError::Syntax(_)) => {}
         other => panic!("expected ParseError::Syntax for '(define)', got {other:?}"),
@@ -172,8 +177,10 @@ fn empty_sectionless_domain_is_accepted_without_panic() {
     // A `(define (domain empty))` with zero sections is structurally legal
     // HDDL; the parser's contract is tolerance here (no sections are
     // mandatory), so assert clean acceptance + clean validation, no panic.
-    let domain = no_panic("empty-domain", || parse_domain(fx!("empty-domain-no-sections.hddl")))
-        .expect("sectionless domain must parse cleanly");
+    let domain = no_panic("empty-domain", || {
+        parse_domain(fx!("empty-domain-no-sections.hddl"))
+    })
+    .expect("sectionless domain must parse cleanly");
     no_panic("empty-domain-validate", || validate_domain(&domain))
         .expect("sectionless domain must validate cleanly");
 }
@@ -326,7 +333,9 @@ fn empty_oneof_is_cleanly_handled_never_panics() {
     // since fix/oneof-koala-semantics, '(oneof)' with zero branches is a
     // typed MalformedOneof rejection at parse time — never a panic, never
     // a silently-unexecutable action.
-    let parsed = no_panic("oneof-empty-parse", || parse_domain(fx!("oneof-empty.hddl")));
+    let parsed = no_panic("oneof-empty-parse", || {
+        parse_domain(fx!("oneof-empty.hddl"))
+    });
     match &parsed {
         Err(ParseError::MalformedOneof(_)) => {}
         other => panic!("'(oneof)' must be a typed MalformedOneof rejection, got {other:?}"),
@@ -374,7 +383,9 @@ fn when_inside_oneof_branch_is_cleanly_handled_never_panics() {
     });
     match &parsed {
         Err(ParseError::MalformedOneof(_)) => {}
-        other => panic!("when-inside-oneof must be a typed MalformedOneof rejection, got {other:?}"),
+        other => {
+            panic!("when-inside-oneof must be a typed MalformedOneof rejection, got {other:?}")
+        }
     }
 }
 
