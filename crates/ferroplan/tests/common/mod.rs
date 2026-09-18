@@ -11,6 +11,8 @@
 
 #![allow(dead_code)] // shared machinery: each consumer target uses a subset
 
+use std::collections::BTreeSet;
+
 // ---------------------------------------------------------------------------
 // Seeded RNG (SplitMix64) — deterministic, dependency-free
 // ---------------------------------------------------------------------------
@@ -409,15 +411,91 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
     // -- problem: init / goal (ground, type-matched) -----------------------
     let obj_types: Vec<usize> = objects.iter().map(|(_, t)| *t).collect();
     let init = dense_init(&mut rng, &preds, &obj_types, singleton_type);
-    let n_goal = rng.range_usize(1, 3);
-    let mut goal = pick_ground_lits(&mut rng, &preds, &obj_types, n_goal, singleton_type);
-    if goal.is_empty() {
-        // keep a non-empty goal in valid draws (fixture-proven shapes); a
-        // bare `(and)` goal is exercised by mutated draws elsewhere
-        if let Some(l) = pick_ground_lit(&mut rng, &preds, &obj_types, singleton_type) {
-            goal.push(l);
+
+    // Goal atoms are drawn PROVABLE-in-principle (added by some positive
+    // effect, or already true at init) except for a ~10% dead-goal share
+    // kept for honest NOSOLUTION coverage. A static-false goal atom makes
+    // the external oracle's grounder answer "Goal is unreachable" with an
+    // EMPTY instance file — its serializer then crashes instead of the
+    // pipeline emitting a verdict.
+    let effected: BTreeSet<usize> = {
+        let mut s = BTreeSet::new();
+        for a in &actions {
+            match &a.effect {
+                EffectM::Conj(lits) => {
+                    for l in lits.iter().filter(|l| !l.negated) {
+                        s.insert(l.pred);
+                    }
+                }
+                EffectM::Oneof(branches) => {
+                    for b in branches {
+                        for l in b.iter().filter(|l| !l.negated) {
+                            s.insert(l.pred);
+                        }
+                    }
+                }
+            }
         }
-    }
+        s
+    };
+    let dead_goal = rng.chance(10);
+    let mut goal: Vec<LitO> = if dead_goal {
+        let n_goal = rng.range_usize(1, 3);
+        pick_ground_lits(&mut rng, &preds, &obj_types, n_goal, singleton_type)
+    } else {
+        let mut cands: Vec<LitO> = Vec::new();
+        for (pi, (_, ts)) in preds.iter().enumerate() {
+            let usable = ts.iter().all(|t| obj_types.iter().any(|ot| ot == t))
+                && singleton_type.map_or(true, |s| !ts.iter().any(|t| t == &s));
+            if !usable {
+                continue;
+            }
+            if effected.contains(&pi) {
+                for args in atom_combos(ts, &obj_types, 40) {
+                    cands.push(LitO {
+                        pred: pi,
+                        args,
+                        negated: false,
+                    });
+                }
+            } else {
+                // static predicate: only the exact init-true atoms are
+                // provable
+                for l in init.iter().filter(|l| l.pred == pi) {
+                    cands.push(LitO {
+                        pred: pi,
+                        args: l.args.clone(),
+                        negated: false,
+                    });
+                }
+            }
+        }
+        let n_goal = rng.range_usize(1, 3);
+        let mut g: Vec<LitO> = Vec::new();
+        for _ in 0..n_goal {
+            if cands.is_empty() {
+                break;
+            }
+            let idx = rng.pick_idx(cands.len());
+            let mut atom = cands.swap_remove(idx);
+            // negative goals only over deletable (effected) predicates;
+            // `:init` facts are positive, but a goal may demand absence
+            if effected.contains(&atom.pred) && rng.chance(20) {
+                atom.negated = true;
+            }
+            g.push(atom);
+        }
+        if g.is_empty() {
+            if let Some(l) = init.first() {
+                g.push(LitO {
+                    pred: l.pred,
+                    args: l.args.clone(),
+                    negated: false,
+                });
+            }
+        }
+        g
+    };
 
     // -- problem: root :htn network ---------------------------------------
     let mut root = Vec::new();
@@ -593,6 +671,37 @@ fn pick_ground_lits(
     out
 }
 
+/// All argument-index combinations for one predicate's type signature over
+/// `obj_types` (bounded by `cap`, deterministic truncation), or an empty
+/// vector when some argument type is carried by no object.
+fn atom_combos(ts: &[usize], obj_types: &[usize], cap: usize) -> Vec<Vec<usize>> {
+    if ts.iter().any(|t| obj_types.iter().all(|ot| ot != t)) {
+        return Vec::new();
+    }
+    let mut combos: Vec<Vec<usize>> = vec![vec![]];
+    for t in ts {
+        let matching: Vec<usize> = obj_types
+            .iter()
+            .enumerate()
+            .filter(|(_, ot)| **ot == *t)
+            .map(|(i, _)| i)
+            .collect();
+        let mut next = Vec::new();
+        for c in &combos {
+            for &m in &matching {
+                let mut c2 = c.clone();
+                c2.push(m);
+                next.push(c2);
+            }
+        }
+        combos = next;
+        if combos.len() > cap {
+            combos.truncate(cap);
+        }
+    }
+    combos
+}
+
 /// Dense initial state: sample ~30% of the type-consistent positive ground
 /// atoms (bounded per predicate) so method/action preconditions are widely
 /// satisfiable at the initial state. A sparse random init dead-ends most
@@ -607,34 +716,10 @@ fn dense_init(
 ) -> Vec<LitO> {
     let mut atoms: Vec<LitO> = Vec::new();
     for (pi, (_, ts)) in preds.iter().enumerate() {
-        if ts.iter().any(|t| obj_types.iter().all(|ot| ot != t)) {
-            continue; // predicate needs a type no object carries
-        }
         if singleton.map_or(false, |s| ts.iter().any(|t| t == &s)) {
             continue; // singleton-type mutation keeps this type object-less
         }
-        let mut combos: Vec<Vec<usize>> = vec![vec![]];
-        for t in ts {
-            let matching: Vec<usize> = obj_types
-                .iter()
-                .enumerate()
-                .filter(|(_, ot)| **ot == *t)
-                .map(|(i, _)| i)
-                .collect();
-            let mut next = Vec::new();
-            for c in &combos {
-                for &m in &matching {
-                    let mut c2 = c.clone();
-                    c2.push(m);
-                    next.push(c2);
-                }
-            }
-            combos = next;
-            if combos.len() > 40 {
-                combos.truncate(40); // bound per predicate
-            }
-        }
-        for args in combos {
+        for args in atom_combos(ts, obj_types, 40) {
             if rng.chance(30) {
                 atoms.push(LitO {
                     pred: pi,
