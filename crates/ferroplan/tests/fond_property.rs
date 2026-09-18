@@ -255,7 +255,9 @@ impl Reference {
         for transition in &problem.transitions {
             let from = index[transition.from.as_str()];
             let to = index[transition.to.as_str()];
-            let action: usize = transition.action[1..].parse().expect("generated action name");
+            let action: usize = transition.action[1..]
+                .parse()
+                .expect("generated action name");
             raw.entry((from, action)).or_default().insert(to);
         }
         let mut groups = vec![Vec::new(); problem.states.len()];
@@ -264,7 +266,11 @@ impl Reference {
         }
         Reference {
             states_n: problem.states.len(),
-            ids: problem.states.iter().map(|state| state.id.clone()).collect(),
+            ids: problem
+                .states
+                .iter()
+                .map(|state| state.id.clone())
+                .collect(),
             goals,
             unsafe_states,
             groups,
@@ -378,10 +384,12 @@ impl Reference {
             };
             let action: usize = match entry.action[1..].parse() {
                 Ok(a) => a,
-                Err(_) => return PolicyCheck::UnknownPolicyEntry(format!(
-                    "policy action {:?} is not a generated action name",
-                    entry.action
-                )),
+                Err(_) => {
+                    return PolicyCheck::UnknownPolicyEntry(format!(
+                        "policy action {:?} is not a generated action name",
+                        entry.action
+                    ))
+                }
             };
             match self.groups[state_index]
                 .iter()
@@ -613,10 +621,7 @@ fn fond_solver_matches_independent_policy_enumeration() {
         let first = solve_fond(&problem);
         match &first {
             Ok(plan) => {
-                assert!(
-                    plan.solved,
-                    "{repro}\nsolver returned Ok with solved=false"
-                );
+                assert!(plan.solved, "{repro}\nsolver returned Ok with solved=false");
                 // (b) closure and soundness of the returned policy.
                 assert_policy_closure(&problem, plan, &repro);
                 match reference.check_returned_policy(&plan.policy) {
@@ -662,9 +667,9 @@ fn fond_solver_matches_independent_policy_enumeration() {
                 );
                 noplan_count += 1;
             }
-            Err(other) => panic!(
-                "{repro}\nMISMATCH: solver returned an unexpected error {other:?}"
-            ),
+            Err(other) => {
+                panic!("{repro}\nMISMATCH: solver returned an unexpected error {other:?}")
+            }
         }
 
         // (c) determinism: same input twice => identical output.
@@ -800,7 +805,10 @@ fn reference_oracle_agrees_with_hand_computed_semantics() {
         initial_states: vec!["s0".to_owned()],
         goal: goal_fact_goal(),
         unsafe_states: BTreeSet::from(["u".to_owned()]),
-        transitions: vec![edge("a0", "s0", "u", 1_000_000), edge("a0", "u", "u", 1_000_000)],
+        transitions: vec![
+            edge("a0", "s0", "u", 1_000_000),
+            edge("a0", "u", "u", 1_000_000),
+        ],
         ..PlanningProblem::default()
     };
     assert_eq!(Reference::build(&doomed).verdict(), (false, false));

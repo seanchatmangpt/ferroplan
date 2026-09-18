@@ -78,7 +78,12 @@ struct Instance {
 fn load_instances() -> Vec<Instance> {
     let mut names: Vec<String> = std::fs::read_dir(fixtures_dir())
         .expect("fixtures/htn-oracle directory must exist")
-        .map(|e| e.expect("readable fixture entry").file_name().to_string_lossy().into_owned())
+        .map(|e| {
+            e.expect("readable fixture entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
         .filter(|n| n != "oracle-goldens.json" && n != "RESULTS.md")
         .collect();
     names.sort();
@@ -151,7 +156,10 @@ fn ferroplan_status(result: &Result<UniversalPlan, HddlError>) -> &'static str {
 /// translation portion of `solve_hddl`'s own pipeline.
 fn measure_translation(
     instance: &Instance,
-) -> (u128, Result<ferroplan_hddl::translate::PlanningProblem, String>) {
+) -> (
+    u128,
+    Result<ferroplan_hddl::translate::PlanningProblem, String>,
+) {
     let t0 = Instant::now();
     let out = (|| {
         let domain = ferroplan_hddl::parser::parse_domain(&instance.domain_src)
@@ -181,8 +189,11 @@ fn assert_outcome_closed(plan: &UniversalPlan, ir: &ferroplan_hddl::translate::P
         );
     }
 
-    let facts_by_state: BTreeMap<&str, &BTreeSet<String>> =
-        ir.states.iter().map(|s| (s.id.as_str(), &s.facts)).collect();
+    let facts_by_state: BTreeMap<&str, &BTreeSet<String>> = ir
+        .states
+        .iter()
+        .map(|s| (s.id.as_str(), &s.facts))
+        .collect();
     let mut by_state_action: BTreeMap<(&str, &str), BTreeSet<&str>> = BTreeMap::new();
     for t in &ir.transitions {
         by_state_action
@@ -192,14 +203,19 @@ fn assert_outcome_closed(plan: &UniversalPlan, ir: &ferroplan_hddl::translate::P
     }
 
     // (2) policy entries agree with the IR's own edges.
-    assert!(!plan.policy.is_empty(), "solved plan carries no policy entries");
+    assert!(
+        !plan.policy.is_empty(),
+        "solved plan carries no policy entries"
+    );
     for entry in &plan.policy {
         let key = (entry.state.as_str(), entry.action.as_str());
-        let targets = by_state_action
-            .get(&key)
-            .unwrap_or_else(|| panic!("policy action {:?} not applicable in state {:?}", entry.action, entry.state));
-        let declared: BTreeSet<&str> =
-            entry.outcomes.iter().map(|o| o.state.as_str()).collect();
+        let targets = by_state_action.get(&key).unwrap_or_else(|| {
+            panic!(
+                "policy action {:?} not applicable in state {:?}",
+                entry.action, entry.state
+            )
+        });
+        let declared: BTreeSet<&str> = entry.outcomes.iter().map(|o| o.state.as_str()).collect();
         assert_eq!(
             &declared, targets,
             "policy entry for state {:?} action {:?} declares outcomes {declared:?} but the IR transitions say {targets:?}",
@@ -208,8 +224,11 @@ fn assert_outcome_closed(plan: &UniversalPlan, ir: &ferroplan_hddl::translate::P
     }
 
     // (3) every execution reaches a goal state.
-    let policy: BTreeMap<&str, &str> =
-        plan.policy.iter().map(|e| (e.state.as_str(), e.action.as_str())).collect();
+    let policy: BTreeMap<&str, &str> = plan
+        .policy
+        .iter()
+        .map(|e| (e.state.as_str(), e.action.as_str()))
+        .collect();
     let bound = ir.states.len() * 2 + 16;
     for init in &ir.initial_states {
         let mut current = init.as_str();
@@ -221,22 +240,28 @@ fn assert_outcome_closed(plan: &UniversalPlan, ir: &ferroplan_hddl::translate::P
             if ir.goal.facts.is_subset(*facts) {
                 break;
             }
-            let action = policy
-                .get(current)
-                .unwrap_or_else(|| panic!("non-goal state {current:?} has no policy entry (dead end)"));
-            let targets = by_state_action
-                .get(&(current, action))
-                .unwrap_or_else(|| panic!("policy action {action:?} not applicable in state {current:?}"));
+            let action = policy.get(current).unwrap_or_else(|| {
+                panic!("non-goal state {current:?} has no policy entry (dead end)")
+            });
+            let targets = by_state_action.get(&(current, action)).unwrap_or_else(|| {
+                panic!("policy action {action:?} not applicable in state {current:?}")
+            });
             assert_eq!(
                 targets.len(),
                 1,
                 "deterministic execution from {current:?} via {action:?} has {targets:?} targets"
             );
             let next = *targets.iter().next().unwrap();
-            assert_ne!(next, current, "policy self-loops at non-goal state {current:?}");
+            assert_ne!(
+                next, current,
+                "policy self-loops at non-goal state {current:?}"
+            );
             current = next;
             steps += 1;
-            assert!(steps <= bound, "policy execution from {init:?} exceeds step bound {bound}");
+            assert!(
+                steps <= bound,
+                "policy execution from {init:?} exceeds step bound {bound}"
+            );
         }
     }
 }
@@ -254,9 +279,9 @@ fn solve_hddl_agrees_with_oracle_goldens_on_deterministic_htn_corpus() {
         instances.len()
     );
     for instance in &instances {
-        let golden = goldens.get(&instance.name).unwrap_or_else(|| {
-            panic!("fixture {} has no oracle golden", instance.name)
-        });
+        let golden = goldens
+            .get(&instance.name)
+            .unwrap_or_else(|| panic!("fixture {} has no oracle golden", instance.name));
         let status = golden
             .get("status")
             .and_then(|s| s.as_str())
@@ -335,7 +360,11 @@ fn measure_translation_walls_for_results_md() {
         let t0 = Instant::now();
         let result = solve_hddl(&instance.domain_src, &instance.problem_src, &limits_60s());
         let total_ms = t0.elapsed().as_millis();
-        let slow = if translation_ms > SLOW_TRANSLATION_MS { " SLOW" } else { "" };
+        let slow = if translation_ms > SLOW_TRANSLATION_MS {
+            " SLOW"
+        } else {
+            ""
+        };
         println!(
             "RESULTS|{}|oracle={golden_status}|ferroplan={}|translation_ms={translation_ms}|total_ms={total_ms}{}",
             instance.name,
@@ -369,7 +398,11 @@ fn observe(instance: &str) -> (String, String) {
         .unwrap_or_else(|| panic!("fixture {instance} missing"));
     let result = solve_hddl(&instance.domain_src, &instance.problem_src, &limits_60s());
     let detail = match &result {
-        Ok(plan) => format!("Ok(solved={}, policy_entries={})", plan.solved, plan.policy.len()),
+        Ok(plan) => format!(
+            "Ok(solved={}, policy_entries={})",
+            plan.solved,
+            plan.policy.len()
+        ),
         Err(e) => format!("Err({e})"),
     };
     (ferroplan_status(&result).to_owned(), detail)

@@ -22,8 +22,8 @@
 //! citations live on each fixture function.
 
 use ferroplan::{
-    solve_planning_type, PlannerError, PlannerLimits, PlanningProblem, PlanningType,
-    UniversalGoal, UniversalPlan, UniversalPlanningRequest, UniversalPolicyEntry, UniversalState,
+    solve_planning_type, PlannerError, PlannerLimits, PlanningProblem, PlanningType, UniversalGoal,
+    UniversalPlan, UniversalPlanningRequest, UniversalPolicyEntry, UniversalState,
     UniversalTransition,
 };
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -105,9 +105,7 @@ fn is_goal(problem: &PlanningProblem, state: &UniversalState) -> bool {
 
 /// (state, action) -> [(outcome state, probability ppm)] straight from the
 /// encoded transitions.
-fn outcome_groups(
-    problem: &PlanningProblem,
-) -> BTreeMap<(&str, &str), Vec<(&str, u32)>> {
+fn outcome_groups(problem: &PlanningProblem) -> BTreeMap<(&str, &str), Vec<(&str, u32)>> {
     let mut groups = BTreeMap::<(&str, &str), Vec<(&str, u32)>>::new();
     for transition in &problem.transitions {
         groups
@@ -129,7 +127,10 @@ fn assert_solved_and_closed(
     plan: &UniversalPlan,
     context: &str,
 ) -> BTreeSet<String> {
-    assert!(plan.solved, "{context}: dispatcher reported an unsolved plan");
+    assert!(
+        plan.solved,
+        "{context}: dispatcher reported an unsolved plan"
+    );
     assert!(
         plan.planning_type == Some(PlanningType::Fond),
         "{context}: plan not stamped as Fond"
@@ -161,13 +162,13 @@ fn assert_solved_and_closed(
                     entry.state, entry.action
                 )
             });
-        let expected_counts = expected
-            .iter()
-            .copied()
-            .fold(BTreeMap::<(&str, u32), usize>::new(), |mut counts, key| {
+        let expected_counts = expected.iter().copied().fold(
+            BTreeMap::<(&str, u32), usize>::new(),
+            |mut counts, key| {
                 *counts.entry(key).or_default() += 1;
                 counts
-            });
+            },
+        );
         let actual_counts = entry
             .outcomes
             .iter()
@@ -207,9 +208,7 @@ fn assert_solved_and_closed(
             continue;
         }
         let entry = by_state.get(current.as_str()).unwrap_or_else(|| {
-            panic!(
-                "{context}: policy has no entry for policy-reachable non-goal state {current}"
-            )
+            panic!("{context}: policy has no entry for policy-reachable non-goal state {current}")
         });
         for outcome in &entry.outcomes {
             queue.push_back(outcome.state.clone());
@@ -403,10 +402,7 @@ fn flip_dead_end_problem() -> PlanningProblem {
 
 #[test]
 fn flip_dead_end_variant_returns_typed_no_plan() {
-    assert_typed_no_plan(
-        solve_fond(flip_dead_end_problem()),
-        "flip dead-end variant",
-    );
+    assert_typed_no_plan(solve_fond(flip_dead_end_problem()), "flip dead-end variant");
 }
 
 // ---------------------------------------------------------------------------

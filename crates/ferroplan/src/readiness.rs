@@ -301,10 +301,13 @@ pub fn capability_manifest() -> CapabilityManifest {
         // Evidence ids are REAL test names, script-verified by
         // `scripts/verify_evidence_ids.py`: the `fond_policy*` tests in
         // `crates/ferroplan/src/planning_runtime.rs`, the always-on
-        // FOUND_BUG_1 goal-reachability reproducer in
-        // `crates/ferroplan/tests/fond_property.rs` (fond-htn-15 spelling
-        // kept for grep lineage), and the canonical flat-FOND suite
-        // `crates/ferroplan/tests/fond_canonical.rs`.
+        // FOUND_BUG_1 goal-reachability reproducer and the enumeration/
+        // reference guards in `crates/ferroplan/tests/fond_property.rs`
+        // (fond-htn-15 spelling kept for grep lineage), and the canonical
+        // flat-FOND suite `crates/ferroplan/tests/fond_canonical.rs`. The
+        // `#[ignore]`d Fond tests are deliberately NOT mapped: an ignored
+        // test runs on no CI rail, so naming it as required evidence would
+        // fabricate runnable-evidence claims.
         contract(
             "fp.core.fond",
             "crates/ferroplan",
@@ -329,6 +332,8 @@ pub fn capability_manifest() -> CapabilityManifest {
                 "fond_canonical.triangle_tireworld_avoids_dead_end_route_solves_cyclic_only",
                 "fond_canonical.wall_bounce_retry_solves_cyclic_only",
                 "fond_property.fond_property_FOUND_BUG_1_strong_cyclic_accepts_goal_unreachable_self_loop",
+                "fond_property.fond_solver_matches_independent_policy_enumeration",
+                "fond_property.reference_oracle_agrees_with_hand_computed_semantics",
             ],
         ),
         // HDDL front-end capability (parse -> ground -> translate -> FOND
@@ -337,9 +342,14 @@ pub fn capability_manifest() -> CapabilityManifest {
         // the `eve_bridge_*`/`solve_hddl*` tests in
         // `crates/ferroplan/src/hddl.rs` and
         // `crates/ferroplan/tests/eve_genesis.rs`, the FOND-HTN micro-domain
-        // suite `crates/ferroplan/tests/fond_htn_micro.rs`, and the
+        // suite `crates/ferroplan/tests/fond_htn_micro.rs`, the always-on
+        // golden-ledger guards in
+        // `crates/ferroplan/tests/fond_htn_oracle.rs`, and the
         // external-oracle differential agreement test
-        // `crates/ferroplan/tests/htn_oracle.rs`.
+        // `crates/ferroplan/tests/htn_oracle.rs`. The `#[ignore]`d
+        // external-corpus and ORACLE_MISMATCH_* repros are deliberately NOT
+        // mapped (not runnable CI evidence; their defect tickets own the
+        // re-mapping when the ignores come off).
         contract(
             "fp.core.hddl",
             "crates/ferroplan",
@@ -358,6 +368,8 @@ pub fn capability_manifest() -> CapabilityManifest {
                 "fond_htn_micro.sense_then_branch_decomposes_differently_per_sensed_outcome",
                 "fond_htn_micro.supervisor_fail_routes_failure_through_the_second_method",
                 "fond_htn_micro.tray_dirty_overlapping_branches_each_recover_via_their_own_method",
+                "fond_htn_oracle.goldens_agreement_ledger_is_consistent",
+                "fond_htn_oracle.in_repo_fixtures_match_recorded_ferroplan_outcomes",
                 "hddl.eve_bridge_accepts_a_problem_whose_network_matches_the_eve_root_task",
                 "hddl.eve_bridge_refuses_a_problem_network_conflicting_with_the_eve_root_task",
                 "hddl.eve_bridge_reports_a_parse_error_for_a_malformed_eve_root_task",
@@ -1186,6 +1198,21 @@ mod tests {
         assert!(ids.contains("fp.core.explain"));
         assert!(ids.contains("fp.core.fond"));
         assert!(ids.contains("fp.core.hddl"));
+        // Canonical evidence counts for the two FOND-HTN capabilities: every
+        // id here must be a real test (script-verified by
+        // `scripts/verify_evidence_ids.py`). Bump both pins when a branch
+        // adds ids — the union with `docs/readiness-refresh` must land at
+        // 15 (fond) / 18 (hddl).
+        let evidence_of = |capability: &str| {
+            manifest
+                .capabilities
+                .iter()
+                .find(|contract| contract.id == capability)
+                .map(|contract| contract.required_evidence.len())
+                .unwrap_or(0)
+        };
+        assert_eq!(evidence_of("fp.core.fond"), 6);
+        assert_eq!(evidence_of("fp.core.hddl"), 10);
     }
 
     #[test]

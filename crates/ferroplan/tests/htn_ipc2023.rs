@@ -124,12 +124,8 @@ fn limits() -> PlannerLimits {
 #[derive(Debug)]
 enum Outcome {
     NoPlan,
-    Limit {
-        kind: String,
-    },
-    Gap {
-        phase: &'static str,
-    },
+    Limit { kind: String },
+    Gap { phase: &'static str },
 }
 
 fn classify(err: &HddlError) -> Outcome {
@@ -162,19 +158,15 @@ fn classify(err: &HddlError) -> Outcome {
             } else {
                 Outcome::Gap { phase: "translate" }
             }
-        },
+        }
         // Honest typed planner-side refusal (NoMethod / HierarchyCycle / ...):
         // not "NoPlan" strictly, but an honest typed answer, not garbage —
         // recorded verbatim like the other gaps.
-        HddlError::Planner(_) => Outcome::Gap {
-            phase: "plan",
-        },
-        HddlError::WorkerPanicked(msg) => panic!(
-            "CONTRACT VIOLATION: solve_hddl worker thread panicked: {msg}"
-        ),
-        HddlError::RootTaskMismatch { .. } => Outcome::Gap {
-            phase: "plan",
-        },
+        HddlError::Planner(_) => Outcome::Gap { phase: "plan" },
+        HddlError::WorkerPanicked(msg) => {
+            panic!("CONTRACT VIOLATION: solve_hddl worker thread panicked: {msg}")
+        }
+        HddlError::RootTaskMismatch { .. } => Outcome::Gap { phase: "plan" },
     }
 }
 
@@ -190,14 +182,10 @@ fn build_ir(domain_src: &str, problem_src: &str) -> IrProblem {
 }
 
 fn assert_closed_policy(plan: &UniversalPlan, ir: &IrProblem) {
-    let states: BTreeMap<&str, &ferroplan_hddl::translate::State> = ir
-        .states
-        .iter()
-        .map(|s| (s.id.as_str(), s))
-        .collect();
+    let states: BTreeMap<&str, &ferroplan_hddl::translate::State> =
+        ir.states.iter().map(|s| (s.id.as_str(), s)).collect();
     let goal_facts = &ir.goal.facts;
-    let is_goal =
-        |id: &str| goal_facts.iter().all(|f| states[id].facts.contains(f));
+    let is_goal = |id: &str| goal_facts.iter().all(|f| states[id].facts.contains(f));
 
     // (from, action) -> set of outcome states, straight from the IR.
     let mut edges: BTreeMap<(&str, &str), BTreeSet<&str>> = BTreeMap::new();
@@ -208,11 +196,8 @@ fn assert_closed_policy(plan: &UniversalPlan, ir: &IrProblem) {
             .insert(t.to.as_str());
     }
 
-    let policy: BTreeMap<&str, &PolicyEntry> = plan
-        .policy
-        .iter()
-        .map(|e| (e.state.as_str(), e))
-        .collect();
+    let policy: BTreeMap<&str, &PolicyEntry> =
+        plan.policy.iter().map(|e| (e.state.as_str(), e)).collect();
 
     // Closure: from every initial state, walk the policy. Every reached
     // non-goal state must have an entry; every entry's outcomes must be
@@ -240,8 +225,7 @@ fn assert_closed_policy(plan: &UniversalPlan, ir: &IrProblem) {
                     entry.action
                 )
             });
-        let claimed: BTreeSet<&str> =
-            entry.outcomes.iter().map(|o| o.state.as_str()).collect();
+        let claimed: BTreeSet<&str> = entry.outcomes.iter().map(|o| o.state.as_str()).collect();
         assert_eq!(
             claimed, *ir_outcomes,
             "POLICY OUTCOMES MISMATCH at state {state:?} action {:?}: plan claims \

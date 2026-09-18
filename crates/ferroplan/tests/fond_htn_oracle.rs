@@ -133,14 +133,10 @@ fn classify(domain_src: &str, problem_src: &str) -> Outcome {
 
 /// The full public parse → ground → translate pipeline (everything before
 /// the FOND solver), for the outcome-closure check.
-fn translated_problem(
-    domain_src: &str,
-    problem_src: &str,
-) -> Result<PlanningProblem, String> {
+fn translated_problem(domain_src: &str, problem_src: &str) -> Result<PlanningProblem, String> {
     let domain = parse_domain(domain_src).map_err(|e| e.to_string())?;
     let problem = parse_problem(problem_src).map_err(|e| e.to_string())?;
-    let ir = grounder::ground(&domain, &problem, &Default::default())
-        .map_err(|e| e.to_string())?;
+    let ir = grounder::ground(&domain, &problem, &Default::default()).map_err(|e| e.to_string())?;
     translate::translate(&ir, &TranslateLimits::default()).map_err(|e| e.to_string())
 }
 
@@ -200,22 +196,25 @@ fn assert_outcome_closure(plan: &UniversalPlan, problem: &PlanningProblem) {
 
 fn goldens() -> Vec<Value> {
     let parsed: Value = serde_json::from_str(GOLDENS_RAW).expect("oracle-goldens.json parses");
-    parsed["runs"].as_array().cloned().expect("goldens `runs` array")
+    parsed["runs"]
+        .as_array()
+        .cloned()
+        .expect("goldens `runs` array")
 }
 
 fn golden_string<'a>(run: &'a Value, key: &str) -> &'a str {
-    run[key].as_str().unwrap_or_else(|| {
-        panic!("golden run {} is missing string field `{key}`", run["id"])
-    })
+    run[key]
+        .as_str()
+        .unwrap_or_else(|| panic!("golden run {} is missing string field `{key}`", run["id"]))
 }
 
 /// The live ferroplan outcome for one golden run's files, read from
 /// `dir` (fixture dir for in-repo runs, `None` for absolute external paths).
 fn outcome_for_run(run: &Value, fixture_dir: Option<&Path>) -> Outcome {
-            let (domain_field, problem_field) = match fixture_dir {
-                    Some(_) => ("domain", "problem"),
-                    None => ("domain_path", "problem_path"),
-                };
+    let (domain_field, problem_field) = match fixture_dir {
+        Some(_) => ("domain", "problem"),
+        None => ("domain_path", "problem_path"),
+    };
     let domain_path = match fixture_dir {
         Some(dir) => dir.join(golden_string(run, domain_field)),
         None => std::path::PathBuf::from(golden_string(run, domain_field)),
@@ -298,7 +297,10 @@ fn assert_matches_golden(run: &Value, live: &Outcome, fixture_dir: Option<&Path>
 #[test]
 fn in_repo_fixtures_match_recorded_ferroplan_outcomes() {
     let dir = Path::new(FIXTURE_DIR);
-    for run in goldens().iter().filter(|r| golden_string(r, "kind") == "in-repo") {
+    for run in goldens()
+        .iter()
+        .filter(|r| golden_string(r, "kind") == "in-repo")
+    {
         let live = outcome_for_run(run, Some(dir));
         assert_matches_golden(run, &live, Some(dir));
     }
@@ -313,26 +315,33 @@ fn goldens_agreement_ledger_is_consistent() {
     let runs = goldens();
     assert_eq!(runs.len(), 10, "4 in-repo fixtures + 6 koala domains");
     assert_eq!(
-        runs.iter().filter(|r| golden_string(r, "kind") == "in-repo").count(),
+        runs.iter()
+            .filter(|r| golden_string(r, "kind") == "in-repo")
+            .count(),
         4
     );
     assert_eq!(
-        runs.iter().filter(|r| golden_string(r, "kind") == "external").count(),
+        runs.iter()
+            .filter(|r| golden_string(r, "kind") == "external")
+            .count(),
         6
     );
     for run in &runs {
         let id = golden_string(run, "id");
-        let oracle = run["oracle"]["status"].as_str().unwrap_or_else(|| {
-            panic!("{id}: golden missing oracle status")
-        });
+        let oracle = run["oracle"]["status"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{id}: golden missing oracle status"));
         assert!(
-            matches!(oracle, "SOLVED" | "NOSOLUTION" | "ERROR" | "TIMEOUT" | "PARSE_ERROR"),
+            matches!(
+                oracle,
+                "SOLVED" | "NOSOLUTION" | "ERROR" | "TIMEOUT" | "PARSE_ERROR"
+            ),
             "{id}: oracle status `{oracle}` outside the runner vocabulary"
         );
         let ferroplan = golden_string(run, "ferroplan");
-        let agree = run["agreement"].as_bool().unwrap_or_else(|| {
-            panic!("{id}: golden missing boolean `agreement`")
-        });
+        let agree = run["agreement"]
+            .as_bool()
+            .unwrap_or_else(|| panic!("{id}: golden missing boolean `agreement`"));
         assert_eq!(
             agree,
             oracle == ferroplan,
