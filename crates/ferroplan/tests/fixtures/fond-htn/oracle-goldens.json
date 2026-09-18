@@ -10,10 +10,10 @@
       "domain": "micro-drop-retry/domain.hddl",
       "problem": "micro-drop-retry/problem.hddl",
       "oracle": {"status": "SOLVED", "mode": "flexible", "wall_s": 0.306, "run": "/tmp/fond-oracle/runs/20260917T214753Z-domain-problem-27522"},
-      "ferroplan": "NOSOLUTION",
-      "divergence": "semantic",
-      "agreement": false,
-      "note": "koala flexible re-decomposes after the empty-branch drop outcome; ferroplan at base d2faf4d advances the task frontier past drop on both outcomes, so the empty branch lands in a terminal state with :goal unsatisfied -> typed NoPlan. Owned by frozen branch fix/oneof-koala-semantics (tip 4d40f99, NOT merged into this base)"
+      "ferroplan": "SOLVED",
+      "divergence": null,
+      "agreement": true,
+      "note": "Healed (ticket fond-htn-58, branch fix/drop-retry-redecompose): translate now keeps the task-network frontier un-advanced on a no-change outcome of a nondeterministic action, so the empty-branch drop outcome projects back onto the source composite state as a self-loop and the still-pending drop task is re-offered; the strong-cyclic fallback closes the retry loop and the fixture solves, agreeing with the koala flexible verdict (SOLVED, oracle artifact /tmp/fond-oracle/runs/20260917T214753Z-domain-problem-27522). Pre-fix, for the record: the frontier advanced past drop on BOTH outcomes, so the empty branch landed in a task-network-spent terminal state with :goal unsatisfied -> typed NoPlan while koala re-decomposed. Mismatch test promoted to always-on agreement test micro_drop_retry_agrees_with_oracle"
     },
     {
       "id": "micro-overlap",
