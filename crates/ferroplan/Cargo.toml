@@ -47,3 +47,7 @@ harness = false
 [[bench]]
 name = "ppddl"
 harness = false
+
+[[bench]]
+name = "fond"
+harness = false
