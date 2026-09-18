@@ -30,6 +30,41 @@
 //! actions never produce transitions either way; this pre-pass additionally
 //! avoids paying the combinatorial-enumeration and substitution cost for them
 //! in the first place, when opted into.
+//!
+//! When `prune_irrelevant` is set, `ground` instead (or additionally) runs a
+//! hierarchical *task-relevance* pre-pass (`compute_task_relevance`) — the
+//! standard HTN relevance pruning found throughout the public HTN literature
+//! (cf. the decomposition reachability / task-relevance fixpoints used by the
+//! PANDA planner line and in Höller, Behnke, Bercher & Biundo's work on
+//! translating HTN planning into classical planning; reimplemented fresh
+//! here, no external code). It computes the set of ground task instances that
+//! lie on *some* decomposition path from the problem's root task network(s):
+//! seeded with the root networks' ground subtasks, a ground method instance
+//! is relevant iff the compound task it decomposes is relevant, and a
+//! relevant method makes all of its ground subtasks relevant; the fixpoint
+//! closes under that rule. A two-stage shape keeps it affordable on domains
+//! whose raw ground counts are in the millions: a lifted (symbol-level)
+//! over-approximation first excludes every method schema whose head task
+//! symbol is not itself relevant (by induction over decomposition trees, no
+//! ground instance of such a schema can ever be demanded), then a ground
+//! worklist fixpoint runs only over the surviving schemas. Pruning
+//! instances *not* in that closure is sound for this pipeline because
+//! `translate` explores exactly the decompositions of the root networks (its
+//! BFS is seeded from `GroundedIR::root_networks` and every state's frontier
+//! grows only by method subtasks), so an action/method off every
+//! decomposition path can never appear in any translated state or plan —
+//! relevance pruning changes ground-instance *counts*, never the translated
+//! problem itself (`translate::translate(ground(.., prune_irrelevant))` ==
+//! `translate::translate(ground(.., false))` on any valid input; asserted by
+//! test). Unlike `prune_unreachable` it needs no state: it prunes by
+//! decomposition structure alone, which is where hierarchical domains'
+//! combinatorial blow-up actually lives — the delete-relaxation fixpoint
+//! models fact producibility, not decomposition demand (see
+//! `compute_reachability`'s own scope note), so it barely shrinks these
+//! domains. The two flags compose: when both are set, a ground
+//! action/method must pass *both* filters (relevance AND state
+//! reachability) to be instantiated — the intersection of two sound
+//! over-approximations is still a sound over-approximation.
 
 use crate::ast::*;
 use crate::validate;
@@ -91,12 +126,13 @@ pub enum GroundError {
     /// but expensive to substitute in aggregate, or (before
     /// `prune_unreachable` pruning helps) a slow `compute_reachability`
     /// fixpoint over a large fact universe. Each grounding phase
-    /// (`ground_actions`/`ground_actions_reachable`/`ground_methods`/
-    /// `ground_methods_reachable`/`compute_reachability`) checks this
+    /// (`ground_actions`/`ground_actions_reachable`/`ground_actions_relevant`/
+    /// `ground_methods`/`ground_methods_reachable`/`ground_methods_relevant`/
+    /// `compute_reachability`/`compute_task_relevance`) checks this
     /// independently against its own start time, so `ground`'s total wall
-    /// time in the worst case (the `prune_unreachable` path, which runs
-    /// three of those phases in sequence) is bounded by roughly
-    /// `3 * max_wall`, not by one shared budget across the whole call —
+    /// time in the worst case (both pruning pre-passes set, which runs four
+    /// of those phases in sequence) is bounded by roughly
+    /// `4 * max_wall`, not by one shared budget across the whole call —
     /// still a hard, finite bound, just not an exact one.
     Timeout { elapsed_ms: u128, limit_ms: u128 },
 }
@@ -145,6 +181,28 @@ pub struct GroundingLimits {
     /// the full combinatorial grounding keeps its exact current
     /// ground-instance counts unless it opts in explicitly.
     pub prune_unreachable: bool,
+    /// When `true`, `ground` runs the hierarchical task-relevance pre-pass
+    /// (`compute_task_relevance`) and instantiates only ground
+    /// actions/methods on some decomposition path from the problem's root
+    /// task network(s) — see the module docs for the soundness argument
+    /// (relevance pruning cannot change the translated problem, only shrink
+    /// the ground-instance counts) and the citation of the public technique.
+    /// Defaults to `false` for the same reason `prune_unreachable` is:
+    /// direct `ground` callers and tests keep exact combinatorial counts
+    /// unless they opt in. The `solve_hddl` pipeline opts in (ticket
+    /// fond-htn-60): validation guarantees the root network carries at least
+    /// one subtask (the relevance seed is never empty there), and translate
+    /// never leaves the decomposition closure, so the pipeline's answers are
+    /// unchanged while domains whose raw ground counts exceed the envelope
+    /// become groundable at all.
+    ///
+    /// Scope note: relevance is defined relative to the root task networks.
+    /// A problem whose root network grounds to *zero* networks (e.g. an
+    /// `:htn :parameters` type with no objects) has an empty seed, so
+    /// everything is irrelevant and the result grounds to zero
+    /// actions/methods — exactly mirroring `translate`, which would produce
+    /// zero initial states for the same input.
+    pub prune_irrelevant: bool,
     /// Wall-clock budget for a single grounding phase
     /// (`ground_actions`/`ground_actions_reachable`/`ground_methods`/
     /// `ground_methods_reachable`/`compute_reachability`), each of which
@@ -164,6 +222,7 @@ impl Default for GroundingLimits {
             max_ground_actions: 10_000,
             max_ground_methods: 10_000,
             prune_unreachable: false,
+            prune_irrelevant: false,
             max_wall: Some(Duration::from_secs(10)),
         }
     }
@@ -1600,6 +1659,367 @@ pub fn ground_methods_reachable(
     Ok(out)
 }
 
+/// Result of the hierarchical task-relevance pre-pass
+/// (`compute_task_relevance`): the set of ground task names (`GroundAction`/
+/// `GroundMethod` task/subtask name strings) that lie on some decomposition
+/// path from the problem's root task network(s). Sound as an
+/// *over-approximation of decomposition demand*: every task instance that
+/// appears in any decomposition tree of any root network is in the set
+/// (induction over the tree: the root's subtasks seed it, and a used method's
+/// subtasks are always added), so filtering ground actions/methods on it
+/// never discards an instance any plan could use — while instances outside
+/// it cannot appear in any decomposition, hence (since `translate` explores
+/// exactly the decompositions of the root networks) cannot appear in any
+/// translated state, transition, or plan. Things may be *in* the set without
+/// ever being usable (preconditions, orderings and state can still rule them
+/// out) — that is the over-approximation, and it is the sound direction.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct TaskRelevanceInfo {
+    pub relevant_tasks: BTreeSet<String>,
+}
+
+/// One method schema's ground-instance index used by
+/// `compute_task_relevance`'s worklist: the schema's bindings (kept so
+/// subtask names can be rendered lazily, only for instances that actually
+/// become relevant), and a map from ground head-task name to the binding
+/// indices with that head, so expanding a relevant task name visits exactly
+/// the method instances that decompose it — never the schema's other
+/// bindings.
+struct MethodSchemaRelevance<'a> {
+    method: &'a MethodDef,
+    bindings: Vec<BTreeMap<String, String>>,
+    by_task: BTreeMap<String, Vec<usize>>,
+}
+
+/// Run the hierarchical task-relevance fixpoint over `domain`'s methods and
+/// `problem`'s root task networks (the standard HTN relevance pruning found
+/// throughout the public literature — e.g. the decomposition-reachability /
+/// task-relevance analyses used by the PANDA planner line and in Höller,
+/// Behnke, Bercher & Biundo's HTN-to-classical translation work; implemented
+/// fresh here, no external code). See the module docs and
+/// [`TaskRelevanceInfo`] for the soundness shape.
+///
+/// Two stages:
+///
+/// 1. **Lifted (symbol-level) over-approximation.** Task *symbols* are
+///    relevant if a root network subtask names them, or they name some
+///    subtask of a method whose head symbol is relevant (plain fixpoint over
+///    declared names — no grounding). Any ground instance in the ground
+///    closure has a relevant symbol by the same induction, so method schemas
+///    whose head symbol is irrelevant are excluded from stage 2 entirely:
+///    on domains whose raw ground counts run into the millions, this is
+///    what keeps the ground pass affordable.
+/// 2. **Ground worklist.** Seeds: the ground subtask names of *all* root
+///    networks (`ground_root_network`, so `:htn :parameters` bindings each
+///    seed their own instance). Per surviving schema, bindings are
+///    enumerated once and bucketed by ground head-task name; expanding a
+///    relevant task name marks exactly those method instances relevant and
+///    pushes their ground subtask names. Each method instance is expanded at
+///    most once; instances whose head never becomes relevant are never
+///    rendered past the one-time name pass.
+///
+/// Costs and bounds: this pass enumerates *names*, not full instances —
+/// task-argument and (lazily) subtask-argument substitution only, never
+/// precondition/effect traversal — but it does enumerate every binding of
+/// every lifted-relevant method schema, so its cost scales with the raw
+/// ground method count of the *relevant* schemas, not the pruned output
+/// count. `limits.max_wall` is checked throughout (schema indexing and each
+/// worklist expansion) and each `ground` phase budgets independently, so
+/// the pass always exits bounded.
+///
+/// Error note: a method schema whose *head* task call has an unbound
+/// variable is skipped here (no renderable names) — such a schema can never
+/// contribute a relevance fact. If any of its instances are demanded anyway
+/// they will be re-rendered by `ground_methods_relevant` with the same
+/// `subst_term` the unpruned path uses, so the loud `UnboundVariable`
+/// refusal still happens; the pre-pass itself never turns an invalid schema
+/// into a silent prune.
+pub fn compute_task_relevance(
+    domain: &Domain,
+    problem: &Problem,
+    objects_by_type: &BTreeMap<String, Vec<String>>,
+    limits: &GroundingLimits,
+) -> Result<TaskRelevanceInfo, GroundError> {
+    let start = Instant::now();
+
+    // -- Stage 1: lifted symbol closure ---------------------------------
+    let mut relevant_symbols: BTreeSet<String> = problem
+        .htn
+        .subtasks
+        .iter()
+        .map(|st| st.task.name.clone())
+        .collect();
+    let mut symbol_worklist: Vec<String> = relevant_symbols.iter().cloned().collect();
+    while let Some(sym) = symbol_worklist.pop() {
+        check_wall_deadline(start, limits)?;
+        for method in &domain.methods {
+            if method.task.name == sym {
+                for st in &method.network.subtasks {
+                    if relevant_symbols.insert(st.task.name.clone()) {
+                        symbol_worklist.push(st.task.name.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    // -- Stage 2 seed: every root network's ground subtask instances ----
+    let root_networks = ground_root_network(problem, objects_by_type)?;
+    let mut relevant: BTreeSet<String> = BTreeSet::new();
+    let mut worklist: Vec<String> = Vec::new();
+    for net in &root_networks {
+        for st in &net.subtasks {
+            if relevant.insert(st.task_name.clone()) {
+                worklist.push(st.task_name.clone());
+            }
+        }
+    }
+
+    // -- Stage 2 index: one pass per lifted-relevant schema -------------
+    let mut schemas: Vec<MethodSchemaRelevance> = Vec::new();
+    for method in domain
+        .methods
+        .iter()
+        .filter(|m| relevant_symbols.contains(&m.task.name))
+    {
+        check_wall_deadline(start, limits)?;
+        let mut bindings: Vec<BTreeMap<String, String>> = Vec::new();
+        let mut by_task: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        // `BindingIter` directly, not `enumerate_bindings`: the wall check
+        // below then runs per binding, so an enormous schema still exits on
+        // the deadline instead of materializing its full product first.
+        let mut renderable = true;
+        for binding in BindingIter::new(&method.params, objects_by_type) {
+            check_wall_deadline(start, limits)?;
+            let task_args = method
+                .task
+                .args
+                .iter()
+                .map(|t| subst_term(t, &binding))
+                .collect::<Result<Vec<_>, _>>();
+            match task_args {
+                Ok(args) => {
+                    let name = atom_key(&method.task.name, &args);
+                    let idx = bindings.len();
+                    bindings.push(binding);
+                    by_task.entry(name).or_default().push(idx);
+                }
+                // Unbound head variable: no renderable names, the schema can
+                // contribute nothing here (see this fn's error note).
+                Err(GroundError::UnboundVariable(_)) => {
+                    renderable = false;
+                    break;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        if renderable {
+            schemas.push(MethodSchemaRelevance {
+                method,
+                bindings,
+                by_task,
+            });
+        }
+    }
+    // Head base name -> schema positions, so expanding a task name only
+    // visits schemas that could decompose it. BTreeMap for deterministic
+    // iteration order.
+    let mut by_base: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (i, schema) in schemas.iter().enumerate() {
+        by_base
+            .entry(schema.method.task.name.clone())
+            .or_default()
+            .push(i);
+    }
+
+    // -- Stage 2 fixpoint: expand relevant task names -------------------
+    while let Some(task_name) = worklist.pop() {
+        check_wall_deadline(start, limits)?;
+        let base = task_base_name(&task_name);
+        let Some(schema_idxs) = by_base.get(base) else {
+            // Primitive task (an action) or a compound task with no
+            // (lifted-relevant) method: nothing to expand.
+            continue;
+        };
+        for &si in schema_idxs {
+            let schema = &schemas[si];
+            let Some(binding_idxs) = schema.by_task.get(&task_name) else {
+                continue;
+            };
+            for &bi in binding_idxs {
+                let binding = &schema.bindings[bi];
+                for st in &schema.method.network.subtasks {
+                    let args = st
+                        .task
+                        .args
+                        .iter()
+                        .map(|t| subst_term(t, binding))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let name = atom_key(&st.task.name, &args);
+                    if relevant.insert(name.clone()) {
+                        worklist.push(name);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(TaskRelevanceInfo {
+        relevant_tasks: relevant,
+    })
+}
+
+/// Like `ground_actions`, but a binding is instantiated only when its ground
+/// name is in `relevance.relevant_tasks` (and, when a `reachability` pre-pass
+/// also ran, that fixpoint proved it state-reachable). Sound: both filters
+/// are sound over-approximations of "can occur in some plan" for this
+/// pipeline (see `compute_task_relevance` / `compute_reachability`), and an
+/// intersection of sound over-approximations is sound — every dropped
+/// instance is provably unable to appear in any translated state, so the
+/// translated problem is unchanged and only the instance *count* shrinks.
+pub fn ground_actions_relevant(
+    domain: &Domain,
+    objects_by_type: &BTreeMap<String, Vec<String>>,
+    limits: &GroundingLimits,
+    relevance: &TaskRelevanceInfo,
+    reachability: Option<&ReachabilityInfo>,
+) -> Result<Vec<GroundAction>, GroundError> {
+    let start = Instant::now();
+    let mut out = Vec::new();
+    for action in &domain.actions {
+        // `BindingIter` directly (see `ground_actions`'s comment on the same
+        // pattern) so the limit check below never waits on a fully
+        // materialized Cartesian product.
+        for binding in BindingIter::new(&action.params, objects_by_type) {
+            check_wall_deadline(start, limits)?;
+            let args = action
+                .params
+                .iter()
+                .map(|p| binding[&p.var].clone())
+                .collect::<Vec<_>>();
+            let name = atom_key(&action.name, &args);
+            if !relevance.relevant_tasks.contains(&name) {
+                continue;
+            }
+            if let Some(r) = reachability {
+                if !r.reachable_actions.contains(&name) {
+                    continue;
+                }
+            }
+            if out.len() >= limits.max_ground_actions {
+                return Err(GroundError::LimitExceeded(format!(
+                    "max_ground_actions ({}) exceeded",
+                    limits.max_ground_actions
+                )));
+            }
+            let precondition = ground_goal(&action.precondition, &binding, objects_by_type)?;
+            let outcomes = ground_effect(
+                &action.effect,
+                &binding,
+                action.probability_weights.as_deref(),
+            )?;
+            out.push(GroundAction {
+                name,
+                precondition,
+                outcomes,
+            });
+        }
+    }
+    Ok(out)
+}
+
+/// Like `ground_methods`, but a binding is instantiated only when its ground
+/// head-task name is in `relevance.relevant_tasks` (and, when a
+/// `reachability` pre-pass also ran, none of its primitive subtasks is
+/// state-unreachable — the exact rule `ground_methods_reachable` applies).
+/// The relevance check runs *before* any subtask/precondition/effect
+/// rendering, so irrelevant bindings cost one cheap name render — that is
+/// the whole point of the pre-pass. Sound for the same composition reason
+/// as `ground_actions_relevant`.
+pub fn ground_methods_relevant(
+    domain: &Domain,
+    objects_by_type: &BTreeMap<String, Vec<String>>,
+    limits: &GroundingLimits,
+    relevance: &TaskRelevanceInfo,
+    reachability: Option<&ReachabilityInfo>,
+) -> Result<Vec<GroundMethod>, GroundError> {
+    let start = Instant::now();
+    let action_names: BTreeSet<&str> = domain.actions.iter().map(|a| a.name.as_str()).collect();
+    let mut out = Vec::new();
+    for method in &domain.methods {
+        // `BindingIter` directly (see `ground_methods`'s comment on the same
+        // pattern) so the `max_ground_methods` check never waits on a fully
+        // materialized Cartesian product.
+        for binding in BindingIter::new(&method.params, objects_by_type) {
+            check_wall_deadline(start, limits)?;
+            let task_args = method
+                .task
+                .args
+                .iter()
+                .map(|t| subst_term(t, &binding))
+                .collect::<Result<Vec<_>, _>>()?;
+            let task_name = atom_key(&method.task.name, &task_args);
+            if !relevance.relevant_tasks.contains(&task_name) {
+                continue;
+            }
+            let subtasks = method
+                .network
+                .subtasks
+                .iter()
+                .map(|st| {
+                    let args = st
+                        .task
+                        .args
+                        .iter()
+                        .map(|t| subst_term(t, &binding))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Ok(GroundSubtask {
+                        id: st.id.clone(),
+                        task_name: atom_key(&st.task.name, &args),
+                    })
+                })
+                .collect::<Result<Vec<_>, GroundError>>()?;
+            if let Some(r) = reachability {
+                let has_unreachable_primitive_subtask = subtasks.iter().any(|st| {
+                    action_names.contains(task_base_name(&st.task_name))
+                        && !r.reachable_actions.contains(&st.task_name)
+                });
+                if has_unreachable_primitive_subtask {
+                    continue;
+                }
+            }
+            if out.len() >= limits.max_ground_methods {
+                return Err(GroundError::LimitExceeded(format!(
+                    "max_ground_methods ({}) exceeded",
+                    limits.max_ground_methods
+                )));
+            }
+            let order = method
+                .network
+                .order
+                .iter()
+                .map(|e| (e.before.clone(), e.after.clone()))
+                .collect();
+            let precondition = ground_goal(&method.precondition, &binding, objects_by_type)?;
+            let effect = ground_effect_branch(&method.effect, &binding)?;
+            let args = method
+                .params
+                .iter()
+                .map(|p| binding[&p.var].clone())
+                .collect::<Vec<_>>();
+            out.push(GroundMethod {
+                name: atom_key(&method.name, &args),
+                task_name,
+                precondition,
+                effect,
+                subtasks,
+                order,
+            });
+        }
+    }
+    Ok(out)
+}
+
 fn ground_term_const(term: &Term) -> Result<String, GroundError> {
     match term {
         Term::Const(c) => Ok(c.clone()),
@@ -1690,11 +2110,15 @@ pub fn ground_root_network(
 /// refuses (before any actual grounding work) any domain/problem using a
 /// numeric fluent or a `:constraints` block — both are lexed/parsed by this
 /// crate but are out of scope to ground (see `ast`'s module docs). When
+/// `limits.prune_irrelevant` is set, a hierarchical task-relevance pre-pass
+/// (`compute_task_relevance`) instantiates only ground actions/methods on
+/// some decomposition path from the root task network(s); when
 /// `limits.prune_unreachable` is set, a delete-relaxation reachability
 /// pre-pass (`compute_reachability`) is used to skip instantiating ground
-/// actions/methods that can never fire; otherwise every typed-object
-/// combination is enumerated (bounded by `limits.max_ground_actions`/
-/// `max_ground_methods`) — see the module docs for the full comparison.
+/// actions/methods that can never fire (the two compose by intersection);
+/// otherwise every typed-object combination is enumerated (bounded by
+/// `limits.max_ground_actions`/`max_ground_methods`) — see the module docs
+/// for the full comparison.
 ///
 /// # Errors
 ///
@@ -1756,7 +2180,34 @@ pub fn ground(
     let closure = build_type_closure(domain)?;
     let objects_by_type = index_objects_by_type(domain, problem, &closure);
     let initial_facts = ground_initial_facts(problem)?;
-    let (actions, methods) = if limits.prune_unreachable {
+    let (actions, methods) = if limits.prune_irrelevant {
+        let relevance = compute_task_relevance(domain, problem, &objects_by_type, limits)?;
+        let reachability = if limits.prune_unreachable {
+            Some(compute_reachability(
+                domain,
+                &objects_by_type,
+                &initial_facts,
+                limits,
+            )?)
+        } else {
+            None
+        };
+        let actions = ground_actions_relevant(
+            domain,
+            &objects_by_type,
+            limits,
+            &relevance,
+            reachability.as_ref(),
+        )?;
+        let methods = ground_methods_relevant(
+            domain,
+            &objects_by_type,
+            limits,
+            &relevance,
+            reachability.as_ref(),
+        )?;
+        (actions, methods)
+    } else if limits.prune_unreachable {
         let reachability = compute_reachability(domain, &objects_by_type, &initial_facts, limits)?;
         let actions = ground_actions_reachable(domain, &objects_by_type, limits, &reachability)?;
         let methods = ground_methods_reachable(domain, &objects_by_type, limits, &reachability)?;
@@ -2440,6 +2891,418 @@ mod tests {
                 "drive(l9,l10)",
             ]
         );
+    }
+
+    // -- hierarchical task-relevance pruning (`prune_irrelevant`) ---------
+
+    #[test]
+    fn default_grounding_limits_do_not_prune_irrelevant() {
+        // `prune_irrelevant` must default to `false` so every existing
+        // caller/test that asserts exact combinatorial counts is unaffected
+        // (same discipline as `prune_unreachable`).
+        assert!(!GroundingLimits::default().prune_irrelevant);
+    }
+
+    #[test]
+    fn relevance_pruning_keeps_only_decomposition_path_instances_on_fixture_a() {
+        // Fixture A's root network names exactly `deliver(l1,l2)`; the only
+        // method decomposing it demands `pickup(l1)`, `drive(l1,l2)`,
+        // `dropoff(l2)` — so of the full combinatorial grounding (2 pickups,
+        // 4 drives, 2 dropoffs, 4 method bindings) only those 3 actions and
+        // 1 method binding lie on a decomposition path from the root.
+        let domain = parse_domain(FIXTURE_A_DOMAIN).unwrap();
+        let problem = parse_problem(FIXTURE_A_PROBLEM).unwrap();
+
+        let naive = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        assert_eq!(naive.actions.len(), 8, "naive combinatorial actions");
+        assert_eq!(naive.methods.len(), 4, "naive combinatorial methods");
+
+        let pruned_limits = GroundingLimits {
+            prune_irrelevant: true,
+            ..GroundingLimits::default()
+        };
+        let pruned = ground(&domain, &problem, &pruned_limits).unwrap();
+        let pruned_names: Vec<&str> = pruned.actions.iter().map(|a| a.name.as_str()).collect();
+        assert_eq!(pruned_names, vec!["pickup(l1)", "drive(l1,l2)", "dropoff(l2)"]);
+        assert_eq!(pruned.methods.len(), 1);
+        assert_eq!(pruned.methods[0].task_name, "deliver(l1,l2)");
+        assert_eq!(pruned.methods[0].name, "m-deliver(l1,l2)");
+    }
+
+    /// The load-bearing soundness contract of relevance pruning, checked at
+    /// translated-problem granularity: the *transition system* the Fond
+    /// solver consumes (states, initial states, goal, transitions) must be
+    /// byte-identical with and without the pre-pass, while the metadata
+    /// lists (`tasks`/`methods`) may only shrink to a subset of the naive
+    /// grounding's — by construction exactly the decomposition-closure
+    /// instances. (`translate` builds those lists from *all* grounded
+    /// actions/methods, so pruning legitimately shrinks them; the Fond
+    /// solver never reads them, and `root_tasks` comes from the untouched
+    /// root networks, so it is identical.)
+    fn assert_relevance_pruning_preserves_the_transition_system(
+        naive: &crate::translate::PlanningProblem,
+        pruned: &crate::translate::PlanningProblem,
+    ) {
+        assert_eq!(pruned.states, naive.states, "states must be identical");
+        assert_eq!(
+            pruned.initial_states, naive.initial_states,
+            "initial states must be identical"
+        );
+        assert_eq!(pruned.goal, naive.goal, "goal must be identical");
+        assert_eq!(
+            pruned.transitions, naive.transitions,
+            "transitions must be identical"
+        );
+        assert_eq!(
+            pruned.root_tasks, naive.root_tasks,
+            "root tasks must be identical"
+        );
+        let naive_tasks: BTreeSet<&str> = naive.tasks.iter().map(|t| t.id.as_str()).collect();
+        let naive_methods: BTreeSet<&str> = naive.methods.iter().map(|m| m.id.as_str()).collect();
+        for t in &pruned.tasks {
+            assert!(
+                naive_tasks.contains(t.id.as_str()),
+                "pruned task {} absent from naive grounding",
+                t.id
+            );
+        }
+        for m in &pruned.methods {
+            assert!(
+                naive_methods.contains(m.id.as_str()),
+                "pruned method {} absent from naive grounding",
+                m.id
+            );
+        }
+    }
+
+    #[test]
+    fn relevance_pruned_grounding_translates_identically_to_the_unpruned_grounding() {
+        // The load-bearing soundness property (ticket fond-htn-60's
+        // falsifier, at unit scale): pruning may only remove provably
+        // irrelevant instances, so the translated *transition system* — the
+        // thing solve_hddl actually solves — must be identical with and
+        // without the pre-pass. See
+        // `assert_relevance_pruning_preserves_the_transition_system` for
+        // the exact contract.
+        let domain = parse_domain(FIXTURE_A_DOMAIN).unwrap();
+        let problem = parse_problem(FIXTURE_A_PROBLEM).unwrap();
+
+        let full = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let pruned = ground(
+            &domain,
+            &problem,
+            &GroundingLimits {
+                prune_irrelevant: true,
+                ..GroundingLimits::default()
+            },
+        )
+        .unwrap();
+
+        let translated_full = crate::translate::translate(&full, &Default::default()).unwrap();
+        let translated_pruned =
+            crate::translate::translate(&pruned, &Default::default()).unwrap();
+        assert_relevance_pruning_preserves_the_transition_system(
+            &translated_full,
+            &translated_pruned,
+        );
+    }
+
+    #[test]
+    fn relevance_pruned_names_are_a_subset_of_the_naive_names_across_fixtures() {
+        // Cheapest high-information soundness tripwire: on every committed
+        // fixture, the pruned grounding's instance-name sets (actions and
+        // methods) must be subsets of the naive grounding's — pruning may
+        // only ever remove instances, never rename or invent any.
+        let fixtures = [
+            (FIXTURE_A_DOMAIN, FIXTURE_A_PROBLEM),
+            (FIXTURE_C_DOMAIN, FIXTURE_C_PROBLEM),
+            (FIXTURE_E_DOMAIN, FIXTURE_E_PROBLEM),
+        ];
+        for (domain_src, problem_src) in fixtures {
+            let domain = parse_domain(domain_src).unwrap();
+            let problem = parse_problem(problem_src).unwrap();
+            let naive = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+            let pruned = ground(
+                &domain,
+                &problem,
+                &GroundingLimits {
+                    prune_irrelevant: true,
+                    ..GroundingLimits::default()
+                },
+            )
+            .unwrap();
+            let naive_action_names: BTreeSet<&str> =
+                naive.actions.iter().map(|a| a.name.as_str()).collect();
+            let naive_method_names: BTreeSet<&str> =
+                naive.methods.iter().map(|m| m.name.as_str()).collect();
+            for a in &pruned.actions {
+                assert!(
+                    naive_action_names.contains(a.name.as_str()),
+                    "pruned action {} absent from naive grounding",
+                    a.name
+                );
+            }
+            for m in &pruned.methods {
+                assert!(
+                    naive_method_names.contains(m.name.as_str()),
+                    "pruned method {} absent from naive grounding",
+                    m.name
+                );
+            }
+            // ...and the same translated-transition-system contract, per
+            // fixture.
+            assert_relevance_pruning_preserves_the_transition_system(
+                &crate::translate::translate(&naive, &Default::default()).unwrap(),
+                &crate::translate::translate(&pruned, &Default::default()).unwrap(),
+            );
+        }
+    }
+
+    const RECURSIVE_DOMAIN: &str = r#"(define (domain rec-d)
+      (:types loc)
+      (:predicates (at ?l - loc) (connected ?a - loc ?b - loc))
+      (:task travel :parameters (?from - loc ?to - loc))
+      (:action drive
+        :parameters (?a - loc ?b - loc)
+        :precondition (at ?a)
+        :effect (and (not (at ?a)) (at ?b)))
+      (:action direct
+        :parameters (?a - loc ?b - loc)
+        :precondition (and)
+        :effect (and))
+      (:method m-direct
+        :parameters (?from - loc ?to - loc)
+        :task (travel ?from ?to)
+        :ordered-subtasks (and
+          (t1 (drive ?from ?to))))
+      (:method m-hop
+        :parameters (?from - loc ?to - loc ?via - loc)
+        :task (travel ?from ?to)
+        :ordered-subtasks (and
+          (t1 (drive ?from ?via))
+          (t2 (travel ?via ?to)))))"#;
+
+    const RECURSIVE_PROBLEM: &str = r#"(define (problem rec-p)
+      (:domain rec-d)
+      (:objects l1 l2 l3 - loc)
+      (:init (at l1) (connected l1 l2) (connected l2 l3))
+      (:goal ())
+      (:htn :ordered-subtasks (and (r1 (travel l1 l3)))))"#;
+
+    #[test]
+    fn relevance_closure_terminates_on_recursive_methods_and_keeps_the_decomposition_universe() {
+        // `travel` decomposes via `m-hop` into another `travel` — the
+        // fixpoint must terminate (BTreeSet dedup) yet keep every ground
+        // instance the recursion can demand: `travel(l1,l3)` demands
+        // `m-hop(l1,l3,?)` for every `?via`, which demands `travel(?,l3)`
+        // for every `?`, which ... i.e. the recursive closure is
+        // deliberately *wider* than the state-reachable set (relevance
+        // ignores preconditions/orderings — the sound over-approximation).
+        let domain = parse_domain(RECURSIVE_DOMAIN).unwrap();
+        let problem = parse_problem(RECURSIVE_PROBLEM).unwrap();
+
+        let naive = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        let pruned = ground(
+            &domain,
+            &problem,
+            &GroundingLimits {
+                prune_irrelevant: true,
+                ..GroundingLimits::default()
+            },
+        )
+        .unwrap();
+
+        let pruned_action_names: BTreeSet<&str> =
+            pruned.actions.iter().map(|a| a.name.as_str()).collect();
+        // Demanded by the direct method on the seed head...
+        assert!(pruned_action_names.contains("drive(l1,l3)"));
+        // ...and by the hop method's first subtask for every ?via...
+        assert!(pruned_action_names.contains("drive(l1,l1)"));
+        assert!(pruned_action_names.contains("drive(l1,l2)"));
+        // ...while the `direct` action schema is named by no method or root
+        // subtask at all, so every one of its instances is gone.
+        assert!(!pruned_action_names.iter().any(|n| n.starts_with("direct(")));
+        assert!(pruned.actions.len() < naive.actions.len());
+        // And the translated transition system is unchanged, while the
+        // metadata shrinks: the naive problem lists all 9 `travel` heads and
+        // all 9 `direct` tasks, the pruned one only the closure's subset.
+        let translated_naive = crate::translate::translate(&naive, &Default::default()).unwrap();
+        let translated_pruned = crate::translate::translate(&pruned, &Default::default()).unwrap();
+        assert_relevance_pruning_preserves_the_transition_system(
+            &translated_naive,
+            &translated_pruned,
+        );
+        assert!(translated_pruned.tasks.len() < translated_naive.tasks.len());
+        assert!(translated_pruned.methods.len() < translated_naive.methods.len());
+    }
+
+    const SELF_LOOP_DOMAIN: &str = r#"(define (domain loop-d)
+      (:types loc)
+      (:predicates (at ?l - loc))
+      (:task spin :parameters (?x - loc))
+      (:action noop
+        :parameters ()
+        :precondition (and)
+        :effect (and))
+      (:method m-loop
+        :parameters (?x - loc)
+        :task (spin ?x)
+        :ordered-subtasks (and
+          (t1 (spin ?x)))))"#;
+
+    const SELF_LOOP_PROBLEM: &str = r#"(define (problem loop-p)
+      (:domain loop-d)
+      (:objects l1 - loc)
+      (:init (at l1))
+      (:goal ())
+      (:htn :ordered-subtasks (and (r1 (spin l1)))))"#;
+
+    #[test]
+    fn relevance_closure_terminates_on_a_self_recursive_method() {
+        // Degenerate recursion: `spin(l1)` demands method instances whose
+        // only subtask is `spin(l1)` again. Must terminate; `noop` is named
+        // by nothing on any decomposition path, so it prunes to zero.
+        let domain = parse_domain(SELF_LOOP_DOMAIN).unwrap();
+        let problem = parse_problem(SELF_LOOP_PROBLEM).unwrap();
+
+        let naive = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
+        assert_eq!(naive.methods.len(), 1);
+
+        let pruned = ground(
+            &domain,
+            &problem,
+            &GroundingLimits {
+                prune_irrelevant: true,
+                ..GroundingLimits::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(pruned.methods.len(), 1);
+        assert_eq!(pruned.methods[0].task_name, "spin(l1)");
+        assert!(pruned.actions.is_empty(), "noop is off every decomposition path");
+    }
+
+    const GHOST_DOMAIN: &str = r#"(define (domain ghost-d)
+      (:types loc)
+      (:predicates (at ?l - loc) (never))
+      (:task deliver :parameters (?from - loc ?to - loc))
+      (:action drive
+        :parameters (?a - loc ?b - loc)
+        :precondition (at ?a)
+        :effect (and (not (at ?a)) (at ?b)))
+      (:action ghost
+        :parameters (?l - loc)
+        :precondition (never)
+        :effect (and))
+      (:method m-deliver
+        :parameters (?from - loc ?to - loc)
+        :task (deliver ?from ?to)
+        :ordered-subtasks (and
+          (t1 (drive ?from ?to)))))"#;
+
+    const GHOST_PROBLEM: &str = r#"(define (problem ghost-p)
+      (:domain ghost-d)
+      (:objects l1 l2 - loc)
+      (:init (at l1))
+      (:goal ())
+      (:htn :ordered-subtasks (and
+        (r1 (deliver l1 l2))
+        (r2 (ghost l1)))))"#;
+
+    #[test]
+    fn relevance_and_reachability_compose_by_intersection() {
+        // `ghost(l1)` IS relevant (the root network names it) but the
+        // delete-relaxation fixpoint proves it can never fire (`(never)` is
+        // added by no action and holds nowhere initially). Relevance alone
+        // keeps it; adding `prune_unreachable` drops it — the two filters
+        // intersect, and the intersection of two sound
+        // over-approximations is sound.
+        let domain = parse_domain(GHOST_DOMAIN).unwrap();
+        let problem = parse_problem(GHOST_PROBLEM).unwrap();
+
+        let relevance_only = ground(
+            &domain,
+            &problem,
+            &GroundingLimits {
+                prune_irrelevant: true,
+                ..GroundingLimits::default()
+            },
+        )
+        .unwrap();
+        let names: Vec<&str> = relevance_only.actions.iter().map(|a| a.name.as_str()).collect();
+        assert_eq!(names, vec!["drive(l1,l2)", "ghost(l1)"]);
+
+        let both = ground(
+            &domain,
+            &problem,
+            &GroundingLimits {
+                prune_irrelevant: true,
+                prune_unreachable: true,
+                ..GroundingLimits::default()
+            },
+        )
+        .unwrap();
+        let names: Vec<&str> = both.actions.iter().map(|a| a.name.as_str()).collect();
+        assert_eq!(names, vec!["drive(l1,l2)"]);
+        // The unreachable-but-relevant method instance is dropped by the
+        // same intersection on the method side (its only primitive subtask
+        // `drive(l1,l2)` is reachable, so the method itself survives).
+        assert_eq!(both.methods.len(), 1);
+        assert_eq!(both.methods[0].task_name, "deliver(l1,l2)");
+    }
+
+    const ROOT_PARAMS_DOMAIN: &str = r#"(define (domain rootp-d)
+      (:types loc)
+      (:predicates (at ?l - loc))
+      (:task go :parameters (?l - loc))
+      (:action walk
+        :parameters (?l - loc)
+        :precondition (at ?l)
+        :effect (and))
+      (:method m-go
+        :parameters (?l - loc)
+        :task (go ?l)
+        :ordered-subtasks (and
+          (t1 (walk ?l)))))"#;
+
+    fn root_params_problem(htn_body: &str) -> Problem {
+        let src = format!(
+            r#"(define (problem rootp-p)
+              (:domain rootp-d)
+              (:objects l1 l2 - loc)
+              (:init (at l1))
+              (:goal ())
+              (:htn {htn_body}))"#
+        );
+        crate::parser::parse_problem(&src).expect("root-params problem parses")
+    }
+
+    #[test]
+    fn relevance_seeds_every_admissible_root_network_binding() {
+        // With `:htn :parameters`, each admissible binding is its own root
+        // network, and the policy must cover them all — so the relevance
+        // seed is the union of all their subtasks, not just the first.
+        let domain = parse_domain(ROOT_PARAMS_DOMAIN).unwrap();
+        let problem = root_params_problem(
+            ":parameters (?l - loc)\n              :ordered-subtasks (and (r1 (go ?l)))",
+        );
+
+        let pruned = ground(
+            &domain,
+            &problem,
+            &GroundingLimits {
+                prune_irrelevant: true,
+                ..GroundingLimits::default()
+            },
+        )
+        .unwrap();
+        // Both bindings (?l = l1, ?l = l2) seed: both method instances and
+        // both walk instances survive.
+        let method_tasks: Vec<&str> =
+            pruned.methods.iter().map(|m| m.task_name.as_str()).collect();
+        assert_eq!(method_tasks, vec!["go(l1)", "go(l2)"]);
+        let action_names: Vec<&str> = pruned.actions.iter().map(|a| a.name.as_str()).collect();
+        assert_eq!(action_names, vec!["walk(l1)", "walk(l2)"]);
     }
 
     // -- forall/exists quantifier expansion at grounding time ---------------

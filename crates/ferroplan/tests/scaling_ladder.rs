@@ -140,7 +140,12 @@ fn ground_limits() -> grounder::GroundingLimits {
     grounder::GroundingLimits {
         max_ground_actions: 10_000_000,
         max_ground_methods: 10_000_000,
-        prune_unreachable: false, // match solve_hddl's Default-driven behavior
+        // Both pruning pre-passes deliberately OFF: this ladder measures the
+        // *full combinatorial* grounding (its rung sizes are ground-instance
+        // counts), not solve_hddl's pipeline — which since ticket fond-htn-60
+        // runs `prune_irrelevant = true` behind the same caps.
+        prune_unreachable: false,
+        prune_irrelevant: false,
         max_wall: Some(STAGE_WALL),
     }
 }
@@ -628,7 +633,7 @@ fn write_results(all: &[Rung], stops: &[(Family, String)]) {
     md.push_str("```\n\n");
     md.push_str("## Stage limits (the bounds the ladder ran under)\n\n```text\n");
     md.push_str("parse:     watchdog thread, 60 s (parser has no internal wall check — solve_hddl's own pattern)\n");
-    md.push_str("ground:    max_wall = 60 s, max_ground_actions = 10,000,000, max_ground_methods = 10,000,000, prune_unreachable = false\n");
+    md.push_str("ground:    max_wall = 60 s, max_ground_actions = 10,000,000, max_ground_methods = 10,000,000, prune_unreachable = false, prune_irrelevant = false\n");
     md.push_str("translate: max_wall = 60 s, max_states = 2,000,000, max_task_network_depth = 4096\n");
     md.push_str("solve:     PlannerLimits { max_wall_ms = 60000, max_states = 2,000,000, max_iterations = 100,000, max_depth = 100,000 }, PlanningType::Fond (strong fixpoint, strong-cyclic fallback)\n");
     md.push_str("```\n\n");
