@@ -153,6 +153,11 @@ extends coverage.
   *all* its outcomes into the region *and* at least one outcome lands closer
   to a goal. Retry loops qualify (their committed action advances toward the
   goal before retrying); pure self-loops do not. When the reachable core
+  closes over the whole surviving set, every surviving state's choice is
+  rewritten to a committable action with an outcome of strictly smaller
+  reach-discovery rank (advancing) — the region *and* the choices are
+  reach-certified, never the un-rewritten Phase 2 witnesses (the fixed
+  FOUND_BUG_2 defect class, ticket fond-htn-57). When the core instead
   stops short of the surviving set, the set shrinks to it and both sweeps
   re-run — a pruned state may have been another state's all-outcomes witness.
   The solver finishes with an outcome-closure check computed on the *final*

@@ -103,9 +103,22 @@
 //! here an advancing action exists but is not the one chosen. Shrunk to a
 //! 2-state reproducer, committed `#[ignore]`d as
 //! `fond_property_scaleup_FOUND_BUG_2_*` (hotfix input for the NEXT ticket;
-//! src/ frozen for this ticket). The gate carves out exactly this class —
-//! reference confirms solvable AND the policy is structurally closed AND
-//! the decision agrees — and counts it; every other mismatch shape fails.
+//! src/ frozen for this ticket). The gate then carved out exactly this
+//! class — reference confirms solvable AND the policy is structurally
+//! closed AND the decision agrees — and counted it.
+//!
+//! ## Hotfix landed (ticket fond-htn-57)
+//!
+//! `fond_policy_strong_cyclic` now records each state's reach-discovery
+//! RANK during Phase 3's (b) sweep and, when the fixpoint closes with
+//! `reach == surviving`, rewrites every surviving non-goal state's choice
+//! to a committable action with an outcome of strictly smaller rank
+//! (advancing) — pruning instead if none exists (defense in depth), with
+//! choices recomputed after any prune cascade by re-entering the
+//! alternation. The reproducer runs always-on as the regression guard, the
+//! carve-out is REMOVED (any goal-unreachable region on a reference-
+//! solvable instance now fails this gate), and the assertions below are
+//! unchanged.
 //!
 //! Provenance: hand-authored for fond-htn-33; generator and reference share
 //! no code with `planning_runtime.rs` (koala policy: concepts only).
@@ -724,22 +737,22 @@ enum PolicyCheck {
     /// solution.
     ValidStrongCyclic,
     /// The policy's reachable region contains a state that can never reach
-    /// the goal within the region, while the reference CONFIRMS the instance
-    /// is strong-cyclic solvable and the policy is structurally closed.
+    /// the goal within the region.
     ///
-    /// This is the documented residual defect `FOUND_BUG_2`
+    /// This WAS the documented residual defect `FOUND_BUG_2`
     /// (`fond_property_scaleup_FOUND_BUG_2_*` reproducer below): Phase 3 of
-    /// `fond_policy_strong_cyclic` verifies goal-reachability of the
-    /// surviving REGION but returns the WITNESS-FIRST choices from the
+    /// `fond_policy_strong_cyclic` verified goal-reachability of the
+    /// surviving REGION but returned the WITNESS-FIRST choices from the
     /// Phase 2 prune — when a state's first closed action is a pure loop
     /// and a later action is the committable one, and the committable-reach
-    /// fixpoint closes with `reach == surviving`, the loop exits without
-    /// rewriting `choices`, so the returned policy keeps the non-advancing
+    /// fixpoint closes with `reach == surviving`, the loop exited without
+    /// rewriting `choices`, so the returned policy kept the non-advancing
     /// loop. The wave-3 Phase-3 fix (fix/fond-sc-goalreach) closed the
     /// no-advancing-action shape (FOUND_BUG_1) but not this
-    /// witness-vs-committable mismatch shape. Counted, not gating; the
-    /// shrunk reproducer feeds the next hotfix ticket. ANY other mismatch
-    /// shape still fails this gate.
+    /// witness-vs-committable mismatch shape; the fond-htn-57 hotfix (the
+    /// Phase-3 rank-based choice rewrite) closed this one, the reproducer
+    /// runs always-on as its regression guard, and this gate no longer
+    /// carves the class out — ANY recurrence fails.
     GoalUnreachableRegion,
     /// The policy's region contains an unsafe state — a soundness violation.
     EntersUnsafeState,
@@ -1008,7 +1021,6 @@ fn fond_solver_matches_independent_reference_at_scale() {
     let started = Instant::now();
     let mut rng = SplitMix64(SEED);
     let mut valid_ok_count = 0_usize;
-    let mut known_bug_count = 0_usize;
     let mut noplan_count = 0_usize;
     let mut strong_count = 0_usize;
     let mut strong_cyclic_only_count = 0_usize;
@@ -1091,26 +1103,20 @@ fn fond_solver_matches_independent_reference_at_scale() {
                         }
                         valid_ok_count += 1;
                     }
-                    // Narrow carve-out for the documented residual defect
-                    // FOUND_BUG_2 (see the variant doc): only when the
-                    // reference confirms the instance IS solvable (the
-                    // decision agrees) may a goal-unreachable policy be
-                    // counted instead of failing. Shrunk reproducer:
-                    // fond_property_scaleup_FOUND_BUG_2_* below; feeds the
-                    // next hotfix, not this ticket.
-                    PolicyCheck::GoalUnreachableRegion => {
-                        if !expected_ok {
-                            panic!(
-                                "{}\nNEW DEFECT: solver returned a \
-                                 goal-unreachable policy for an instance the \
-                                 reference proves UNSOLVABLE \
-                                 (decision mismatch on top of the \
-                                 FOUND_BUG_2 policy defect)",
-                                repro()
-                            );
-                        }
-                        known_bug_count += 1;
-                    }
+                    // No carve-out remains: the FOUND_BUG_2 known-defect
+                    // class (goal-unreachable region on a reference-solvable
+                    // instance) was fixed by fond-htn-57's Phase-3 choice
+                    // rewrite and its carve-out removed in the same change,
+                    // so ANY recurrence fails this gate. Shrunk reproducer:
+                    // fond_property_scaleup_FOUND_BUG_2_* above.
+                    PolicyCheck::GoalUnreachableRegion => panic!(
+                        "{}\nNEW DEFECT: solver returned a goal-unreachable \
+                         policy for a reference-solvable instance \
+                         (strong={strong_solvable} \
+                         strong_cyclic={strong_cyclic_solvable}) — the \
+                         FOUND_BUG_2 class recurred",
+                        repro()
+                    ),
                     PolicyCheck::EntersUnsafeState => panic!(
                         "{}\nNEW DEFECT: returned policy's reachable \
                          region contains an unsafe state",
@@ -1221,7 +1227,6 @@ fn fond_solver_matches_independent_reference_at_scale() {
         "fond_property_scaleup: {INSTANCES} instances in {elapsed:?} \
          (strong={strong_count}, strong-cyclic-only={strong_cyclic_only_count}, \
          valid-ok={valid_ok_count}, noplan={noplan_count}, \
-         FOUND_BUG_2-affected={known_bug_count}, \
          decoys={decoy_count} [unsolvable={decoy_unsolvable}, \
          sc-only={decoy_strong_cyclic_only}], multi-initial={multi_initial_instances} \
          [ok={multi_initial_ok}, noplan={multi_initial_noplan}], \
@@ -1274,19 +1279,16 @@ fn reference_agrees_with_policy_enumeration_on_small_slice() {
 /// Shrunk reproducer (2 states; shrunk from scale-up instance 1 of seed
 /// `0x5EED_2026_0918`, a 7-state non-decoy instance) for the residual
 /// strong-cyclic defect FOUND_BUG_2, derived per ticket scope item 4.
-/// IGNORED because it reproduces at commit time: this is a hotfix input for
-/// the NEXT ticket (src/ is frozen for fond-htn-33), not a gate.
+/// Always-on regression guard since the hotfix (ticket fond-htn-57, commit
+/// `fix/sc-choice-rewrite`); the `#[ignore]` and the sweep gate's
+/// known-defect carve-out were removed in the same change. The
+/// `FOUND_BUG_*` spelling is mandated by ticket fond-htn-15 lineage; kept
+/// greppable across the wave.
 ///
-/// EXPECTED (Cimatti characterization / independent reference): the instance
-/// IS strong-cyclic solvable — policy `s0 -> a1` (outcomes {g, s0}) is the
-/// classic retry loop; the reference verdict is `(false, true)` — and a
-/// correct solver must return that policy (or any policy whose region is
-/// goal-reaching).
-///
-/// ACTUAL (at commit time): `Ok` with policy `[s0 -> a0 (self-loop {s0})]`.
-/// Trace of `fond_policy_strong_cyclic` (dispatch falls through `fond_policy`
-/// because `a1`'s outcome set includes the not-yet-winning `s0`, so no strong
-/// policy exists):
+/// DEFECT (pre-hotfix): `fond_policy_strong_cyclic` returned `Ok` with
+/// policy `[s0 -> a0 (self-loop {s0})]`. Trace (dispatch falls through
+/// `fond_policy` because `a1`'s outcome set includes the not-yet-winning
+/// `s0`, so no strong policy exists):
 /// 1. Phase 1 (weak): `weak = {s0, g}` (s0 has an edge to g).
 /// 2. Phase 2 (greatest-fixpoint witness prune): the FIRST group of s0 in
 ///    BTreeMap order is `(s0, a0)` with outcomes `{s0} ⊆ surviving` — so
@@ -1304,17 +1306,20 @@ fn reference_agrees_with_policy_enumeration_on_small_slice() {
 ///    policy key), so the solver returns a policy whose reachable region
 ///    `{s0}` provably never reaches the goal.
 ///
-/// Hotfix shape (for the owning ticket): after Phase 3's `reach` fixpoint,
-/// re-derive each surviving non-goal state's choice from a committable
-/// action (closed in the final `surviving` AND touching `reach`), or prune
-/// `surviving` down to states whose CHOSEN action is committable and
-/// iterate — either way the returned (choices, surviving) pair must be the
-/// one whose goal-reachability was proven.
+/// HOTFIX (fond-htn-57): Phase 3 records each state's reach-discovery RANK
+/// during the (b) sweep; when the fixpoint closes, every surviving non-goal
+/// state's choice is rewritten to a committable action (all outcomes ⊆
+/// surviving) with at least one outcome of strictly smaller rank
+/// (advancing), or the state is pruned (defense in depth) and the
+/// alternation re-runs. The returned (choices, surviving) pair is now the
+/// pair whose goal-reachability was proven.
 ///
-/// The FOUND_BUG_* spelling is mandated by ticket fond-htn-15 lineage; kept
-/// greppable across the wave.
+/// EXPECTED (Cimatti characterization / independent reference): the instance
+/// IS strong-cyclic solvable — policy `s0 -> a1` (outcomes {g, s0}) is the
+/// classic retry loop; the reference verdict is `(false, true)` — and the
+/// solver must return that policy (or any policy whose region is
+/// goal-reaching).
 #[test]
-#[ignore = "FOUND_BUG_2 reproduces at commit time: fond_policy_strong_cyclic returns the witness-first self-loop instead of the committable retry action when reach == surviving (hotfix input for the next ticket, src/ frozen for fond-htn-33)"]
 // The FOUND_BUG_* spelling is mandated by ticket fond-htn-15; keep it.
 #[allow(non_snake_case)]
 fn fond_property_scaleup_FOUND_BUG_2_strong_cyclic_returns_witness_first_goal_unreachable_loop() {
@@ -1343,21 +1348,31 @@ fn fond_property_scaleup_FOUND_BUG_2_strong_cyclic_returns_witness_first_goal_un
         (false, true),
         "enumeration must agree: the instance is strong-cyclic solvable"
     );
-    match solve_fond(&problem) {
-        Ok(plan) => panic!(
-            "BUG REPRODUCED (fond_property_scaleup_FOUND_BUG_2): solver \
-             returned Ok with policy {plan:?} whose reachable region {{s0}} \
-             cannot reach the goal, but the strong-cyclic characterization \
-             is witnessed by the retry action a1",
-        ),
-        // When the hotfix lands, the solver must return the retry policy and
-        // this arm becomes the regression guard (drop the #[ignore] then).
-        Err(PlannerError::NoPlan) => panic!(
-            "solver now returns NoPlan for a strong-cyclic solvable \
-             instance — the hotfix must return the a1 retry policy"
-        ),
-        Err(other) => panic!("unexpected error {other:?}"),
-    }
+    // Regression guard: the solver must return the retry policy. `a0` (the
+    // alphabetically-first pure self-loop) is NOT a solution; `a1` (the
+    // committable retry) is — the choice rewrite must pick it.
+    let plan = solve_fond(&problem).expect(
+        "fond_policy_strong_cyclic must return the a1 retry policy, not \
+         NoPlan, for this strong-cyclic solvable instance",
+    );
+    assert!(plan.solved);
+    let entry = plan
+        .policy
+        .iter()
+        .find(|entry| entry.state == "s0")
+        .expect("s0 must carry a policy entry");
+    assert_eq!(
+        entry.action, "a1",
+        "the committable retry action must be chosen over the \
+         witness-first pure self-loop a0"
+    );
+    let mut outcomes = entry
+        .outcomes
+        .iter()
+        .map(|outcome| outcome.state.clone())
+        .collect::<Vec<_>>();
+    outcomes.sort();
+    assert_eq!(outcomes, vec!["g".to_owned(), "s0".to_owned()]);
 }
 
 /// Meta-verification of the reference oracle itself against hand-computed
