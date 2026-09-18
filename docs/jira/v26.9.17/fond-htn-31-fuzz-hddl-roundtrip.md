@@ -23,3 +23,4 @@ Gates: `cargo test -p ferroplan --test hddl_fuzz_roundtrip` exit 0 (≤ 120 s wa
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T23:50:00Z | BLOCKED | fuzz/hddl-roundtrip @ 90c2ae2 | — | all |
+| 2026-09-18T00:20:00Z | PARTIAL_ALIVE | fuzz/hddl-roundtrip @ 6d14813 | oriented: worktree wt-s31 clean on branch; SUPPORTED surface read (parser/ast/validate/grounder/translate/lib); writing hddl_fuzz_roundtrip.rs | generator+sweep, gates, findings, commit |

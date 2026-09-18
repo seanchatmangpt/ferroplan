@@ -23,3 +23,7 @@ Gates: `cargo test -p ferroplan --test scaling_ladder` exit 0 (sampled); `-- --i
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T23:50:00Z | BLOCKED | bench/scaling-ladder @ 90c2ae2 | — | all |
+| 2026-09-17T23:58:21Z | ALIVE | bench/scaling-ladder @ 6d14813 | start: ticket+context read, worktree clean | pipeline API mapped, test authoring next |
+| 2026-09-18T00:13:12Z | ALIVE | bench/scaling-ladder @ worktree | gate1: cargo test -p ferroplan --test scaling_ladder exit 0 (2 passed: heartbeat n=8 both families + generator determinism; 1 ignored long-run) | full ladder run, RESULTS.md, gate2 |
+| 2026-09-18T00:17:40Z | ALIVE | bench/scaling-ladder @ 212d1b9 | full ladder: cargo test -p ferroplan --test scaling_ladder -- --ignored exit 0; 12/12 rungs SOLVED, zero refusals (chain-world + transport-drop, n∈{4,8,16,32,64,128}, 60s/stage); solve dominates (14.7s @ n=128 transport); RSS 97.6MB measured | RESULTS.md commit + gate2 re-run |
+| 2026-09-18T00:17:40Z | ALIVE | bench/scaling-ladder @ 6a8ce08 | gate2: -- --ignored re-run exit 0, structural counts byte-identical across runs; RESULTS.md committed (machine note: Apple M3 Max, seed 20260917, RSS 95344KB); sampled gate re-verified exit 0 | none — ticket complete; not merged (integration is coordinator's) |

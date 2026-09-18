@@ -3,7 +3,7 @@ id: fond-htn-30-stress-memory-ceilings
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Stress: memory ceilings — adversarial grounding blowups refuse, never OOM"
-standing: BLOCKED
+standing: ALIVE
 branch: stress/memory-ceilings
 worktree: ~/ferroplan-worktrees/wt-s30
 created: 2026-09-17T23:50:00Z
@@ -23,3 +23,6 @@ Gates: `cargo test -p ferroplan --test memory_stress` exit 0 (sampled); `-- --ig
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T23:50:00Z | BLOCKED | stress/memory-ceilings @ 90c2ae2 | — | all |
+| 2026-09-18T00:05:04Z | BLOCKED | stress/memory-ceilings @ 6d14813 (wt-s30) | start: recon done (BindingIter lazy caps, translate dedup, fond_policy Timeout-shape confirmed) | authoring memory_stress harness + 7 cases |
+| 2026-09-18T00:16:00Z | PARTIAL_ALIVE | stress/memory-ceilings @ 6d14813 (wt-s30) | full-suite EXIT=0 pre-authoring-fix (3 generator bugs caught+fixed in-test: premature define close, empty root network MissingTaskNetwork, bare-root type group self-ancestor); gates re-run clean | RESULTS.md + commit |
+| 2026-09-18T00:21:17Z | ALIVE | stress/memory-ceilings @ 673370c (wt-s30) | gate1 sampled `cargo test -p ferroplan --test memory_stress` EXIT=0 (2 cases, 83ms); gate2 `-- --ignored` EXIT=0 (7 cases: 5 typed refusals, 2 clean solves, 0 panics/signals/kills, 1463ms; peaks ≤ 35MiB vs 512MiB RLIMIT_AS backstop; RSS via parent ps -o rss= sampling @10ms); 3 stability reruns EXIT=0; committed tests/fixtures/memory-stress/RESULTS.md (tables, seeds, machine M3 Max/macOS 26.2, method doc) | none — ticket scope complete; wave integration is coordinator's |

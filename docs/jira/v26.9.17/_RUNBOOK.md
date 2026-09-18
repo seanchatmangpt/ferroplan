@@ -81,3 +81,33 @@ File-ownership lanes to minimize merge seams: 21/24 share ferroplan-hddl eval pa
 25 owns planning_runtime loop bounds; 23 owns translate limits plumbing;
 26–28 own new files only; 29–32 own new test files (+29 may touch wasi_abi tests module);
 35–40 own docs (+39 touches readiness.rs and its test only).
+
+---
+
+# Finish-wave — close out wave-4 (20 agents: 4 respawns + integrator + 15 finishers)
+
+| ticket | work surface | branch |
+|---|---|---|
+| 23 (respawn) | ~/ferroplan-worktrees/wt-a23 | fix/translate-capacity |
+| 31 (respawn) | ~/ferroplan-worktrees/wt-s31 | fuzz/hddl-roundtrip |
+| 33 (respawn) | ~/ferroplan-worktrees/wt-p33 | test/property-scaleup |
+| 34 (respawn) | /tmp only | — |
+| 41 integration | /Users/sac/ferroplan (main, sole writer) | main |
+| 42 goal-eval recursion | ~/ferroplan-worktrees/wt-a42 | fix/goal-eval-recursion |
+| 43 ground caps plumbing | ~/ferroplan-worktrees/wt-a43 | fix/ground-caps-plumbing |
+| 44 duplicate-type dedup | ~/ferroplan-worktrees/wt-a44 | fix/duplicate-type-dedup |
+| 45 wave-4 ledger | ~/ferroplan-worktrees/wt-d45 | docs/wave4-ledger |
+| 46 readiness finish | ~/ferroplan-worktrees/wt-d46 | docs/readiness-finish |
+| 47 ignored inventory | ~/ferroplan-worktrees/wt-d47 | test/ignored-inventory |
+| 48 workspace hygiene | ~/ferroplan-worktrees/wt-d48 | chore/workspace-hygiene |
+| 49 surface parity | ~/ferroplan-worktrees/wt-d49 | test/surface-parity |
+| 50 probabilistic iterations | ~/ferroplan-worktrees/wt-d50 | fix/probabilistic-iterations |
+| 51 benchmarks drift-check | ~/ferroplan-worktrees/wt-d51 | docs/benchmarks-drift-check |
+| 52 claim audit | ~/ferroplan-worktrees/wt-d52 | docs/claim-audit |
+| 53 ipc2020 profile | ~/ferroplan-worktrees/wt-d53 | bench/ipc2020-profile |
+| 54 unsafe HDDL wall | ~/ferroplan-worktrees/wt-d54 | test/fond-unsafe-hddl |
+| 55 wasip1 clippy | ~/ferroplan-worktrees/wt-d55 | fix/wasip1-clippy |
+| 56 fixtures dedupe | ~/ferroplan-worktrees/wt-d56 | chore/fixtures-dedupe |
+
+Ticket 41 merges ONLY the 16 frozen wave-4 SHAs; respawn + finisher branches are the
+coordinator's final serial integration after this wave.

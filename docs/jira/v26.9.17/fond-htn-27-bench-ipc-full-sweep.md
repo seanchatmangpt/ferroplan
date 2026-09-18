@@ -23,3 +23,6 @@ Gates: `cargo test -p ferroplan --test ipc_sweep` exit 0 (sampled); `-- --ignore
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-17T23:50:00Z | BLOCKED | bench/ipc-full-sweep @ 90c2ae2 | — | all |
+| 2026-09-17T23:58:41Z | ALIVE | bench/ipc-full-sweep @ 6d14813 (wt-b27) | started: corpus surveyed (43 domains, 1.2MB footprint ok), runner design staged | runner+fixtures+gates |
+| 2026-09-18T00:18:24Z | ALIVE | bench/ipc-full-sweep @ 6d14813 (wt-b27) | sweep run1: exit 0, 43/43 honest outcomes, 0 panic; sampled gate1 placeholder caught transport at translate 10s cap -> sampled re-derived; gates re-running on final code | commit + final rows |
+| 2026-09-18T00:23:19Z | ALIVE | bench/ipc-full-sweep @ d7659ea (wt-b27) | gate1 sampled `cargo test -p ferroplan --test ipc_sweep` exit 0 (heartbeat 6 fastest SOLVED, 0.1 s); gate2 full `-- --ignored` exit 0, RESULTS.md written, 43/43 honest outcomes, 0 panic, 2 runs identical classifications | none on ticket; follow-ups: t23 translate cap binds 9 domains, ground caps bind 17, 3 ground-validation gaps (verbatim in RESULTS.md) |
