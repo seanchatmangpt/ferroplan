@@ -111,3 +111,35 @@ File-ownership lanes to minimize merge seams: 21/24 share ferroplan-hddl eval pa
 
 Ticket 41 merges ONLY the 16 frozen wave-4 SHAs; respawn + finisher branches are the
 coordinator's final serial integration after this wave.
+
+---
+
+# Wave-6 — audit + finish (20 agents)
+
+Coordinator pre-wave: integrated the 7 landed finish-wave branches into main (75870de
+lineage; readiness union fond=17/hddl=20; fuzz digest tags extended). Respawns 47-56
+worktrees fast-forwarded to 75870de; wt-a23 carries the SPLIT-scope ticket 65.
+
+| ticket | work surface | branch |
+|---|---|---|
+| 57 HOTFIX sc-choice-rewrite | ~/ferroplan-worktrees/wt-h57 | fix/sc-choice-rewrite |
+| 58 drop-retry re-decompose | ~/ferroplan-worktrees/wt-h58 | fix/drop-retry-redecompose |
+| 59 goal-drop budget | ~/ferroplan-worktrees/wt-h59 | fix/goal-drop-budget |
+| 60 grounding prune | ~/ferroplan-worktrees/wt-h60 | fix/grounding-prune |
+| 61 differential fuzz | ~/ferroplan-worktrees/wt-h61 | test/differential-fuzz |
+| 62 final sweep (report) | ~/ferroplan-worktrees/wt-h62 | test/final-sweep |
+| 63 docs waves-4/5 refresh | ~/ferroplan-worktrees/wt-h63 | docs/waves45-refresh |
+| 65 translate plumbing (3rd, split) | ~/ferroplan-worktrees/wt-a23 | fix/translate-plumbing |
+| 66 oracle harvest (3rd, minimal) | /tmp only | — |
+| 47 ignored inventory (2nd) | ~/ferroplan-worktrees/wt-d47 | test/ignored-inventory |
+| 48 workspace hygiene (2nd) | ~/ferroplan-worktrees/wt-d48 | chore/workspace-hygiene |
+| 49 surface parity (2nd) | ~/ferroplan-worktrees/wt-d49 | test/surface-parity |
+| 50 probabilistic iterations (2nd) | ~/ferroplan-worktrees/wt-d50 | fix/probabilistic-iterations |
+| 51 benchmarks drift (2nd) | ~/ferroplan-worktrees/wt-d51 | docs/benchmarks-drift-check |
+| 52 claim audit (2nd) | ~/ferroplan-worktrees/wt-d52 | docs/claim-audit |
+| 53 ipc2020 profile (2nd) | ~/ferroplan-worktrees/wt-d53 | bench/ipc2020-profile |
+| 54 unsafe HDDL (2nd) | ~/ferroplan-worktrees/wt-d54 | test/fond-unsafe-hddl |
+| 55 wasip1 clippy (2nd) | ~/ferroplan-worktrees/wt-d55 | fix/wasip1-clippy |
+| 56 fixtures dedupe (2nd) | ~/ferroplan-worktrees/wt-d56 | chore/fixtures-dedupe |
+
+Base for ALL worktrees: 75870de (tickets 57-63 reference it in frontmatter).
