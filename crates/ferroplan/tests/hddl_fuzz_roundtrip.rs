@@ -86,7 +86,6 @@ use std::time::Duration;
 /// 500-case one and every case is independently replayable from its seed.
 const BASE_SEED: u64 = 0x2026_0917_0031;
 
-
 // ---------------------------------------------------------------------------
 // Small caps (ticket: parse -> validate -> ground -> translate under caps)
 // ---------------------------------------------------------------------------
@@ -275,7 +274,10 @@ fn run_case(seed: u64, sizes: Sizes, solve: bool) -> CaseOutcome {
             mutated,
             "seed {seed}: VALID draw failed domain validation (generator drift): {e}"
         );
-        assert!(!e.to_string().is_empty(), "seed {seed}: empty ValidationError");
+        assert!(
+            !e.to_string().is_empty(),
+            "seed {seed}: empty ValidationError"
+        );
         return outcome("validate", val_tag(&e).to_owned());
     }
     if let Err(e) = validate_problem(&domain, &problem) {
@@ -283,7 +285,10 @@ fn run_case(seed: u64, sizes: Sizes, solve: bool) -> CaseOutcome {
             mutated,
             "seed {seed}: VALID draw failed problem validation (generator drift): {e}"
         );
-        assert!(!e.to_string().is_empty(), "seed {seed}: empty ValidationError");
+        assert!(
+            !e.to_string().is_empty(),
+            "seed {seed}: empty ValidationError"
+        );
         return outcome("validate", val_tag(&e).to_owned());
     }
 
@@ -304,7 +309,10 @@ fn run_case(seed: u64, sizes: Sizes, solve: bool) -> CaseOutcome {
     let tp = match translate(&ir, &fuzz_translate_limits()) {
         Ok(tp) => tp,
         Err(e) => {
-            assert!(!e.to_string().is_empty(), "seed {seed}: empty TranslateError");
+            assert!(
+                !e.to_string().is_empty(),
+                "seed {seed}: empty TranslateError"
+            );
             return outcome("translate", translate_tag(&e).to_owned());
         }
     };
@@ -357,11 +365,17 @@ fn solve_sample(seed: u64, domain_src: &str, problem_src: &str, tp: &TrProblem) 
 /// of that choice must be listed, and every outcome state must itself be a
 /// policy state or a goal state.
 fn check_policy_outcome_closure(seed: u64, tp: &TrProblem, plan: &UniversalPlan) {
-    let facts_by_state: BTreeMap<&str, &BTreeSet<String>> =
-        tp.states.iter().map(|s| (s.id.as_str(), &s.facts)).collect();
+    let facts_by_state: BTreeMap<&str, &BTreeSet<String>> = tp
+        .states
+        .iter()
+        .map(|s| (s.id.as_str(), &s.facts))
+        .collect();
     let empty: &BTreeSet<String> = &BTreeSet::new();
-    let is_goal =
-        |state: &str| tp.goal.facts.is_subset(facts_by_state.get(state).unwrap_or(&empty));
+    let is_goal = |state: &str| {
+        tp.goal
+            .facts
+            .is_subset(facts_by_state.get(state).unwrap_or(&empty))
+    };
     let in_policy: BTreeSet<&str> = plan.policy.iter().map(|e| e.state.as_str()).collect();
     for entry in &plan.policy {
         let edges: Vec<_> = tp
@@ -556,8 +570,16 @@ fn assert_deterministic(run_a: &[CaseOutcome], run_b: &[CaseOutcome]) {
     let b = normalized(run_b);
     for (x, y) in a.iter().zip(b.iter()) {
         assert_eq!(x.seed, y.seed);
-        assert_eq!(x.mutated, y.mutated, "seed {}: mutation flag differs", x.seed);
-        if x.tag == TIMEOUT_TAG || y.tag == TIMEOUT_TAG || x.solve == TIMEOUT_SOLVE || y.solve == TIMEOUT_SOLVE {
+        assert_eq!(
+            x.mutated, y.mutated,
+            "seed {}: mutation flag differs",
+            x.seed
+        );
+        if x.tag == TIMEOUT_TAG
+            || y.tag == TIMEOUT_TAG
+            || x.solve == TIMEOUT_SOLVE
+            || y.solve == TIMEOUT_SOLVE
+        {
             continue; // wall-clock boundary: tolerated in both directions
         }
         assert_eq!(

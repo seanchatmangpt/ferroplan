@@ -333,25 +333,21 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
             }
             let n_pre = if open { 0 } else { rng.range_usize(0, 2) };
             let pre = pick_lits(&mut rng, &preds, &params, n_pre);
-            let n_subs = if open { 1 } else { rng.range_usize(1, sizes.subs) };
+            let n_subs = if open {
+                1
+            } else {
+                rng.range_usize(1, sizes.subs)
+            };
             let mut subs = Vec::new();
             for si in 0..n_subs {
-                let call = pick_call(
-                    &mut rng,
-                    &actions,
-                    &tasks,
-                    &params,
-                    Some(ti),
-                    false,
-                    open,
-                )
-                .or_else(|| {
-                    if open {
-                        pick_call(&mut rng, &actions, &tasks, &params, Some(ti), false, false)
-                    } else {
-                        None
-                    }
-                });
+                let call = pick_call(&mut rng, &actions, &tasks, &params, Some(ti), false, open)
+                    .or_else(|| {
+                        if open {
+                            pick_call(&mut rng, &actions, &tasks, &params, Some(ti), false, false)
+                        } else {
+                            None
+                        }
+                    });
                 if let Some(call) = call {
                     subs.push((format!("s{si}"), call));
                 }
@@ -374,9 +370,15 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
         near.name = format!("mt{}", bump(&mut meth_counter));
         if near.subs.len() > 1 {
             near.subs.truncate(near.subs.len() - 1); // one-subtask-shorter body
-        } else if let Some(call) =
-            pick_call(&mut rng, &actions, &tasks, &near.params, Some(near.task), false, false)
-        {
+        } else if let Some(call) = pick_call(
+            &mut rng,
+            &actions,
+            &tasks,
+            &near.params,
+            Some(near.task),
+            false,
+            false,
+        ) {
             if near.subs.is_empty() {
                 near.subs.push(("s0".to_owned(), call));
             } else {
@@ -393,9 +395,13 @@ fn generate_inner(seed: u64, sizes: Sizes, allow_mutation: bool) -> Model {
             0 if !preds.is_empty() => Some(preds[rng.pick_idx(preds.len())].0.clone()),
             1 if tasks.len() > 1 => {
                 let mut t = rng.pick_idx(tasks.len());
-                while Some(t) == actions[ai].name.strip_prefix("tk").and_then(|rest| {
-                    rest.parse::<usize>().ok().filter(|ix| tasks.get(*ix).is_some())
-                }) {
+                while Some(t)
+                    == actions[ai].name.strip_prefix("tk").and_then(|rest| {
+                        rest.parse::<usize>()
+                            .ok()
+                            .filter(|ix| tasks.get(*ix).is_some())
+                    })
+                {
                     t = rng.pick_idx(tasks.len());
                 }
                 Some(tasks[t].0.clone())
@@ -880,7 +886,9 @@ fn render_call(call: &CallM, model: &Model, method_params: Option<&[(String, usi
     let name = if let Some(ai) = call.action {
         model.actions[ai].name.clone()
     } else {
-        model.tasks[call.task.expect("call with no target")].0.clone()
+        model.tasks[call.task.expect("call with no target")]
+            .0
+            .clone()
     };
     let args = call
         .args
@@ -964,12 +972,10 @@ pub fn render_with_provenance(
             ));
         }
         match &a.effect {
-            EffectM::Conj(lits) => {
-                d.push_str(&format!(
-                    " :effect {}",
-                    render_lits(lits, &model.preds, &a.params)
-                ))
-            }
+            EffectM::Conj(lits) => d.push_str(&format!(
+                " :effect {}",
+                render_lits(lits, &model.preds, &a.params)
+            )),
             EffectM::Oneof(branches) => {
                 d.push_str(" :effect (oneof");
                 for b in branches {

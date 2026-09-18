@@ -1007,9 +1007,7 @@ fn collect_when_body(
         }
         Effect::And(parts) => {
             for p in parts {
-                collect_when_body(
-                    p, binding, pos_cond, neg_cond, add, del, branch, depth,
-                )?;
+                collect_when_body(p, binding, pos_cond, neg_cond, add, del, branch, depth)?;
             }
             Ok(())
         }
@@ -2441,20 +2439,14 @@ mod tests {
         // `open(l1)` alone satisfies the `or`.
         assert!(applicable(&enter, &facts(&["at(l1)", "open(l1)"])));
         // `unlocked(l1)` alone also satisfies the `or`.
-        assert!(applicable(
-            &enter,
-            &facts(&["at(l1)", "unlocked(l1)"])
-        ));
+        assert!(applicable(&enter, &facts(&["at(l1)", "unlocked(l1)"])));
         // Both satisfy it a fortiori.
         assert!(applicable(
             &enter,
             &facts(&["at(l1)", "open(l1)", "unlocked(l1)"])
         ));
         // Missing `at(l1)` entirely: not applicable regardless of the `or`.
-        assert!(!applicable(
-            &enter,
-            &facts(&["open(l1)", "unlocked(l1)"])
-        ));
+        assert!(!applicable(&enter, &facts(&["open(l1)", "unlocked(l1)"])));
     }
 
     #[test]
@@ -2488,10 +2480,7 @@ mod tests {
         // `open(l1)` false, `unlocked(l1)` true: antecedent false is already
         // sufficient (vacuous truth), consequent being true too changes
         // nothing — still applicable.
-        assert!(applicable(
-            &signal,
-            &facts(&["at(l1)", "unlocked(l1)"])
-        ));
+        assert!(applicable(&signal, &facts(&["at(l1)", "unlocked(l1)"])));
     }
 
     const NUMERIC_FLUENT_DOMAIN: &str = r#"(define (domain numeric-fluent-d)
@@ -2923,7 +2912,10 @@ mod tests {
         };
         let pruned = ground(&domain, &problem, &pruned_limits).unwrap();
         let pruned_names: Vec<&str> = pruned.actions.iter().map(|a| a.name.as_str()).collect();
-        assert_eq!(pruned_names, vec!["pickup(l1)", "drive(l1,l2)", "dropoff(l2)"]);
+        assert_eq!(
+            pruned_names,
+            vec!["pickup(l1)", "drive(l1,l2)", "dropoff(l2)"]
+        );
         assert_eq!(pruned.methods.len(), 1);
         assert_eq!(pruned.methods[0].task_name, "deliver(l1,l2)");
         assert_eq!(pruned.methods[0].name, "m-deliver(l1,l2)");
@@ -2999,8 +2991,7 @@ mod tests {
         .unwrap();
 
         let translated_full = crate::translate::translate(&full, &Default::default()).unwrap();
-        let translated_pruned =
-            crate::translate::translate(&pruned, &Default::default()).unwrap();
+        let translated_pruned = crate::translate::translate(&pruned, &Default::default()).unwrap();
         assert_relevance_pruning_preserves_the_transition_system(
             &translated_full,
             &translated_pruned,
@@ -3179,7 +3170,10 @@ mod tests {
         .unwrap();
         assert_eq!(pruned.methods.len(), 1);
         assert_eq!(pruned.methods[0].task_name, "spin(l1)");
-        assert!(pruned.actions.is_empty(), "noop is off every decomposition path");
+        assert!(
+            pruned.actions.is_empty(),
+            "noop is off every decomposition path"
+        );
     }
 
     const GHOST_DOMAIN: &str = r#"(define (domain ghost-d)
@@ -3229,7 +3223,11 @@ mod tests {
             },
         )
         .unwrap();
-        let names: Vec<&str> = relevance_only.actions.iter().map(|a| a.name.as_str()).collect();
+        let names: Vec<&str> = relevance_only
+            .actions
+            .iter()
+            .map(|a| a.name.as_str())
+            .collect();
         assert_eq!(names, vec!["drive(l1,l2)", "ghost(l1)"]);
 
         let both = ground(
@@ -3298,8 +3296,11 @@ mod tests {
         .unwrap();
         // Both bindings (?l = l1, ?l = l2) seed: both method instances and
         // both walk instances survive.
-        let method_tasks: Vec<&str> =
-            pruned.methods.iter().map(|m| m.task_name.as_str()).collect();
+        let method_tasks: Vec<&str> = pruned
+            .methods
+            .iter()
+            .map(|m| m.task_name.as_str())
+            .collect();
         assert_eq!(method_tasks, vec!["go(l1)", "go(l2)"]);
         let action_names: Vec<&str> = pruned.actions.iter().map(|a| a.name.as_str()).collect();
         assert_eq!(action_names, vec!["walk(l1)", "walk(l2)"]);
@@ -3415,10 +3416,7 @@ mod tests {
         let finish = ground_finish_action(NESTED_QUANTIFIER_DOMAIN, &problem);
         // p(l1,l2) covers x=l1; p(l2,l1) covers x=l2. Neither x has both
         // witnesses in the same fact, but each x has at least one.
-        assert!(applicable(
-            &finish,
-            &facts(&["p(l1,l2)", "p(l2,l1)"])
-        ));
+        assert!(applicable(&finish, &facts(&["p(l1,l2)", "p(l2,l1)"])));
         // Only x=l1 has a witness; x=l2 has none -- forall fails.
         assert!(!applicable(&finish, &facts(&["p(l1,l2)"])));
     }
@@ -3514,8 +3512,7 @@ mod tests {
             .spawn(|| {
                 let goal = deep_not_chain(10_000, "p");
                 let facts = BTreeSet::new();
-                evaluate_ground_goal_with_budget(&goal, &facts, 20_000)
-                    .expect("within 20k budget")
+                evaluate_ground_goal_with_budget(&goal, &facts, 20_000).expect("within 20k budget")
             })
             .expect("spawn deep-stack probe thread")
             .join()
@@ -3581,7 +3578,10 @@ mod tests {
         let shallow = GroundGoal::Atom("p".to_owned());
         assert_eq!(
             evaluate_ground_goal_with_budget(&shallow, &facts, 0).unwrap_err(),
-            GroundError::GoalTooDeep { depth: 1, budget: 0 }
+            GroundError::GoalTooDeep {
+                depth: 1,
+                budget: 0
+            }
         );
     }
 
@@ -3685,16 +3685,8 @@ mod tests {
         assert!(!evaluate_ground_goal(&eq("a", "b"), &facts(&["at(r,a)"])).unwrap());
         // `(not (= a b))` is true, `(not (= a a))` false — via the ordinary
         // `Not` arm, no special case.
-        assert!(evaluate_ground_goal(
-            &GroundGoal::Not(Box::new(eq("a", "b"))),
-            &empty
-        )
-        .unwrap());
-        assert!(!evaluate_ground_goal(
-            &GroundGoal::Not(Box::new(eq("a", "a"))),
-            &empty
-        )
-        .unwrap());
+        assert!(evaluate_ground_goal(&GroundGoal::Not(Box::new(eq("a", "b"))), &empty).unwrap());
+        assert!(!evaluate_ground_goal(&GroundGoal::Not(Box::new(eq("a", "a"))), &empty).unwrap());
         // The relaxed (delete-relaxation reachability) answer is the exact
         // answer: term equality consults no facts at all.
         assert!(relaxed_satisfiable(&eq("a", "a"), &empty).unwrap());
@@ -3723,16 +3715,13 @@ mod tests {
         );
         // … and evaluates true exactly when the terms coincide, against any
         // fact set.
-        assert!(evaluate_ground_goal(
-            &find_method("m-arrived(a,a)").precondition,
-            &facts(&[])
-        )
-        .unwrap());
-        assert!(!evaluate_ground_goal(
-            &find_method("m-arrived(a,b)").precondition,
-            &facts(&[])
-        )
-        .unwrap());
+        assert!(
+            evaluate_ground_goal(&find_method("m-arrived(a,a)").precondition, &facts(&[])).unwrap()
+        );
+        assert!(
+            !evaluate_ground_goal(&find_method("m-arrived(a,b)").precondition, &facts(&[]))
+                .unwrap()
+        );
 
         let find_action = |name: &str| {
             ir.actions
@@ -3884,9 +3873,15 @@ mod tests {
             .iter()
             .find(|c| c.add.contains("q(c1)"))
             .expect("first when grounds as a conditional");
-        assert_eq!(first.pos_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(
+            first.pos_cond,
+            ["p(c1)"].into_iter().map(str::to_owned).collect()
+        );
         assert!(first.neg_cond.is_empty());
-        assert_eq!(first.del, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(
+            first.del,
+            ["p(c1)"].into_iter().map(str::to_owned).collect()
+        );
         // Flattened nested `when`: (not p) AND (q) => add r -- one
         // conditional carrying BOTH guard literals, not two nested ones.
         let flattened = branch
@@ -3894,8 +3889,14 @@ mod tests {
             .iter()
             .find(|c| c.add.contains("r(c1)"))
             .expect("nested when flattens into its own conditional");
-        assert_eq!(flattened.pos_cond, ["q(c1)"].into_iter().map(str::to_owned).collect());
-        assert_eq!(flattened.neg_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(
+            flattened.pos_cond,
+            ["q(c1)"].into_iter().map(str::to_owned).collect()
+        );
+        assert_eq!(
+            flattened.neg_cond,
+            ["p(c1)"].into_iter().map(str::to_owned).collect()
+        );
         assert!(flattened.del.is_empty());
         // The outer shell of the nested `when` survives as a no-op
         // conditional (guard `not p`, empty add/del) — harmless, evaluated
@@ -3905,7 +3906,10 @@ mod tests {
             .iter()
             .find(|c| c.add.is_empty() && c.del.is_empty())
             .expect("outer when shell grounds as a no-op conditional");
-        assert_eq!(outer.neg_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(
+            outer.neg_cond,
+            ["p(c1)"].into_iter().map(str::to_owned).collect()
+        );
         assert_eq!(branch.conditional.len(), 3);
     }
 
@@ -3985,15 +3989,33 @@ mod tests {
         // flattened conditional PLUS the no-op outer shell (see the action
         // test above) — three entries total.
         assert_eq!(cond.len(), 3, "both whens ground as conditionals");
-        assert_eq!(cond[0].pos_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
-        assert_eq!(cond[0].add, ["q(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(
+            cond[0].pos_cond,
+            ["p(c1)"].into_iter().map(str::to_owned).collect()
+        );
+        assert_eq!(
+            cond[0].add,
+            ["q(c1)"].into_iter().map(str::to_owned).collect()
+        );
         // Flattened: (not p) AND q => r.
-        assert_eq!(cond[1].pos_cond, ["q(c1)"].into_iter().map(str::to_owned).collect());
-        assert_eq!(cond[1].neg_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
-        assert_eq!(cond[1].add, ["r(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(
+            cond[1].pos_cond,
+            ["q(c1)"].into_iter().map(str::to_owned).collect()
+        );
+        assert_eq!(
+            cond[1].neg_cond,
+            ["p(c1)"].into_iter().map(str::to_owned).collect()
+        );
+        assert_eq!(
+            cond[1].add,
+            ["r(c1)"].into_iter().map(str::to_owned).collect()
+        );
         // Outer shell of the nested when: guard `not p`, empty add/del.
         assert!(cond[2].add.is_empty() && cond[2].del.is_empty());
-        assert_eq!(cond[2].neg_cond, ["p(c1)"].into_iter().map(str::to_owned).collect());
+        assert_eq!(
+            cond[2].neg_cond,
+            ["p(c1)"].into_iter().map(str::to_owned).collect()
+        );
         assert!(m.effect.add.is_empty() && m.effect.del.is_empty());
     }
 
@@ -4112,7 +4134,8 @@ mod tests {
         .unwrap();
         let err = ground(&typed, &problem, &Default::default()).unwrap_err();
         assert!(
-            err.to_string().contains("is not a subtype of the declared parameter type"),
+            err.to_string()
+                .contains("is not a subtype of the declared parameter type"),
             "expected ArgumentTypeMismatch, got {err:?}"
         );
     }

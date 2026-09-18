@@ -26,9 +26,7 @@
 use ferroplan::hddl::solve_hddl;
 use ferroplan::planning_runtime::PlannerLimits;
 use ferroplan_hddl::grounder::{ground, GroundError, GroundingLimits};
-use ferroplan_hddl::parser::{
-    parse_domain, parse_problem, ParseError, DEFAULT_MAX_PARSE_DEPTH,
-};
+use ferroplan_hddl::parser::{parse_domain, parse_problem, ParseError, DEFAULT_MAX_PARSE_DEPTH};
 use ferroplan_hddl::translate::{translate, TranslateLimits};
 use ferroplan_hddl::validate::{validate_domain, validate_problem, ValidationError};
 
@@ -605,7 +603,11 @@ fn deep_nesting_1000_and_returns_typed_nesting_error_never_aborts() {
         .err()
         .expect("1000-deep nesting must be refused with a typed error, never parsed or aborted");
     match &err {
-        ParseError::NestingTooDeep { line, column, budget } => {
+        ParseError::NestingTooDeep {
+            line,
+            column,
+            budget,
+        } => {
             assert_eq!(*budget, DEFAULT_MAX_PARSE_DEPTH);
             assert!(
                 *line >= 1 && *column >= 1,

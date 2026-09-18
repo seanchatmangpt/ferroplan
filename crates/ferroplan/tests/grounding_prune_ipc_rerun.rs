@@ -214,23 +214,28 @@ fn default_caps_rerun_of_the_16_stuck_domains_under_relevance_pruning() {
             max_wall: None,
             ..GroundingLimits::default()
         };
-        let (probe_outcome, probe_detail) = match ferroplan_hddl::grounder::ground(
-            &domain,
-            &prob,
-            &probe_limits,
-        ) {
-            Ok(ir) => (
-                format!("UNDER_ENVELOPE a={} m={}", ir.actions.len(), ir.methods.len()),
-                String::new(),
-            ),
-            Err(e) => ("OVER_ENVELOPE".to_owned(), e.to_string()),
-        };
+        let (probe_outcome, probe_detail) =
+            match ferroplan_hddl::grounder::ground(&domain, &prob, &probe_limits) {
+                Ok(ir) => (
+                    format!(
+                        "UNDER_ENVELOPE a={} m={}",
+                        ir.actions.len(),
+                        ir.methods.len()
+                    ),
+                    String::new(),
+                ),
+                Err(e) => ("OVER_ENVELOPE".to_owned(), e.to_string()),
+            };
         let probe_wall = probe_start.elapsed().as_millis();
         println!("PROBE|{key}|{probe_outcome}|{probe_wall}|{probe_detail}");
 
         // (2) End-to-end default-caps outcome through the public pipeline.
         let solve_start = Instant::now();
-        let result = solve_hddl(&domain_src, &problem_src, &ferroplan::planning_runtime::PlannerLimits::default());
+        let result = solve_hddl(
+            &domain_src,
+            &problem_src,
+            &ferroplan::planning_runtime::PlannerLimits::default(),
+        );
         let wall_ms = solve_start.elapsed().as_millis();
         let (outcome, detail) = classify_solve(result);
         println!("PRUNE|{key}|{outcome}|{wall_ms}|{detail}");

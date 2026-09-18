@@ -57,7 +57,9 @@ use ferroplan::planning_runtime::{
 use ferroplan::planning_types::PlanningType;
 use ferroplan_hddl::grounder::{self, GroundError, GroundedIR, GroundingLimits};
 use ferroplan_hddl::parser;
-use ferroplan_hddl::translate::{self, PlanningProblem as IrProblem, TranslateError, TranslateLimits};
+use ferroplan_hddl::translate::{
+    self, PlanningProblem as IrProblem, TranslateError, TranslateLimits,
+};
 use std::sync::mpsc::RecvTimeoutError;
 use std::time::{Duration, Instant};
 
@@ -133,7 +135,9 @@ const DOMAINS: &[Entry] = &[
     (
         "monroe_fo_1",
         include_str!("fixtures/ipc-sweep/Monroe_FO_1/domain.hddl"),
-        include_str!("fixtures/ipc-sweep/Monroe_FO_1/pfile01-p-0092-set-up-shelter-no-pref-tlt.hddl"),
+        include_str!(
+            "fixtures/ipc-sweep/Monroe_FO_1/pfile01-p-0092-set-up-shelter-no-pref-tlt.hddl"
+        ),
     ),
     (
         "monroe_fo_19",
@@ -213,7 +217,9 @@ const DOMAINS: &[Entry] = &[
     (
         "po_monroe_po_2",
         include_str!("fixtures/ipc-sweep/PO_Monroe_PO_2/domain.hddl"),
-        include_str!("fixtures/ipc-sweep/PO_Monroe_PO_2/pfile02-p-0068-provide-medical-attention-4.hddl"),
+        include_str!(
+            "fixtures/ipc-sweep/PO_Monroe_PO_2/pfile02-p-0068-provide-medical-attention-4.hddl"
+        ),
     ),
     (
         "po_monroe_po_24",
@@ -456,8 +462,7 @@ fn run_domain(entry: &Entry) -> DomainResult {
         (domain_src.to_owned(), problem_src.to_owned()),
         Duration::from_secs(10),
         |(d, p)| {
-            let domain =
-                parser::parse_domain(&d).map_err(|e| StageError::Parse(e.to_string()))?;
+            let domain = parser::parse_domain(&d).map_err(|e| StageError::Parse(e.to_string()))?;
             let problem =
                 parser::parse_problem(&p).map_err(|e| StageError::Parse(e.to_string()))?;
             Ok((domain, problem))
@@ -492,14 +497,9 @@ fn run_domain(entry: &Entry) -> DomainResult {
 
     // Stage 2: ground — solve_hddl's exact defaults (10 s internal wall per
     // phase, 10k actions/methods), 60 s anti-hang watchdog.
-    let ir: GroundedIR = match run_stage(
-        (domain, problem),
-        Duration::from_secs(60),
-        |(d, p)| {
-            grounder::ground(&d, &p, &GroundingLimits::default())
-                .map_err(StageError::Ground)
-        },
-    ) {
+    let ir: GroundedIR = match run_stage((domain, problem), Duration::from_secs(60), |(d, p)| {
+        grounder::ground(&d, &p, &GroundingLimits::default()).map_err(StageError::Ground)
+    }) {
         Stage::Done { wall_ms, out } => {
             r.ground_ms = wall_ms;
             r.ground_ran = true;
@@ -529,14 +529,10 @@ fn run_domain(entry: &Entry) -> DomainResult {
     // 200k states / depth 64 — ticket 23 NOT landed on this branch), 60 s
     // anti-hang watchdog. Where the internal 10 s cap binds, the verbatim
     // refusal is the recorded result, per the ticket.
-    let ir_problem: IrProblem = match run_stage(
-        ir,
-        Duration::from_secs(60),
-        |ir| {
-            ferroplan_hddl::translate::translate(&ir, &TranslateLimits::default())
-                .map_err(StageError::Translate)
-        },
-    ) {
+    let ir_problem: IrProblem = match run_stage(ir, Duration::from_secs(60), |ir| {
+        ferroplan_hddl::translate::translate(&ir, &TranslateLimits::default())
+            .map_err(StageError::Translate)
+    }) {
         Stage::Done { wall_ms, out } => {
             r.translate_ms = wall_ms;
             r.translate_ran = true;
@@ -549,7 +545,7 @@ fn run_domain(entry: &Entry) -> DomainResult {
                 StageError::Translate(e) => classify_translate(e),
                 other => {
                     contract_violation(key, "translate", &format!("wrong stage error {other:?}"))
-                },
+                }
             };
             let verbatim = match err {
                 StageError::Translate(e) => e.to_string(),
@@ -559,32 +555,25 @@ fn run_domain(entry: &Entry) -> DomainResult {
         }
         Stage::OuterWall => {
             contract_violation(key, "translate", "hang past the 60 s anti-hang wall")
-        },
+        }
         Stage::Panicked => contract_violation(key, "translate", "stage thread panicked"),
     };
 
     // Stage 4: solve — solve_hddl_inner's exact tail (adapt_problem +
     // solve_planning_type(Fond)), 30 s PlannerLimits wall, 120 s anti-hang
     // watchdog.
-    match run_stage(
-        ir_problem,
-        Duration::from_secs(120),
-        |ir| {
-            let request = UniversalPlanningRequest {
-                planning_type: PlanningType::Fond,
-                problem: adapt_problem(ir),
-                limits: PlannerLimits {
-                    max_wall_ms: SOLVE_WALL_MS,
-                    ..PlannerLimits::default()
-                },
-            };
-            solve_planning_type(&request).map_err(StageError::Solve)
-        },
-    ) {
-        Stage::Done {
-            wall_ms,
-            out: plan,
-        } => {
+    match run_stage(ir_problem, Duration::from_secs(120), |ir| {
+        let request = UniversalPlanningRequest {
+            planning_type: PlanningType::Fond,
+            problem: adapt_problem(ir),
+            limits: PlannerLimits {
+                max_wall_ms: SOLVE_WALL_MS,
+                ..PlannerLimits::default()
+            },
+        };
+        solve_planning_type(&request).map_err(StageError::Solve)
+    }) {
+        Stage::Done { wall_ms, out: plan } => {
             if !plan.solved {
                 contract_violation(
                     key,
@@ -612,9 +601,7 @@ fn run_domain(entry: &Entry) -> DomainResult {
             };
             finish(r, label, verbatim)
         }
-        Stage::OuterWall => {
-            contract_violation(key, "solve", "hang past the 120 s anti-hang wall")
-        },
+        Stage::OuterWall => contract_violation(key, "solve", "hang past the 120 s anti-hang wall"),
         Stage::Panicked => contract_violation(key, "solve", "stage thread panicked"),
     }
 }
@@ -655,69 +642,106 @@ fn write_results_md(results: &[DomainResult]) -> std::path::PathBuf {
 
     let solved: Vec<&DomainResult> = results.iter().filter(|r| r.label == "SOLVED").collect();
     let noplan: Vec<&DomainResult> = results.iter().filter(|r| r.label == "NOPLAN").collect();
-    let limits: Vec<&DomainResult> =
-        results.iter().filter(|r| r.label.starts_with("LIMIT:")).collect();
-    let gaps: Vec<&DomainResult> = results.iter().filter(|r| r.label.starts_with("GAP:")).collect();
+    let limits: Vec<&DomainResult> = results
+        .iter()
+        .filter(|r| r.label.starts_with("LIMIT:"))
+        .collect();
+    let gaps: Vec<&DomainResult> = results
+        .iter()
+        .filter(|r| r.label.starts_with("GAP:"))
+        .collect();
 
-    let sum = |f: fn(&DomainResult) -> u128| -> u128 {
-        results.iter().map(f).sum()
-    };
+    let sum = |f: fn(&DomainResult) -> u128| -> u128 { results.iter().map(f).sum() };
 
     let mut md = String::new();
     md.push_str("# IPC-2023 full sweep — `solve_hddl` staged (43 domains)\n\n");
-    md.push_str("Ticket `fond-htn-27-bench-ipc-full-sweep`, wave `v26.9.17-fond-htn-hardening`.\n\n");
-    md.push_str(&format!("- machine: {cpu} (`sysctl -n machdep.cpu.brand_string`)\n"));
+    md.push_str(
+        "Ticket `fond-htn-27-bench-ipc-full-sweep`, wave `v26.9.17-fond-htn-hardening`.\n\n",
+    );
+    md.push_str(&format!(
+        "- machine: {cpu} (`sysctl -n machdep.cpu.brand_string`)\n"
+    ));
     md.push_str(&format!("- date: {date} (UTC)\n"));
     md.push_str("- commands:\n");
-    md.push_str("  - `cargo test -p ferroplan --test ipc_sweep` (sampled 6-domain heartbeat, exit 0)\n");
-    md.push_str("  - `cargo test -p ferroplan --test ipc_sweep -- --ignored` (this full sweep, exit 0)\n");
-    md.push_str("- corpus: all 43 IPC-2023 hierarchical-track domains, verbatim competition data \
+    md.push_str(
+        "  - `cargo test -p ferroplan --test ipc_sweep` (sampled 6-domain heartbeat, exit 0)\n",
+    );
+    md.push_str(
+        "  - `cargo test -p ferroplan --test ipc_sweep -- --ignored` (this full sweep, exit 0)\n",
+    );
+    md.push_str(
+        "- corpus: all 43 IPC-2023 hierarchical-track domains, verbatim competition data \
                  (`domain.hddl` + first-listed problem each), vendored under \
-                 `tests/fixtures/ipc-sweep/` (≈1.2 MB, under the 2 MB ticket cap).\n");
-    md.push_str("- stage budgets (per-stage, the ticket's staged spec — NOT solve_hddl's \
-                 cumulative watchdog):\n");
+                 `tests/fixtures/ipc-sweep/` (≈1.2 MB, under the 2 MB ticket cap).\n",
+    );
+    md.push_str(
+        "- stage budgets (per-stage, the ticket's staged spec — NOT solve_hddl's \
+                 cumulative watchdog):\n",
+    );
     md.push_str("  - parse: 10 s outer wall (the parser has no internal cap);\n");
-    md.push_str("  - ground: `GroundingLimits::default()` — exactly what `solve_hddl_inner` \
+    md.push_str(
+        "  - ground: `GroundingLimits::default()` — exactly what `solve_hddl_inner` \
                  passes (10 s wall per grounding phase; 10k ground actions/methods) — under a \
                  60 s anti-hang watchdog; where an internal cap binds, its verbatim refusal is \
-                 the recorded result;\n");
-    md.push_str("  - translate: `TranslateLimits::default()` — exactly what `solve_hddl_inner` \
+                 the recorded result;\n",
+    );
+    md.push_str(
+        "  - translate: `TranslateLimits::default()` — exactly what `solve_hddl_inner` \
                  passes (10 s wall / 200k states / depth 64) — under a 60 s anti-hang watchdog. \
                  Ticket 23 was NOT landed on this branch, so the internal 10 s translate wall is \
                  the binding translate budget and `LIMIT:translate-wall` rows carry its verbatim \
-                 `limit 10000ms` refusal, per the ticket;\n");
-    md.push_str("  - solve: `adapt_problem` + `solve_planning_type(PlanningType::Fond)` (the \
+                 `limit 10000ms` refusal, per the ticket;\n",
+    );
+    md.push_str(
+        "  - solve: `adapt_problem` + `solve_planning_type(PlanningType::Fond)` (the \
                  exact `solve_hddl_inner` tail), `PlannerLimits::max_wall_ms = 30000`, under a \
-                 120 s anti-hang watchdog.\n");
-    md.push_str("- `objects` = problem `:objects` entries; `ground actions`/`ground methods` = \
+                 120 s anti-hang watchdog.\n",
+    );
+    md.push_str(
+        "- `objects` = problem `:objects` entries; `ground actions`/`ground methods` = \
                  grounded IR instance counts (`GroundingLimits` caps apply to these); walls in \
                  milliseconds; `-` = stage skipped after an earlier refusal, or (in the count \
-                 columns) a grounding that refused at a cap/validation before counts existed.\n");
-    md.push_str("- Contract: no domain panicked, no garbage `Ok(solved=false)`, no hang past an \
+                 columns) a grounding that refused at a cap/validation before counts existed.\n",
+    );
+    md.push_str(
+        "- Contract: no domain panicked, no garbage `Ok(solved=false)`, no hang past an \
                  anti-hang wall — the sweep test exits 0 iff all 43 outcomes are honest typed \
-                 answers (SOLVED / NOPLAN / LIMIT / GAP).\n\n");
+                 answers (SOLVED / NOPLAN / LIMIT / GAP).\n\n",
+    );
     md.push_str("| domain | objects | ground actions | ground methods | parse ms | ground ms | translate ms | solve ms | total ms | outcome | plan len | policy entries | flags |\n");
     md.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
     for r in results {
-        let cell = |v: u128, ran: bool| if ran {
-            v.to_string()
-        } else {
-            "-".to_string()
-        };
+        let cell = |v: u128, ran: bool| if ran { v.to_string() } else { "-".to_string() };
         md.push_str(&format!(
             "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             r.key,
             r.objects,
-            if r.ground_done { r.gactions.to_string() } else { "-".into() },
-            if r.ground_done { r.gmethods.to_string() } else { "-".into() },
+            if r.ground_done {
+                r.gactions.to_string()
+            } else {
+                "-".into()
+            },
+            if r.ground_done {
+                r.gmethods.to_string()
+            } else {
+                "-".into()
+            },
             cell(r.parse_ms, true),
             cell(r.ground_ms, r.ground_ran),
             cell(r.translate_ms, r.translate_ran),
             cell(r.solve_ms, r.solve_ran),
             r.total_ms,
             r.label,
-            if r.label == "SOLVED" { r.plan_len.to_string() } else { "-".into() },
-            if r.label == "SOLVED" { r.policy_entries.to_string() } else { "-".into() },
+            if r.label == "SOLVED" {
+                r.plan_len.to_string()
+            } else {
+                "-".into()
+            },
+            if r.label == "SOLVED" {
+                r.policy_entries.to_string()
+            } else {
+                "-".into()
+            },
             r.flags,
         ));
     }
@@ -735,10 +759,7 @@ fn write_results_md(results: &[DomainResult]) -> std::path::PathBuf {
     ));
 
     md.push_str("## Coverage (honest)\n\n");
-    md.push_str(&format!(
-        "End-to-end solved: **{}/43**.\n\n",
-        solved.len()
-    ));
+    md.push_str(&format!("End-to-end solved: **{}/43**.\n\n", solved.len()));
     md.push_str(&format!(
         "Refused by limits: **{}** — by kind: {}\n\n",
         limits.len(),
@@ -764,7 +785,10 @@ fn write_results_md(results: &[DomainResult]) -> std::path::PathBuf {
             noplan.len()
         ));
     }
-    md.push_str(&format!("Pipeline gaps: **{}** — verbatim first error each:\n\n", gaps.len()));
+    md.push_str(&format!(
+        "Pipeline gaps: **{}** — verbatim first error each:\n\n",
+        gaps.len()
+    ));
     for r in &gaps {
         md.push_str(&format!("- `{}` ({}): `{}`\n", r.key, r.label, r.verbatim));
     }

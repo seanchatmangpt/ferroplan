@@ -83,8 +83,8 @@ use ferroplan_hddl::translate::{translate, PlanningProblem as TrProblem, Transla
 use ferroplan_hddl::validate::{validate_domain, validate_problem};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hasher;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -298,7 +298,10 @@ fn fp_verdict(pair: &Pair) -> (FpVerdict, f64) {
                  panic in disguise, never an acceptable outcome"
             ),
             other => {
-                assert!(!other.to_string().is_empty(), "seed {seed}: empty HddlError");
+                assert!(
+                    !other.to_string().is_empty(),
+                    "seed {seed}: empty HddlError"
+                );
                 FpVerdict::TypedLimit {
                     detail: other.to_string(),
                 }
@@ -342,10 +345,17 @@ fn independent_translate(pair: &Pair) -> Option<TrProblem> {
 /// Outcome closure (same contract as `hddl_fuzz_roundtrip.rs`): every
 /// outcome of every policy entry lands in a policy state or a goal state.
 fn check_policy_outcome_closure(seed: u64, tp: &TrProblem, plan: &UniversalPlan) {
-    let facts_by_state: BTreeMap<&str, &BTreeSet<String>> =
-        tp.states.iter().map(|s| (s.id.as_str(), &s.facts)).collect();
+    let facts_by_state: BTreeMap<&str, &BTreeSet<String>> = tp
+        .states
+        .iter()
+        .map(|s| (s.id.as_str(), &s.facts))
+        .collect();
     let empty: &BTreeSet<String> = &BTreeSet::new();
-    let is_goal = |state: &str| tp.goal.facts.is_subset(facts_by_state.get(state).unwrap_or(&empty));
+    let is_goal = |state: &str| {
+        tp.goal
+            .facts
+            .is_subset(facts_by_state.get(state).unwrap_or(&empty))
+    };
     let in_policy: BTreeSet<&str> = plan.policy.iter().map(|e| e.state.as_str()).collect();
     for entry in &plan.policy {
         let edges: Vec<_> = tp
@@ -622,9 +632,7 @@ fn classify(fp: &FpVerdict, ko: &KoVerdict) -> &'static str {
 /// A both-clean divergence: two engines that each consumed the input and
 /// each returned a solvability verdict — disagreeing.
 fn both_clean_divergence(fp: &FpVerdict, ko: &KoVerdict) -> bool {
-    fp.solvability().is_some()
-        && ko.solvability().is_some()
-        && classify(fp, ko) == "divergence"
+    fp.solvability().is_some() && ko.solvability().is_some() && classify(fp, ko) == "divergence"
 }
 
 // ---------------------------------------------------------------------------
@@ -764,7 +772,11 @@ fn ledger_tripwire(pairs: &[Pair], live: &[&FpVerdict]) {
 
     let mut tolerated = 0usize;
     for (entry, (pair, lv)) in ledger.pairs.iter().zip(pairs.iter().zip(live)) {
-        assert_eq!(entry.seed, pair.seed, "ledger pair {} seed mismatch", entry.i);
+        assert_eq!(
+            entry.seed, pair.seed,
+            "ledger pair {} seed mismatch",
+            entry.i
+        );
         let recorded = entry.ferroplan.status.as_str();
         if recorded == lv.status() {
             continue;
@@ -787,7 +799,9 @@ fn ledger_tripwire(pairs: &[Pair], live: &[&FpVerdict]) {
             "pair {} seed {}: ledger recorded ferroplan {recorded} but the live \
              run now says {} — a verdict flip on the same seed is a behavior \
              change, never papered over (live detail: {lv:?})",
-            entry.i, pair.seed, lv.status()
+            entry.i,
+            pair.seed,
+            lv.status()
         );
     }
     if tolerated > 0 {
@@ -814,11 +828,7 @@ fn minimize_divergence(seed: u64, start: Sizes, cache: &mut BTreeMap<String, Ora
     }
 }
 
-fn divergence_reproduces(
-    seed: u64,
-    sizes: Sizes,
-    cache: &mut BTreeMap<String, OracleRun>,
-) -> bool {
+fn divergence_reproduces(seed: u64, sizes: Sizes, cache: &mut BTreeMap<String, OracleRun>) -> bool {
     let (domain_src, problem_src) = draw_valid(seed, sizes);
     let pair = Pair {
         i: usize::MAX, // minimization probe; not a ledger row
@@ -868,9 +878,8 @@ fn differential_full_with_oracle() {
             .unwrap_or_else(|e| panic!("seed {}: VALID draw failed to parse: {e}", pair.seed));
         validate_domain(&d)
             .unwrap_or_else(|e| panic!("seed {}: VALID draw failed validation: {e}", pair.seed));
-        validate_problem(&d, &p).unwrap_or_else(|e| {
-            panic!("seed {}: VALID draw failed validation: {e}", pair.seed)
-        });
+        validate_problem(&d, &p)
+            .unwrap_or_else(|e| panic!("seed {}: VALID draw failed validation: {e}", pair.seed));
     }
 
     let oracle_offline = !oracle_available();
@@ -993,7 +1002,9 @@ fn differential_full_with_oracle() {
         for (seed, sizes) in &new_divergences {
             let min_sizes = minimize_divergence(*seed, *sizes, &mut cache);
             let paths = finding_fixtures(*seed, min_sizes);
-            eprintln!("NEW DIVERGENCE seed {seed}: minimized sizes {min_sizes:?}, fixtures {paths:?}");
+            eprintln!(
+                "NEW DIVERGENCE seed {seed}: minimized sizes {min_sizes:?}, fixtures {paths:?}"
+            );
         }
         store_cache(&cache);
         let seeds: Vec<u64> = new_divergences.iter().map(|(s, _)| *s).collect();
@@ -1036,8 +1047,7 @@ fn differential_full_with_oracle() {
     };
     let path = Path::new(LEDGER_PATH);
     std::fs::create_dir_all(path.parent().unwrap()).expect("create ledger dir");
-    std::fs::write(path, serde_json::to_string_pretty(&ledger).unwrap())
-        .expect("write ledger");
+    std::fs::write(path, serde_json::to_string_pretty(&ledger).unwrap()).expect("write ledger");
     eprintln!("ledger written: {LEDGER_PATH}");
 }
 
@@ -1059,7 +1069,11 @@ fn known_divergence_repro(shape: &str) {
     for k in KNOWN_DIVERGENCES.iter().filter(|k| k.shape == shape) {
         // Pinned at the minimized sizes when the koala leg there is stable,
         // otherwise at the full draw size (see KnownDivergence::min_stable).
-        let sizes = if k.min_stable { k.sizes } else { sizes_for(k.seed) };
+        let sizes = if k.min_stable {
+            k.sizes
+        } else {
+            sizes_for(k.seed)
+        };
         let (domain_src, problem_src) = draw_valid(k.seed, sizes);
         let pair = Pair {
             i: usize::MAX, // probe, not a ledger row
@@ -1099,16 +1113,16 @@ fn known_divergence_repro(shape: &str) {
                     "seed {}: shape {} not reproduced on attempt {} \
                      (ferroplan={:?} oracle={:?}) — the oracle search flipped; \
                      retrying live",
-                    k.seed,
-                    shape,
-                    attempt,
-                    fp_sol,
-                    ko_sol
+                    k.seed, shape, attempt, fp_sol, ko_sol
                 );
             }
         }
         let (ko, ko_wall) = last.expect("at least one oracle attempt");
-        let pinned_at = if k.min_stable { "minimized" } else { "full draw" };
+        let pinned_at = if k.min_stable {
+            "minimized"
+        } else {
+            "full draw"
+        };
         if !(fp_sol.is_some() && ko_sol.is_some() && flips < 3) {
             failures.push(format!(
                 "seed {}: known divergence no longer reproduces at {} sizes \

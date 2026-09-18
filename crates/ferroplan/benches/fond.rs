@@ -37,8 +37,8 @@
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use ferroplan::{
-    solve_hddl, solve_planning_type, PlannerLimits, PlanningProblem, PlanningType,
-    UniversalGoal, UniversalPlanningRequest, UniversalState, UniversalTransition,
+    solve_hddl, solve_planning_type, PlannerLimits, PlanningProblem, PlanningType, UniversalGoal,
+    UniversalPlanningRequest, UniversalState, UniversalTransition,
 };
 use ferroplan_hddl::grounder::{ground, GroundingLimits};
 use ferroplan_hddl::parser::{parse_domain, parse_problem};
@@ -304,8 +304,11 @@ fn bench_solve_hddl(c: &mut Criterion) {
         let name = dir.replace('-', "_");
         g.bench_function(format!("{name}_e2e"), |b| {
             b.iter(|| {
-                let result =
-                    solve_hddl(black_box(&domain), black_box(&problem), black_box(&limits()));
+                let result = solve_hddl(
+                    black_box(&domain),
+                    black_box(&problem),
+                    black_box(&limits()),
+                );
                 black_box(result.is_ok())
             })
         });

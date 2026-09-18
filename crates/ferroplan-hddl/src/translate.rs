@@ -553,8 +553,8 @@ fn apply_effect_branch(
         next_facts.insert(a.clone());
     }
     for cond in &branch.conditional {
-        let holds = cond.pos_cond.is_subset(source)
-            && cond.neg_cond.iter().all(|f| !source.contains(f));
+        let holds =
+            cond.pos_cond.is_subset(source) && cond.neg_cond.iter().all(|f| !source.contains(f));
         if holds {
             for d in &cond.del {
                 next_facts.remove(d);
@@ -820,11 +820,8 @@ fn frontier_marker(f: &Frontier) -> String {
             encode_field(&f.pending[*addr], &mut out);
         }
         out.push(';');
-        let mut edges: Vec<(usize, usize)> = f
-            .order
-            .iter()
-            .map(|(b, a)| (ranks[b], ranks[a]))
-            .collect();
+        let mut edges: Vec<(usize, usize)> =
+            f.order.iter().map(|(b, a)| (ranks[b], ranks[a])).collect();
         edges.sort_unstable();
         for (b, a) in edges {
             encode_field(&b.to_string(), &mut out);
@@ -1146,13 +1143,12 @@ pub fn translate(
                         // there is nothing to retry, and not discharging the
                         // task would strand networks behind a mandatory
                         // no-op forever.
-                        let outcome_frontier = if action.outcomes.len() > 1
-                            && next_facts == cs.facts
-                        {
-                            cs.frontier.clone()
-                        } else {
-                            spent_frontier.clone()
-                        };
+                        let outcome_frontier =
+                            if action.outcomes.len() > 1 && next_facts == cs.facts {
+                                cs.frontier.clone()
+                            } else {
+                                spent_frontier.clone()
+                            };
                         let new_cs = CompositeState {
                             facts: next_facts,
                             frontier: outcome_frontier,
@@ -1677,7 +1673,8 @@ mod tests {
         let domain = parse_domain(DOMAIN).unwrap();
         let problem = parse_problem(PROBLEM).unwrap();
         let ir = ground(&domain, &problem, &GroundingLimits::default()).unwrap();
-        let plan = translate(&ir, &TranslateLimits::default()).expect("disjunctive goal translates");
+        let plan =
+            translate(&ir, &TranslateLimits::default()).expect("disjunctive goal translates");
 
         assert!(plan.goal.facts.contains("goal:reached"));
         // A real, fully-decomposed reachable state with at(l2) (the whole
@@ -2466,8 +2463,8 @@ mod tests {
         let domain = crate::parser::parse_domain(METHOD_EFFECT_DOMAIN).unwrap();
         let problem = crate::parser::parse_problem(&method_effect_problem(true)).unwrap();
         let ir = crate::grounder::ground(&domain, &problem, &Default::default()).unwrap();
-        let plan = translate(&ir, &TranslateLimits::default())
-            .expect("method-effect domain translates");
+        let plan =
+            translate(&ir, &TranslateLimits::default()).expect("method-effect domain translates");
         // Decomposition happened: some reachable state gained `q(c)`...
         assert!(
             plan.states.iter().any(|s| s.facts.contains("q(c)")),
@@ -2489,11 +2486,9 @@ mod tests {
     fn htn_parameter_bindings_become_one_initial_state_each() {
         let domain = crate::parser::parse_domain(METHOD_EFFECT_DOMAIN).unwrap();
         for (params, expected_initials) in [(true, 1usize), (false, 1)] {
-            let problem =
-                crate::parser::parse_problem(&method_effect_problem(params)).unwrap();
+            let problem = crate::parser::parse_problem(&method_effect_problem(params)).unwrap();
             let ir = crate::grounder::ground(&domain, &problem, &Default::default()).unwrap();
-            let plan = translate(&ir, &TranslateLimits::default())
-                .expect("problem translates");
+            let plan = translate(&ir, &TranslateLimits::default()).expect("problem translates");
             assert_eq!(
                 plan.initial_states.len(),
                 expected_initials,

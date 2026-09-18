@@ -258,16 +258,19 @@ fn sample_distinct(rng: &mut SplitMix64, n: usize, k: usize) -> Vec<usize> {
 /// - mode 2 "risky escape": a closed self-loop plus an action whose outcomes
 ///   are {goal, unsafe} — the FOUND_BUG_1 shape (forcing the unsafe outcome
 ///   is required, entering the loop is not a solution).
-fn generate(rng: &mut SplitMix64, decoy: bool, states_span: u64, actions_span: u64) -> PlanningProblem {
+fn generate(
+    rng: &mut SplitMix64,
+    decoy: bool,
+    states_span: u64,
+    actions_span: u64,
+) -> PlanningProblem {
     let states_n = 3 + rng.below(states_span) as usize;
     let actions_n = 2 + rng.below(actions_span) as usize;
     let goal_idx = 1 + rng.below((states_n - 1) as u64) as usize; // != s0
 
     // Unsafe states: 0..=2 absorbing non-goal states (never s0).
     let mut unsafe_idx: Vec<usize> = Vec::new();
-    let unsafe_candidates = || -> Vec<usize> {
-        (1..states_n).filter(|&s| s != goal_idx).collect()
-    };
+    let unsafe_candidates = || -> Vec<usize> { (1..states_n).filter(|&s| s != goal_idx).collect() };
     if rng.chance(30) {
         let candidates = unsafe_candidates();
         if !candidates.is_empty() {
@@ -344,9 +347,24 @@ fn generate(rng: &mut SplitMix64, decoy: bool, states_span: u64, actions_span: u
                     Some(q) => {
                         let (m_r, m_q) = (500_000, 500_000);
                         transitions.push(edge(&format!("a{loop_action}"), &id, &id, m_r));
-                        transitions.push(edge(&format!("a{loop_action}"), &id, &format!("s{q}"), m_q));
-                        transitions.push(edge(&format!("a{loop_action}"), &format!("s{q}"), &id, m_r));
-                        transitions.push(edge(&format!("a{loop_action}"), &format!("s{q}"), &format!("s{q}"), m_q));
+                        transitions.push(edge(
+                            &format!("a{loop_action}"),
+                            &id,
+                            &format!("s{q}"),
+                            m_q,
+                        ));
+                        transitions.push(edge(
+                            &format!("a{loop_action}"),
+                            &format!("s{q}"),
+                            &id,
+                            m_r,
+                        ));
+                        transitions.push(edge(
+                            &format!("a{loop_action}"),
+                            &format!("s{q}"),
+                            &format!("s{q}"),
+                            m_q,
+                        ));
                     }
                     // … or a pure self-loop: closed, goal-free, the exact
                     // shape the pre-Phase-3 strong-cyclic fixpoint accepted.
@@ -359,10 +377,20 @@ fn generate(rng: &mut SplitMix64, decoy: bool, states_span: u64, actions_span: u
                     transitions.push(edge(&format!("a{loop_action}"), &id, &id, 1_000_000));
                     let advance = (loop_action + 1) % actions_n;
                     if rng.chance(50) {
-                        transitions.push(edge(&format!("a{advance}"), &id, &format!("s{goal_idx}"), 1_000_000));
+                        transitions.push(edge(
+                            &format!("a{advance}"),
+                            &id,
+                            &format!("s{goal_idx}"),
+                            1_000_000,
+                        ));
                     } else {
                         let (m_g, m_s) = (500_000, 500_000);
-                        transitions.push(edge(&format!("a{advance}"), &id, &format!("s{goal_idx}"), m_g));
+                        transitions.push(edge(
+                            &format!("a{advance}"),
+                            &id,
+                            &format!("s{goal_idx}"),
+                            m_g,
+                        ));
                         transitions.push(edge(&format!("a{advance}"), &id, &id, m_s));
                     }
                 }
@@ -372,7 +400,12 @@ fn generate(rng: &mut SplitMix64, decoy: bool, states_span: u64, actions_span: u
                     let advance = (loop_action + 1) % actions_n;
                     let u = unsafe_idx[0];
                     let (m_g, m_u) = (500_000, 500_000);
-                    transitions.push(edge(&format!("a{advance}"), &id, &format!("s{goal_idx}"), m_g));
+                    transitions.push(edge(
+                        &format!("a{advance}"),
+                        &id,
+                        &format!("s{goal_idx}"),
+                        m_g,
+                    ));
                     transitions.push(edge(&format!("a{advance}"), &id, &format!("s{u}"), m_u));
                 }
             }
@@ -454,10 +487,7 @@ fn generate(rng: &mut SplitMix64, decoy: bool, states_span: u64, actions_span: u
         states,
         initial_states,
         goal: goal_fact_goal(),
-        unsafe_states: unsafe_idx
-            .into_iter()
-            .map(|s| format!("s{s}"))
-            .collect(),
+        unsafe_states: unsafe_idx.into_iter().map(|s| format!("s{s}")).collect(),
         transitions,
         ..PlanningProblem::default()
     }
@@ -516,7 +546,9 @@ impl ScaleReference {
         for transition in &problem.transitions {
             let from = index[transition.from.as_str()];
             let to = index[transition.to.as_str()];
-            let action: usize = transition.action[1..].parse().expect("generated action name");
+            let action: usize = transition.action[1..]
+                .parse()
+                .expect("generated action name");
             raw.entry((from, action)).or_default().insert(to);
         }
         let mut groups = vec![Vec::new(); problem.states.len()];
@@ -525,7 +557,11 @@ impl ScaleReference {
         }
         ScaleReference {
             states_n: problem.states.len(),
-            ids: problem.states.iter().map(|state| state.id.clone()).collect(),
+            ids: problem
+                .states
+                .iter()
+                .map(|state| state.id.clone())
+                .collect(),
             goals,
             unsafe_states,
             initials: problem
@@ -590,11 +626,8 @@ impl ScaleReference {
                     }
                 }
             }
-            let mut goal_reaching: BTreeSet<usize> = self
-                .goals
-                .intersection(&region)
-                .copied()
-                .collect();
+            let mut goal_reaching: BTreeSet<usize> =
+                self.goals.intersection(&region).copied().collect();
             let mut queue: VecDeque<usize> = goal_reaching.iter().copied().collect();
             while let Some(t) = queue.pop_front() {
                 for &s in &rev[t] {
@@ -1160,7 +1193,8 @@ fn fond_solver_matches_independent_reference_at_scale() {
         // (c) determinism: same input twice => identical output.
         let second = solve_fond(&problem);
         assert_eq!(
-            &first, &second,
+            &first,
+            &second,
             "{}\nMISMATCH: solve output is not deterministic across runs",
             repro()
         );
@@ -1252,7 +1286,8 @@ fn reference_agrees_with_policy_enumeration_on_small_slice() {
         let expected = Enumeration::build(&problem).verdict();
         let actual = ScaleReference::build(&problem).verdict();
         assert_eq!(
-            expected, actual,
+            expected,
+            actual,
             "instance {instance}/{CROSSCHECK_INSTANCES}: enumeration and \
              label-correcting reference disagree\n{}",
             serde_json::to_string_pretty(&problem).expect("problem serializes")
@@ -1409,7 +1444,10 @@ fn reference_agrees_with_hand_computed_semantics() {
         initial_states: vec!["s0".to_owned()],
         goal: goal_fact_goal(),
         unsafe_states: BTreeSet::from(["u".to_owned()]),
-        transitions: vec![edge("a0", "s0", "u", 1_000_000), edge("a0", "u", "u", 1_000_000)],
+        transitions: vec![
+            edge("a0", "s0", "u", 1_000_000),
+            edge("a0", "u", "u", 1_000_000),
+        ],
         ..PlanningProblem::default()
     };
     assert_eq!(ScaleReference::build(&doomed).verdict(), (false, false));
@@ -1444,7 +1482,10 @@ fn reference_agrees_with_hand_computed_semantics() {
         ],
         ..PlanningProblem::default()
     };
-    assert_eq!(ScaleReference::build(&safe_alternative).verdict(), (true, true));
+    assert_eq!(
+        ScaleReference::build(&safe_alternative).verdict(),
+        (true, true)
+    );
 
     // Dead sink (non-goal state with no actions): unsolvable.
     let dead_sink = PlanningProblem {
@@ -1482,7 +1523,10 @@ fn reference_agrees_with_hand_computed_semantics() {
         ],
         ..PlanningProblem::default()
     };
-    assert_eq!(ScaleReference::build(&risky_escape).verdict(), (false, false));
+    assert_eq!(
+        ScaleReference::build(&risky_escape).verdict(),
+        (false, false)
+    );
 
     // Multi-initial, both initials win (s0 by retry, s1 by chain):
     // strong-cyclic only (s0 needs its retry loop).
@@ -1497,7 +1541,10 @@ fn reference_agrees_with_hand_computed_semantics() {
         ],
         ..PlanningProblem::default()
     };
-    assert_eq!(ScaleReference::build(&multi_both_win).verdict(), (false, true));
+    assert_eq!(
+        ScaleReference::build(&multi_both_win).verdict(),
+        (false, true)
+    );
 
     // Multi-initial, one initial is a closed goal-free self-loop: the ALL-
     // initials rule makes the whole instance unsolvable.
@@ -1512,7 +1559,10 @@ fn reference_agrees_with_hand_computed_semantics() {
         ],
         ..PlanningProblem::default()
     };
-    assert_eq!(ScaleReference::build(&multi_one_dead).verdict(), (false, false));
+    assert_eq!(
+        ScaleReference::build(&multi_one_dead).verdict(),
+        (false, false)
+    );
 
     // Same dead self-loop state NOT initial: solvable again (strong-cyclic
     // only, via s0's retry).

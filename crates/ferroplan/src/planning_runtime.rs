@@ -1174,9 +1174,9 @@ fn fond_policy_strong_cyclic(
                         && !outcomes.is_empty()
                         && outcomes.iter().all(|edge| surviving.contains(&edge.to))
                         && state_rank.is_some_and(|rank| {
-                            outcomes.iter().any(|edge| {
-                                ranks.get(&edge.to).copied().is_some_and(|r| r < rank)
-                            })
+                            outcomes
+                                .iter()
+                                .any(|edge| ranks.get(&edge.to).copied().is_some_and(|r| r < rank))
                         })
                 });
                 match advancing {

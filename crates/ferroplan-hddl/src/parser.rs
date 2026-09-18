@@ -87,7 +87,11 @@ impl fmt::Display for ParseError {
             Self::NestedProbabilisticBlock(msg) => {
                 write!(f, "nested ':probabilistic' block: {msg}")
             }
-            Self::NestingTooDeep { line, column, budget } => write!(
+            Self::NestingTooDeep {
+                line,
+                column,
+                budget,
+            } => write!(
                 f,
                 "nesting too deep: s-expression nesting at line {line}, column {column} \
                  exceeds the parser depth budget of {budget}"
@@ -2150,7 +2154,11 @@ mod tests {
         // plain `parse_domain` entry point), not an abort.
         let err = parse_domain(&deep_and_domain(1000)).unwrap_err();
         match &err {
-            ParseError::NestingTooDeep { line, column, budget } => {
+            ParseError::NestingTooDeep {
+                line,
+                column,
+                budget,
+            } => {
                 assert_eq!(*budget, DEFAULT_MAX_PARSE_DEPTH);
                 assert!(
                     *line >= 1 && *column >= 1,
