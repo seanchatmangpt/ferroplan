@@ -41,3 +41,4 @@ Deliverables: `crates/ferroplan-hddl/src/translate.rs` (seam fix + 2 unit tests)
 (no-change outcome self-loops on the executing state),
 `crates/ferroplan/tests/fixtures/fond-htn/oracle-goldens.json` (agreement ledger
 healed: SOLVED/SOLVED, oracle artifact /tmp/fond-oracle/runs/20260917T214753Z-domain-problem-27522).
+| 2026-09-18T23:30:00Z | ALIVE | merged b06b907 into wave6/land-v26917 (merge 0e156c3, A7) | gates re-run in landing worktree: fond_htn_oracle 9/9 (1 documented external ignore), fond_htn_micro 9/9, fond_flat_oracle 4/4, exit 0 | none (A7) |

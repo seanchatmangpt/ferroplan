@@ -23,3 +23,4 @@ Gates: 30 new verdict records + summary file exists.
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T02:50:00Z | BLOCKED | none | — | all |
+| 2026-09-18T23:30:00Z | PARTIAL_ALIVE (downgraded by observation) | none (/tmp only) | was ALIVE 03:38Z per History (30/30 runs, 61 recs, summary file). THIS SESSION: /tmp wiped — /tmp/fond-oracle, /tmp/fond-review, /tmp/fond-corpus ALL ABSENT; deliverables unverifiable, no repo files to merge | coordinator: rebuild oracle harness (context build notes) if verdicts must survive; otherwise record the wipe in the wave receipt |
