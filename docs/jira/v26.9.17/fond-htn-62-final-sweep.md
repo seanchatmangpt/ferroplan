@@ -22,3 +22,4 @@ Gates: your sweep completed with zero UNEXPECTED failures (expected: documented 
 | ts | standing | branch+SHA | gates+exits | remaining |
 |---|---|---|---|---|
 | 2026-09-18T02:50:00Z | BLOCKED | test/final-sweep @ 75870de | — | all |
+| 2026-09-18T02:51:29Z | PARTIAL_ALIVE | test/final-sweep @ 55e1997 | sweep started; main HEAD at run time 6cacbda (docs-only drift past base, no rerun needed); R1 big run launched | R1..R6, _WAVE6-SWEEP.md, commit |
