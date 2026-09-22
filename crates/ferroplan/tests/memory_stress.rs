@@ -602,18 +602,24 @@ fn case_binding_product_8p() -> CaseOutcome {
         matches!(err, GroundError::LimitExceeded(_)),
         "expected typed GroundError::LimitExceeded, got {err:?}"
     );
-    // End-to-end: the same refusal must survive the solve_hddl watchdog
-    // wrapper as a typed HddlError::Ground (never a panic/kill).
+    // End-to-end (re-pinned by ticket fond-htn-60): the solve pipeline runs
+    // hierarchical task-relevance pruning, and `move8` is named by NO method
+    // or root subtask — the root task `run` decomposes (via `m-run`) to the
+    // empty network. So the 16.7M-instance schema is provably irrelevant,
+    // the relevance pass walks its bindings lazily (bounded, no OOM — the
+    // property this stress case guards) and keeps zero instances, and the
+    // honest end-to-end answer changed from a typed ground refusal to a
+    // solved empty-decomposition plan. Bounded exit, correct answer, still
+    // no panic/kill/OOM.
     let e2e = solve_hddl(&domain_src, &problem_src, &PlannerLimits::default())
-        .err()
-        .expect("end-to-end solve must refuse too");
+        .expect("end-to-end solve must stay bounded (solved via the empty decomposition)");
     assert!(
-        matches!(e2e, HddlError::Ground(_)),
-        "expected typed HddlError::Ground, got {e2e:?}"
+        e2e.solved,
+        "root task decomposes to the empty network: the plan must solve"
     );
     CaseOutcome::refused(
         "ground",
-        format!("{err} (end-to-end: {e2e})"),
+        format!("{err} (end-to-end since fond-htn-60: solved, relevant instances = 0)"),
         product,
     )
     .with_elapsed(elapsed)

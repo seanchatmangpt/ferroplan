@@ -467,6 +467,7 @@ fn tight_ground_limits() -> GroundingLimits {
         max_ground_actions: 200,
         max_ground_methods: 200,
         prune_unreachable: false,
+        prune_irrelevant: false,
         max_wall: Some(Duration::from_secs(2)),
     }
 }

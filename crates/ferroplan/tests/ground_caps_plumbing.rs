@@ -1,5 +1,5 @@
-//! Grounding-capacity plumbing through the public `solve_hddl` API (ticket
-//! `fond-htn-43-ground-caps-plumbing`).
+//! Grounding-capacity plumbing through the public `solve_hddl` API (tickets
+//! `fond-htn-43-ground-caps-plumbing` and `fond-htn-60-grounding-prune`).
 //!
 //! Before this plumbing, `solve_hddl_inner` hard-coded
 //! `GroundingLimits::default()` (10 000 ground actions / 10 000 ground
@@ -11,6 +11,20 @@
 //! instance caps scale as `max_states / 10` — calibrated so
 //! `PlannerLimits::default()` reproduces the historical envelope exactly —
 //! and the internal ground wall follows `max_wall_ms` (0 = unbounded).
+//!
+//! Ticket fond-htn-60 changed WHAT the caps bound on this pipeline:
+//! `solve_hddl` now runs hierarchical task-relevance pruning
+//! (`prune_irrelevant`), so the caps bind the *relevant* ground-instance
+//! count — instances on some decomposition path from the root task
+//! network(s) — not the raw combinatorial count. A domain whose RAW count
+//! crosses 10 000 but whose RELEVANT count is tiny now grounds and solves
+//! at default limits (previously a verbatim cap refusal); this is sound
+//! because relevance pruning provably cannot change the translated problem
+//! (see the grounder's module docs), and it is exactly the lever that
+//! brings the 16 stuck IPC-2023 domains (true raw counts > 1 000 000) back
+//! under the default envelope. The caps still bind — on the relevant
+//! count — when a domain genuinely demands more instances than the caller
+//! declared appetite allows. Both directions are pinned below.
 //!
 //! The probe fixture below is hand-authored (no external provenance) and
 //! deliberately shaped so grounding is the binding stage while everything
@@ -71,23 +85,62 @@ fn probe_problem(n: usize) -> String {
     )
 }
 
-/// The historical default envelope, reproduced: `PlannerLimits::default()`
-/// grounds `100_000 / 10 = 10_000`-capped, so a domain whose ground-action
-/// count crosses 10 000 must still refuse — on the *action* cap, verbatim.
+/// The raw combinatorial count alone no longer refuses (ticket fond-htn-60,
+/// re-pinned from fond-htn-43's "raw count > 10k refuses"): this probe's raw
+/// grounding is 105² = 11 025 actions + 22 050 methods — both above the
+/// default 10 000 caps — but its root network demands exactly one
+/// `probe-task(l0,l1)`, so the RELEVANT count is 1 action + 2 methods and
+/// the domain now grounds and solves at plain `PlannerLimits::default()`.
+/// The pruned instances are provably irrelevant: no decomposition of the
+/// root network can ever call any `probe(li,lj)` with (li,lj) ≠ (l0,l1),
+/// and `translate` never leaves the decomposition closure, so the answer
+/// (modulo the cap refusal it replaces) is unchanged.
 #[test]
-fn default_limits_still_refuse_above_the_historical_10k_ground_action_cap() {
-    // 105² = 11 025 ground actions > the 10 000 default cap.
-    let result = solve_hddl(
+fn raw_count_above_the_cap_no_longer_refuses_when_the_relevant_count_fits() {
+    let plan = solve_hddl(
         &probe_domain(),
         &probe_problem(105),
         &PlannerLimits::default(),
+    )
+    .expect("raw 11k/22k counts but 1 relevant action: must solve at defaults");
+    assert!(plan.solved, "probe domain (relevant count 1) must solve");
+    assert!(
+        !plan.policy.is_empty(),
+        "solved probe domain must carry a non-empty policy"
     );
+}
+
+/// The caps still bind — on the RELEVANT count: with `:htn :parameters`,
+/// every admissible binding is its own root network, so demanding
+/// `probe-task(li,lj)` for all 105² pairs makes the relevant action count
+/// 11 025 > 10 000 and the default envelope must refuse, verbatim on the
+/// *action* cap (ground_actions enumerates before ground_methods, and the
+/// relevant method count is even higher, but the action cap fires first).
+#[test]
+fn caps_still_bind_when_the_relevant_count_exceeds_the_envelope() {
+    let objects = (0..105)
+        .map(|i| format!("l{i}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let problem = format!(
+        ";; hand-authored cap-probe problem (ticket fond-htn-60, relevant-count direction)\n\
+         (define (problem ground-caps-probe-demand-all)\n\
+         \x20 (:domain ground-caps-probe)\n\
+         \x20 (:objects {objects} - loc)\n\
+         \x20 (:htn :parameters (?x ?y - loc)\n\
+         \x20       :ordered-subtasks (and (g (probe-task ?x ?y))))\n\
+         \x20 (:init (ready))\n\
+         \x20 (:goal (and (done))))\n"
+    );
+    let result = solve_hddl(&probe_domain(), &problem, &PlannerLimits::default());
     match result {
         Err(HddlError::Ground(msg)) => assert!(
             msg.contains("max_ground_actions"),
-            "expected the ground-ACTION cap to bind, got: {msg}"
+            "expected the ground-ACTION cap to bind on the relevant count, got: {msg}"
         ),
-        other => panic!("expected a ground-cap refusal at default limits, got {other:?}"),
+        other => panic!(
+            "expected a ground-cap refusal when the RELEVANT count exceeds the envelope, got {other:?}"
+        ),
     }
 }
 
