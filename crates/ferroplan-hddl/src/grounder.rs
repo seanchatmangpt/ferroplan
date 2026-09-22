@@ -1884,7 +1884,25 @@ pub fn ground_actions_relevant(
 ) -> Result<Vec<GroundAction>, GroundError> {
     let start = Instant::now();
     let mut out = Vec::new();
+    // Lifted schema-level prune (FERROPLAN-26922-02). `relevance` is final
+    // by the time this runs, so the base names of its members bound every
+    // possibly-relevant ground task name. An action schema whose base name
+    // is absent from that set cannot contribute a single relevant instance —
+    // the per-binding filter below would reject every binding — so its whole
+    // Cartesian product is skipped instead of enumerated just to be
+    // rejected. Output is bit-identical to the per-binding filter alone;
+    // this only removes the wasted walk (16.7M irrelevant bindings in
+    // memory_stress's binding-product-8p were enough to burn the default
+    // 10 s grounding wall before the honest empty-decomposition answer).
+    let relevant_bases: BTreeSet<&str> = relevance
+        .relevant_tasks
+        .iter()
+        .map(|name| task_base_name(name))
+        .collect();
     for action in &domain.actions {
+        if !relevant_bases.contains(action.name.as_str()) {
+            continue;
+        }
         // `BindingIter` directly (see `ground_actions`'s comment on the same
         // pattern) so the limit check below never waits on a fully
         // materialized Cartesian product.

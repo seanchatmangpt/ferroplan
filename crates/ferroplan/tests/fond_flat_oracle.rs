@@ -9,8 +9,9 @@
 //!    explicit encoding,
 //! 2. ferroplan's `solve_hddl` (parse -> ground -> translate -> the same
 //!    dispatcher) on the HDDL pair,
-//! 3. the external koala oracle (`/tmp/fond-oracle/oracle-run.sh`, T01
-//!    flock-serialized runner) on the HDDL pair — its observed verdicts are
+//! 3. the external koala oracle (`oracle-run.sh` under `FERROPLAN_ORACLE_DIR`,
+//!    default `~/.cache/ferroplan`; T01 flock-serialized runner) on the HDDL
+//!    pair — its observed verdicts are
 //!    committed as FACTS in `fixtures/fond-flat/oracle-goldens.json` (wave
 //!    KOALA POLICY: golden JSON of oracle RESULTS is committable; no koala
 //!    code or files are vendored anywhere in this repo).
@@ -36,6 +37,9 @@
 //! `cyclic-only`, while `strong` instances solve in ~0.1s and `unsolvable`
 //! reports NOSOLUTION in ~0.15s. The goldens freeze these verdicts; this
 //! test asserts exactly that signature against the literature class.
+
+#[path = "common/external.rs"]
+mod external;
 
 use ferroplan::planning_runtime::{
     solve_planning_type, Goal, PlannerError, PlannerLimits, PlanningProblem,
@@ -472,9 +476,12 @@ fn goldens_cover_every_fixture_domain_exactly() {
 }
 
 /// Live re-falsification of the oracle goldens against the real external
-/// harness. Ignored by default: it requires `/tmp/fond-oracle/oracle-run.sh`
-/// (koala oracle, T01 flock-serialized runner) and burns real oracle wall
-/// time; run explicitly with `cargo test ... -- --ignored`.
+/// harness. Ignored by default: it requires the koala oracle harness
+/// (`oracle-run.sh`, T01 flock-serialized runner) under
+/// `FERROPLAN_ORACLE_DIR` (default `~/.cache/ferroplan`) and burns real
+/// oracle wall time; run explicitly with `cargo test ... -- --ignored`.
+/// When the harness is absent the test SKIPS BY NAME (loud note, exit 0), so
+/// the deep lane passes on a machine without it (FERROPLAN-26922-02).
 ///
 /// Cost control on purpose: the three fast verdicts (two SOLVED, one
 /// NOSOLUTION) re-run in well under a second each, plus ONE cyclic-only
@@ -482,9 +489,13 @@ fn goldens_cover_every_fixture_domain_exactly() {
 /// re-proving all five divergences on every explicit run would burn ~5
 /// minutes of shared, flock-serialized oracle capacity for no extra
 /// information (the goldens already froze the full sweep).
-#[ignore = "requires the external /tmp/fond-oracle harness; run explicitly with --ignored"]
+#[ignore = "requires the external koala oracle harness under FERROPLAN_ORACLE_DIR (default ~/.cache/ferroplan); skips by name when absent"]
 #[test]
 fn oracle_live_reruns_match_the_golden_signature() {
+    let runner = external::oracle_runner();
+    if !external::harness_present("koala oracle harness (oracle-run.sh)", &runner) {
+        return;
+    }
     for (domain, expected) in [
         ("faults-1bit", "SOLVED"),
         ("boolean-not", "SOLVED"),
@@ -508,7 +519,7 @@ fn oracle_live_reruns_match_the_golden_signature() {
 /// planning verdict — non-zero exit is a harness failure, which panics).
 fn live_oracle_status(domain: &str, mode: &str, timeout_sec: u32) -> String {
     let dir = fixture_dir(domain);
-    let output = std::process::Command::new("/tmp/fond-oracle/oracle-run.sh")
+    let output = std::process::Command::new(external::oracle_runner())
         .arg(dir.join("domain.hddl"))
         .arg(dir.join("problem.hddl"))
         .args(["--mode", mode, "--timeout", &timeout_sec.to_string()])

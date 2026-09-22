@@ -1,6 +1,6 @@
 {
   "blocked_by": [],
-  "checkpoint": "CE-GALL-35",
+  "checkpoint": "CE-GALL-35.reconcile-replay-promotion-0730",
   "command": "python3 -m pytest tests/test_cmca_frontier_allocation.py -v -m needs_cargo",
   "cwd": "plugins/chatman-ecosystem",
   "date": "2026-07-30",

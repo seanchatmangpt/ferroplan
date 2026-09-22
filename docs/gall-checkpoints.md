@@ -1453,6 +1453,35 @@ idempotent `closed: false` response instead of a fabricated second refusal.
   session_id) is covered by these two tests; `session_protocol.rs` has a
   separate, unrelated concurrency test for a different bug
 
+### Checkpoint 35 cycle evidence: Bash-write fence for non-manufacturing agents (CE-GALL-35.agent-tool-grants)
+
+Companion receipt to the CE-GALL-35 cycle (2026-07-29 gall-checkpoints
+lineage): `scripts/bash-write-fence.py` denies bare-redirect Bash writes from
+all 7 non-manufacturing agents, enforced by a real PreToolUse subprocess
+probe rather than model self-report. The receipt's witness test,
+`tests/test_bash_write_fence.py`, was lost in a reconciliation merge while
+the receipt survived; FERROPLAN-26922-02 restored the test byte-for-byte from
+lineage commit 8ae2f9f so the receipt's named witness executes again.
+
+**Current standing:** `PARTIAL_ALIVE` (`NO_REPLAY`)
+
+**Receipt:** `plugins/chatman-ecosystem/receipts/CE-GALL-35.agent-tool-grants.json`
+
+### Checkpoint 35 cycle evidence: canonical CMCA frontier replayed against the real binary (CE-GALL-35.reconcile-replay-promotion-0730)
+
+Companion receipt to the CE-GALL-35 cycle (2026-07-30): an isolated
+outside-session replay of `cmca_allocate` against a rebuilt `ferroplan-mcp`
+binary, pinning the true frontier allocation (planner-core top at
+0.26995849609375, correctness interior at 0.0) and refuting CE-GALL-28's
+recorded 8-hex witness as never having been a real capture. Its two named
+tests in `tests/test_cmca_frontier_allocation.py` were lost in the same
+reconciliation merges; FERROPLAN-26922-02 restored them from lineage commit
+f9ae077.
+
+**Current standing:** `PARTIAL_ALIVE` (`DEFECT_OPEN`)
+
+**Receipt:** `plugins/chatman-ecosystem/receipts/CE-GALL-35.reconcile-replay-promotion-0730.json`
+
 ---
 
 ## Goal Retarget and Cursor Advance (CE-GALL-36)
