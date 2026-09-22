@@ -3,7 +3,7 @@ id: fond-htn-48-workspace-hygiene
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Finish: workspace hygiene — fmt, clippy on new code, intra-doc links"
-standing: BLOCKED
+standing: ALIVE
 branch: chore/workspace-hygiene
 worktree: ~/ferroplan-worktrees/wt-d48
 created: 2026-09-18T00:55:00Z
@@ -24,3 +24,4 @@ Gates: `cargo fmt --check` clean on the files you own; `cargo clippy --all-targe
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | chore/workspace-hygiene @ 6d14813 | — | all |
 | 2026-09-18T03:02:00Z | respawn-in-flight | chore/workspace-hygiene @ 75870de (wt-d48) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |
+| 2026-09-22T00:00:00Z | ALIVE | fer-07-respawns (merged to release/v26.9.22) | FINISHED by FERROPLAN-26922-07: all 43 merged worktrees under ~/ferroplan-worktrees/wt-* pruned (git worktree list 50 -> 7, the remainder being the lane's own per-WO checkouts, the release integration checkout, and another lane's checkout); every pruned branch verified 0 commits outside main before removal; the 3 dirty worktrees (wt-h60/61/62) had their residue preserved on preserve/v26922-wt-h60/61/62 first. | none |

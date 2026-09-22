@@ -3,7 +3,7 @@ id: fond-htn-51-benchmarks-drift-check
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Finish: benchmarks drift-check — docs numbers re-derived from source files, fail-closed"
-standing: BLOCKED
+standing: CLOSED
 branch: docs/benchmarks-drift-check
 worktree: ~/ferroplan-worktrees/wt-d51
 created: 2026-09-18T00:55:00Z
@@ -24,3 +24,4 @@ Gates: `python3 scripts/verify_benchmarks.py` exit 0; `cargo test -p ferroplan -
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | docs/benchmarks-drift-check @ 6d14813 | — | all |
 | 2026-09-18T03:02:00Z | respawn-in-flight | docs/benchmarks-drift-check @ 75870de (wt-d51) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |
+| 2026-09-22T00:00:00Z | CLOSED | fer-07-respawns (merged to release/v26.9.22) | RETIRED, recorded as topology not silent pruning: the work was never started twice (wave-5 cut mid-flight, wave-6 respawn produced zero commits — worktree sat at 75870de); the v26.9.22 lane retires it rather than re-respawning a third time. Scope above stays the record of what a future cycle would owe. Worktree wt-d51 pruned (branch had 0 commits outside main). | none (re-open as a fresh ticket if the capability is still wanted) |

@@ -3,7 +3,7 @@ id: fond-htn-56-fixtures-dedupe
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Finish: fixtures footprint audit — byte-identical IPC copies deduped to one canonical set"
-standing: BLOCKED
+standing: CLOSED
 branch: chore/fixtures-dedupe
 worktree: ~/ferroplan-worktrees/wt-d56
 created: 2026-09-18T00:55:00Z
@@ -26,3 +26,4 @@ Gates: `cargo test -p ferroplan --test htn_oracle --test htn_ipc2023 && cargo te
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | chore/fixtures-dedupe @ 6d14813 | — | all |
 | 2026-09-18T03:02:00Z | respawn-in-flight | chore/fixtures-dedupe @ 75870de (wt-d56) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |
+| 2026-09-22T00:00:00Z | CLOSED | fer-07-respawns (merged to release/v26.9.22) | RETIRED, recorded as topology not silent pruning: the work was never started twice (wave-5 cut mid-flight, wave-6 respawn produced zero commits — worktree sat at 75870de); the v26.9.22 lane retires it rather than re-respawning a third time. Scope above stays the record of what a future cycle would owe. Worktree wt-d56 pruned (branch had 0 commits outside main). | none (re-open as a fresh ticket if the capability is still wanted) |

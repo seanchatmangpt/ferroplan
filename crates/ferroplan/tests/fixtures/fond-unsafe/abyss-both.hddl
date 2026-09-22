@@ -1,0 +1,20 @@
+; abyss-both — fond-htn-54 fixture (b). Hand-authored in this repo (ticket
+; fond-htn-54). BOTH branches of the only applicable action dead-end in
+; `in-abyss`, so no policy can reach the goal: the typed answer is NoPlan.
+(define (domain fond-unsafe-abyss-both)
+  (:predicates
+    (at-start)
+    (at-goal)
+    (in-abyss))
+  (:task solve :parameters ())
+  (:action doomed-gamble
+    :parameters ()
+    :precondition (and (at-start))
+    :effect (oneof
+      (and (not (at-start)) (in-abyss))
+      (and (not (at-start)) (in-abyss))))
+  (:method m-doomed
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-start))
+    :ordered-subtasks (and (d (doomed-gamble)))))

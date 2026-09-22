@@ -1,0 +1,54 @@
+; abyss-avoid — fond-htn-54 fixture (a). Hand-authored in this repo for the
+; v26.9.22 respawn of ticket fond-htn-54 (provenance: self-authored
+; miniature, no external content). At every safe state a `gamble*` action
+; offers the goal on one `oneof` branch and an unavoidable dead-end fact
+; pattern (`in-abyss`: zero applicable actions, not the goal) on the other.
+; The domain stays solvable, but only by a policy that never selects a
+; gamble: the safe route takes two deterministic steps.
+(define (domain fond-unsafe-abyss-avoid)
+  (:predicates
+    (at-start)
+    (at-mid)
+    (at-goal)
+    (in-abyss))
+  (:task solve :parameters ())
+  (:action safe-step-1
+    :parameters ()
+    :precondition (and (at-start))
+    :effect (and (not (at-start)) (at-mid)))
+  (:action safe-step-2
+    :parameters ()
+    :precondition (and (at-mid))
+    :effect (and (not (at-mid)) (at-goal)))
+  (:action gamble-1
+    :parameters ()
+    :precondition (and (at-start))
+    :effect (oneof
+      (and (not (at-start)) (at-mid))
+      (and (not (at-start)) (in-abyss))))
+  (:action gamble-2
+    :parameters ()
+    :precondition (and (at-mid))
+    :effect (oneof
+      (and (not (at-mid)) (at-goal))
+      (and (not (at-mid)) (in-abyss))))
+  (:method m-start-safe
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-start))
+    :ordered-subtasks (and (s1 (safe-step-1)) (r (solve))))
+  (:method m-mid-safe
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-mid))
+    :ordered-subtasks (and (s2 (safe-step-2))))
+  (:method m-start-gamble
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-start))
+    :ordered-subtasks (and (g1 (gamble-1)) (r (solve))))
+  (:method m-mid-gamble
+    :parameters ()
+    :task (solve)
+    :precondition (and (at-mid))
+    :ordered-subtasks (and (g2 (gamble-2)))))
