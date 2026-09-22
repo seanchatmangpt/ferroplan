@@ -1,0 +1,1429 @@
+{
+  "ticket": "fond-htn-61-differential-fuzz",
+  "generated_utc": "2026-09-18T04:19:09Z",
+  "machine": "Apple M3 Max",
+  "generator": {
+    "base_seed": 35347733348449,
+    "cases": 100,
+    "entry_point": "draw_valid (mutation switch hard-off)",
+    "mutation": false,
+    "provenance": "self-authored in-repo seeded draws; no koala/corpus content (KOALA POLICY)",
+    "source": "tests/common/mod.rs (extracted verbatim from tests/hddl_fuzz_roundtrip.rs, ticket fond-htn-31)"
+  },
+  "config": {
+    "ferroplan_max_wall_ms": 10000,
+    "oracle_mode": "flexible",
+    "oracle_runner": "/tmp/fond-oracle/oracle-run.sh",
+    "oracle_timeout_s": 30
+  },
+  "summary": {
+    "classification": {
+      "agreement": 83,
+      "divergence": 14,
+      "incomparable": 3
+    },
+    "ferroplan": {
+      "NOSOLUTION": 79,
+      "SOLVED": 18,
+      "TYPED_LIMIT": 3
+    },
+    "oracle": {
+      "NOSOLUTION": 9,
+      "NOSOLUTION_GROUNDER_PRUNE": 69,
+      "SOLVED": 22
+    },
+    "oracle_consumable": 100
+  },
+  "pairs": [
+    {
+      "i": 0,
+      "seed": 35347733348449,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001389625
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.288,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 1,
+      "seed": 35347733348450,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000823834
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.183,
+        "note": "grounded instance has zero reachable tasks (initial abstract task -1): the decomposition dead-ends at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 2,
+      "seed": 35347733348451,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001123708
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.202,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 3,
+      "seed": 35347733348452,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 4,
+        "wall_s": 0.001645792
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.294
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 4,
+      "seed": 35347733348453,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.002124792
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.455,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 5,
+      "seed": 35347733348454,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.0006965
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.28,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 6,
+      "seed": 35347733348455,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001013875
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.271,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 7,
+      "seed": 35347733348456,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001354667
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.129,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 8,
+      "seed": 35347733348457,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000576458
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.257,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 9,
+      "seed": 35347733348458,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000667834
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.701
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 10,
+      "seed": 35347733348459,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 4,
+        "wall_s": 0.001024667
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.312
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 11,
+      "seed": 35347733348460,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001003708
+      },
+      "oracle": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.28
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 12,
+      "seed": 35347733348461,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001226709
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.325,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 13,
+      "seed": 35347733348462,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 5,
+        "wall_s": 0.001083625
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.236
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 14,
+      "seed": 35347733348463,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000990292
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.218,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 15,
+      "seed": 35347733348464,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 9,
+        "wall_s": 0.001933792
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.226
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 16,
+      "seed": 35347733348465,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 3,
+        "wall_s": 0.000683
+      },
+      "oracle": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.225
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 17,
+      "seed": 35347733348466,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001984167
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.127
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 18,
+      "seed": 35347733348467,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 2,
+        "wall_s": 0.000605625
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.144
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 19,
+      "seed": 35347733348468,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001284583
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.177
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 20,
+      "seed": 35347733348469,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001259375
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.208,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 21,
+      "seed": 35347733348470,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001543
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.216,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 22,
+      "seed": 35347733348471,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.004856833
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.195,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 23,
+      "seed": 35347733348472,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.0011085
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.197,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 24,
+      "seed": 35347733348473,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000726792
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.154,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 25,
+      "seed": 35347733348474,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001284459
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.22,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 26,
+      "seed": 35347733348475,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000711584
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.25,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 27,
+      "seed": 35347733348476,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000548958
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.156,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 28,
+      "seed": 35347733348477,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000635709
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.355,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 29,
+      "seed": 35347733348478,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 2,
+        "wall_s": 0.000383292
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.22
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 30,
+      "seed": 35347733348479,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.002919042
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.178
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 31,
+      "seed": 35347733348480,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.00079025
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.136,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 32,
+      "seed": 35347733348481,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000530625
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.194,
+        "note": "grounded instance has zero reachable tasks (initial abstract task -1): the decomposition dead-ends at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 33,
+      "seed": 35347733348482,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000860625
+      },
+      "oracle": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.219
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 34,
+      "seed": 35347733348483,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001527959
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.222,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 35,
+      "seed": 35347733348484,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.00098325
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.196,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 36,
+      "seed": 35347733348485,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000844792
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.198,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 37,
+      "seed": 35347733348486,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001442959
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.184,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 38,
+      "seed": 35347733348487,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000785709
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.159
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 39,
+      "seed": 35347733348488,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.00046325
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.201,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 40,
+      "seed": 35347733348489,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000793167
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.177,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 41,
+      "seed": 35347733348490,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 2,
+        "wall_s": 0.000472792
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.268
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 42,
+      "seed": 35347733348491,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000691542
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.166,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 43,
+      "seed": 35347733348492,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.00055
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.179
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 44,
+      "seed": 35347733348493,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001070875
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.227,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 45,
+      "seed": 35347733348494,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 3,
+        "wall_s": 0.001574125
+      },
+      "oracle": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.234
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 46,
+      "seed": 35347733348495,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001108708
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.176,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 47,
+      "seed": 35347733348496,
+      "ferroplan": {
+        "status": "TYPED_LIMIT",
+        "detail": "HDDL translation error: task-network address 'r.r0.s0.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s1.s0' exceeded max_task_network_depth (64)",
+        "wall_s": 0.200100834
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.136,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "incomparable"
+    },
+    {
+      "i": 48,
+      "seed": 35347733348497,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000817084
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.173,
+        "note": "grounded instance has zero reachable tasks (initial abstract task -1): the decomposition dead-ends at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 49,
+      "seed": 35347733348498,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 3,
+        "wall_s": 0.002022125
+      },
+      "oracle": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.175
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 50,
+      "seed": 35347733348499,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000740584
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.15,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 51,
+      "seed": 35347733348500,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001782709
+      },
+      "oracle": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.138
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 52,
+      "seed": 35347733348501,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001031875
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.16,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 53,
+      "seed": 35347733348502,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000511583
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.162
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 54,
+      "seed": 35347733348503,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.002704417
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.16,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 55,
+      "seed": 35347733348504,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000683583
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.231,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 56,
+      "seed": 35347733348505,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000441708
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.147,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 57,
+      "seed": 35347733348506,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000589833
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.159,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 58,
+      "seed": 35347733348507,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000798417
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.154,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 59,
+      "seed": 35347733348508,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001582625
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.141,
+        "note": "grounded instance has zero reachable tasks (initial abstract task -1): the decomposition dead-ends at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 60,
+      "seed": 35347733348509,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000906792
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.139,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 61,
+      "seed": 35347733348510,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.003016417
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.169,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 62,
+      "seed": 35347733348511,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 3,
+        "wall_s": 0.001028084
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.193
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 63,
+      "seed": 35347733348512,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000555583
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.155,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 64,
+      "seed": 35347733348513,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000565958
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.152,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 65,
+      "seed": 35347733348514,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.00106425
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.167,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 66,
+      "seed": 35347733348515,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.003600583
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.201,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 67,
+      "seed": 35347733348516,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 4,
+        "wall_s": 0.00180125
+      },
+      "oracle": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.271
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 68,
+      "seed": 35347733348517,
+      "ferroplan": {
+        "status": "TYPED_LIMIT",
+        "detail": "HDDL translation error: task-network address 'r.r0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0' exceeded max_task_network_depth (64)",
+        "wall_s": 0.179450375
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.197,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "incomparable"
+    },
+    {
+      "i": 69,
+      "seed": 35347733348518,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001291792
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.611,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 70,
+      "seed": 35347733348519,
+      "ferroplan": {
+        "status": "TYPED_LIMIT",
+        "detail": "HDDL translation error: task-network address 'r.r1.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0.s0' exceeded max_task_network_depth (64)",
+        "wall_s": 0.033634917
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.283,
+        "note": "grounded instance has zero reachable tasks (initial abstract task -1): the decomposition dead-ends at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "incomparable"
+    },
+    {
+      "i": 71,
+      "seed": 35347733348520,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000948375
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.138,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 72,
+      "seed": 35347733348521,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000602167
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.139,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 73,
+      "seed": 35347733348522,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 2,
+        "wall_s": 0.001056167
+      },
+      "oracle": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.151
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 74,
+      "seed": 35347733348523,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.003671291
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.149,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 75,
+      "seed": 35347733348524,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001003666
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.164,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 76,
+      "seed": 35347733348525,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000884709
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.23
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 77,
+      "seed": 35347733348526,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 2,
+        "wall_s": 0.000487625
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.184
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 78,
+      "seed": 35347733348527,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000872833
+      },
+      "oracle": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.133
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 79,
+      "seed": 35347733348528,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001435583
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.142,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 80,
+      "seed": 35347733348529,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001100167
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.162
+      },
+      "classification": "divergence"
+    },
+    {
+      "i": 81,
+      "seed": 35347733348530,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001006708
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.187,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 82,
+      "seed": 35347733348531,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000739791
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.181,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 83,
+      "seed": 35347733348532,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001293792
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.183,
+        "note": "grounded instance has zero reachable tasks (initial abstract task -1): the decomposition dead-ends at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 84,
+      "seed": 35347733348533,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000749458
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.239,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 85,
+      "seed": 35347733348534,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000555667
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.151,
+        "note": "grounded instance has zero reachable tasks (initial abstract task -1): the decomposition dead-ends at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 86,
+      "seed": 35347733348535,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 4,
+        "wall_s": 0.001133875
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.151
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 87,
+      "seed": 35347733348536,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001210667
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.191,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 88,
+      "seed": 35347733348537,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.00173525
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.149,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 89,
+      "seed": 35347733348538,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000941334
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.141,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 90,
+      "seed": 35347733348539,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 3,
+        "wall_s": 0.000830666
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.144
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 91,
+      "seed": 35347733348540,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000817583
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.137,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 92,
+      "seed": 35347733348541,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001023917
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.157,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 93,
+      "seed": 35347733348542,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 5,
+        "wall_s": 0.000708459
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.249
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 94,
+      "seed": 35347733348543,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001518875
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.17,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 95,
+      "seed": 35347733348544,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000569917
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.172,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 96,
+      "seed": 35347733348545,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.001281208
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.607,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 97,
+      "seed": 35347733348546,
+      "ferroplan": {
+        "status": "SOLVED",
+        "policy_states": 2,
+        "wall_s": 0.000705417
+      },
+      "oracle": {
+        "status": "SOLVED",
+        "wall_s": 0.794
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 98,
+      "seed": 35347733348547,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.000449792
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 2.721,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    },
+    {
+      "i": 99,
+      "seed": 35347733348548,
+      "ferroplan": {
+        "status": "NOSOLUTION",
+        "wall_s": 0.0006995
+      },
+      "oracle": {
+        "status": "NOSOLUTION_GROUNDER_PRUNE",
+        "wall_s": 0.253,
+        "note": "grounder wrote no instance: static goal-reachability prune fired at ground level; the serializer crash is the delivery vehicle the runner labels ERROR"
+      },
+      "classification": "agreement"
+    }
+  ]
+}

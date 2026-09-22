@@ -1,0 +1,9 @@
+;; differential-fuzz: self-authored seeded VALID draw (ticket fond-htn-61,
+;; in-repo generator, no external corpus content)
+(define (problem dzp-35347733348498)
+  (:domain fzr)
+  (:objects ob0 - ty0 ob1 - ty1 ob2 - ty0 ob3 - ty0 ob4 - ty1 ob5 - ty1 ob6 - ty0 ob7 - ty1 ob8 - ty1)
+  (:init (pr0 ob0 ob2) (pr0 ob0 ob3) (pr0 ob2 ob2) (pr0 ob6 ob0) (pr0 ob6 ob6) (pr1 ob0 ob7) (pr1 ob2 ob4) (pr1 ob2 ob8) (pr1 ob3 ob1) (pr1 ob3 ob7) (pr1 ob6 ob5) (pr2 ob1 ob1) (pr2 ob4 ob1) (pr2 ob4 ob5) (pr2 ob7 ob8) (pr2 ob8 ob8))
+  (:goal (and (pr1 ob3 ob1)))
+  (:htn :ordered-subtasks (and (r0 (ac2 ob1)) (r1 (tk4 ob2 ob4))))
+)
