@@ -51,6 +51,40 @@ closed under relabeling — the visited key gets canonicalized under member
 permutation. Machine-shop's "which identical piece is which" blowup collapses
 to nothing.
 
+### The compression rung (0.28)
+
+Before any of that, a task that needs **no concurrency** is tried the cheap
+way: every durative action is read as ONE instantaneous action (condition =
+start ∧ over all ∧ end, effect = start then end), the classical ladder plans
+that, and the plan is put back on the clock by a **left-shift** over each
+step's read/write sets — independent work overlaps, interfering work does not.
+The result is validated against the ORIGINAL durative task before it is
+returned, so the rung can be wrong about a task without ever being wrong about
+a plan. It *banks*: the decision-epoch search then runs as a bounded quality
+chase and the smaller makespan wins, so a task that solved before returns the
+plan it returned before. It declines — and says so under `FF_WALL_DEBUG=1` —
+on required concurrency, timed initial literals, trajectory constraints and
+unconstrained durations, and it stands aside when `FF_TCONC=1` asks for the
+actor scheduler. `FF_NO_TCOMPRESS=1` restores the 0.27 route.
+
+One consequence to know about: the left-shift overlaps whatever the PDDL
+allows. A domain that is *lockless* by design — the cabin crew, where "one job
+per worker" is the scheduler's convention and not a precondition — now gets
+every independent job at once by default (crew-solo: makespan 109 → 47, one
+worker on four jobs). That is a valid PDDL2.1 plan. If a resource can only do
+one thing at a time, say so in the domain with a busy token, or run the actor
+scheduler (`FF_TCONC=1`), under which the results are exactly 0.27's.
+
+### A plan in hand comes back inside the budget (0.28)
+
+Everything done to a plan that already solves the task — the preference
+quality chase, the makespan chase, the scorer — is *optional work*, and it
+stops a reserve short of `FF_TIME_LIMIT` (3 % of the wall, 0.5–3 s, plus a
+size term) and at 75 % of `FF_MEM_BUDGET_GB`. A runner that kills at the wall
+or at the memory cap no longer takes a valid plan down with the process. A
+banked plan whose preference scorer cannot be built in what is left is
+returned with a `NOT scored` note rather than not returned.
+
 ## Output
 
 Plans render in the IPC temporal format, `start: (action args) [duration]`,

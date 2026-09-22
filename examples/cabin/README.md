@@ -58,15 +58,19 @@ ff -o examples/cabin/crew.pddl -f examples/cabin/crew-pair.pddl --mode temporal 
 ff -o examples/cabin/crew.pddl -f examples/cabin/crew-trio.pddl --mode temporal   # 3 workers -> makespan 47
 ```
 
-Requires the concurrent scheduler, gated behind `FF_TDEMAND=1 FF_TCONC=1` (in the
-web demo, the flags `tdemand,tconc` on the example). Why a separate phase at all:
-ferroplan's temporal *search* is guided by action count, not makespan, so left to
-itself it lays actions out one after another — makespan collapses to the serial
-sum, crew size irrelevant. The scheduler (`crate::tsched`) runs a single-actor
-reduction first, for *what* gets done, then repacks that across the crew for *who
-does what, when* — validated, kept only if it comes out genuinely shorter. The
-crew domain stays **lockless** (workers interchangeable), so the search itself
-stays small and the scheduler carries the parallelism alone.
+This needs the concurrent scheduler, which is gated: set `FF_TDEMAND=1 FF_TCONC=1`
+(or, in the web demo, the example carries flags `tdemand,tconc`). Why a separate
+phase? "One job per worker at a time" is a convention the DOMAIN does not state —
+it is lockless — so nothing but the scheduler enforces it. Without the flags you
+get what the PDDL says, not what a crew can do: through 0.27 that was the search's
+own sequential layout (109 / 152 / 198, the serial sum, *growing* with crew size);
+since 0.28 the default route left-shifts independent work, and on a lockless
+domain that overlaps everything — makespan 47 for ANY crew, one worker on four
+jobs at once. Legal PDDL, and not a crew schedule. With `FF_TCONC=1` the
+left-shift stands aside and the numbers above are unchanged. The scheduler (`crate::tsched`) searches a single-actor reduction for
+*what* to do, then repacks it across the crew for *who does what, when* — validated,
+and only kept if it's genuinely shorter. The crew domain is **lockless** (workers
+interchangeable) so the search stays small and the scheduler owns the parallelism.
 
 ## Skilled crew — `crew-skilled.pddl` (tasks need the right specialist)
 

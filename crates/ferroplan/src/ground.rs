@@ -224,9 +224,35 @@ fn and_merge(acc: &[Conjunct], cd: &[Conjunct]) -> Vec<Conjunct> {
     next
 }
 
-/// Unfold a quantifier across typed objects: AND the per-binding DNFs for a
-/// universal, OR them for an existential. An empty domain resolves True on
-/// AND, False on OR — the vacuous case, no exceptions.
+/// [`and_merge`] for a caller that owns both sides, with the one shape that
+/// matters most handled in place (0.28): ONE conjunct AND ONE conjunct is a
+/// plain conjunction, and its product is the left side with the right side's
+/// literals appended. `and_merge` builds that by CLONING the left side, so a
+/// goal that is a flat conjunction of n atoms -- merged one atom at a time --
+/// copies 1 + 2 + ... + n literals: the compiled preference task of
+/// storage-qualitative i20 has one `P3COLLECTED` atom per live preference,
+/// 37,201 of them, ~700M literal copies and 25 s of a 60 s wall on a quiet
+/// box (and, because [`dnf_wall_hit`] counts CONJUNCTS and this shape only
+/// ever produces one, not a single wall check in all that time). Appending
+/// is the same conjunct, literal for literal and in the same order.
+fn and_merge_owned(mut acc: Vec<Conjunct>, mut cd: Vec<Conjunct>) -> Vec<Conjunct> {
+    if acc.len() == 1 && cd.len() == 1 {
+        // the wall accounting `and_merge` would have done for this product
+        if dnf_wall_hit() {
+            return Vec::new();
+        }
+        let c = cd.pop().expect("len checked");
+        let a = &mut acc[0];
+        a.pos.extend(c.pos);
+        a.neg.extend(c.neg);
+        a.num.extend(c.num);
+        return acc;
+    }
+    and_merge(&acc, &cd)
+}
+
+/// Expand a quantifier over typed objects: AND the per-binding DNFs (universal)
+/// or OR them (existential). Empty domain -> True (AND) / False (OR), vacuously.
 #[allow(clippy::too_many_arguments)]
 fn quant_expand(
     vars: &[(Sym, Sym)],
@@ -253,7 +279,7 @@ fn quant_expand(
     if use_and {
         let mut acc = vec![empty_conj()];
         for cb in &combos {
-            acc = and_merge(&acc, &to_dnf(inner, cb, neg, objs, st));
+            acc = and_merge_owned(acc, to_dnf(inner, cb, neg, objs, st));
         }
         acc
     } else {
@@ -384,7 +410,7 @@ fn to_dnf(
         (Formula::And(fs), false) | (Formula::Or(fs), true) => {
             let mut acc = vec![empty_conj()];
             for child in fs {
-                acc = and_merge(&acc, &to_dnf(child, b, negated, objs, st));
+                acc = and_merge_owned(acc, to_dnf(child, b, negated, objs, st));
             }
             acc
         }
@@ -579,11 +605,61 @@ struct GroundWall {
     /// across every enumeration worker.
     cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     tripped: std::sync::atomic::AtomicBool,
+    /// The MEASURED memory wall (0.28 Lane M, `crate::mem`), read at the same
+    /// stride as the clock: the enumeration is where a snap-compiled
+    /// pipesworld task goes from megabytes to the runner's SIGKILL, and until
+    /// now it could see the wall and not the memory.
+    mem: crate::mem::MemWall,
+    /// Which of the two stopped it, for [`Self::why`].
+    mem_tripped: std::sync::atomic::AtomicBool,
 }
 
 impl GroundWall {
     fn tripped(&self) -> bool {
         self.tripped.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// One clock read, for the PHASE checkpoints below the enumeration
+    /// (0.28). The enumeration was the only part of grounding that could
+    /// see the wall, and on a wide task it is not the long part: the
+    /// compiled preference task of storage-qualitative i20 (142k ops)
+    /// enumerates in seconds and then interns, compiles negative
+    /// preconditions, prunes and packs for the better part of a minute --
+    /// on a busy box, for longer than the wall, with a valid plan already
+    /// in the caller's hand and no way to return it.
+    fn expired_now(&self) -> bool {
+        use std::sync::atomic::Ordering::Relaxed;
+        if self.tripped.load(Relaxed) {
+            return true;
+        }
+        let over = self
+            .deadline
+            .is_some_and(|(clock, total)| clock.elapsed_secs() >= total)
+            || crate::search::cancelled(&self.cancel);
+        if over {
+            self.tripped.store(true, Relaxed);
+        }
+        over
+    }
+
+    /// [`Self::why`] for a stop BELOW the enumeration: same causes, and the
+    /// clause says where. (The enumeration wording is pinned by
+    /// tests/ladder_wall.rs and stays as it is.)
+    fn why_in(&self, phase: &str) -> String {
+        let budget = match crate::search::call_stop_reason() {
+            Some(r) if r.contains("should_continue") => {
+                return format!(
+                    "the caller withdrew while grounding was {phase} \
+                     (Options::should_continue went false): no task grounded, no verdict"
+                )
+            }
+            Some(_) => "Options::wall_ms",
+            None => "FF_TIME_LIMIT",
+        };
+        format!(
+            "wall budget exhausted while grounding was {phase} ({budget}): \
+             no task grounded, no verdict"
+        )
     }
 
     /// Why the enumeration stopped, as the whole clause the caller reads.
@@ -595,6 +671,10 @@ impl GroundWall {
     /// so they get new clauses rather than borrowing that one -- a host
     /// that withdrew should not read "FF_TIME_LIMIT".
     fn why(&self) -> &'static str {
+        if self.mem_tripped.load(std::sync::atomic::Ordering::Relaxed) {
+            return "memory budget reached during binding enumeration \
+                    (FF_MEM_BUDGET_GB): no task grounded, no verdict";
+        }
         match crate::search::call_stop_reason() {
             Some(r) if r.contains("should_continue") => {
                 "the caller withdrew during binding enumeration \
@@ -646,6 +726,11 @@ impl WallTick<'_> {
             .is_some_and(|(clock, total)| clock.elapsed_secs() >= total)
             || crate::search::cancelled(&w.cancel);
         if over {
+            w.tripped.store(true, Relaxed);
+            return true;
+        }
+        if w.mem.hit() {
+            w.mem_tripped.store(true, Relaxed);
             w.tripped.store(true, Relaxed);
             return true;
         }
@@ -1604,6 +1689,28 @@ fn ground_v(
     fold_fluents: bool,
     walled: bool,
 ) -> Outcome {
+    // A declared memory budget arms the same checkpoint (0.28 Lane M) -- on
+    // EVERY entry, like the per-call budget below and for its reason: `arm`
+    // is live only inside bounded work, and bounded work is where the
+    // validator entry is no longer "a plan found is a plan": since Lane S the
+    // scorer grounds BEFORE the chase, as optional work on a banked row, and
+    // pipesworld-complex i16 took that grounding from 0.2 GB to 6.4 with the
+    // plan in hand and this wall looking the other way. Outside a scope the
+    // validator still grounds a found plan's task whatever it costs.
+    let mem = crate::mem::MemWall::arm();
+    if mem.hit() {
+        // Already over (or this scope already tripped): refuse at the door.
+        // The setup below is seconds and hundreds of MB before the first
+        // binding is counted.
+        if std::env::var("FF_WALL_DEBUG").is_ok() {
+            eprintln!("wall: grounding MEMORY checkpoint at entry (no task, no verdict)");
+        }
+        return Outcome::WallExhausted(
+            "memory budget reached before grounding began (FF_MEM_BUDGET_GB): \
+             no task grounded, no verdict"
+                .into(),
+        );
+    }
     // ---- type system ----
     let objects_of_type = objects_by_type(domain, problem);
 
@@ -1718,11 +1825,13 @@ fn ground_v(
         .then(crate::search::wall_deadline)
         .flatten();
     let deadline = crate::search::sooner_deadline(env_wall, budget.deadline);
-    let gwall: Option<GroundWall> =
-        (deadline.is_some() || budget.cancel.is_some()).then(|| GroundWall {
+    let gwall: Option<GroundWall> = (deadline.is_some() || budget.cancel.is_some() || mem.armed())
+        .then(|| GroundWall {
             deadline,
             cancel: budget.cancel.clone(),
             tripped: std::sync::atomic::AtomicBool::new(false),
+            mem,
+            mem_tripped: std::sync::atomic::AtomicBool::new(false),
         });
     // Threshold-routed fixpoint (0.22 Phase 7 lever 2): the PLAIN solve
     // entry routes into the fixpoint enumeration below when any action's
@@ -1968,11 +2077,55 @@ fn ground_v(
     // would be nondeterministic — honest failure or a whole task,
     // nothing in between.
     if let Some(g) = gwall.as_ref().filter(|g| g.tripped()) {
+        if g.mem_tripped.load(std::sync::atomic::Ordering::Relaxed) {
+            crate::mem::latch(); // a WORKER saw it; the scope is this thread's
+        }
         if std::env::var("FF_WALL_DEBUG").is_ok() {
-            eprintln!("wall: grounding checkpoint expired mid-enumeration (no task, no verdict)");
+            eprintln!(
+                "wall: grounding {} mid-enumeration (no task, no verdict)",
+                if g.mem_tripped.load(std::sync::atomic::Ordering::Relaxed) {
+                    "MEMORY checkpoint"
+                } else {
+                    "checkpoint expired"
+                }
+            );
         }
         return Outcome::WallExhausted(g.why().into());
     }
+    // Coarse checkpoints for everything below (see `GroundWall::expired_now`):
+    // honest failure or a whole task, nothing in between, exactly as above.
+    let phase_clock = crate::clock::Clock::now();
+    let phase_dbg = std::env::var("FF_GROUND_PHASES").is_ok();
+    let phase_mem = mem;
+    // The stop itself, quiet, for use INSIDE a phase as well as between two.
+    let phase_stop = |phase: &str| -> Option<Outcome> {
+        // Memory first (0.28 Lane M): a task too big for its budget is the
+        // runner's SIGKILL a moment from now, and whatever the caller had in
+        // hand goes with the process. Same honest stop as the wall's.
+        if phase_mem.hit() {
+            if std::env::var("FF_WALL_DEBUG").is_ok() {
+                eprintln!("wall: grounding MEMORY checkpoint while {phase} (no task, no verdict)");
+            }
+            return Some(Outcome::WallExhausted(format!(
+                "memory budget reached while grounding was {phase} (FF_MEM_BUDGET_GB): \
+                 no task grounded, no verdict"
+            )));
+        }
+        let g = gwall.as_ref().filter(|g| g.expired_now())?;
+        if std::env::var("FF_WALL_DEBUG").is_ok() {
+            eprintln!("wall: grounding checkpoint expired while {phase} (no task, no verdict)");
+        }
+        Some(Outcome::WallExhausted(g.why_in(phase)))
+    };
+    let phase_wall = |phase: &str| -> Option<Outcome> {
+        if phase_dbg {
+            eprintln!(
+                "[ground] done {phase}: +{:.2} s",
+                phase_clock.elapsed_secs()
+            );
+        }
+        phase_stop(phase)
+    };
     let n_easy = raws.iter().filter(|r| !r.multi).count();
     let n_hard = raws.iter().filter(|r| r.multi).count();
 
@@ -1983,7 +2136,15 @@ fn ground_v(
         fluent_id: FxHashMap::default(),
     };
     let mut mids: Vec<MidOp> = Vec::with_capacity(raws.len());
-    for r in &raws {
+    for (ri, r) in raws.iter().enumerate() {
+        // `mids` is a second copy of every op while `raws` is still alive:
+        // elevator-strips i30 left the enumeration at 4.3 GB, under the line,
+        // and was at 5.7 before the phase boundary below could look.
+        if ri & 255 == 255 {
+            if let Some(stop) = phase_stop("interning") {
+                return stop;
+            }
+        }
         let mut reads = Vec::new();
         let pre_pos: Vec<u32> = r.pos.iter().map(|k| intern.fact(k)).collect();
         let add: Vec<u32> = r.eff.add.iter().map(|k| intern.fact(k)).collect();
@@ -2035,6 +2196,9 @@ fn ground_v(
     }
     drop(raws);
 
+    if let Some(stop) = phase_wall("interning") {
+        return stop;
+    }
     // ---- shared monitor block (0.8 Phase 2): ground + intern ONCE ----
     // `domain.monitors` holds the trajectory-monitor transitions, fully
     // ground and byte-identical for every binding of every monitored action
@@ -2087,6 +2251,9 @@ fn ground_v(
         shared_cond_atoms.push(atoms);
     }
 
+    if let Some(stop) = phase_wall("grounding the monitor block") {
+        return stop;
+    }
     // ---- defined-fluents fixpoint + illegal-op pruning ----
     let n_fluents_pre = intern.fluent_id.len();
     let mut fv = vec![0.0f64; n_fluents_pre];
@@ -2156,6 +2323,9 @@ fn ground_v(
     }
     mids.retain(|m| m.reads.iter().all(|&fl| fdef[fl as usize]));
 
+    if let Some(stop) = phase_wall("pruning undefined-fluent ops") {
+        return stop;
+    }
     // ---- negative-precondition compilation to complementary facts ----
     let mut neg_atoms: HashSet<(Sym, Vec<Sym>)> = HashSet::new();
     for m in &mids {
@@ -2384,6 +2554,9 @@ fn ground_v(
         }
     }
 
+    if let Some(stop) = phase_wall("compiling negative preconditions") {
+        return stop;
+    }
     // ---- disjunctive / existential goal compilation ----
     // A goal whose DNF has >1 disjunct (from `or`, `exists`, or negated numeric
     // equality) cannot be a single fact conjunction. Compile it Metric-FF style:
@@ -2486,6 +2659,9 @@ fn ground_v(
         plan_mode_fact = Some(pm);
     }
 
+    if let Some(stop) = phase_wall("compiling the goal") {
+        return stop;
+    }
     // ---- initial state facts ----
     let mut init_ids: Vec<u32> = problem.init_atoms.iter().map(|k| intern.fact(k)).collect();
     init_ids.sort_unstable();
@@ -2506,6 +2682,9 @@ fn ground_v(
         init_true[pm as usize] = true;
     }
 
+    if let Some(stop) = phase_wall("building the initial state") {
+        return stop;
+    }
     // ---- relaxed reachability (prune ops) ----
     let mut reached = init_true.clone();
     let mut live = vec![false; fops.len()];
@@ -2654,6 +2833,9 @@ fn ground_v(
         }
     }
 
+    if let Some(stop) = phase_wall("pruning unreachable ops") {
+        return stop;
+    }
     // ---- fact-space compaction ----
     // Phase C interned atoms from EVERY raw candidate op; reachability then
     // pruned the ops but left their fact ids behind, so `words` — and with it
@@ -2726,6 +2908,9 @@ fn ground_v(
         })
         .collect();
 
+    if let Some(stop) = phase_wall("compacting facts") {
+        return stop;
+    }
     // ---- pack into CSR ----
     let words = bitset::words_for(n_facts_packed);
     let mut init_bits = vec![0u64; words];
@@ -2744,6 +2929,9 @@ fn ground_v(
     let n_reach_facts = reached.iter().filter(|&&x| x).count();
     let n_relevant_fluents = fdef.iter().filter(|&&x| x).count();
 
+    if let Some(stop) = phase_wall("packing the initial state") {
+        return stop;
+    }
     // ---- static-fluent fold + fluent-space compaction (0.21 Phase 6) ----
     // Fluents never got the 0.20 fact compaction above: price/cost/duration
     // tables intern into `fv0` and clone into EVERY search node (tpp i12:
@@ -2842,6 +3030,9 @@ fn ground_v(
         }
     }
 
+    if let Some(stop) = phase_wall("closing fluent relevance") {
+        return stop;
+    }
     // WRITTEN = target of any surviving numeric effect (incl. conditional
     // and the shared monitor block, which lands in the task either way).
     let mut written = vec![false; nfl_final];
@@ -2866,6 +3057,9 @@ fn ground_v(
         fold_on && fdef[f] && !written[f] && !relevant_raw[f]
     };
 
+    if let Some(stop) = phase_wall("marking written fluents") {
+        return stop;
+    }
     // The census — every fluent id the packed task will carry, built as
     // code from the same holders the pack loop folds (pre_num, effect
     // values, conditional numeric parts, goal_num, the shared block), so a
@@ -3025,6 +3219,9 @@ fn ground_v(
     let goal_num: Vec<NumPre> = goal_num.iter().map(&fold_np).collect();
 
     let mut op_display = Vec::with_capacity(n_reach_actions);
+    if let Some(stop) = phase_wall("folding static fluents") {
+        return stop;
+    }
     let mut pre_pos = CsrBuilder::new();
     let mut add = CsrBuilder::new();
     let mut del = CsrBuilder::new();
@@ -3045,6 +3242,14 @@ fn ground_v(
         num: ce.num.iter().map(&fold_ne).collect(),
     };
     for (oi, op) in reach_ops.iter().enumerate() {
+        // The achiever index below is ops x shared-monitor-adds (roadmap
+        // 0.28): on a wide preference task this ONE loop is gigabytes, and a
+        // checkpoint either side of it is a checkpoint too late.
+        if oi % 256 == 255 {
+            if let Some(stop) = phase_stop("packing the ops") {
+                return stop;
+            }
+        }
         op_display.push(op.display.clone());
         pre_pos.push_row(op.pre_pos.iter().map(|&f| remap(f)));
         add.push_row(op.add.iter().map(|&f| remap(f)));
@@ -3081,6 +3286,9 @@ fn ground_v(
             }
         }
     }
+    if let Some(stop) = phase_wall("packing the ops") {
+        return stop;
+    }
     let mut add_by_fact = CsrBuilder::new();
     for bucket in add_buckets {
         add_by_fact.push_row(bucket);
@@ -3102,6 +3310,9 @@ fn ground_v(
         }
     }
 
+    if let Some(stop) = phase_wall("indexing achievers") {
+        return stop;
+    }
     // fluent id -> display string (for metric / cost-fluent lookup in sgp),
     // RAW space first, then split into packed names + the dropped-static
     // side table (name-resolved duration/introspection readers).

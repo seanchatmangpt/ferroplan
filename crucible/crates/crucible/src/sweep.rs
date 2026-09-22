@@ -357,10 +357,17 @@ impl<'a> SweepRunner<'a> {
                         }
                         // The width policy: worker `w` runs only while the
                         // watcher allows at least `w + 1` planners. Worker 0
-                        // waits only for SUSPENDED (admission below).
-                        if w > 0 && w >= ctx.shared.width() {
-                            std::thread::sleep(Duration::from_secs(1));
-                            continue;
+                        // waits only for SUSPENDED (admission below). An EMPTY
+                        // queue ends a worker whatever the width says
+                        // (`worker_gate`).
+                        let empty = queue.lock().unwrap().is_empty();
+                        match worker_gate(w, ctx.shared.width(), empty) {
+                            Gate::Exit => break,
+                            Gate::Park => {
+                                std::thread::sleep(Duration::from_secs(1));
+                                continue;
+                            }
+                            Gate::Take => {}
                         }
                         let Some((i, bytes)) = queue.lock().unwrap().pop_front() else {
                             break;
@@ -820,6 +827,9 @@ pub struct Setup<'s> {
     /// stages under `benchmarks/air-<ver>/` instead, because the set names
     /// the CANDIDATE's stage and an old engine must never write there.
     pub stage: Option<PathBuf>,
+    /// Which cells of the set. A subset stages under `benchmarks/probes/`
+    /// whatever `stage` says, and records no board pass (`select.rs`).
+    pub select: crate::select::Select,
 }
 
 pub struct SweepRunner<'a> {
@@ -829,6 +839,9 @@ pub struct SweepRunner<'a> {
     engine: SweepEngine,
     val: Option<PathBuf>,
     pub(crate) boards: Vec<Board>,
+    /// True when this runner holds a SUBSET of its set: no board it holds is
+    /// a whole board, so nothing may be said about one (`record_pass`).
+    subset: bool,
     shared: Arc<Shared>,
     rule: referee::Rule,
     admit_below_full: bool,
@@ -953,10 +966,20 @@ impl<'a> SweepRunner<'a> {
             capable,
             db,
             stage,
+            select,
         } = setup;
         let spec = manifest
             .set(set)
             .with_context(|| format!("no set {set:?} in the manifest"))?;
+        // A board named on the command line and not in the set is a typo, and
+        // a typo must stop the run rather than quietly measure nothing.
+        let unknown = select.unknown_boards(&spec.boards);
+        anyhow::ensure!(
+            unknown.is_empty(),
+            "--board {}: not in set {set:?} (it holds: {})",
+            unknown.join(", "),
+            spec.boards.join(", ")
+        );
         let corpus_dir = std::env::var_os("FERROPLAN_IPC_CORPUS")
             .map(PathBuf::from)
             .unwrap_or_else(|| repo.join("benchmarks/.ipc-corpus"));
@@ -965,6 +988,9 @@ impl<'a> SweepRunner<'a> {
         let mut warnings = Vec::new();
         let mut absent = Vec::new();
         for (position, id) in spec.boards.iter().enumerate() {
+            if !select.wants_board(id) {
+                continue;
+            }
             let Some(b) = manifest.board(id) else {
                 continue;
             };
@@ -998,6 +1024,23 @@ impl<'a> SweepRunner<'a> {
             for v in &walk.variants {
                 for i in corpus::instances(v, 0, &mut warnings) {
                     instances.push((v.ipc.clone(), v.name.clone(), i));
+                }
+            }
+            // THE SUBSET, applied where the cells are enumerated and nowhere
+            // else: `instances` IS the subset from here on, so `remaining()`,
+            // the owed-row cascade, the dashboard and the pass loop's
+            // termination all agree about what this run is for. (Filtering
+            // the per-pass `todo` instead leaves `remaining()` counting cells
+            // nobody will measure, and the loop waits on them for ever.)
+            if select.is_subset() {
+                let prior = if select.needs_prior() {
+                    prior_rows(repo, &b.raw)
+                } else {
+                    Default::default()
+                };
+                instances.retain(|(_, variant, inst)| select.admits(variant, &inst.label, &prior));
+                if instances.is_empty() {
+                    continue;
                 }
             }
             let cfg = board_cfg(manifest, b);
@@ -1044,13 +1087,24 @@ impl<'a> SweepRunner<'a> {
             }
         }
 
+        // A subset NEVER stages where a set does, whoever asked: neither the
+        // set's own stage nor a backfill's `air-<ver>/` may hold a board raw
+        // with a third of its rows in it.
+        let subset = select.is_subset();
+        let stage = if subset {
+            let short: String = engine.blake3.chars().take(12).collect();
+            select.stage(repo, set, &engine.ver, &short)
+        } else {
+            stage.unwrap_or_else(|| repo.join(&spec.stage))
+        };
         let mut runner = SweepRunner {
-            stage: stage.unwrap_or_else(|| repo.join(&spec.stage)),
+            stage,
             repo: repo.to_path_buf(),
             manifest,
             engine,
             val,
             boards,
+            subset,
             shared,
             rule,
             admit_below_full,
@@ -1275,6 +1329,15 @@ impl<'a> SweepRunner<'a> {
     /// live-pass identity, so re-recording after every attempt updates one
     /// row rather than adding one per pass.
     fn record_pass(&self, idx: usize, ran: usize, started_at: f64) {
+        // A subset records NO pass. `board_pass` is the `.done` marker with
+        // provenance, and its live row is unique per (board, engine): a
+        // subset that banked its forty cells would overwrite it with `clean`,
+        // and the next reader would take the whole board for measured. The
+        // ROWS are on record, each with its own verdict -- that is the truth
+        // about a subset, and all of it.
+        if self.subset {
+            return;
+        }
         let Some(ctx) = &self.db else {
             return;
         };
@@ -1500,6 +1563,8 @@ pub struct Opts<'a> {
     pub max_passes: Option<u32>,
     /// The restore hatch: the pre-database path, bit for bit.
     pub no_db: bool,
+    /// Which cells of the set (`select.rs`). The default is all of them.
+    pub select: crate::select::Select,
 }
 
 /// What the sweep publishes for the dashboard: every board's cells, the
@@ -1559,6 +1624,35 @@ pub struct Shared {
     canary: Mutex<Option<(f64, Instant)>>,
     /// The width policy's answer right now (`policy_width`).
     width: std::sync::atomic::AtomicUsize,
+}
+
+/// What a batch worker does at the top of its loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Gate {
+    /// Nothing left to take: the worker is finished, WHATEVER the width says.
+    Exit,
+    /// The width policy allows fewer than `w + 1` planners: wait and ask again.
+    Park,
+    Take,
+}
+
+/// The order of these two questions is the whole function. Until the 0.28 cut
+/// the width was asked FIRST and the queue only after it: a worker the policy
+/// had parked never learned the queue was empty, never exited, and kept the
+/// batch's channel open -- so `run_batch` waited on it for ever. cut28's first
+/// batch packed 10 wide on a box whose foreign load held the policy at 9 or
+/// under all day: nine workers banked 77 cells in fifteen seconds, worker 9
+/// slept a second at a time, and the sweep sat at 0 % CPU for three hours with
+/// 8,367 cells owed and nothing in the log but width changes. cut27 never hit
+/// it only because its width touched 10 at some point in every batch.
+pub(crate) fn worker_gate(w: usize, policy_width: usize, queue_empty: bool) -> Gate {
+    if queue_empty {
+        return Gate::Exit;
+    }
+    if w > 0 && w >= policy_width {
+        return Gate::Park;
+    }
+    Gate::Take
 }
 
 impl Shared {
@@ -2186,7 +2280,13 @@ fn open_db(cfg: &crate::config::Config, engine: &crate::repo::Engine) -> anyhow:
 
 pub fn run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) -> anyhow::Result<()> {
     let manifest = crate::load_manifest(repo)?;
-    let bin = crate::repo::candidate_path(repo);
+    // The candidate, or -- for a SUBSET only (`select.rs`) -- whatever binary
+    // the operator names. Either way the version gate below still applies.
+    let bin = o
+        .select
+        .engine
+        .clone()
+        .unwrap_or_else(|| crate::repo::candidate_path(repo));
     let engine = crate::repo::Engine::probe(&bin)?;
     // The gate every sweep driver opens with: measure the CANDIDATE, not
     // whatever happens to be built. The set may name the version itself.
@@ -2284,6 +2384,7 @@ fn sweep_body(
         dry_run,
         max_passes,
         no_db,
+        select,
     } = o;
     let val = crucible_core::validate::find(repo, cfg.sweep.validator.as_deref());
     if val.is_none() {
@@ -2420,9 +2521,27 @@ fn sweep_body(
             capable: &|m| engine.supports_mode(m),
             db: dbctx,
             stage,
+            select: select.clone(),
         },
     )?;
-    crate::say!("set     {set}: {} instances", runner.total_instances());
+    if select.is_subset() {
+        crate::say!(
+            "subset  {} -- {} instance(s) of set {set}, staged at {}",
+            select.describe(),
+            runner.total_instances(),
+            runner.stage.display()
+        );
+        crate::say!(
+            "        no board is marked done and no pass is recorded: the rows are the record"
+        );
+        anyhow::ensure!(
+            runner.total_instances() > 0,
+            "the subset selects nothing: {}",
+            select.describe()
+        );
+    } else {
+        crate::say!("set     {set}: {} instances", runner.total_instances());
+    }
 
     if dry_run {
         // Everything up to the first spawn: the boards, their row-identity
@@ -2554,6 +2673,64 @@ fn minutes_past_midnight() -> u32 {
 #[cfg(test)]
 mod r2_tests {
     use super::*;
+
+    /// THE cut28 DEADLOCK, as a rule: an empty queue ends a worker even while
+    /// the width policy has it parked. The old order (width first) answers
+    /// `Park` here, for ever.
+    #[test]
+    fn a_parked_worker_still_leaves_when_the_queue_is_empty() {
+        assert_eq!(worker_gate(9, 9, true), Gate::Exit);
+        assert_eq!(worker_gate(9, 2, true), Gate::Exit);
+        assert_eq!(worker_gate(0, 0, true), Gate::Exit);
+        // Work left: the policy still decides who takes it.
+        assert_eq!(worker_gate(9, 9, false), Gate::Park);
+        assert_eq!(worker_gate(8, 9, false), Gate::Take);
+        // Worker 0 is never parked by width (SUSPENDED is admission's job).
+        assert_eq!(worker_gate(0, 0, false), Gate::Take);
+    }
+
+    /// ...and as the shape it happened in: ten workers, the policy pinned at
+    /// nine for the whole batch, a queue shorter than the batch is long. The
+    /// collector drains a channel that closes only when EVERY worker has
+    /// dropped its sender -- so one parked worker is a hung sweep.
+    #[test]
+    fn a_batch_wider_than_the_policy_allows_still_finishes() {
+        use std::sync::mpsc;
+        let (done_tx, done_rx) = mpsc::channel::<usize>();
+        std::thread::spawn(move || {
+            let queue = Mutex::new(std::collections::VecDeque::from(vec![0usize; 5]));
+            let policy_width = 9usize;
+            let mut drained = 0usize;
+            std::thread::scope(|sc| {
+                let (tx, rx) = mpsc::channel::<usize>();
+                for w in 0..10 {
+                    let (tx, queue) = (tx.clone(), &queue);
+                    sc.spawn(move || loop {
+                        let empty = queue.lock().unwrap().is_empty();
+                        match worker_gate(w, policy_width, empty) {
+                            Gate::Exit => break,
+                            Gate::Park => {
+                                std::thread::sleep(Duration::from_millis(5));
+                                continue;
+                            }
+                            Gate::Take => {}
+                        }
+                        let Some(i) = queue.lock().unwrap().pop_front() else {
+                            break;
+                        };
+                        let _ = tx.send(i);
+                    });
+                }
+                drop(tx);
+                drained = rx.iter().count();
+            });
+            let _ = done_tx.send(drained);
+        });
+        let drained = done_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the batch must end: a parked worker may not hold the channel open");
+        assert_eq!(drained, 5);
+    }
 
     /// REAL WIDTH ON THE ROW (0.28 Phase 0 item 3): the neighbour count is
     /// what ran beside the run, not the batch's nominal width.
