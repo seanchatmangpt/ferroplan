@@ -32,8 +32,8 @@
         "cmd": "cargo test -p ferroplan --test sjira_release_policy -- --nocapture",
         "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
         "exit": 0,
-        "output_sha256": "b81d86c0ea4180799d1fd828e0d633610304dee833d5e9b26fc57d95247eaab8",
-        "summary": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 35.01s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.05s | binding edge asf-26922-08 <- ggmkt-26922-05; non-binding edge afde-26922-06 <- afde-26922-04 | original schedule: ggmkt-26922-05 at 94, asf-26922-08 at 153 | mutated schedule: asf-26922-08 at 17, ggmkt-26922-05 at 95"
+        "output_sha256": "16c3617cd856d44e5ef3e2352e40084109fcdd0c643045ff025a43bbf5dbdb8c",
+        "summary": "binding edge asf-26922-08 <- ggmkt-26922-05; non-binding edge afde-26922-06 <- afde-26922-04 | original schedule: ggmkt-26922-05 at 94, asf-26922-08 at 153 | mutated schedule: asf-26922-08 at 17, ggmkt-26922-05 at 95 | test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 37.02s"
       },
       {
         "cmd": "python3 scripts/gen_sjira_release_policy.py --check",
@@ -53,43 +53,43 @@
         "cmd": "cargo clippy -p ferroplan --all-targets --all-features -- -D warnings",
         "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
         "exit": 0,
-        "output_sha256": "f92dab9cbe3b243772444bd8f17f10a7dd3fc483a1a264eee42aef77e5bce6e3",
-        "summary": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.79s"
+        "output_sha256": "beed191cf5cd39a57477a6d66e9acb53f3b4efe7566a30e0ada805357a0fe6ff",
+        "summary": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.38s"
       },
       {
         "cmd": "cargo test -p ferroplan --lib planning_runtime",
         "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
         "exit": 0,
-        "output_sha256": "09657fbaf922c0b3e88c8912d7902d75f95fbecc682d9141948aad59c755a9fb",
-        "summary": "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 153 filtered out; finished in 0.03s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.39s"
+        "output_sha256": "1a4f5cc9192416a0173c4bcc039257212ee924f09df3ab57dc71c0c6ee09f3c1",
+        "summary": "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 153 filtered out; finished in 0.03s"
       },
       {
         "cmd": "cargo test -p ferroplan --lib policy_validation",
         "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
         "exit": 0,
-        "output_sha256": "9d17bfd27037fe32ed792cd2b57fec66c3c6fa11e07aa73d3964587fd3e4b8de",
-        "summary": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 163 filtered out; finished in 0.01s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s"
+        "output_sha256": "161d2d04e5a590be8c70575633b39e552c102f1995b0b6320795873a5a5f5bf9",
+        "summary": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 163 filtered out; finished in 0.01s"
       },
       {
         "cmd": "cargo test -p ferroplan --lib hddl",
         "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
         "exit": 0,
-        "output_sha256": "bbe87e35fa94293b02dca7d343964f4846f069d6fb59fce1f24221a24b1393f9",
-        "summary": "test hddl::tests::rejects_malformed_hddl_with_a_parse_error ... ok | test hddl::tests::eve_bridge_reports_a_parse_error_for_a_malformed_eve_root_task ... ok | test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 159 filtered out; finished in 0.01s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s"
+        "output_sha256": "1c8201b43dfbf10d86000568ee611894e3978d81d71c1552dbdea766c4728977",
+        "summary": "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 159 filtered out; finished in 0.01s"
       },
       {
         "cmd": "cargo test -p ferroplan --test fond_htn_micro --test fond_property --test fond_canonical --test fond_threshold --test planning_runtime --test fond_htn_oracle --test fond_property_scaleup --test planning_types --test ppddl",
         "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
         "exit": 0,
-        "output_sha256": "1c75f1d2efc8244253086d38708abc4e3495b930566daa69db1d188c9ea8bb45",
-        "summary": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s | test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s | test result: ok. 4 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 0.02s | test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s | test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.33s | test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s | test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s | test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s | test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s"
+        "output_sha256": "2a8d5a6974729426112e9535ea30f3e2aeb5066c7036c29632df810046715ebe",
+        "summary": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s | test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s | test result: ok. 4 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 0.02s | test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s | test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.03s | test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s | test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s | test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s | test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
       }
     ],
     "durable_location": "receipts/v26.9.22/FERROPLAN-26922-09.json on branch law/FERROPLAN-26922-09 (git-tracked)"
   },
   "standing": {
     "value": "ALIVE",
-    "derived_from": "replay commands 0-7 all exit 0 at subject_sha 8cc0676 (clean tree, worktree /Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09); acceptance = command 0 (cargo test -p ferroplan --test sjira_release_policy: 3 passed)"
+    "derived_from": "replay commands 0-7 all exit 0 on 2026-09-22 court-repair round at HEAD a576eb8, whose tree equals subject_sha 8cc0676 except receipts/v26.9.22/FERROPLAN-26922-09.json (git diff --stat 8cc0676 a576eb8: 1 file); clean tree, worktree /Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09; acceptance = command 0 (cargo test -p ferroplan --test sjira_release_policy: 3 passed)"
   },
   "work_order": {
     "id": "FERROPLAN-26922-09",
@@ -136,5 +136,13 @@
     "C01 falsifier from the catalog ('generated policy misses an order outcome or orders an action before a dependency') is exercised; the catalog row standing (UNKNOWN) is not updated here (catalog is generated from composition-space.ttl).",
     "The fixture is a snapshot of a live orders.json; re-run the generator with --orders when the graph changes, then the acceptance test.",
     "Merge into release/v26.9.22 not performed (court gate + merge lock protocol owned by the integrator)."
-  ]
+  ],
+  "court": {
+    "round": "repair round 1",
+    "verdict": "pass",
+    "lens": "GATE",
+    "refutations": [],
+    "action": "no code change: the verdict carried no refutation; acceptance and replay 0-7 re-run at a576eb8 (code tree == 8cc0676), orders.json sha256 unchanged (64fa20ff...237b), generator --check CONFORMANT, mock grep exit 1",
+    "court_observed": "court's independent run: acceptance exit 0 (3 passed, 26.68s), regenerated fixture byte-identical, mutations 1/2 exit 101, extra mutation (repair dead end) exit 101 'release graph must solve: Planner(NoPlan)'"
+  }
 }
