@@ -237,15 +237,34 @@ const MAX_STATES_PER_GROUND_INSTANCE: usize = 10;
 ///   with `solve_hddl`'s own watchdog, which also treats `0` as opting out
 ///   entirely (it skips the spawned thread). Callers that want a bound must
 ///   say so, in one place.
-/// - `prune_unreachable`: left `false` — reachability pruning is a semantics
-///   choice (it changes ground-instance counts), not a capacity knob, and is
-///   not this ticket's seam.
+/// - `prune_unreachable`: left `false` — the delete-relaxation pre-pass is
+///   a state-reachability filter whose pruning power on hierarchical domains
+///   is weak (it models fact producibility, not decomposition demand) and
+///   whose per-schema binding materialization is not free; measured on the
+///   ticket fond-htn-60 re-run, task-relevance pruning alone is what brings
+///   the stuck domains under the envelope.
+/// - `prune_irrelevant`: `true` — hierarchical task-relevance pruning
+///   (ticket fond-htn-60, `compute_task_relevance`): a ground action/method
+///   is instantiated only when it lies on some decomposition path from the
+///   problem's root task network(s) — standard HTN relevance pruning
+///   (public-technique citation in the grounder's module docs; implemented
+///   fresh). Sound *for this pipeline* because `translate`'s BFS is seeded
+///   from `GroundedIR::root_networks` and grows frontiers only through
+///   method subtasks: an instance off every decomposition path can never
+///   appear in any translated state, transition, or plan, so pruning it
+///   changes ground-instance *counts*, never the translated problem
+///   (asserted by test as `translate(ground(prune)) == translate(ground(..))`).
+///   This is the deliberate semantics choice this pipeline makes: validation
+///   guarantees a non-empty relevance seed (`:htn` carries at least one
+///   subtask), and it is what brings domains whose true ground counts exceed
+///   1 000 000 back under the default 10 000-instance envelope.
 fn grounding_limits_from(limits: &PlannerLimits) -> ferroplan_hddl::grounder::GroundingLimits {
     let instance_budget = limits.max_states / MAX_STATES_PER_GROUND_INSTANCE;
     ferroplan_hddl::grounder::GroundingLimits {
         max_ground_actions: instance_budget,
         max_ground_methods: instance_budget,
         prune_unreachable: false,
+        prune_irrelevant: true,
         max_wall: if limits.max_wall_ms == 0 {
             None
         } else {
