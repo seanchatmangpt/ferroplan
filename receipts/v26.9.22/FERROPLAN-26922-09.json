@@ -1,0 +1,140 @@
+{
+  "identity": {
+    "subject": "FERROPLAN-26922-09",
+    "repo": "/Users/sac/ferroplan",
+    "subject_sha": "8cc0676965f259ff2bf19162cd248998c9e313c0",
+    "base_sha": "dc327a3b9eb738f55bd5ac56c12636591c42bc3a",
+    "graph_hash": "sha256:64fa20ffb5dd9b678c785da42ed7fd9282df7e8d9f43cba0c99e999ec3cc237b"
+  },
+  "authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "workflow lane law/FERROPLAN-26922-09 per /Users/sac/wt/v26922/COORDINATION.md (Claude session owns FERROPLAN-26922-09); commit on own branch only, no merge/push",
+    "actor": "claude-opus-5-5 workflow subagent"
+  },
+  "consequence": {
+    "commits": [
+      "8cc0676965f259ff2bf19162cd248998c9e313c0"
+    ],
+    "files_changed": [
+      "scripts/gen_sjira_release_policy.py",
+      "crates/ferroplan/tests/fixtures/sjira-release-policy/work-graph.json",
+      "crates/ferroplan/tests/fixtures/sjira-release-policy/domain.hddl",
+      "crates/ferroplan/tests/fixtures/sjira-release-policy/problem.hddl",
+      "crates/ferroplan/tests/sjira_release_policy.rs",
+      "crates/ferroplan/src/planning_runtime.rs",
+      "receipts/v26.9.22/FERROPLAN-26922-09.json"
+    ],
+    "remote_effects": []
+  },
+  "replay": {
+    "commands": [
+      {
+        "cmd": "cargo test -p ferroplan --test sjira_release_policy -- --nocapture",
+        "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
+        "exit": 0,
+        "output_sha256": "b81d86c0ea4180799d1fd828e0d633610304dee833d5e9b26fc57d95247eaab8",
+        "summary": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 35.01s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.05s | binding edge asf-26922-08 <- ggmkt-26922-05; non-binding edge afde-26922-06 <- afde-26922-04 | original schedule: ggmkt-26922-05 at 94, asf-26922-08 at 153 | mutated schedule: asf-26922-08 at 17, ggmkt-26922-05 at 95"
+      },
+      {
+        "cmd": "python3 scripts/gen_sjira_release_policy.py --check",
+        "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
+        "exit": 0,
+        "output_sha256": "baddcef18ad08ef958b79eebb21e1aff17312305ea59126b2b70ad362b9efeaa",
+        "summary": "CONFORMANT 169 orders, 205 edges, 2 sweeps, source sha256 64fa20ffb5dd9b678c785da42ed7fd9282df7e8d9f43cba0c99e999ec3cc237b"
+      },
+      {
+        "cmd": "cargo fmt --all -- --check",
+        "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
+        "exit": 0,
+        "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "summary": ""
+      },
+      {
+        "cmd": "cargo clippy -p ferroplan --all-targets --all-features -- -D warnings",
+        "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
+        "exit": 0,
+        "output_sha256": "f92dab9cbe3b243772444bd8f17f10a7dd3fc483a1a264eee42aef77e5bce6e3",
+        "summary": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.79s"
+      },
+      {
+        "cmd": "cargo test -p ferroplan --lib planning_runtime",
+        "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
+        "exit": 0,
+        "output_sha256": "09657fbaf922c0b3e88c8912d7902d75f95fbecc682d9141948aad59c755a9fb",
+        "summary": "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 153 filtered out; finished in 0.03s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.39s"
+      },
+      {
+        "cmd": "cargo test -p ferroplan --lib policy_validation",
+        "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
+        "exit": 0,
+        "output_sha256": "9d17bfd27037fe32ed792cd2b57fec66c3c6fa11e07aa73d3964587fd3e4b8de",
+        "summary": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 163 filtered out; finished in 0.01s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s"
+      },
+      {
+        "cmd": "cargo test -p ferroplan --lib hddl",
+        "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
+        "exit": 0,
+        "output_sha256": "bbe87e35fa94293b02dca7d343964f4846f069d6fb59fce1f24221a24b1393f9",
+        "summary": "test hddl::tests::rejects_malformed_hddl_with_a_parse_error ... ok | test hddl::tests::eve_bridge_reports_a_parse_error_for_a_malformed_eve_root_task ... ok | test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 159 filtered out; finished in 0.01s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s"
+      },
+      {
+        "cmd": "cargo test -p ferroplan --test fond_htn_micro --test fond_property --test fond_canonical --test fond_threshold --test planning_runtime --test fond_htn_oracle --test fond_property_scaleup --test planning_types --test ppddl",
+        "cwd": "/Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09",
+        "exit": 0,
+        "output_sha256": "1c75f1d2efc8244253086d38708abc4e3495b930566daa69db1d188c9ea8bb45",
+        "summary": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s | test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s | test result: ok. 4 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 0.02s | test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s | test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.33s | test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s | test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s | test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s | test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s |     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s"
+      }
+    ],
+    "durable_location": "receipts/v26.9.22/FERROPLAN-26922-09.json on branch law/FERROPLAN-26922-09 (git-tracked)"
+  },
+  "standing": {
+    "value": "ALIVE",
+    "derived_from": "replay commands 0-7 all exit 0 at subject_sha 8cc0676 (clean tree, worktree /Users/sac/wt/v26922/ferroplan/law-FERROPLAN-26922-09); acceptance = command 0 (cargo test -p ferroplan --test sjira_release_policy: 3 passed)"
+  },
+  "work_order": {
+    "id": "FERROPLAN-26922-09",
+    "composition": "C01 release as policy synthesis (A+E)",
+    "acceptance": "cargo test -p ferroplan --test sjira_release_policy",
+    "source_graph": "/Users/sac/wt/v26922/orders.json sha256 64fa20ffb5dd9b678c785da42ed7fd9282df7e8d9f43cba0c99e999ec3cc237b (169 orders, 205 edges; the file is live and grew 168->169 orders during this run, so the fixture is a snapshot)"
+  },
+  "premise_adaptations": [
+    "Free choice of the next frontier order is intractable for ferroplan's explicit composite-state translate (downset lattice, >= 2^36 states for the graph's 36 roots). The fixture instead visits orders in 050_frontier.rq ORDER BY ?id order over R = 1 + max id-order descents sweeps (R = 2), taking an order exactly when pending and all depends-on are alive; the planner evaluates the dependency preconditions (lifted forall/exists over depends-on facts), the generator only fixes the visit order and horizon.",
+    "A flat 169-visit root network made translate cost O(|network|^2) per state (625 states in 10 s debug); the sweep is a two-level tree (13 chunks of 13 visits) instead.",
+    "solve_hddl's FOND fixpoints scanned every (from, action) group per state per round: 29.4 s release-mode for the 1550-state graph. planning_runtime.rs groups_from() replaces the scans with a BTreeMap range query over the same keys (same entries, same order): 0.72 s release, acceptance ~35 s in the debug test profile."
+  ],
+  "qualification": [
+    {
+      "mutation": "domain.hddl with the depends-on forall removed from visit-take/execute and visit-pass reduced to (alive ?o) (working tree, restored afterwards; --check CONFORMANT after restore)",
+      "cmd": "cargo test -p ferroplan --test sjira_release_policy release_policy_covers",
+      "exit": 101,
+      "result": "FAILED as required: execute(gymact-26922-10) chosen before its dependency xaas-26922-10 is alive"
+    },
+    {
+      "mutation": "domain.hddl execute oneof without the blocked branch (restored afterwards)",
+      "cmd": "cargo test -p ferroplan --test sjira_release_policy release_policy_covers",
+      "exit": 101,
+      "result": "FAILED as required: execute(afde-26922-02) keeps all 3 outcomes (left 2, right 3)"
+    },
+    {
+      "mutation": "in-test falsifier: drop binding edge asf-26922-08 <- ggmkt-26922-05",
+      "result": "schedule changed: asf-26922-08 moved from position 153 to 17 (before ggmkt-26922-05 at 95); control edge afde-26922-06 <- afde-26922-04 dropped leaves the schedule identical"
+    }
+  ],
+  "generated_vs_handwritten": {
+    "generated": [
+      "crates/ferroplan/tests/fixtures/sjira-release-policy/{work-graph.json,domain.hddl,problem.hddl} by scripts/gen_sjira_release_policy.py (drift gate: --check)"
+    ],
+    "handwritten": [
+      "scripts/gen_sjira_release_policy.py",
+      "crates/ferroplan/tests/sjira_release_policy.rs",
+      "crates/ferroplan/src/planning_runtime.rs (groups_from range query)"
+    ],
+    "note": "UNSUPPORTED(generator-capability): ferroplan has no ggen template/pack for HDDL fixture projection; ggen_igniter's semantic-jira-pack plan.hddl.eex projects one plan-as-declared per WorkOrder from RDF and cannot emit a joint FOND domain+problem over the whole graph, so the projection is a committed Python generator. The engine perf fix and the Chicago test are irreducible hand-written residue."
+  },
+  "chicago_check": "grep -rn 'unittest.mock|Mock(|MagicMock|patch(|monkeypatch|mockall|mock!' over the new test and generator: no matches (grep exit 1); all assertions run the real parse->ground->translate->FOND pipeline and validate_fond_policy",
+  "open_edges": [
+    "C01 falsifier from the catalog ('generated policy misses an order outcome or orders an action before a dependency') is exercised; the catalog row standing (UNKNOWN) is not updated here (catalog is generated from composition-space.ttl).",
+    "The fixture is a snapshot of a live orders.json; re-run the generator with --orders when the graph changes, then the acceptance test.",
+    "Merge into release/v26.9.22 not performed (court gate + merge lock protocol owned by the integrator)."
+  ]
+}
