@@ -7,7 +7,8 @@
 //! so every pair is valid-by-construction and both engines are expected to
 //! consume it cleanly. No koala/corpus content is copied (KOALA POLICY):
 //! the draws are self-authored in-repo; the koala oracle is invoked as an
-//! external process from `/tmp` only.
+//! external process only (durable under FERROPLAN_ORACLE_DIR since
+//! FERROPLAN-26922-02).
 //!
 //! Two layers:
 //!
@@ -29,9 +30,11 @@
 //!    manufactured by the ignored driver below) and passes on the live
 //!    classification alone — the oracle leg is never exercised offline.
 //! 2. **Full differential run** (`#[ignore]`d external driver) — the same
-//!    100 pairs, additionally: written under `/tmp/differential-fuzz-w61/`
+//!    100 pairs, additionally: written under the run dir
+//!    (`$FERROPLAN_RUN_DIR`, default `~/.cache/ferroplan/differential-fuzz-w61/`)
 //!    and run through the koala oracle
-//!    (`/tmp/fond-oracle/oracle-run.sh --mode flexible --timeout 30`, the
+//!    (`oracle-run.sh --mode flexible --timeout 30` under
+//!    `FERROPLAN_ORACLE_DIR`, the
 //!    T01 flock-serialized runner — never `solve.py` directly, never
 //!    concurrently). Each pair is classified:
 //!    * `agreement` — both engines give the same solvability verdict
@@ -52,7 +55,7 @@
 //!      facts — committing them is the point) and the run asserts
 //!      ≥ 80 oracle-consumable pairs.
 //!
-//! Oracle verdicts are cached under `/tmp/differential-fuzz-w61/` keyed by
+//! Oracle verdicts are cached under the run dir keyed by
 //! seed + mode + timeout + a hash of the exact input texts, so minimization
 //! loops and re-runs of the ignored driver only pay for uncached
 //! invocations (the runner's own flock serializes the real `solve.py`
@@ -72,6 +75,9 @@
 #![allow(non_snake_case)] // ORACLE_MISMATCH_* test names, per fond-htn-04 convention
 
 mod common;
+
+#[path = "common/external.rs"]
+mod external;
 
 use common::{draw_valid, halve_sizes, sizes_for, Sizes};
 
@@ -99,10 +105,15 @@ const FP_WALL_MS: u64 = 10_000;
 /// Ticket oracle contract.
 const ORACLE_MODE: &str = "flexible";
 const ORACLE_TIMEOUT_SECS: u32 = 30;
-const ORACLE_RUNNER: &str = "/tmp/fond-oracle/oracle-run.sh";
-/// Where the driver writes pairs + the verdict cache (the oracle side stays
-/// in /tmp, KOALA POLICY).
-const RUN_DIR: &str = "/tmp/differential-fuzz-w61";
+/// Where the driver writes pairs + the verdict cache (durable since
+/// FERROPLAN-26922-02: `$FERROPLAN_RUN_DIR`, default
+/// `~/.cache/ferroplan/differential-fuzz-w61`, instead of a /tmp home that
+/// every reap wiped).
+fn run_dir() -> PathBuf {
+    external::differential_run_dir()
+}
+/// The flock-serialized koala runner (`oracle-run.sh` under
+/// `$FERROPLAN_ORACLE_DIR`, default `~/.cache/ferroplan`).
 /// The committed 100-pair ledger (manufactured by the ignored driver).
 const LEDGER_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -394,7 +405,7 @@ fn check_policy_outcome_closure(seed: u64, tp: &TrProblem, plan: &UniversalPlan)
 }
 
 // ---------------------------------------------------------------------------
-// Koala oracle leg — the T01 runner, /tmp only, flock-serialized
+// Koala oracle leg — the T01 runner, external harness, flock-serialized
 // ---------------------------------------------------------------------------
 
 /// The koala side's verdict for one pair.
@@ -471,7 +482,7 @@ struct OracleRun {
 }
 
 fn oracle_available() -> bool {
-    Path::new(ORACLE_RUNNER).exists()
+    external::oracle_runner().exists()
 }
 
 fn input_hash(domain: &str, problem: &str) -> String {
@@ -486,7 +497,7 @@ fn input_hash(domain: &str, problem: &str) -> String {
 /// timeout + input-text hash, so only an actual input/contract change pays
 /// for a fresh oracle call. `DIFFERENTIAL_FUZZ_FRESH=1` bypasses it.
 fn cache_path() -> PathBuf {
-    Path::new(RUN_DIR).join("oracle-cache.json")
+    run_dir().join("oracle-cache.json")
 }
 
 fn load_cache() -> BTreeMap<String, OracleRun> {
@@ -500,7 +511,7 @@ fn load_cache() -> BTreeMap<String, OracleRun> {
 }
 
 fn store_cache(cache: &BTreeMap<String, OracleRun>) {
-    std::fs::create_dir_all(RUN_DIR).expect("create /tmp run dir");
+    std::fs::create_dir_all(run_dir()).expect("create differential run dir");
     let json = serde_json::to_string_pretty(cache).expect("serialize oracle cache");
     std::fs::write(cache_path(), json).expect("write oracle cache");
 }
@@ -512,7 +523,8 @@ fn store_cache(cache: &BTreeMap<String, OracleRun>) {
 /// decision (`NOSOLUTION_GROUNDER_PRUNE`): the prune is a real decision,
 /// the serializer crash is only its delivery vehicle.
 fn oracle_invoke(dpath: &Path, ppath: &Path) -> OracleRun {
-    let output = std::process::Command::new(ORACLE_RUNNER)
+    let runner = external::oracle_runner();
+    let output = std::process::Command::new(&runner)
         .arg(dpath)
         .arg(ppath)
         .args([
@@ -522,7 +534,7 @@ fn oracle_invoke(dpath: &Path, ppath: &Path) -> OracleRun {
             &ORACLE_TIMEOUT_SECS.to_string(),
         ])
         .output()
-        .unwrap_or_else(|e| panic!("spawn {ORACLE_RUNNER}: {e} (harness missing?)"));
+        .unwrap_or_else(|e| panic!("spawn {}: {e} (harness missing?)", runner.display()));
     assert!(
         output.status.success(),
         "oracle-run.sh exited non-zero (harness failure): {:?}",
@@ -581,7 +593,8 @@ fn oracle_invoke(dpath: &Path, ppath: &Path) -> OracleRun {
 }
 
 /// The koala verdict for one pair, cache-aware. The pair's files must
-/// already be written under `RUN_DIR` (the oracle consumes them from /tmp).
+/// already be written under the run dir (the oracle consumes them from
+/// there).
 fn ko_verdict(pair: &Pair, cache: &mut BTreeMap<String, OracleRun>) -> (KoVerdict, OracleRun) {
     let key = format!(
         "{}|{}|{}|{}",
@@ -601,11 +614,11 @@ fn ko_verdict(pair: &Pair, cache: &mut BTreeMap<String, OracleRun>) -> (KoVerdic
 }
 
 fn pair_path(pair: &Pair, file: &str) -> PathBuf {
-    Path::new(RUN_DIR).join(format!("pair-{:03}-seed-{}.{file}", pair.i, pair.seed))
+    run_dir().join(format!("pair-{:03}-seed-{}.{file}", pair.i, pair.seed))
 }
 
 fn write_pair_files(pair: &Pair) {
-    std::fs::create_dir_all(RUN_DIR).expect("create /tmp run dir");
+    std::fs::create_dir_all(run_dir()).expect("create differential run dir");
     std::fs::write(pair_path(pair, "domain.hddl"), &pair.domain_src)
         .expect("write domain for oracle");
     std::fs::write(pair_path(pair, "problem.hddl"), &pair.problem_src)
@@ -860,8 +873,9 @@ fn finding_fixtures(seed: u64, sizes: Sizes) -> Vec<PathBuf> {
 /// 100-pair ledger manufactured, ≥ 80 oracle-consumable asserted, both-clean
 /// divergences minimized + committed as findings (never papered over).
 #[test]
-#[ignore = "full differential run: drives the external /tmp/fond-oracle koala \
-            oracle (flock-serialized, up to ~30 min) — run with \
+#[ignore = "full differential run: drives the external koala oracle under \
+            FERROPLAN_ORACLE_DIR (default ~/.cache/ferroplan; flock-serialized, \
+            up to ~30 min); skips by name when the harness is absent — run with \
             `cargo test -p ferroplan --test differential_fuzz -- --ignored`"]
 fn differential_full_with_oracle() {
     let started = std::time::Instant::now();
@@ -882,13 +896,20 @@ fn differential_full_with_oracle() {
             .unwrap_or_else(|e| panic!("seed {}: VALID draw failed validation: {e}", pair.seed));
     }
 
-    let oracle_offline = !oracle_available();
-    if oracle_offline {
+    // FERROPLAN-26922-02: with the harness absent the oracle legs cannot
+    // run, so the known-divergence tripwire and the consumability floor are
+    // unanswerable — the run SKIPS BY NAME (loud note, exit 0) after the
+    // ferroplan-only pre-flight instead of failing.
+    if !oracle_available() {
         eprintln!(
-            "HARNESS_UNAVAILABLE: {ORACLE_RUNNER} absent — every oracle leg is \
-             skipped-with-note; the >= {MIN_ORACLE_CONSUMABLE} consumable gate \
-             cannot be met on this machine"
+            "SKIP-BY-NAME: oracle harness not found at {} — populate it (or \
+             set FERROPLAN_ORACLE_DIR, default ~/.cache/ferroplan) and \
+             re-run; the full differential run, the known-divergence \
+             tripwires and the >= {MIN_ORACLE_CONSUMABLE} consumable gate \
+             all need the real koala oracle",
+            external::oracle_runner().display()
         );
+        return;
     }
 
     let mut ledger_pairs = Vec::with_capacity(N_CASES);
@@ -896,19 +917,8 @@ fn differential_full_with_oracle() {
     let mut new_divergences: Vec<(u64, Sizes)> = Vec::new();
     for pair in &pairs {
         let (fp, fp_wall) = fp_verdict(pair);
-        let (ko, ko_run) = if oracle_offline {
-            (
-                KoVerdict::Skipped,
-                OracleRun {
-                    status: "SKIPPED".to_owned(),
-                    wall_s: 0.0,
-                    note: None,
-                },
-            )
-        } else {
-            write_pair_files(pair);
-            ko_verdict(pair, &mut cache)
-        };
+        write_pair_files(pair);
+        let (ko, ko_run) = ko_verdict(pair, &mut cache);
         let class = classify(&fp, &ko);
         *counts.entry(class).or_insert(0) += 1;
         eprintln!(
@@ -1033,7 +1043,7 @@ fn differential_full_with_oracle() {
         }),
         config: json!({
             "ferroplan_max_wall_ms": FP_WALL_MS,
-            "oracle_runner": ORACLE_RUNNER,
+            "oracle_runner": external::oracle_runner(),
             "oracle_mode": ORACLE_MODE,
             "oracle_timeout_s": ORACLE_TIMEOUT_SECS,
         }),
@@ -1064,6 +1074,10 @@ fn differential_full_with_oracle() {
 /// to three live oracle attempts before the pin fails; every flip is
 /// printed.
 fn known_divergence_repro(shape: &str) {
+    let runner = external::oracle_runner();
+    if !external::harness_present("koala oracle harness (oracle-run.sh)", &runner) {
+        return;
+    }
     let mut failures: Vec<String> = Vec::new();
     let mut n = 0usize;
     for k in KNOWN_DIVERGENCES.iter().filter(|k| k.shape == shape) {

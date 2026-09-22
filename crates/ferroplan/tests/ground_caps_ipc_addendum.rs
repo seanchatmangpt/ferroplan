@@ -4,11 +4,13 @@
 //!
 //! `#[ignore]`d long-run (run with
 //! `cargo test -p ferroplan --test ground_caps_ipc_addendum -- --ignored
-//! --nocapture`); NOT part of CI. It reads its corpus from an **external,
-//! read-only** checkout — `/tmp/fond-review/HDDL-Parser/tests/ipc/` —
+//! --nocapture`). It reads its corpus from an **external,
+//! read-only** checkout — `HDDL-Parser/tests/ipc/` under
+//! `FERROPLAN_CORPUS_DIR` (default `~/.cache/ferroplan`) —
 //! because the committed sweep fixtures (`tests/fixtures/ipc-sweep/`, ticket
 //! fond-htn-27) had not landed on this branch's base. Per the KOALA POLICY
-//! the corpus is run from `/tmp`, never vendored: these are IPC-2023
+//! the corpus is run from its external home, never vendored: these are
+//! IPC-2023
 //! hierarchical-track competition files (canonical inputs, not koala code),
 //! at HDDL-Parser checkout `1f2977eb512f46c69a82fac7a8e9bdcc112c41be`. The
 //! 17 (domain, first-listed problem) pairs are exactly the instances ticket
@@ -39,13 +41,16 @@
 //! `fixtures/ipc-sweep/RESULTS-wavec.md`. The test panics — and fails —
 //  only on contract violations (worker panic, garbage `Ok` with
 //! `solved=false`); it exits 0 iff all 17 outcomes are honest typed answers.
+//! When the corpus is absent it SKIPS BY NAME (loud note, exit 0), so the
+//! deep lane still passes on a machine without the corpus
+//! (FERROPLAN-26922-02).
+
+#[path = "common/external.rs"]
+mod external;
 
 use ferroplan::hddl::{solve_hddl, HddlError};
 use ferroplan::planning_runtime::{PlannerError, PlannerLimits};
 use std::time::Instant;
-
-/// External, read-only corpus root (never copied into the repo).
-const CORPUS: &str = "/tmp/fond-review/HDDL-Parser/tests/ipc";
 
 /// Raised caller limits: 60 s walls, ground caps 1 000 000 / 1 000 000.
 fn raised_limits() -> PlannerLimits {
@@ -206,12 +211,16 @@ fn classify(
 }
 
 #[test]
-#[ignore = "long-run external-corpus re-run (ticket fond-htn-43); needs /tmp/fond-review/HDDL-Parser/tests/ipc"]
+#[ignore = "long-run external-corpus re-run (ticket fond-htn-43); needs the IPC corpus under FERROPLAN_CORPUS_DIR (default ~/.cache/ferroplan); skips by name when absent"]
 fn raised_caps_rerun_of_the_17_ground_cap_refused_domains() {
+    let corpus = external::corpus_ipc_dir();
+    if !external::harness_present("external IPC corpus (HDDL-Parser/tests/ipc)", &corpus) {
+        return;
+    }
     let mut rows = Vec::new();
     for (key, dir, problem) in CASES {
-        let domain_path = format!("{CORPUS}/{dir}/domain.hddl");
-        let problem_path = format!("{CORPUS}/{dir}/{problem}");
+        let domain_path = format!("{}/{dir}/domain.hddl", corpus.display());
+        let problem_path = format!("{}/{dir}/{problem}", corpus.display());
         let domain_src = std::fs::read_to_string(&domain_path).unwrap_or_else(|e| {
             panic!("external corpus missing ({e}): {domain_path} — see this file's header")
         });

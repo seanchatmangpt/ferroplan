@@ -3,12 +3,13 @@
 //!
 //! `#[ignore]`d long-run (run with
 //! `cargo test -p ferroplan --test grounding_prune_ipc_rerun -- --ignored
-//! --nocapture`); NOT part of CI. Reads the same **external, read-only**
+//! --nocapture`); reads the same **external, read-only**
 //! corpus as ticket fond-htn-43's addendum runner
-//! (`/tmp/fond-review/HDDL-Parser/tests/ipc/`, IPC-2023 hierarchical-track
+//! (`HDDL-Parser/tests/ipc/` under `FERROPLAN_CORPUS_DIR`, default
+//! `~/.cache/ferroplan` — IPC-2023 hierarchical-track
 //! competition data at HDDL-Parser checkout
-//! `1f2977eb512f46c69a82fac7a8e9bdcc112c41be`; run from `/tmp` per the KOALA
-//! POLICY, never vendored). The 16 cases are ticket fond-htn-43's 17
+//! `1f2977eb512f46c69a82fac7a8e9bdcc112c41be`; kept out of the repo per the
+//! KOALA POLICY, never vendored). The 16 cases are ticket fond-htn-43's 17
 //! raised-caps rows **minus `hiking`** — the one domain whose refusal class
 //! already moved to the translate seam (ticket fond-htn-23's scope, not a
 //! ground-count problem).
@@ -31,17 +32,19 @@
 //! Contract (wave-4 rules: no cherry-picking, honest typed outcomes): rows
 //! print as machine-readable `PRUNE|key|actions|methods|outcome|wall_ms|detail`
 //! lines for `fixtures/ipc-sweep/RESULTS-wavec.md`; the test panics — and
-//! fails — only on contract violations (missing corpus, worker panic, garbage
-//! `Ok` with `solved=false`), never on an honest limit refusal. It exits 0
-//! iff all 16 domains produced their two honest rows.
+//! fails — only on contract violations (worker panic, garbage `Ok` with
+//! `solved=false`), never on an honest limit refusal. It exits 0 iff all 16
+//! domains produced their two honest rows. When the corpus is absent it
+//! SKIPS BY NAME (loud note, exit 0) instead of failing, so the deep lane
+//! still passes on a machine without the corpus (FERROPLAN-26922-02).
+
+#[path = "common/external.rs"]
+mod external;
 
 use ferroplan::hddl::{solve_hddl, HddlError};
 use ferroplan::planning_runtime::{PlannerError, UniversalPlan};
 use ferroplan_hddl::grounder::GroundingLimits;
 use std::time::Instant;
-
-/// External, read-only corpus root (never copied into the repo).
-const CORPUS: &str = "/tmp/fond-review/HDDL-Parser/tests/ipc";
 
 /// The 16 domains whose true ground-instance counts exceed 1 000 000 (ticket
 /// fond-htn-43 addendum) — identical (domain dir, first-listed problem)
@@ -187,12 +190,16 @@ fn classify_solve(result: Result<UniversalPlan, HddlError>) -> (String, String) 
 }
 
 #[test]
-#[ignore = "long-run external-corpus re-run (ticket fond-htn-60); needs /tmp/fond-review/HDDL-Parser/tests/ipc"]
+#[ignore = "long-run external-corpus re-run (ticket fond-htn-60); needs the IPC corpus under FERROPLAN_CORPUS_DIR (default ~/.cache/ferroplan); skips by name when absent"]
 fn default_caps_rerun_of_the_16_stuck_domains_under_relevance_pruning() {
+    let corpus = external::corpus_ipc_dir();
+    if !external::harness_present("external IPC corpus (HDDL-Parser/tests/ipc)", &corpus) {
+        return;
+    }
     let mut rows = Vec::new();
     for (key, dir, problem) in CASES {
-        let domain_path = format!("{CORPUS}/{dir}/domain.hddl");
-        let problem_path = format!("{CORPUS}/{dir}/{problem}");
+        let domain_path = format!("{}/{dir}/domain.hddl", corpus.display());
+        let problem_path = format!("{}/{dir}/{problem}", corpus.display());
         let domain_src = std::fs::read_to_string(&domain_path).unwrap_or_else(|e| {
             panic!("external corpus missing ({e}): {domain_path} — see this file's header")
         });
