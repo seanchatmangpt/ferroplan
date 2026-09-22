@@ -3,7 +3,7 @@ id: fond-htn-06-diff-flatfond
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Differential: canonical flat-FOND domains (tireworld family) — embedding vs both engines"
-standing: BLOCKED
+standing: ALIVE
 branch: test/fond-flat-oracle
 worktree: ~/ferroplan-worktrees/wt-oracle-flat
 created: 2026-09-17T21:30:00Z

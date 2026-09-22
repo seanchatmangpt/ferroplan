@@ -3,7 +3,7 @@ id: fond-htn-20-integration
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Serial integration of the three FROZEN wave-2 branches into main"
-standing: BLOCKED
+standing: ALIVE
 worktree: MAIN CHECKOUT /Users/sac/ferroplan (sole authorized writer this wave)
 created: 2026-09-17T21:30:00Z
 ---

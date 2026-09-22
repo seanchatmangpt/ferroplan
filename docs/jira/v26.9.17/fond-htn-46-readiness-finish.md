@@ -3,7 +3,7 @@ id: fond-htn-46-readiness-finish
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Finish: readiness leftovers — unmapped guards, fmt drift, evidence-core ids"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/readiness-finish
 worktree: ~/ferroplan-worktrees/wt-d46
 created: 2026-09-18T00:55:00Z

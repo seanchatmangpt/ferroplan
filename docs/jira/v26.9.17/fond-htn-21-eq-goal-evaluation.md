@@ -3,7 +3,7 @@ id: fond-htn-21-eq-goal-evaluation
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix: positive (= …) passes parse/validate but never evaluates true in translate"
-standing: BLOCKED
+standing: ALIVE
 created: 2026-09-17T23:55:00Z
 source: fond-htn-04 differential wave (ORACLE_MISMATCH micro-recurse fixture)
 ---

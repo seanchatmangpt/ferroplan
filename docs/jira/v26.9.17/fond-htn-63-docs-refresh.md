@@ -3,7 +3,7 @@ id: fond-htn-63-docs-refresh
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Docs: waves-4/5 refresh — FOND-HTN, README limits, CHANGELOG additions"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/waves45-refresh
 worktree: ~/ferroplan-worktrees/wt-h63
 created: 2026-09-18T02:50:00Z

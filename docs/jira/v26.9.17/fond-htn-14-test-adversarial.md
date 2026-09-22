@@ -3,7 +3,7 @@ id: fond-htn-14-test-adversarial
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Adversarial robustness: malformed HDDL never panics or hangs"
-standing: BLOCKED
+standing: ALIVE
 branch: test/hddl-adversarial
 worktree: ~/ferroplan-worktrees/wt-test-robust
 created: 2026-09-17T21:30:00Z

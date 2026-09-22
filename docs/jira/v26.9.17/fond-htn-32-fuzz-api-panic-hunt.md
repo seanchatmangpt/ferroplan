@@ -3,7 +3,7 @@ id: fond-htn-32-fuzz-api-panic-hunt
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fuzz: public-API panic hunt — structured garbage at every pub fn"
-standing: BLOCKED
+standing: ALIVE
 branch: fuzz/api-panic-hunt
 worktree: ~/ferroplan-worktrees/wt-s32
 created: 2026-09-17T23:50:00Z

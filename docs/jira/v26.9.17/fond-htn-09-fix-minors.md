@@ -3,7 +3,7 @@ id: fond-htn-09-fix-minors
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "FOND minors: contingent depth-cache + dead post-check (mass fix already on branch)"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/fond-minors
 worktree: ~/ferroplan-worktrees/wt-minor
 created: 2026-09-17T21:30:00Z

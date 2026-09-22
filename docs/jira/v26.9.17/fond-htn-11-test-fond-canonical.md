@@ -3,7 +3,7 @@ id: fond-htn-11-test-fond-canonical
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Canonical flat-FOND solver suite (literature verdicts, explicit-state)"
-standing: BLOCKED
+standing: ALIVE
 branch: test/fond-canonical
 worktree: ~/ferroplan-worktrees/wt-test-fond
 created: 2026-09-17T21:30:00Z

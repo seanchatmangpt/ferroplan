@@ -3,7 +3,7 @@ id: fond-htn-39-docs-readiness-refresh
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Docs+test: readiness evidence refresh for fp.core.fond / fp.core.hddl"
-standing: BLOCKED
+standing: PARTIAL_ALIVE
 branch: docs/readiness-refresh
 worktree: ~/ferroplan-worktrees/wt-d39
 created: 2026-09-17T23:50:00Z

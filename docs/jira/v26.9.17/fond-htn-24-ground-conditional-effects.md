@@ -3,7 +3,7 @@ id: fond-htn-24-ground-conditional-effects
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix: ground conditional effects — 2 PANDA pairs die with nested-'when' / unbound-variable"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/ground-conditional-effects
 worktree: ~/ferroplan-worktrees/wt-a24
 created: 2026-09-17T23:50:00Z

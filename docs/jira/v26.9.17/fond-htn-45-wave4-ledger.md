@@ -3,7 +3,7 @@ id: fond-htn-45-wave4-ledger
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Finish: wave-4 ticket ledger hygiene (final rows, SHA manifest, runbook update)"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/wave4-ledger
 worktree: ~/ferroplan-worktrees/wt-d45
 created: 2026-09-18T00:55:00Z

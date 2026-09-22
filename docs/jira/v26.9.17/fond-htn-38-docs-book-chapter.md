@@ -3,7 +3,7 @@ id: fond-htn-38-docs-book-chapter
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Docs: book chapter — fond-htn.md for the mdbook build"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/book-fond-htn
 worktree: ~/ferroplan-worktrees/wt-d38
 created: 2026-09-17T23:50:00Z

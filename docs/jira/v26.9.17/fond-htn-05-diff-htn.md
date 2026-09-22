@@ -3,7 +3,7 @@ id: fond-htn-05-diff-htn
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Differential: solve_hddl vs oracle on deterministic HTN corpora"
-standing: BLOCKED
+standing: ALIVE
 branch: test/htn-ipc-oracle
 worktree: ~/ferroplan-worktrees/wt-oracle-htn
 created: 2026-09-17T21:30:00Z

@@ -3,7 +3,7 @@ id: fond-htn-28-bench-scaling-ladder
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Bench: scaling ladder — find the capacity knee per pipeline stage"
-standing: BLOCKED
+standing: ALIVE
 branch: bench/scaling-ladder
 worktree: ~/ferroplan-worktrees/wt-b28
 created: 2026-09-17T23:50:00Z

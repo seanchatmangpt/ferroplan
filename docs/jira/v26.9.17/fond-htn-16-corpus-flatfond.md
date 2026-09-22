@@ -3,7 +3,7 @@ id: fond-htn-16-corpus-flatfond
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Canonical flat-FOND explicit-state corpus + literature verdicts (/tmp)"
-standing: BLOCKED
+standing: ALIVE
 worktree: none (/tmp only)
 created: 2026-09-17T21:30:00Z
 ---

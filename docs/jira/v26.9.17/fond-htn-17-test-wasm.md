@@ -3,7 +3,7 @@ id: fond-htn-17-test-wasm
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "WASM ABI: hddl_solve / fond_policy / htn_plan ops coverage"
-standing: BLOCKED
+standing: ALIVE
 branch: test/wasm-fond
 worktree: ~/ferroplan-worktrees/wt-test-wasm
 created: 2026-09-17T21:30:00Z

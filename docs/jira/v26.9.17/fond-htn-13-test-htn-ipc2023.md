@@ -3,7 +3,7 @@ id: fond-htn-13-test-htn-ipc2023
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "IPC-2023 deterministic HTN pipeline suite (solve_hddl end-to-end)"
-standing: BLOCKED
+standing: ALIVE
 branch: test/htn-ipc2023
 worktree: ~/ferroplan-worktrees/wt-test-htn
 created: 2026-09-17T21:30:00Z

@@ -3,7 +3,7 @@ id: fond-htn-18-docs-semantics
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "docs/FOND-HTN.md — semantics, architecture, oracle methodology, migration deviations"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/fond-htn-semantics
 worktree: ~/ferroplan-worktrees/wt-docs
 created: 2026-09-17T21:30:00Z

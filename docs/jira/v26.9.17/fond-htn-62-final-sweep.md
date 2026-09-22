@@ -3,7 +3,7 @@ id: fond-htn-62-final-sweep
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Final sweep: every test target on main incl. externals, wasm, benches tripwire — report only"
-standing: BLOCKED
+standing: ALIVE
 branch: test/final-sweep
 worktree: ~/ferroplan-worktrees/wt-h62
 created: 2026-09-18T02:50:00Z

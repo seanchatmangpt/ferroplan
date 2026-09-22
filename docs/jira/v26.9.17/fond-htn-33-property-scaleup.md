@@ -3,7 +3,7 @@ id: fond-htn-33-property-scaleup
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Property scale-up: 5000 instances, ≤12 states, Phase-3 regression dimension"
-standing: BLOCKED
+standing: ALIVE
 branch: test/property-scaleup
 worktree: ~/ferroplan-worktrees/wt-p33
 created: 2026-09-17T23:50:00Z

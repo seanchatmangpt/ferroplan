@@ -3,7 +3,7 @@ id: fond-htn-43-ground-caps-plumbing
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix: expose grounding caps through solve_hddl; re-run the 17 cap-refused IPC domains"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/ground-caps-plumbing
 worktree: ~/ferroplan-worktrees/wt-a43
 created: 2026-09-18T00:55:00Z

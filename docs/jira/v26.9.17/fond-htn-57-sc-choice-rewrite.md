@@ -3,7 +3,7 @@ id: fond-htn-57-sc-choice-rewrite
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "HOTFIX: FOUND_BUG_2 — strong-cyclic returns witness-first goal-unreachable loop policies"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/sc-choice-rewrite
 worktree: ~/ferroplan-worktrees/wt-h57
 created: 2026-09-18T02:50:00Z

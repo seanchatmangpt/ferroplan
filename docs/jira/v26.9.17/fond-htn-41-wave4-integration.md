@@ -3,7 +3,7 @@ id: fond-htn-41-wave4-integration
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Finish: serial integration of the 16 frozen wave-4 branch SHAs + numbers fill"
-standing: BLOCKED
+standing: ALIVE
 worktree: MAIN CHECKOUT /Users/sac/ferroplan (sole authorized writer this wave)
 created: 2026-09-18T00:55:00Z
 ---

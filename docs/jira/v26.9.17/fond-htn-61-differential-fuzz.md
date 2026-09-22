@@ -3,7 +3,7 @@ id: fond-htn-61-differential-fuzz
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Differential fuzz: generator's VALID draws through BOTH engines, divergences ledgered"
-standing: BLOCKED
+standing: PARTIAL_ALIVE
 branch: test/differential-fuzz
 worktree: ~/ferroplan-worktrees/wt-h61
 created: 2026-09-18T02:50:00Z
