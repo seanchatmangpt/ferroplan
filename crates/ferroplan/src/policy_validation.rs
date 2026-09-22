@@ -33,17 +33,45 @@ pub enum PolicyGuarantee {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum PolicyIssue {
-    UnknownInitialState { state: String },
-    DuplicatePolicyState { state: String },
-    UnknownPolicyState { state: String },
-    PolicyOnGoalState { state: String },
-    MissingPolicyEntry { state: String },
-    UnknownAction { state: String, action: String },
-    UnknownTransitionTarget { state: String, action: String, target: String },
-    InvalidProbabilityMass { state: String, action: String, mass: u64 },
-    OutcomeMismatch { state: String, action: String },
-    UnsafeReachableState { state: String },
-    NoGoalProgress { state: String },
+    UnknownInitialState {
+        state: String,
+    },
+    DuplicatePolicyState {
+        state: String,
+    },
+    UnknownPolicyState {
+        state: String,
+    },
+    PolicyOnGoalState {
+        state: String,
+    },
+    MissingPolicyEntry {
+        state: String,
+    },
+    UnknownAction {
+        state: String,
+        action: String,
+    },
+    UnknownTransitionTarget {
+        state: String,
+        action: String,
+        target: String,
+    },
+    InvalidProbabilityMass {
+        state: String,
+        action: String,
+        mass: u64,
+    },
+    OutcomeMismatch {
+        state: String,
+        action: String,
+    },
+    UnsafeReachableState {
+        state: String,
+    },
+    NoGoalProgress {
+        state: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,16 +99,18 @@ fn goal_holds(problem: &PlanningProblem, state_id: &str) -> bool {
         return false;
     };
     problem.goal.facts.is_subset(&state.facts)
-        && problem
-            .goal
-            .numeric_min
-            .iter()
-            .all(|(name, value)| state.fluents.get(name).is_some_and(|actual| actual >= value))
-        && problem
-            .goal
-            .numeric_max
-            .iter()
-            .all(|(name, value)| state.fluents.get(name).is_some_and(|actual| actual <= value))
+        && problem.goal.numeric_min.iter().all(|(name, value)| {
+            state
+                .fluents
+                .get(name)
+                .is_some_and(|actual| actual >= value)
+        })
+        && problem.goal.numeric_max.iter().all(|(name, value)| {
+            state
+                .fluents
+                .get(name)
+                .is_some_and(|actual| actual <= value)
+        })
 }
 
 fn transition_groups(
@@ -238,10 +268,7 @@ pub fn validate_fond_policy(
 
     if !issues.is_empty() || reachable_goals.is_empty() {
         if reachable_goals.is_empty() {
-            for state in reachable
-                .iter()
-                .filter(|state| !goal_holds(problem, state))
-            {
+            for state in reachable.iter().filter(|state| !goal_holds(problem, state)) {
                 issues.push(PolicyIssue::NoGoalProgress {
                     state: state.clone(),
                 });
@@ -424,7 +451,10 @@ mod tests {
     fn admits_an_acyclic_strong_policy() {
         let problem = base_problem(
             vec![state("s0", &[]), state("s1", &[]), state("g", &["goal"])],
-            vec![edge("advance", "s0", "s1", 1_000_000), edge("finish", "s1", "g", 1_000_000)],
+            vec![
+                edge("advance", "s0", "s1", 1_000_000),
+                edge("finish", "s1", "g", 1_000_000),
+            ],
         );
         let plan = UniversalPlan {
             solved: true,
