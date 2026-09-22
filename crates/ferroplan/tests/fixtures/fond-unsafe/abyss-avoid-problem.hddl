@@ -1,0 +1,9 @@
+; abyss-avoid problem — fond-htn-54 fixture (a) companion.
+(define (problem fond-unsafe-abyss-avoid-p1)
+  (:domain fond-unsafe-abyss-avoid)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (at-start))
+  (:goal (and (at-goal))))

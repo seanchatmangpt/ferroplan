@@ -170,9 +170,15 @@ pub extern "C" fn fp_alloc(len: usize) -> *mut u8 {
 }
 
 /// Free a buffer previously produced by `fp_alloc` or returned by
-/// `fp_call`.
+/// `fp_call`. The exported wasm symbol and its argument layout are
+/// unchanged (fond-htn-55, clippy::not_unsafe_ptr_arg_deref, clippy 1.97).
+///
+/// # Safety
+///
+/// Host contract: `ptr` must be null or a live pointer previously produced
+/// by this module with the same `len` it was produced with.
 #[no_mangle]
-pub extern "C" fn fp_dealloc(ptr: *mut u8, len: usize) {
+pub unsafe extern "C" fn fp_dealloc(ptr: *mut u8, len: usize) {
     if ptr.is_null() || len == 0 {
         return;
     }
@@ -187,8 +193,15 @@ pub extern "C" fn fp_dealloc(ptr: *mut u8, len: usize) {
 /// CONSUMES the request buffer (copies it out, then frees it) — the host
 /// must not dealloc the request after this call. The response buffer is
 /// the host's to free via `fp_dealloc(out_ptr, out_len)` after reading.
+/// The exported wasm symbol and its argument layout are unchanged
+/// (fond-htn-55, clippy::not_unsafe_ptr_arg_deref, clippy 1.97).
+///
+/// # Safety
+///
+/// Host contract: `ptr` must be null or a live pointer previously produced
+/// by `fp_alloc`/`fp_call` with exactly this `len`.
 #[no_mangle]
-pub extern "C" fn fp_call(ptr: *mut u8, len: usize) -> u64 {
+pub unsafe extern "C" fn fp_call(ptr: *mut u8, len: usize) -> u64 {
     let input: Vec<u8> = if ptr.is_null() || len == 0 {
         Vec::new()
     } else {

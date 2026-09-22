@@ -3,7 +3,7 @@ id: fond-htn-55-wasip1-clippy
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix: the three pre-existing wasip1 clippy diagnostics in wasi_abi"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/wasip1-clippy
 worktree: ~/ferroplan-worktrees/wt-d55
 created: 2026-09-18T00:55:00Z
@@ -25,3 +25,4 @@ Gates: clippy exit 0 on target; wasip1 tests exit 0.
 |---|---|---|---|---|
 | 2026-09-18T00:55:00Z | BLOCKED | fix/wasip1-clippy @ 6d14813 | — | all |
 | 2026-09-18T03:02:00Z | respawn-in-flight | fix/wasip1-clippy @ 75870de (wt-d55) | — | coordinator-close: wave-5 attempt never started (no History rows after the cut); second attempt in flight (wave 6), worktree fast-forwarded to 75870de | wave-6 respawn owns |
+| 2026-09-22T00:00:00Z | ALIVE | fer-07-respawns (merged to release/v26.9.22) | FINISHED by FERROPLAN-26922-07: wasi_abi.rs fp_dealloc/fp_call failed clippy::not_unsafe_ptr_arg_deref on clippy 1.97 (gate was never run since 4b41ae2 landed); both are now `pub unsafe extern "C"` with # Safety host-contract sections — exported symbol names and argument layouts unchanged, so the beam4pm wasm ABI contract is intact. Gate: CARGO_TARGET_WASM32_WASIP1_RUNNER='wasmtime run' cargo clippy -p ferroplan-wasm --target wasm32-wasip1 -- -D warnings == 0. | none |

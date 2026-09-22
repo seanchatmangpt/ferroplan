@@ -1,0 +1,9 @@
+; abyss-both problem — fond-htn-54 fixture (b) companion.
+(define (problem fond-unsafe-abyss-both-p1)
+  (:domain fond-unsafe-abyss-both)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (solve))))
+  (:init (at-start))
+  (:goal (and (at-goal))))
