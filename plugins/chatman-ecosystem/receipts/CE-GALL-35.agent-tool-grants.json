@@ -1,6 +1,6 @@
 {
   "blocked_by": [],
-  "checkpoint": "CE-GALL-35",
+  "checkpoint": "CE-GALL-35.agent-tool-grants",
   "command": "python3 -m pytest tests/test_bash_write_fence.py tests/test_bash_classify.py -q",
   "cwd": "plugins/chatman-ecosystem",
   "date": "2026-07-29",

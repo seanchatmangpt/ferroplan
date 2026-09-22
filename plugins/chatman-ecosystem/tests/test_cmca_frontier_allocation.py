@@ -7,6 +7,7 @@ by CE-GALL-35. This test exercises the real MCP binary.
 
 from __future__ import annotations
 
+import json
 import shutil
 
 import pytest
@@ -51,3 +52,51 @@ def test_canonical_frontier_allocation_is_pinned_and_deterministic():
         assert shares[interior_id] == 0.0
     for leaf_id in LEAF_IDS:
         assert shares[leaf_id] > 0.0
+
+
+# --------------------------------------------------------------------------
+# Restored by FERROPLAN-26922-02 from the 2026-07-30 gall-checkpoints lineage
+# (f9ae077). The reconciliation merge that landed the CE-GALL-35 receipts
+# dropped these two tests while keeping the receipts, so the suite named
+# witnesses that no test defined -- a comment, not evidence, by bcinr's rule.
+# They come back with the receipts' pinned values unchanged.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not _mcp_reachable(), reason="no cargo toolchain to build/run ferroplan-mcp")
+def test_canonical_frontier_allocation_matches_the_real_binary():
+    """The true result of `cmca_allocate` over the canonical frontier.
+
+    Pinned by direct observation of the real binary, not derived from
+    CE-GALL-28's receipt -- which this test refutes.
+    """
+    profile = surfaces.load_profile()
+    candidates = surfaces.candidates(profile)
+    try:
+        alloc, _ = _allocate(candidates)
+    except McpToolError as error:
+        pytest.skip(f"ferroplan-mcp unreachable: {error}")
+    payload = alloc["payload"]
+    assert payload["input_digest"] == EXPECTED_INPUT_DIGEST
+    shares = {row["id"]: row["share"] for row in payload["allocations"]}
+    assert shares["correctness"] == 0.0
+    top_id = max(shares, key=shares.get)
+    assert top_id == "planner-core"
+    assert shares[top_id] == pytest.approx(0.26995849609375)
+
+
+def test_ce_gall_28_receipt_digest_does_not_match_the_real_binary(plugin_root):
+    """CE-GALL-28's recorded `input_digest` is refuted, not merely stale.
+
+    The receipt's `f0a8d185` is 8 hex characters; `cmca_allocate` returns a
+    64-character BLAKE3 digest. No revision of the tool could have produced an
+    8-character `input_digest` -- the recorded value was never a real capture.
+    """
+    receipt = json.loads(
+        (plugin_root / "receipts" / "CE-GALL-28.json").read_text(encoding="utf-8")
+    )
+    recorded = receipt["positive_witness"]["result"]
+    assert "f0a8d185" in recorded
+    assert len("f0a8d185") != len(
+        "9e8f0839fd74fe089113679187a2523e95f712329869ed70e763fff907e3d8bf"
+    )
