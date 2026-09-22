@@ -3,7 +3,7 @@ id: fond-htn-65-translate-plumbing
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix (3rd attempt, SPLIT SCOPE): plumb caller walls into TranslateLimits only"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/translate-plumbing
 worktree: ~/ferroplan-worktrees/wt-a23 (reused, reset to 75870de)
 created: 2026-09-18T02:50:00Z

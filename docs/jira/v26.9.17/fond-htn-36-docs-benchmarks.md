@@ -3,7 +3,7 @@ id: fond-htn-36-docs-benchmarks
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Docs: BENCHMARKS.md — one canonical table of every committed result"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/benchmarks-consolidated
 worktree: ~/ferroplan-worktrees/wt-d36
 created: 2026-09-17T23:50:00Z

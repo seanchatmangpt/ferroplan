@@ -3,7 +3,7 @@ id: fond-htn-01-oracle-runner
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Formalize the koala oracle runner (flock-serialized, idempotent)"
-standing: BLOCKED
+standing: ALIVE
 worktree: none (/tmp only)
 created: 2026-09-17T21:30:00Z
 ---

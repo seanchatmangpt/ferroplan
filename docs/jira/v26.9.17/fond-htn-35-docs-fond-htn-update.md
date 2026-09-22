@@ -3,7 +3,7 @@ id: fond-htn-35-docs-fond-htn-update
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Docs: FOND-HTN.md wave-4 refresh (Phase 3, budget knobs, deviations table)"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/fond-htn-wave4
 worktree: ~/ferroplan-worktrees/wt-d35
 created: 2026-09-17T23:50:00Z

@@ -3,7 +3,7 @@ id: fond-htn-22-parse-depth-budget
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix: unbounded parser recursion — 1000-deep (and …) SIGABRTs the process"
-standing: BLOCKED
+standing: ALIVE
 created: 2026-09-17T23:55:00Z
 source: fond-htn-14 adversarial wave (TODO(parse-depth-budget))
 ---

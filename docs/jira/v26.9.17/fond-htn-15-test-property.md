@@ -3,7 +3,7 @@ id: fond-htn-15-test-property
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Property test: FOND solvers vs independent brute-force policy enumeration"
-standing: BLOCKED
+standing: PARTIAL_ALIVE
 branch: test/fond-property
 worktree: ~/ferroplan-worktrees/wt-test-cross
 created: 2026-09-17T21:30:00Z

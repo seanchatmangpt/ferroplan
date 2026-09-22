@@ -3,7 +3,7 @@ id: fond-htn-03-oracle-harvest-htn
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Oracle harvest: deterministic HTN (IPC-2023 ×13, IPC-2020 ×4, PANDA ×4, SHOP3 ×4)"
-standing: BLOCKED
+standing: ALIVE
 worktree: none (/tmp only)
 created: 2026-09-17T21:30:00Z
 ---

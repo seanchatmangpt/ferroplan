@@ -3,7 +3,7 @@ id: fond-htn-10-feat-eve-bridge
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Wire Eve's DecomposeHddl stage to solve_hddl + capability manifest coverage"
-standing: BLOCKED
+standing: ALIVE
 branch: feat/eve-hddl-bridge
 worktree: ~/ferroplan-worktrees/wt-bridge
 created: 2026-09-17T21:30:00Z

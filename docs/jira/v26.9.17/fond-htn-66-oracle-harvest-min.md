@@ -3,7 +3,7 @@ id: fond-htn-66-oracle-harvest-min
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Harvest (3rd attempt, MINIMAL): koala p06–p10 × 6 domains, 90 s, nothing else"
-standing: BLOCKED
+standing: PARTIAL_ALIVE
 worktree: none (/tmp only)
 created: 2026-09-18T02:50:00Z
 supersedes: fond-htn-34 scope (cross-diff leg dropped — coordinator does it from the verdicts)

@@ -3,7 +3,7 @@ id: fond-htn-07-fix-strongcyclic
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix: strong-cyclic truncation dead-sink (outcome-blind post-check)"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/fond-sc-closure
 worktree: ~/ferroplan-worktrees/wt-fondsc
 created: 2026-09-17T21:30:00Z

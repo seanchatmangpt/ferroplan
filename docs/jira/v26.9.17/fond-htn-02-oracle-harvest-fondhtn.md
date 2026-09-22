@@ -3,7 +3,7 @@ id: fond-htn-02-oracle-harvest-fondhtn
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Oracle harvest: koala FOND-HTN domains (6 usable × p01–05)"
-standing: BLOCKED
+standing: PARTIAL_ALIVE
 worktree: none (/tmp only)
 created: 2026-09-17T21:30:00Z
 ---

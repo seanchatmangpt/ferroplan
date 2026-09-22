@@ -3,7 +3,7 @@ id: fond-htn-04-diff-fondhtn
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Differential: ferroplan solve_hddl vs oracle on FOND-HTN (goldens + agreement tests)"
-standing: BLOCKED
+standing: ALIVE
 branch: test/fond-htn-oracle
 worktree: ~/ferroplan-worktrees/wt-oracle-fondhtn
 created: 2026-09-17T21:30:00Z

@@ -3,7 +3,7 @@ id: fond-htn-40-docs-changelog-draft
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Docs: aggregate the FOND-HTN line into CHANGELOG Unreleased"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/changelog-0.28-draft
 worktree: ~/ferroplan-worktrees/wt-d40
 created: 2026-09-17T23:50:00Z

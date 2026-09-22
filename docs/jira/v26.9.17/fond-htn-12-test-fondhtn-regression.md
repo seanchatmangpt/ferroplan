@@ -3,7 +3,7 @@ id: fond-htn-12-test-fondhtn-regression
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Hand-authored FOND-HTN micro-domain regression suite for solve_hddl"
-standing: BLOCKED
+standing: ALIVE
 branch: test/fond-htn-koala
 worktree: ~/ferroplan-worktrees/wt-test-fondhtn
 created: 2026-09-17T21:30:00Z

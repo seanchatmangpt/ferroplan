@@ -3,7 +3,7 @@ id: fond-htn-25-fond-loop-failsafes
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix: apply the states+1 failsafe pattern to fond_policy and contingent loops"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/fond-loop-failsafes
 worktree: ~/ferroplan-worktrees/wt-a25
 created: 2026-09-17T23:50:00Z

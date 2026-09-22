@@ -3,7 +3,7 @@ id: fond-htn-29-stress-concurrency-wasm
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Stress: 40-thread mixed-workload concurrency through the wasm ABI"
-standing: BLOCKED
+standing: ALIVE
 branch: stress/concurrency-wasm
 worktree: ~/ferroplan-worktrees/wt-s29
 created: 2026-09-17T23:50:00Z

@@ -3,7 +3,7 @@ id: fond-htn-64-wave6-ledger
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Finish: wave-5/6 ledger close (final rows + branch manifest + runbook completion)"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/wave6-ledger
 worktree: ~/ferroplan-worktrees/wt-h64
 created: 2026-09-18T02:55:00Z

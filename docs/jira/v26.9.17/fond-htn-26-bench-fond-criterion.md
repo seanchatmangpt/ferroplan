@@ -3,7 +3,7 @@ id: fond-htn-26-bench-fond-criterion
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Bench: criterion suite for the FOND solvers and solve_hddl micro-domains"
-standing: BLOCKED
+standing: ALIVE
 branch: bench/fond-criterion
 worktree: ~/ferroplan-worktrees/wt-b26
 created: 2026-09-17T23:50:00Z

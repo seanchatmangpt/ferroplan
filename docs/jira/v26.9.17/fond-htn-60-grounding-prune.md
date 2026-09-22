@@ -3,7 +3,7 @@ id: fond-htn-60-grounding-prune
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix: reachability pruning for >1M-instance groundings (16 IPC domains stuck at caps)"
-standing: BLOCKED
+standing: PARTIAL_ALIVE
 branch: fix/grounding-prune
 worktree: ~/ferroplan-worktrees/wt-h60
 created: 2026-09-18T02:50:00Z

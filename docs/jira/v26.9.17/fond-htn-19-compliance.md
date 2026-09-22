@@ -3,7 +3,7 @@ id: fond-htn-19-compliance
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Compliance sweep: zero koala-derived code/data in any repo we own"
-standing: BLOCKED
+standing: ALIVE
 worktree: none (read-only sweep; report to /tmp)
 created: 2026-09-17T21:30:00Z
 ---

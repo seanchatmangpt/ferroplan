@@ -3,7 +3,7 @@ id: fond-htn-08-fix-validation
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Harden ferroplan-hddl validation to reference level and beyond"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/hddl-validation
 worktree: ~/ferroplan-worktrees/wt-validate
 created: 2026-09-17T21:30:00Z

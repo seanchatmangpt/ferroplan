@@ -3,7 +3,7 @@ id: fond-htn-37-docs-readme
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Docs: README capability statement — FOND/HTN/HDDL, honestly, for the first time"
-standing: BLOCKED
+standing: ALIVE
 branch: docs/readme-capability
 worktree: ~/ferroplan-worktrees/wt-d37
 created: 2026-09-17T23:50:00Z

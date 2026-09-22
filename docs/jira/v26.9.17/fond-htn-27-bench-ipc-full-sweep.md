@@ -3,7 +3,7 @@ id: fond-htn-27-bench-ipc-full-sweep
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Bench: full IPC-2023 43-domain sweep through solve_hddl (60 s staged walls)"
-standing: BLOCKED
+standing: ALIVE
 branch: bench/ipc-full-sweep
 worktree: ~/ferroplan-worktrees/wt-b27
 created: 2026-09-17T23:50:00Z

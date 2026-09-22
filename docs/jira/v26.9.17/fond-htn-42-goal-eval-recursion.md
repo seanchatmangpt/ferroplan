@@ -3,7 +3,7 @@ id: fond-htn-42-goal-eval-recursion
 type: oslc_cm:ChangeRequest
 requirement: earl:TestRequirement
 dcterms:title: "Fix: depth budget for evaluate_ground_goal recursion (panic-hunt finding)"
-standing: BLOCKED
+standing: ALIVE
 branch: fix/goal-eval-recursion
 worktree: ~/ferroplan-worktrees/wt-a42
 created: 2026-09-18T00:55:00Z
