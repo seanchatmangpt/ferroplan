@@ -1,0 +1,12 @@
+;; differential-fuzz: self-authored seeded VALID draw (ticket fond-htn-61,
+;; in-repo generator, no external corpus content)
+(define (domain fzr)
+  (:types ty0)
+  (:predicates
+    (pr0)
+    (pr1 ?a0 - ty0 ?a1 - ty0)
+  )
+  (:task tk0 :parameters (?v0 - ty0 ?v1 - ty0))
+  (:action ac0 :parameters (?v0 - ty0 ?v1 - ty0) :effect (oneof (and) (and (pr0) (pr0))))
+  (:method mt0 :parameters (?v0 - ty0 ?v1 - ty0) :task (tk0 ?v0 ?v1) :subtasks (and (s0 (ac0 ?v1 ?v0))) :ordering (and ))
+)
