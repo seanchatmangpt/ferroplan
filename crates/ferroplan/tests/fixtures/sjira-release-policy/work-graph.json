@@ -1,0 +1,1192 @@
+{
+  "generator": "scripts/gen_sjira_release_policy.py",
+  "orders": [
+    {
+      "deps": [],
+      "id": "AFDE-26922-01",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [],
+      "id": "AFDE-26922-02",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [
+        "AFDE-26922-01",
+        "AFDE-26922-02"
+      ],
+      "id": "AFDE-26922-03",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [],
+      "id": "AFDE-26922-04",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [],
+      "id": "AFDE-26922-05",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [
+        "AFDE-26922-04"
+      ],
+      "id": "AFDE-26922-06",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [
+        "AFDE-26922-05"
+      ],
+      "id": "AFDE-26922-07",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [
+        "AFDE-26922-04",
+        "AFDE-26922-05",
+        "AFDE-26922-06",
+        "AFDE-26922-07"
+      ],
+      "id": "AFDE-26922-08",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [
+        "AFDE-26922-08"
+      ],
+      "id": "AFDE-26922-09",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [],
+      "id": "AFDE-26922-10",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [
+        "AFDE-26922-01"
+      ],
+      "id": "AFDE-26922-11",
+      "repo": "autofde-lab"
+    },
+    {
+      "deps": [],
+      "id": "ASF-26922-01",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "ASF-26922-01"
+      ],
+      "id": "ASF-26922-02",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "ASF-26922-01",
+        "ASF-26922-02"
+      ],
+      "id": "ASF-26922-03",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "ASF-26922-03"
+      ],
+      "id": "ASF-26922-04",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "ASF-26922-03"
+      ],
+      "id": "ASF-26922-05",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "ASF-26922-02"
+      ],
+      "id": "ASF-26922-06",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "ASF-26922-02",
+        "ASH_A2A-26922-12"
+      ],
+      "id": "ASF-26922-07",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "GGMKT-26922-05"
+      ],
+      "id": "ASF-26922-08",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "ASF-26922-01"
+      ],
+      "id": "ASF-26922-09",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "ASF-26922-04",
+        "ASF-26922-05"
+      ],
+      "id": "ASF-26922-10",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [
+        "ASF-26922-04"
+      ],
+      "id": "ASF-26922-11",
+      "repo": "ash_surface"
+    },
+    {
+      "deps": [],
+      "id": "ASHATL-26922-01",
+      "repo": "ash_atlassian"
+    },
+    {
+      "deps": [
+        "ASHATL-26922-01"
+      ],
+      "id": "ASHATL-26922-02",
+      "repo": "ash_atlassian"
+    },
+    {
+      "deps": [
+        "ASHATL-26922-01",
+        "XAAS-26922-10"
+      ],
+      "id": "ASHATL-26922-03",
+      "repo": "ash_atlassian"
+    },
+    {
+      "deps": [
+        "ASHATL-26922-01"
+      ],
+      "id": "ASHATL-26922-04",
+      "repo": "ash_atlassian"
+    },
+    {
+      "deps": [],
+      "id": "ASH_A2A-26922-01",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-01"
+      ],
+      "id": "ASH_A2A-26922-02",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-01"
+      ],
+      "id": "ASH_A2A-26922-03",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-01",
+        "ASH_A2A-26922-02",
+        "ASH_A2A-26922-03"
+      ],
+      "id": "ASH_A2A-26922-04",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-04"
+      ],
+      "id": "ASH_A2A-26922-05",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-04"
+      ],
+      "id": "ASH_A2A-26922-06",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-04"
+      ],
+      "id": "ASH_A2A-26922-07",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [],
+      "id": "ASH_A2A-26922-08",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-04"
+      ],
+      "id": "ASH_A2A-26922-09",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-04"
+      ],
+      "id": "ASH_A2A-26922-10",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-04"
+      ],
+      "id": "ASH_A2A-26922-11",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-04",
+        "ASH_A2A-26922-05",
+        "ASH_A2A-26922-06",
+        "ASH_A2A-26922-07",
+        "ASH_A2A-26922-08",
+        "ASH_A2A-26922-09",
+        "ASH_A2A-26922-11"
+      ],
+      "id": "ASH_A2A-26922-12",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-06"
+      ],
+      "id": "ASH_A2A-26922-13",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-10"
+      ],
+      "id": "ASH_A2A-26922-14",
+      "repo": "ash_a2a"
+    },
+    {
+      "deps": [],
+      "id": "BEAM4PM-26922-01",
+      "repo": "beam4pm"
+    },
+    {
+      "deps": [
+        "BEAM4PM-26922-01"
+      ],
+      "id": "BEAM4PM-26922-02",
+      "repo": "beam4pm"
+    },
+    {
+      "deps": [
+        "BEAM4PM-26922-01",
+        "BEAM4PM-26922-02"
+      ],
+      "id": "BEAM4PM-26922-03",
+      "repo": "beam4pm"
+    },
+    {
+      "deps": [
+        "BEAM4PM-26922-01",
+        "GGMKT-26922-05"
+      ],
+      "id": "BEAM4PM-26922-04",
+      "repo": "beam4pm"
+    },
+    {
+      "deps": [
+        "BEAM4PM-26922-04"
+      ],
+      "id": "BEAM4PM-26922-05",
+      "repo": "beam4pm"
+    },
+    {
+      "deps": [
+        "BEAM4PM-26922-05"
+      ],
+      "id": "BEAM4PM-26922-06",
+      "repo": "beam4pm"
+    },
+    {
+      "deps": [
+        "BEAM4PM-26922-02",
+        "BEAM4PM-26922-04"
+      ],
+      "id": "BEAM4PM-26922-07",
+      "repo": "beam4pm"
+    },
+    {
+      "deps": [
+        "BEAM4PM-26922-02"
+      ],
+      "id": "BEAM4PM-26922-08",
+      "repo": "beam4pm"
+    },
+    {
+      "deps": [
+        "BEAM4PM-26922-03",
+        "BEAM4PM-26922-05"
+      ],
+      "id": "BEAM4PM-26922-09",
+      "repo": "beam4pm"
+    },
+    {
+      "deps": [],
+      "id": "CHATMAN-ECOSYSTEM-26922-01",
+      "repo": "chatman-ecosystem"
+    },
+    {
+      "deps": [
+        "CHATMAN-ECOSYSTEM-26922-01"
+      ],
+      "id": "CHATMAN-ECOSYSTEM-26922-02",
+      "repo": "chatman-ecosystem"
+    },
+    {
+      "deps": [
+        "CHATMAN-ECOSYSTEM-26922-01"
+      ],
+      "id": "CHATMAN-ECOSYSTEM-26922-03",
+      "repo": "chatman-ecosystem"
+    },
+    {
+      "deps": [],
+      "id": "FDDB-26922-01",
+      "repo": "frozen-duckdb"
+    },
+    {
+      "deps": [
+        "FDDB-26922-01",
+        "GGMKT-26922-01"
+      ],
+      "id": "FDDB-26922-02",
+      "repo": "frozen-duckdb"
+    },
+    {
+      "deps": [],
+      "id": "FDDB-26922-03",
+      "repo": "frozen-duckdb"
+    },
+    {
+      "deps": [
+        "FDDB-26922-03",
+        "GGEN_IGNITER-26922-13"
+      ],
+      "id": "FDDB-26922-04",
+      "repo": "frozen-duckdb"
+    },
+    {
+      "deps": [
+        "FDDB-26922-01",
+        "FDDB-26922-02"
+      ],
+      "id": "FDDB-26922-05",
+      "repo": "frozen-duckdb"
+    },
+    {
+      "deps": [],
+      "id": "FDDB-26922-06",
+      "repo": "frozen-duckdb"
+    },
+    {
+      "deps": [],
+      "id": "FERROPLAN-26922-01",
+      "repo": "ferroplan"
+    },
+    {
+      "deps": [
+        "FERROPLAN-26922-01"
+      ],
+      "id": "FERROPLAN-26922-02",
+      "repo": "ferroplan"
+    },
+    {
+      "deps": [
+        "FERROPLAN-26922-01"
+      ],
+      "id": "FERROPLAN-26922-03",
+      "repo": "ferroplan"
+    },
+    {
+      "deps": [
+        "FERROPLAN-26922-01"
+      ],
+      "id": "FERROPLAN-26922-04",
+      "repo": "ferroplan"
+    },
+    {
+      "deps": [
+        "FERROPLAN-26922-02"
+      ],
+      "id": "FERROPLAN-26922-05",
+      "repo": "ferroplan"
+    },
+    {
+      "deps": [
+        "FERROPLAN-26922-04"
+      ],
+      "id": "FERROPLAN-26922-06",
+      "repo": "ferroplan"
+    },
+    {
+      "deps": [
+        "FERROPLAN-26922-01"
+      ],
+      "id": "FERROPLAN-26922-07",
+      "repo": "ferroplan"
+    },
+    {
+      "deps": [],
+      "id": "FERROPLAN-26922-08",
+      "repo": "ferroplan"
+    },
+    {
+      "deps": [
+        "FERROPLAN-26922-01"
+      ],
+      "id": "FERROPLAN-26922-09",
+      "repo": "ferroplan"
+    },
+    {
+      "deps": [],
+      "id": "GGE-26922-01",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [],
+      "id": "GGE-26922-02",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [
+        "GGE-26922-01"
+      ],
+      "id": "GGE-26922-03",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [
+        "GGE-26922-01"
+      ],
+      "id": "GGE-26922-04",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [
+        "GGE-26922-03"
+      ],
+      "id": "GGE-26922-05",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [
+        "GGE-26922-03",
+        "GGEN_IGNITER-26922-05",
+        "GGMKT-26922-04"
+      ],
+      "id": "GGE-26922-06",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [
+        "GGE-26922-06"
+      ],
+      "id": "GGE-26922-07",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [
+        "GGE-26922-01"
+      ],
+      "id": "GGE-26922-08",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [
+        "GGE-26922-06",
+        "GGE-26922-07"
+      ],
+      "id": "GGE-26922-09",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [
+        "GGE-26922-03"
+      ],
+      "id": "GGE-26922-10",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [
+        "GGE-26922-05",
+        "GGE-26922-06",
+        "GGE-26922-09"
+      ],
+      "id": "GGE-26922-11",
+      "repo": "ggen-ecosystem"
+    },
+    {
+      "deps": [],
+      "id": "GGEN-26922-01",
+      "repo": "ggen"
+    },
+    {
+      "deps": [],
+      "id": "GGEN-26922-02",
+      "repo": "ggen"
+    },
+    {
+      "deps": [
+        "GGEN-26922-01"
+      ],
+      "id": "GGEN-26922-03",
+      "repo": "ggen"
+    },
+    {
+      "deps": [
+        "GGEN-26922-01"
+      ],
+      "id": "GGEN-26922-04",
+      "repo": "ggen"
+    },
+    {
+      "deps": [
+        "GGEN-26922-02",
+        "GGEN-26922-03"
+      ],
+      "id": "GGEN-26922-05",
+      "repo": "ggen"
+    },
+    {
+      "deps": [
+        "GGEN-26922-01"
+      ],
+      "id": "GGEN-26922-06",
+      "repo": "ggen"
+    },
+    {
+      "deps": [
+        "GGEN-26922-01"
+      ],
+      "id": "GGEN-26922-07",
+      "repo": "ggen"
+    },
+    {
+      "deps": [],
+      "id": "GGEN_IGNITER-26922-01",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [],
+      "id": "GGEN_IGNITER-26922-02",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-01",
+        "GGEN_IGNITER-26922-02"
+      ],
+      "id": "GGEN_IGNITER-26922-03",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-03"
+      ],
+      "id": "GGEN_IGNITER-26922-04",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-03"
+      ],
+      "id": "GGEN_IGNITER-26922-05",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-03",
+        "GGEN_IGNITER-26922-04"
+      ],
+      "id": "GGEN_IGNITER-26922-06",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-06"
+      ],
+      "id": "GGEN_IGNITER-26922-07",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-03"
+      ],
+      "id": "GGEN_IGNITER-26922-08",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [],
+      "id": "GGEN_IGNITER-26922-09",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-02",
+        "GGEN_IGNITER-26922-03",
+        "GGEN_IGNITER-26922-04",
+        "GGEN_IGNITER-26922-05"
+      ],
+      "id": "GGEN_IGNITER-26922-10",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-12",
+        "GGEN_IGNITER-26922-04"
+      ],
+      "id": "GGEN_IGNITER-26922-11",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-10"
+      ],
+      "id": "GGEN_IGNITER-26922-12",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-10"
+      ],
+      "id": "GGEN_IGNITER-26922-13",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-01"
+      ],
+      "id": "GGEN_IGNITER-26922-14",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-06"
+      ],
+      "id": "GGEN_IGNITER-26922-15",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-15"
+      ],
+      "id": "GGEN_IGNITER-26922-16",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-06",
+        "GGEN_IGNITER-26922-07"
+      ],
+      "id": "GGEN_IGNITER-26922-17",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-03",
+        "GGEN_IGNITER-26922-06"
+      ],
+      "id": "GGEN_IGNITER-26922-18",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-04"
+      ],
+      "id": "GGEN_IGNITER-26922-19",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-06"
+      ],
+      "id": "GGEN_IGNITER-26922-21",
+      "repo": "ggen_igniter"
+    },
+    {
+      "deps": [],
+      "id": "GGMKT-26922-01",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [
+        "GGMKT-26922-01"
+      ],
+      "id": "GGMKT-26922-02",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [
+        "GGMKT-26922-01"
+      ],
+      "id": "GGMKT-26922-03",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-05",
+        "GGMKT-26922-01"
+      ],
+      "id": "GGMKT-26922-04",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [
+        "GGMKT-26922-01"
+      ],
+      "id": "GGMKT-26922-05",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [
+        "GGMKT-26922-01"
+      ],
+      "id": "GGMKT-26922-06",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [
+        "GGMKT-26922-01",
+        "GGMKT-26922-02"
+      ],
+      "id": "GGMKT-26922-07",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [
+        "GGMKT-26922-01",
+        "GGMKT-26922-02"
+      ],
+      "id": "GGMKT-26922-08",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [
+        "GGMKT-26922-02"
+      ],
+      "id": "GGMKT-26922-09",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [
+        "GGMKT-26922-02",
+        "GGMKT-26922-09"
+      ],
+      "id": "GGMKT-26922-10",
+      "repo": "ggen-marketplace"
+    },
+    {
+      "deps": [],
+      "id": "GITVAN-26922-01",
+      "repo": "gitvan"
+    },
+    {
+      "deps": [
+        "GITVAN-26922-01"
+      ],
+      "id": "GITVAN-26922-02",
+      "repo": "gitvan"
+    },
+    {
+      "deps": [
+        "GITVAN-26922-02"
+      ],
+      "id": "GITVAN-26922-03",
+      "repo": "gitvan"
+    },
+    {
+      "deps": [
+        "GITVAN-26922-02"
+      ],
+      "id": "GITVAN-26922-04",
+      "repo": "gitvan"
+    },
+    {
+      "deps": [
+        "GITVAN-26922-03",
+        "GITVAN-26922-04"
+      ],
+      "id": "GITVAN-26922-05",
+      "repo": "gitvan"
+    },
+    {
+      "deps": [
+        "GITVAN-26922-05"
+      ],
+      "id": "GITVAN-26922-06",
+      "repo": "gitvan"
+    },
+    {
+      "deps": [
+        "GITVAN-26922-02"
+      ],
+      "id": "GITVAN-26922-07",
+      "repo": "gitvan"
+    },
+    {
+      "deps": [
+        "GITVAN-26922-03"
+      ],
+      "id": "GITVAN-26922-08",
+      "repo": "gitvan"
+    },
+    {
+      "deps": [],
+      "id": "GYMACT-26922-01",
+      "repo": "gymact"
+    },
+    {
+      "deps": [],
+      "id": "GYMACT-26922-02",
+      "repo": "gymact"
+    },
+    {
+      "deps": [],
+      "id": "GYMACT-26922-03",
+      "repo": "gymact"
+    },
+    {
+      "deps": [
+        "GGEN-26922-05"
+      ],
+      "id": "GYMACT-26922-04",
+      "repo": "gymact"
+    },
+    {
+      "deps": [],
+      "id": "GYMACT-26922-05",
+      "repo": "gymact"
+    },
+    {
+      "deps": [
+        "GYMACT-26922-02",
+        "GYMACT-26922-03",
+        "GYMACT-26922-05"
+      ],
+      "id": "GYMACT-26922-06",
+      "repo": "gymact"
+    },
+    {
+      "deps": [
+        "GYMACT-26922-02",
+        "GYMACT-26922-03",
+        "GYMACT-26922-04"
+      ],
+      "id": "GYMACT-26922-07",
+      "repo": "gymact"
+    },
+    {
+      "deps": [],
+      "id": "GYMACT-26922-08",
+      "repo": "gymact"
+    },
+    {
+      "deps": [
+        "GYMACT-26922-08"
+      ],
+      "id": "GYMACT-26922-09",
+      "repo": "gymact"
+    },
+    {
+      "deps": [
+        "GYMACT-26922-06",
+        "XAAS-26922-10"
+      ],
+      "id": "GYMACT-26922-10",
+      "repo": "gymact"
+    },
+    {
+      "deps": [],
+      "id": "XAAS-26922-01",
+      "repo": "xaas"
+    },
+    {
+      "deps": [],
+      "id": "XAAS-26922-02",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-02"
+      ],
+      "id": "XAAS-26922-03",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-03"
+      ],
+      "id": "XAAS-26922-04",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-02"
+      ],
+      "id": "XAAS-26922-05",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-01",
+        "XAAS-26922-02"
+      ],
+      "id": "XAAS-26922-06",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-06"
+      ],
+      "id": "XAAS-26922-07",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "ASHATL-26922-01",
+        "XAAS-26922-01"
+      ],
+      "id": "XAAS-26922-08",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "AFDE-26922-01",
+        "GYMACT-26922-01",
+        "XAAS-26922-07"
+      ],
+      "id": "XAAS-26922-09",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-01",
+        "XAAS-26922-02"
+      ],
+      "id": "XAAS-26922-10",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-13",
+        "XAAS-26922-06"
+      ],
+      "id": "XAAS-26922-11",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-07",
+        "XAAS-26922-11"
+      ],
+      "id": "XAAS-26922-12",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "ASH_A2A-26922-12"
+      ],
+      "id": "XAAS-26922-13",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "AFDE-26922-06",
+        "XAAS-26922-01",
+        "XAAS-26922-12"
+      ],
+      "id": "XAAS-26922-14",
+      "repo": "xaas"
+    },
+    {
+      "deps": [],
+      "id": "XAAS-26922-15",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-12"
+      ],
+      "id": "XAAS-26922-16",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-08",
+        "XAAS-26922-07"
+      ],
+      "id": "XAAS-26922-17",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-02",
+        "XAAS-26922-03",
+        "XAAS-26922-06",
+        "XAAS-26922-07",
+        "XAAS-26922-11"
+      ],
+      "id": "XAAS-26922-18",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-15",
+        "GGEN_IGNITER-26922-16",
+        "XAAS-26922-12",
+        "XAAS-26922-16"
+      ],
+      "id": "XAAS-26922-19",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-18",
+        "XAAS-26922-15"
+      ],
+      "id": "XAAS-26922-20",
+      "repo": "xaas"
+    },
+    {
+      "deps": [],
+      "id": "XAAS-26922-21",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-20",
+        "XAAS-26922-23"
+      ],
+      "id": "XAAS-26922-22",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-17"
+      ],
+      "id": "XAAS-26922-23",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-19"
+      ],
+      "id": "XAAS-26922-24",
+      "repo": "xaas"
+    },
+    {
+      "deps": [
+        "XAAS-26922-12",
+        "XAAS-26922-19",
+        "XAAS-26922-23"
+      ],
+      "id": "XAAS-26922-25",
+      "repo": "xaas"
+    },
+    {
+      "deps": [],
+      "id": "XAAS-26922-26",
+      "repo": "xaas"
+    },
+    {
+      "deps": [],
+      "id": "ZCODE-26922-01",
+      "repo": "zcode-cli"
+    },
+    {
+      "deps": [
+        "ZCODE-26922-01"
+      ],
+      "id": "ZCODE-26922-02",
+      "repo": "zcode-cli"
+    },
+    {
+      "deps": [
+        "ZCODE-26922-02"
+      ],
+      "id": "ZCODE-26922-03",
+      "repo": "zcode-cli"
+    },
+    {
+      "deps": [
+        "ZCODE-26922-02",
+        "ZCODE-26922-03"
+      ],
+      "id": "ZCODE-26922-04",
+      "repo": "zcode-cli"
+    },
+    {
+      "deps": [
+        "ZCODE-26922-01",
+        "ZCODE-26922-02"
+      ],
+      "id": "ZCODE-26922-05",
+      "repo": "zcode-cli"
+    },
+    {
+      "deps": [
+        "ZCODE-26922-02"
+      ],
+      "id": "ZCODE-26922-06",
+      "repo": "zcode-cli"
+    },
+    {
+      "deps": [
+        "ZCODE-26922-05"
+      ],
+      "id": "ZCODE-26922-07",
+      "repo": "zcode-cli"
+    },
+    {
+      "deps": [
+        "GGEN_IGNITER-26922-07",
+        "GGEN_IGNITER-26922-08",
+        "ZCODE-26922-07"
+      ],
+      "id": "ZCODE-26922-08",
+      "repo": "zcode-cli"
+    },
+    {
+      "deps": [
+        "ZCODE-26922-02"
+      ],
+      "id": "ZCODE-26922-09",
+      "repo": "zcode-cli"
+    },
+    {
+      "deps": [
+        "ZCODE-26922-02"
+      ],
+      "id": "ZCODE-26922-10",
+      "repo": "zcode-cli"
+    }
+  ],
+  "source": {
+    "path": "/Users/sac/wt/v26922/orders.json",
+    "sha256": "64fa20ffb5dd9b678c785da42ed7fd9282df7e8d9f43cba0c99e999ec3cc237b"
+  }
+}

@@ -556,6 +556,23 @@ fn action_groups(problem: &PlanningProblem) -> BTreeMap<(&str, &str), Vec<&Trans
     grouped
 }
 
+/// The action groups leaving `from`, in exactly the `(from, action)` key
+/// order a full `groups.iter()` scan filtered on `from` visits them — a
+/// range query over the `(from, action)`-keyed map instead of a linear scan
+/// of every group. The FOND fixpoints below query this once per state per
+/// round; with a full scan each round cost O(states x groups), which made a
+/// ~1.5k-state strong-cyclic solve (the FERROPLAN-26922-09 release graph)
+/// take ~30 s optimized. `""` is the least `&str`, so `(from, "")` is the
+/// least key with source `from`.
+fn groups_from<'m, 'a: 'm>(
+    groups: &'m BTreeMap<(&'a str, &'a str), Vec<&'a Transition>>,
+    from: &'a str,
+) -> impl Iterator<Item = (&'m (&'a str, &'a str), &'m Vec<&'a Transition>)> + 'm {
+    groups
+        .range((from, "")..)
+        .take_while(move |((source, _), _)| *source == from)
+}
+
 fn reconstruct(goal: &str, parent: &BTreeMap<String, (String, Transition)>) -> Vec<PlanStep> {
     let mut cursor = goal.to_owned();
     let mut reverse = Vec::new();
@@ -834,11 +851,8 @@ fn fond_policy(
             if winning.contains(&state.id) || problem.unsafe_states.contains(&state.id) {
                 continue;
             }
-            for ((from, action), outcomes) in &groups {
-                if *from == state.id
-                    && !outcomes.is_empty()
-                    && outcomes.iter().all(|edge| winning.contains(&edge.to))
-                {
+            for ((_, action), outcomes) in groups_from(&groups, &state.id) {
+                if !outcomes.is_empty() && outcomes.iter().all(|edge| winning.contains(&edge.to)) {
                     winning.insert(state.id.clone());
                     choices.insert(state.id.clone(), (*action).to_owned());
                     changed = true;
@@ -1004,10 +1018,8 @@ fn fond_policy_strong_cyclic(
             if !surviving.contains(&state.id) || problem.goal.holds(state) {
                 continue;
             }
-            let witness = groups.iter().find(|((from, _action), outcomes)| {
-                *from == state.id
-                    && !outcomes.is_empty()
-                    && outcomes.iter().all(|edge| surviving.contains(&edge.to))
+            let witness = groups_from(&groups, &state.id).find(|(_, outcomes)| {
+                !outcomes.is_empty() && outcomes.iter().all(|edge| surviving.contains(&edge.to))
             });
             match witness {
                 Some(((_, action), _)) => {
@@ -1069,10 +1081,8 @@ fn fond_policy_strong_cyclic(
                 if !surviving.contains(&state.id) || problem.goal.holds(state) {
                     continue;
                 }
-                let witness = groups.iter().find(|((from, _action), outcomes)| {
-                    *from == state.id
-                        && !outcomes.is_empty()
-                        && outcomes.iter().all(|edge| surviving.contains(&edge.to))
+                let witness = groups_from(&groups, &state.id).find(|(_, outcomes)| {
+                    !outcomes.is_empty() && outcomes.iter().all(|edge| surviving.contains(&edge.to))
                 });
                 match witness {
                     Some(((_, action), _)) => {
@@ -1117,9 +1127,8 @@ fn fond_policy_strong_cyclic(
                 if reach.contains(&state.id) || !surviving.contains(&state.id) {
                     continue;
                 }
-                let advances = groups.iter().any(|((from, _action), outcomes)| {
-                    *from == state.id
-                        && !outcomes.is_empty()
+                let advances = groups_from(&groups, &state.id).any(|(_, outcomes)| {
+                    !outcomes.is_empty()
                         && outcomes.iter().all(|edge| surviving.contains(&edge.to))
                         && outcomes.iter().any(|edge| reach.contains(&edge.to))
                 });
@@ -1129,11 +1138,9 @@ fn fond_policy_strong_cyclic(
                     // rank, so `best` is always `Some` here; the fallback
                     // rank 1 merely routes the impossible case into the
                     // rewrite's defense-in-depth prune.
-                    let best = groups
-                        .iter()
-                        .filter_map(|((from, _action), outcomes)| {
-                            if *from != state.id
-                                || outcomes.is_empty()
+                    let best = groups_from(&groups, &state.id)
+                        .filter_map(|(_, outcomes)| {
+                            if outcomes.is_empty()
                                 || !outcomes.iter().all(|edge| surviving.contains(&edge.to))
                             {
                                 return None;
@@ -1169,9 +1176,8 @@ fn fond_policy_strong_cyclic(
                     continue;
                 }
                 let state_rank = ranks.get(&state.id).copied();
-                let advancing = groups.iter().find(|((from, _action), outcomes)| {
-                    *from == state.id
-                        && !outcomes.is_empty()
+                let advancing = groups_from(&groups, &state.id).find(|(_, outcomes)| {
+                    !outcomes.is_empty()
                         && outcomes.iter().all(|edge| surviving.contains(&edge.to))
                         && state_rank.is_some_and(|rank| {
                             outcomes
