@@ -389,9 +389,9 @@ def build_agent_card(agent: AgentDefinition, *, url: str) -> dict[str, Any]:
 
 
 def serve(agent_name: str, port: int, *, base_url: str, model: str, with_lumen: bool = True) -> None:
+    import uvicorn
     from fastapi import FastAPI
     from pydantic import BaseModel
-    import uvicorn
 
     agent = load_agent(agent_name)
     app = FastAPI(title=f"gemma-{agent_name}")

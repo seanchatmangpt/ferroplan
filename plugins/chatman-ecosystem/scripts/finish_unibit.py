@@ -33,8 +33,8 @@ from typing import Any
 import dspy
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from mustar_agent import configure_gemma  # noqa: E402
 from mcp_client import McpClient, tool_structured_result  # noqa: E402
+from mustar_agent import configure_gemma  # noqa: E402
 from ocel import OcelLog  # noqa: E402
 
 WORKTREE = Path.home() / "unibit-overnight-worktree"

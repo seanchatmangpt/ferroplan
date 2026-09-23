@@ -40,7 +40,6 @@ from pathlib import Path
 from typing import Any
 
 import dspy
-
 from mcp_client import McpClient, tool_structured_result
 from mustar_result import MuStarResult
 from mustar_signatures import (

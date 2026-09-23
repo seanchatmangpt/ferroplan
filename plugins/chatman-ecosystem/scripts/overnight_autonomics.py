@@ -66,7 +66,7 @@ import json
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -255,7 +255,7 @@ def _truncate(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_cycle(cycle_number: int) -> dict[str, Any]:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     cycle: dict[str, Any] = {"cycle": cycle_number, "timestamp": timestamp, "repos": {}}
 
     for name, config in REPOS.items():
@@ -337,7 +337,7 @@ def main() -> None:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     deadline = time.time() + args.max_hours * 3600
     summary_path = REPORT_DIR / "SUMMARY.md"
-    summary_lines = [f"# Overnight autonomics run — started {datetime.now(timezone.utc).isoformat()}", ""]
+    summary_lines = [f"# Overnight autonomics run — started {datetime.now(UTC).isoformat()}", ""]
     summary_path.write_text("\n".join(summary_lines))
 
     cycle_number = 0

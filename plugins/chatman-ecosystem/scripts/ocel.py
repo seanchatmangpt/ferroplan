@@ -18,7 +18,7 @@ from typing import Any
 def _now_iso() -> str:
     import datetime
 
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()
 
 
 class OcelLog:
