@@ -107,6 +107,35 @@ Two things follow, and the second one matters as much as the first.
    both binaries, 8 instances that both solve on a quieter box) plus five
    rows where 0.27 is the stronger binary. The Lane A arm is moot, since
    that lane is already a recorded negative.
+
+   **The whole-set answer, 2026-09-18.** The v0.26.0 backfill of cut27
+   finished — 32/32 boards, 765 banked in 9 passes, no row owed on either
+   side — so `crucible compare` now answers the question like for like on
+   one box, one referee, one binary identity per side
+   (`benchmarks/cut27-compare-0.26-vs-0.27.txt`):
+
+   **0.26.0 [8fe896b4fd53] 5,007 · 0.27.0 [86302e06d81b] 5,122 · net
+   +115.** 0.27 is ahead on 22 boards, level on 6, behind on 4:
+   ipc5-qual-pref −5, ipc5-complex-pref −2, ipc67-temporal −1,
+   ipc2023-agile-300s −1.
+
+   Per instance, 15 rows went 0.26-solved → 0.27-unsolved (board nets hide
+   the ones 0.27 won back). **Twelve of the 15 were 0.26 solves at ≥ 57 s
+   of a 60 s wall**, i.e. wall-edge rows, and the three that were not are
+   elevator-temporal-strips i28 (46.5 s), tidybot-mco-t2 i20 (42.6 s) and
+   the two 300 s agile rows at 298 s. The differential above re-ran
+   elevator-t-strips i28 three times against both binaries and both solved
+   every time. The published +134 stands; the honest like-for-like figure
+   for the cycle is **+115**, and the difference is the 0.26 baseline
+   re-measured on today's box rather than on cut26's.
+
+   > **SUPERSEDED 2026-09-19 — see "THE INSTRUMENT" below.** "One binary
+   > identity per side" was necessary and not sufficient: the two sides
+   > were not given the same NUMBER of attempts. 0.26.0 re-ran 27.0 % of
+   > its failures, 0.27.0 re-ran 68.7 % of its, neither ever re-ran a
+   > solve, and the banked delta decomposes as first-attempt −18 plus a
+   > rescue difference of +133. Under equal-N the same runs read −41
+   > [−80, +1]. The +115 is not like-for-like; it is max-over-unequal-N.
 3. **BUILT** (`crucible-r2` fd4ea3f). A row's `neighbours` is now the PEAK
    number of planners that ran beside it over its lifetime, not
    `width − 1` fixed before the workers started. It goes to the
@@ -426,6 +455,114 @@ measured:
   at 60 seconds. The published gap therefore overstates the deficit by an
   unknown amount.
 
+### The parity probe, RUN 2026-09-18/19. The gap is 76 rows, not 125.
+
+Both boards at IPC-5's own 1800 s limit, once, as a MEASUREMENT: no board
+bought, no table changed. Only instances UNSOLVED at the 60 s wall were
+re-run (a 60 s solve is a 1800 s solve), 128 of them, packed for coverage
+with timing dirty by construction. Raws:
+`benchmarks/probes-0.28/sgplan-parity-1800s.txt` and the two jsonl beside
+it. Engine: `engine-0.28` at e42c30c, so the complex board includes the
+Lane B tpp fix.
+
+| board | 60 s | 1800 s | total | SGPlan5 | gap at 60 s | gap at 1800 s |
+|---|---:|---:|---:|---:|---:|---:|
+| ipc5-qual-pref | 51 | **76** | 100 | 100 | 49 | **24** |
+| ipc5-complex-pref | 29 | **53** | 108 | 105 | 76 | **52** |
+
+**Half the qualitative gap and a third of the complex one were the wall.**
+49 new solves for 128 instance-runs. By domain: rovers +9, storage +7,
+tpp +5, openstacks +2, trucks +2 (qualitative); pathways +14, tpp +8,
+pipesworld +1, storage +1 (complex).
+
+**The finding that matters is not the count, it is the SHAPE.** 14 of the
+49 landed within 300 s and three within 60 s — rovers-qual i5 in 40 s, on
+an instance the 60 s board misses. Those are not instances that needed 30
+minutes of search. The rung ladder rations one wall across its rungs
+(Lane D recorded the same behaviour from the other side: a 34 ms instance
+fails under a 120 ms budget and solves under 200 ms), so at 60 s the
+ladder never reaches the rung that solves them. **A cheaper lever than any
+preferences wing is the ladder's slicing policy**, and it is now measured
+rather than asserted.
+
+**A defect this probe found, worth its own lane.** The 21 instances that
+banked `mem-cap` at 60 s were re-run one and two at a time. Under a
+declared `FF_MEM_BUDGET_GB=6` each grew to **~528 GB of virtual address
+space with 20 MB resident** while system swap reached **44 GB** — 28
+minutes at 0.1 % CPU, thrashing rather than searching, until the external
+alarm. One of them (storage-complex i2) still solved, at 1803 s, so the
+class is not hopeless; but the internal node cap plainly does not hold
+this class to its declared budget at a long wall. At 60 s the runner's RSS
+watchdog hides it. 0.22's sailing-wind receipt describes the same
+pathology and the cap was supposed to have fixed it.
+
+**What the probe does NOT license.** 76/100 and 53/108 are 1800 s numbers
+against SGPlan5's 1800 s numbers; the published table stays at 60 s. The
+remaining 76 rows across both boards are a real capability gap, and a
+preferences wing would still be pricing itself against that, not against
+the 125 the old reading implied.
+
+### CORRECTION, 2026-09-19: the probe ran six threads, the boards run one
+
+`probe.sh` invoked `ff` with no `--threads` flag, so the probe took the
+auto thread count — `min(cores, 6)`, and `statistics.threads: 6` on a
+re-run confirms it. Every published row on both boards is `threads: 1`
+(all 208 of them, `benchmarks/ipc5-qual-pref.jsonl` and
+`ipc5-complex-pref.jsonl`). The probe bought ~30× wall AND 6× cores at
+once, so its rows are not like-for-like with the 60 s board, and not with
+SGPlan5's single-core 1800 s results either.
+
+The three fastest new solves, re-run SINGLE-THREADED at the same 1800 s
+wall, same binary, same box:
+
+| witness | probe, 6 threads | re-run, 1 thread | 60 s board |
+|---|---:|---:|---|
+| tpp-preferences-complex i1 | 40 s | 82 s | unsolved |
+| tpp-preferences-complex i2 | 56 s | 115 s | unsolved |
+| rovers-preferences-qualitative i5 | 40 s | 457 s | unsolved |
+
+**WITHDRAWN: "three within 60 s", and the slicing lever it motivated.**
+Single-threaded, the three need 82 s, 115 s and 457 s. None is reachable
+inside the board's 60 s wall under ANY slicing policy, because the WORK
+exceeds the wall — there is no rung left to give it to. The ratios share
+no constant (2.05×, 2.05×, 11.4×), so the probe's remaining times cannot
+be rescaled to a single-threaded estimate: the 49-solve table is a
+6-thread table, and the honest single-threaded gap is somewhere between
+76 and 125 rows, unmeasured.
+
+**Also withdrawn: the mechanism.** These two boards never enter the
+sliced ladder at all. `FF_WALL_DEBUG=1` on a qualitative-preferences
+solve prints NOTHING (`mode: pddl3`) — the preference path runs
+`pddl3::metric_optimize`'s restart ladder over `PROFILES` against a flat
+2,000,000-eval `pref_eval_budget()`, which is wall-blind. Whatever the
+60 s wall costs these boards, "the rung ladder rations one wall across
+its rungs" is not a description of it.
+
+**What survives.** 49 of 128 previously-unsolved instances do solve given
+1800 s and six cores — true, as SIX-THREAD numbers, and worth what that
+is worth. The mem-cap defect below is untouched: it was diagnosed from
+address space and swap, not from timing. What is gone is the
+like-for-like reading, and the cheap lever it implied.
+
+### The 49, reclassified — 8 of them were never a wall result
+
+Zero box time: join the probe's 128 rows against the committed 60 s raws
+on `(variant, instance)` and read what the 60 s row actually SAID.
+
+| the 60 s row said | count | what the 1800 s solve means |
+|---|---:|---|
+| plain timeout | 38 | genuine extra compute (wall AND cores) |
+| `engine-exit-1` | **8** | the 60 s row was a CRASH, not a timeout |
+| `mem-cap` | 3 | the memory class, re-run 1- and 2-wide |
+
+The 8 `engine-exit-1` rows are tpp — **the Lane B parse fix, already
+banked in this cycle**. Their 60 s rows record `rc=1` because the engine
+died on the parse; the probe re-ran them with the fixed engine and scored
+the conversion a second time, as a wall result. The probe's own write-up
+says "the tpp contributions only exist because of the Lane B parse fix"
+and then counts them anyway. Deduct them: the wall-and-cores conversion
+is 41 rows, not 49, and on ipc5-complex-pref it is 16, not 24.
+
 **Owed before any SGPlan claim, and cheap: one parity probe.** Run the
 qualitative and complex boards at 1800 s, once, as a MEASUREMENT and not a
 tier — it answers whether the fight is 54 rows or 5. The standing anti-pot
@@ -433,6 +570,976 @@ against new tiers is about *published* tiers; this buys no board and
 changes no table. Until that number exists, an SGPlan wing is unpriced,
 and this project has three cycles of evidence that bands taken from other
 planners' published results deliver +1.
+
+### The timing read, 2026-09-20. SGPlan5's median solve is 0.54 s.
+
+Everything above argues about the WALL. `benchmarks/IPC5-results.tgz` has
+held the answer the whole time: every SGPlan5 `.soln` carries a `; Time`
+header, its own CPU seconds on 2006 hardware. Joined per instance against
+the 60 s boards (`benchmarks/probes-0.28/sgplan-timing/join.py`), like-for-
+like variants only:
+
+| | |
+|---|---:|
+| SGPlan5 solves across the seven IPC-5 boards | 860 |
+| ... finished inside 1 s / 10 s / 60 s | 480 (55 %) / 668 (77 %) / 769 (89 %) |
+| ... median | **0.54 s** |
+| rows SGPlan5 solves and this engine does not | 335 |
+| ... that took SGPlan5 under 60 s / under 1 s | **283 / 143** |
+
+**The "their 1800 s against our 60 s" reading explains at most 52 rows.**
+`pathways-metric-time`: this engine 0/30 at 60 s, SGPlan5 30/30 with a
+median of 0.22 s and a maximum of 1.1 s. `tpp-metric-time-constraints`:
+0/30 against a median of 0.01 s. A planner that answers in a hundredth of a
+second is not out-searching anything. It is not searching.
+
+**Also corrected: the quality claim above.** "On the instances both solve,
+ferroplan wins on quality" is true of the rovers rows it quotes and of
+storage; across the boards it is a split, and on simple-preferences it is
+the other way round (SGPlan5 better on 70 of 118, ferroplan on 29, by
+SGPlan5's self-reported `MetricValue`; qualitative 26–22 to ferroplan;
+complex 20–8 to SGPlan5). The margins are small where this engine loses
+(tpp 129 vs 105) and large where it wins (storage 25 vs 87), but "coverage,
+not quality" was half right.
+
+**What the unsolved rows were actually doing** (`why.py`, the 60 s raws'
+own notes column): stopping at the wall inside the decision-epoch ladder
+(~117), exhausting the temporal ladder's budgets with wall to spare (33),
+`mem-cap` three to ten seconds in (29), the Lane B parse crash (20), and a
+plain 60 s timeout inside the PDDL3 optimizer (~120). Three probes, each
+threads 1 / 60 s / single attempt / VAL-judged against the ORIGINAL task /
+counted only under 58 s (`satprobe.py`, `tprobe.py`, `tally.txt`):
+
+| lever | what the probe ran | rows converted |
+|---|---|---:|
+| the PDDL3 route has no first plan | `ff --satisfice` on the rows the optimizer timed out on | **60** (qual 51 → 97 of 100; simple 119 → 130 of 130) |
+| the temporal ladder has no sequential rung | durative → one classical action, plan, lay out end to end (`compress.py`) | **121** (complex-pref 29 → 82; metric-time 44 → 89; time 53 → 76) |
+| the preference tier overruns its own wall | (found while probing) a banked, valid plan returned at 21.94 s of a 20 s wall | folded into the two above |
+
+Six boards, **319 → 500 against SGPlan5's 612**, from levers that are
+architecture rather than search. One shape under all three: **a valid plan
+was in hand, or milliseconds away, and the route had no way to return it.**
+SGPlan5 is "feasible first, better second" all the way down. This engine
+was "best or nothing", with the wall deciding which.
+
+**What is left after them is real engine work, and it is numeric.** The
+compressed `rovers-metric-time` runs ~210 evaluations a second against
+>5,000 for its same-size propositional twin (`heuristic.rs::build_rpg`
+widens intervals layer by layer -- a hypothesis, not a profile). And
+`tpp-metric-time` i9 is 20 facts and 264 ops on which the classical ladder
+spends 5,000,000 evaluations without a plan -- the one place SGPlan's per-goal
+partitioning is doing the work its name claims. (`--mode partition` does
+engage here; what it lacks is scoped below.) Worth noticing on the way
+past: the decision-epoch search's demand tiers guide numeric accumulation
+BETTER than the classical relaxation does (a mini-pathways task the
+compressed search fails on for 32 s solves there in 40 ms). That is ~112
+rows and the next cycle's question; the propositional board (231 vs 248)
+is untouched by any of this.
+
+## Lanes S, I, T, N and M — feasible first (BUILT 2026-09-20/21)
+
+Built in cost order on `engine-0.28`. Fixtures first where a fixture can be
+RED at unit scale; where the defect is a scale phenomenon, the fixture pins
+the mechanism and the RED receipt is a named board row.
+
+### Lane S — a banked plan is reported inside the wall (`ac99b41`)
+
+`temporal::solve`'s preference tiers already banked coverage first. They
+then chased quality against the SAME wall, the ladder under the chase opened
+further rungs (each re-grounding) after the wall had expired, and the caller
+grounded the original pair a second time to score whatever came back --
+12.7 s on `pathways-complex` i20, all of it past the deadline. The runner
+kills at the wall.
+
+- `search::tighten_deadline`: a scoped deadline riding the per-call budget
+  every checkpoint already joins. `reserve_for_report` holds back 3 % of the
+  wall's TOTAL (0.5–3 s) plus `ops / 1e5` s for closing and dropping a big
+  task. (The first cut read the REMAINING wall; after a 30 s grounding that
+  is 0.9 s, and `storage-qualitative` i20 exited at 60.2.)
+- `score_soft` splits into `SoftScorer::prepare` (the grounding) and
+  `::score` (a replay): the scorer is built BEFORE the chase, under the same
+  tightened deadline, so the winning plan is one replay from its report. A
+  banked plan whose scorer cannot be built in time is reported UNSCORED,
+  with a note -- a plan without a metric is a solve; a plan never printed is
+  not.
+- `solve_ladder` refuses the Full tier and the decomposer rung once the wall
+  is spent.
+- `tests/pref_chase_wall.rs`: the `tsearch_wall` ring with its unreachable
+  goal moved into a preference, plus a K³ ballast action so grounding costs
+  real time. **v0.27.1: reported at 6.523 s of a 6 s wall. Now inside it.**
+
+### Lane I — incumbent zero (`5bfa26e`)
+
+The compiled preference task prices every preference into the goal and
+rides a monitor block on every op, so its FIRST plan is far dearer than the
+hard goals' plan. `rovers-qualitative` i9: 70k evaluations at ~3,600/s and a
+whole 20 s wall without reaching the hard goal once; the classical ladder
+reaches it in 133 evaluations and 30 ms. `metric_optimize` returned `None`
+and the route said "unsolved" (the text path said "proven unsolvable").
+
+- `pddl3::hard_goal_seed` plans the ORIGINAL pair and lifts the plan into
+  the compiled task by display name (precondition-preference variants share
+  a name and are mutually exclusive; the trajectory gate's `TRAJ-END` is a
+  real op to both). `close_seed` closes it with the phase tail.
+- `metric_optimize_seeded` uses it as a **floor, not a bound**: the B&B runs
+  exactly as it did -- the `ipc5_*_metric_no_regression` and
+  `reported_equals_verified` locks pass unchanged -- and the seed comes back
+  only when nothing cheaper was found, with a note saying so.
+  `FF_PREF_SEED_BOUND=1` also opens the B&B with it; `FF_PREF_NO_SEED=1` is
+  the 0.27 restore.
+- **The seed ladder gets the whole wall.** Handed 80 % of it, EHC's
+  proportional slice is 12 s and `rovers-qualitative` i20 -- which EHC solves
+  at 14.6 s -- is handed down the ladder and lost. This is Lane W's
+  pathology met from the other side, and the second receipt for it.
+- A plan in hand still has to cross the wire, and the optimizer had four
+  ways to miss: the best-first loop read the clock once per 256-eval batch
+  (two seconds at the 8 ms an evaluation costs on a compiled task; and on
+  wide states EXPANSION is the slow half -- one batch, 2.3 s); the selection
+  DFS's node cap is wall-blind and every node scans all the preferences
+  (~15 s on `storage-qualitative` i17's 23k instances, for a result the
+  caller discards as "capped"); and the B&B loops, the selection probes and
+  the legacy fallback kept opening one-evaluation sweeps after the wall.
+  All four now read an armed deadline. A tripped batch is a capped return
+  that never looks at its values, so a run that ends inside the wall is
+  evaluation-for-evaluation what it was.
+- `tests/pref_seed.rs` pins the lift through both places the op sets differ,
+  and the floor's exact price. The RED receipts are board rows:
+
+  | row | wall | 0.27.1 | now (process exit) |
+  |---|---:|---|---|
+  | rovers-qual i9 | 20 s | unsolved | solved, 19.88 s |
+  | rovers-qual i20 | 60 s | unsolved | solved, 58.16 s |
+  | storage-qual i20 | 60 s | unsolved | solved, 57.95 s, metric 5737 < floor 6046 |
+  | rovers-qual i1 | 20 s | metric 68.039 | 68.039 |
+
+### Lane T — the compression rung (`tcompress.rs`)
+
+Every durative action becomes one instantaneous action (condition = start ∧
+over-all ∧ end; effect = start then end, a token added at start and deleted
+at end netting to its delete), the classical ladder plans it, and a
+left-shift over the ops' read/write sets puts the plan back on the clock.
+`temporal::validate` judges the result against the original pair before
+anyone sees it. Declines required concurrency (the existing detector), timed
+initial literals and trajectory constraints.
+
+- **It banks; the decision-epoch ladder then runs as a bounded quality
+  chase, and the smaller makespan is returned.** The left-shift is coarse
+  (whole-op interference) and the ladder's plans are much better where it
+  has one -- `openstacks-time` i5: 343 against the rung's 897 -- so a row the
+  ladder already solved keeps its plan, byte for byte, and a row it never
+  solved has one.
+- **The bet is bounded in both regimes.** Under a wall, a quarter of what is
+  left (`FF_TCOMPRESS_WALL_FRAC`); unwalled, 2,000 evaluations per classical
+  rung -- the first cut had no unwalled bound and spent 32 s failing on a
+  task the ladder below solves in 40 ms. A ladder that then finds nothing
+  leaves the rung a second, unbounded attempt.
+- **The validator had to be fixed twice to be usable here.** It fired ends
+  before starts inside one epoch, which put a ZERO-DURATION step's end ahead
+  of its own start: every plan through pathways' dur-0 `choose` /
+  `initialize` was refused (`temporal::epoch_rank`; the search and VAL both
+  order the pair start-then-end). And it grounds the full snap task it
+  replays on, which for `pipesworld-metric-time` is the very blow-up the
+  board records as `mem-cap` -- i20's plan is found in 4 s and its validation
+  was still grounding 96 s later. The rung validates at the PLAN's size: the
+  domain specialised to one parameterless durative action per ground step.
+  `tests/tcompress.rs` cross-checks that against the full validator.
+- An engine-semantics note, found by the fixture and NOT changed: the snap
+  compile asks for the over-all invariant in the START snap's precondition,
+  which is stricter than PDDL2.1's open interval -- a self-established
+  over-all lock is unsolvable here by rule. The rung follows the engine's
+  rule (it only relaxes self-established AT-END conditions).
+- `tests/tcompress.rs`: a held token nets to its release; independent work
+  overlaps and interference does not; zero-duration steps validate; the
+  three declines; and, `#[ignore]`d, `pathways-metric-time` p01 -- an 18-step
+  plan the ladder cannot find (its dur-0 happenings pile up at t = 0 and the
+  search permutes them to its node caps), the whole domain 0/30 on the 0.27
+  board.
+
+### Lane N — a dead end is a fixpoint, not a 2,000-layer grind (`heuristic.rs`)
+
+Item four on the list was "profile the numeric RPG", on the hypothesis that
+`build_rpg` widens intervals layer by layer. The profile said otherwise: a
+live state's build is 4-5 layers and ~100 µs. The cost is the DEAD ENDS.
+
+The fixpoint test was "did any relevant bound move this layer", and with a
+consumable that is true for ever: every applied `(decrease (energy ?r) 8)`
+pushes energy's LOWER bound down another 8 each layer, while the only thing
+that reads energy is `(>= (energy ?r) 8)` -- its UPPER bound. So a state
+whose goal no layer will ever reach was never seen to be a fixpoint; the
+build ran to `LAYER_CAP`, 2,000 layers re-widening thousands of applied ops,
+and then reported the same "unreachable" a fixpoint would have. On the
+compressed `rovers-metric-time` i20 the MEAN build was 120-236 layers.
+
+`NeedDirs`: which SIDE of each fluent anything reads -- `num_sat`'s table for
+conditions, `widen`'s for effects, closed to a fixpoint -- computed lazily at
+layer 16, so an ordinary build never pays for it. From there a layer counts
+as progress only if a fact, an op, or a NEEDED bound moved. The bounds
+themselves widen exactly as before, so this is exact, not approximate:
+every reachable state evaluates to the same h, and a build this ends early
+could only have ended at the cap with the goal unreached.
+`FF_NO_NEED_DIRS=1` restores the old test.
+
+| compressed rovers-metric-time, evaluations in a 30 s wall | old | new |
+|---|---:|---:|
+| i6 | 25,866 | **2,026,337** (78x) |
+| i14 | 9,115 | **717,264** (79x) |
+| i20 | 0 (EHC never finished a slice) | 49,380 |
+
+Identity: 123 of 123 corpus numeric instances (ipc-2023n, the 2002/2006/2008
+numeric and metric tracks; 20k-eval cap, unwalled) report the same solved
+flag, evaluation count and plan length with the hatch on and off; the two
+unit pins hold their exact layer counts (`GoalAt(3)`, `GoalAt(100)`) either
+way, and the dead-end pin is `Cap` under the hatch and `Fixpoint` without.
+
+**What it did NOT do is solve those rows.** With evaluations 78x cheaper,
+`rovers-metric-time` i6 descends best-h 28 -> 11 in a third of a second and
+then sits at 11 for 900,000 evaluations: the relaxation cannot see energy
+being spent, so a state with too little left looks as good as any other.
+That is guidance, not speed, and it is the same residue as `tpp` -- numeric
+goals and consumables want SGPlan's per-goal partitioning (or a resource-
+aware relaxation), and neither is built. A NEEDED bound that grows for ever
+(any task with a recharge in play) still runs a dead end to the cap; that
+wants saturation at the largest value anything compares against, and is
+also not built.
+
+### Numeric-goal partitioning — LOOKED AT, NOT BUILT
+
+Item five. The probe's note that `--mode partition` "evaluates zero states on
+a numeric goal" was a misreading of the JSON (the partition path reports 0
+evaluations by construction). It engages, and what it does on the compressed
+`tpp-metric-time` i9 -- 20 facts, 264 ops, nine goals `(>= (stored g) (request
+g))` -- is the scoping for the next cycle (`FF_WALL_DEBUG=1`, 40 s wall):
+
+- Seven of the nine single-goal subproblems solve, 5-7 ops each -- at **~1.7 s
+  apiece**, because a subgoal solve is bare weighted best-first under a
+  100k-evaluation cap and the relaxation is nearly blind to quantities. There
+  is no EHC and no helpful-action pruning on the subgoal path; FF's speed on
+  exactly this shape is those two things.
+- The two large requests (29 and 20 units: two markets' worth, so repeated
+  buy/load/unload cycles) are **unsolvable in isolation** at that cap.
+- Every merge **re-solves every group from the initial state**, including
+  the seven that did not change: 15 s of Phase A per merge, and the wall is
+  gone after the second.
+
+So SGPlan's decomposition is the right shape for this family and the engine
+already has the loop; what it lacks is a subplanner that is good at ONE
+numeric goal. In order of cost: keep Phase A's subplans across a merge
+(only the merged group changed); give the subgoal path the EHC-first ladder
+the monolithic path has; then the relaxation's view of consumables (Lane N's
+residue, the same thing seen from the other side). Not built this cycle --
+each of those moves every numeric board and wants its own sit.
+
+### The board sit
+
+`benchmarks/probes-0.28/lanes-sit/run.sh`: the six IPC-5 boards these lanes
+were built for, and the two temporal boards they were NOT built for
+(`tempo-sat`, `tempo-sat-2014` -- the regression read: the rung touches every
+temporal task without required concurrency). One attempt per row, 2-wide,
+threads 1, 60 s, against the PUBLISHED boards, which are best-of-N -- so a
+single attempt is the conservative side of every delta, and a row the new
+engine loses is re-run on the old binary under the same conditions before it
+is called a loss. **Estimator declared in advance: first attempt.**
+
+**Sit 1 (`759b55f`), stopped after its first board.** `ipc5-qual-pref`:
+**51 → 93, +42, 0 lost** (SGPlan5: 100) -- first attempt, VAL-checked,
+through the board harness. The probe had said 97. Raws in
+`lanes-sit/sit-1-759b55f/`. From its eighth minute the box was also running
+a game at ~210 % CPU, so that is a DEGRADED reading and the conservative side
+of one.
+
+The seven misses were all the LARGEST instances (rovers i20, storage 17-20,
+trucks 10/16), every one killed at exactly 60 s, and they were worth stopping
+for. Solo on a quiet box they exit at ~58 s; two-wide, or beside anything
+else, their wall-blind stretches grow past the kill line with a valid plan
+already in hand. What that turned up, in the order found:
+
+- The reserve is now 3 % of the wall + `ops / 1e5` s **+ 5 % of the wall
+  already spent**, and an optimizer reached with more than two thirds of the
+  wall gone reports incumbent zero instead of starting.
+- **The hard goals' plan is found BEFORE the compiled task is grounded**
+  (`hard_goal_plan` / `lift_seed`), and a compiled grounding that stops at
+  the wall now returns that plan UNPRICED, with a note, where it returned
+  "grounding stopped at the declared budget". JSON path only; the text path
+  still prints the grounding-wall line.
+- **A flat conjunction was grounded in quadratic time.** `and_merge` builds a
+  1 x 1 product by CLONING the accumulated conjunct, so an n-atom goal merged
+  one atom at a time copies 1 + 2 + ... + n literals -- and the compiled task's
+  goal has one `P3COLLECTED` atom per live preference: 37,201 on
+  `storage-qualitative` i20, ~700M literal copies, **25 s of a 60 s wall**.
+  The DNF wall check counts CONJUNCTS and this shape only ever produces one,
+  so not one clock read in all that time. `and_merge_owned` appends in
+  place: the same conjunct, literal for literal, in the same order.
+- Grounding below the binding enumeration had no checkpoints at all. It has
+  coarse ones now, between phases (`GroundWall::expired_now`;
+  `FF_GROUND_PHASES=1` prints each phase's clock).
+- **Found, NOT fixed -- the next thing in the way:** with the DNF fixed, the
+  long phase is `packing the ops`: every monitored op is pushed onto the
+  achiever list of every fact the SHARED monitor block adds, so the index is
+  ops x monitor-adds -- hundreds of millions of `u32`s on these instances, 46 s
+  of `storage-qualitative` i19 on the loaded box, and gigabytes. The shared
+  block exists so that cost is paid once; the achiever index un-shares it.
+  This is very likely the `mem-cap` class as well (storage-complex 18 rows,
+  pipesworld-metric-time 8), and it wants achiever lookup to understand
+  "every monitored op" without materialising it.
+
+**Sit 2 (`424843b`), the six IPC-5 boards -- DONE.** First attempt, two-wide,
+threads 1, 60 s, VAL-checked, against the PUBLISHED boards (best-of-N):
+
+| board | rows | published | sit 2 | delta | lost |
+|---|---:|---:|---:|---:|---:|
+| ipc5-qual-pref | 100 | 51 | **99** | +48 | 0 |
+| ipc5-simple-pref | 130 | 119 | **130** | +11 | 0 |
+| ipc5-complex-pref | 108 | 29 | **74** | +45 | 0 |
+| ipc5-time | 130 | 88 | **126** | +38 | 0 |
+| ipc5-metric-time | 200 | 64 | **100** | +36 | 1 |
+| ipc5-constraints | 120 | 28 | 28 | 0 | 0 |
+| **six boards** | **788** | **379** | **557** | **+178** | **1** |
+
+The same raws, restricted to the variants SGPlan5 actually ran -- the ledger
+this cycle's question was asked on:
+
+| board | rows | 0.27 published | sit 2 | SGPlan5 | gap was | gap now |
+|---|---:|---:|---:|---:|---:|---:|
+| ipc5-simple-pref | 130 | 119 | **130** | 129 | 10 | **-1** |
+| ipc5-qual-pref | 100 | 51 | **99** | 100 | 49 | 1 |
+| ipc5-complex-pref | 108 | 29 | 74 | 105 | 76 | 31 |
+| ipc5-time | 80 | 53 | 76 | 80 | 27 | 4 |
+| ipc5-metric-time | 180 | 44 | 80 | 151 | 107 | 71 |
+| ipc5-constraints | 80 | 20 | 20 | 47 | 27 | 27 |
+| **six boards** | **678** | **316** | **479** | **612** | **296** | **133** |
+
+The probe said 500; the boards say 479 (complex-pref 74 where the probe had
+82, metric-time 80 where it had 89 -- the rung's first bet is a quarter of the
+wall, where the probe gave the classical search all of it). simple-pref is
+past SGPlan5 and qual-pref is one row short of it. What is left is where this
+section said it would be: `tpp-*` and `rovers-metric-time` (numeric
+guidance), `constraints` (the rung declines them, and `within` needs a
+clock), and the `mem-cap` class.
+
+**The one lost row** is `tpp-metric-time` i8 (published solved at 14.35 s by
+the decision-epoch ladder). It is the predicted shape: the rung's bet fails on
+`tpp`, costs its quarter of the wall, and the ladder starts 15 s late. Under
+the load the box was carrying when it was re-run, 0.27.1 fails it too (0 of 2
+on each binary, `differential-ipc5-under-load.json`), so it is OWED a quiet
+re-run and is not yet called either way. Its three late-solving siblings (i5,
+i6, i7: 56-59 s published) were all RETAINED, at 41-45 s.
+
+Box conditions, from `run.log`: `mediaanalysisd` at ~200-285 % CPU at the
+start of three of the six boards (macOS's idle-time photo analysis), a browser
+at the start of two; the box was otherwise quiet. The two temporal boards
+below ran beside a full Bevy build from another project (load average 23), so
+their read leans entirely on the differential.
+
+
+
+### The regression read, THROUGH THE CRUCIBLE (2026-09-20, `crucible-spec.md` R3)
+
+The ad-hoc sit above was stopped at its seventh board: the operator had been
+playing a game beside it, then building another project at load 23, and a
+shell loop around `ipc67.py` has no way to know. That is what the crucible
+is for, and it could not be aimed at a subset -- so it was taught to
+(`crucible sweep --board/--only/--rows/--prior --engine`, `compare --lost`;
+commit `e17fa2a`). Everything from here is measured through it.
+
+The question: the compression rung touches every temporal task without
+required concurrency, including the two boards it was NOT built for. Does it
+cost a row? Both engines over the SAME cells -- the 519 temporal cells the
+published `ipc67-temporal` and `ipc2014-tempo` solved -- same referee, same
+box, same retry rule: equal-N by construction.
+
+| board | cells | v0.27.1 `d812c232` | candidate `c0893fb8` | lost | gained |
+|---|---:|---:|---:|---:|---:|
+| ipc2014-tempo | 78 | 78 | 78 | 0 | 0 |
+| ipc67-temporal | 441 | 441 | 441 | 0 | 0 |
+
+**519 of 519 on both engines. The rung costs no row.** Summed solve time is
+0.91x the baseline's (26.5 min against 29.1) and the median is identical
+(0.26 s); makespan is BETTER on 181 cells, equal on 286 and worse on 6,
+because a task the rung banks returns the smaller of its left-shifted plan
+and the ladder's. (The 6 are cells the ladder did not reach inside its
+bounded chase.) The candidate arm took 4.4 h of wall to the baseline's
+55 min -- the box was POLITE for most of it (foreign load 44-225 %), the
+crucible demoted the planners and kept measuring, and every row banked in
+one pass. `match-cellar` reads 2.5x slower in that arm and is not: the rung
+declines it (required concurrency, cost 0) and solo it solves in 14.3 s, as
+it did. Dirty timing, clean coverage -- spec §7, doing its job.
+
+Receipts: `benchmarks/probes-0.28/lanes-crucible/` (`run.sh`, the three logs,
+`regress-compare.txt`); the staged raws are in the published checkout under
+`benchmarks/probes/lanes-0.28-regress/`.
+
+### The six IPC-5 boards, THROUGH THE CRUCIBLE -- and what it found
+
+Step 3 of `probes-0.28/lanes-crucible/run.sh`: candidate `c0893fb8`, 788
+cells **banked in 4 passes** -- the rows the referee judged contended were
+re-run on their own, which is the whole of the operator's ask. Against the
+published boards (best-of-N), with the hand-rolled sit beside it:
+
+| board | rows | published | crucible | delta | lost | (ad-hoc sit 2) |
+|---|---:|---:|---:|---:|---:|---:|
+| ipc5-simple-pref | 130 | 119 | 129 | +10 | 1 | 130 |
+| ipc5-qual-pref | 100 | 51 | 95 | +44 | 0 | 99 |
+| ipc5-complex-pref | 108 | 29 | 76 | +47 | 0 | 74 |
+| ipc5-time | 130 | 88 | 126 | +38 | 0 | 126 |
+| ipc5-metric-time | 200 | 64 | 92 | +28 | 0 | 100 |
+| ipc5-constraints | 120 | 28 | 28 | 0 | 0 | 28 |
+| **six boards** | **788** | **379** | **546** | **+167** | **1** | 557 |
+
+Like-for-like against SGPlan5 (the variants it ran): **316 -> 468 of 678**
+against its 612 -- the gap is 144, was 296. `ipc5-tally.txt` has both tables.
+
+**+167, not +178, and the eleven are one defect.** Every cell the crucible
+read lower than the sit -- fifteen of them -- came back `mem-cap`: the
+manifest gives a run 6 GB where the sit's harness default gave 8. (It also
+read four cells HIGHER, `tpp-metric-time` i8 among them: the sit's one "lost"
+row solves at 28.7 s on a fair run, as predicted -- 15 s of rung, 14 s of
+ladder. The one row lost here, `openstacks-preferences-simple` i13, is one of
+the fifteen.) And every one of the fifteen had its plan ALREADY FOUND when
+the watchdog killed it: ten `pipesworld-metric-time` rows the compression
+rung banks in seconds, killed in the snap grounding of the quality chase
+that follows; four `storage-qualitative` rows killed grounding the compiled
+task that only PRICES the plan. Dying of memory with a plan in hand is Lane
+S's sin with a different resource.
+
+### Lane M — memory is a wall too (`mem.rs`)
+
+The engine has always had a memory MODEL (bytes per node x nodes, against
+60 % of the declared budget) and never a MEASUREMENT -- and the model is what
+this roadmap keeps recording as wrong for exactly these classes (528 GB of
+address space under a declared 6; "the internal node cap plainly does not
+hold"). `mem::resident_bytes()` asks the kernel (`/proc/self/status`;
+`task_info` on macOS, declared by hand -- no `libc` dependency, the first
+`unsafe` in the crate, eleven lines). `MemWall` is read at the checkpoints
+that already exist: the best-first batch boundary, every 256 temporal pops,
+every 256 grounding bindings, between grounding phases and inside the
+op-packing loop. A trip is an honest capped return, and what was banked is
+what comes back. (As first pushed, `5a102b8`, that list had three holes in
+it; the crucible found them. See the next section.)
+
+- **Bounded work only.** The first cut armed the wall everywhere, and that
+  is a regression waiting to happen: one run in ten over the record peaks
+  above 4.4 GB, and a first search stopped at 4.5 of 6 loses the solve it was
+  a gigabyte from. The wall arms only inside a `ScopedDeadline`
+  (`search::bounded_work`) -- a chase over a banked plan, the grounding that
+  prices a plan already found, a rung's bet -- where a trip costs an
+  improvement and never a row. `FF_NO_MEM_WALL=1` restores 0.27.
+- **75 % of the budget**, not 85: at 0.85 a snap-compiled pipesworld
+  grounding tripped at 5.1 GB and still peaked at 5.97 of 6. The runner kills
+  AT the budget and a wide task allocates a great deal between two reads.
+- **The hard-goal plan is found on the pair with its SOFT constraints
+  stripped** (`constraints::hard_only_gated`). A soft constraint cannot make a
+  plan invalid, and on the qualitative track the soft monitors are most of
+  the task. Safe by construction: monitors ride ops and add none, and
+  `TRAJ-END` exists iff the pair has HARD constraints, which the stripped
+  pair keeps. (A branch that re-added the latch on lift was written, caught
+  by its own fixture as unreachable, and removed.)
+- `tests/mem_wall.rs`: the chase ring under a 0.25 GB budget and a long wall.
+  **With the wall: back in 0.53 s, peak 209 MB. Hatched to the 0.27 shape: 38.8
+  s and 8.2 GB** -- on a sixteen-bit toy. That is the `mem-cap` class in
+  miniature, and the second leg is kept as the permanent RED record.
+
+| under `FF_MEM_BUDGET_GB=6`, alone | 0.28 before Lane M | with it |
+|---|---|---|
+| pipesworld-metric-time i41 | solved, peak **7.91 GB** (a kill) | solved, 11.7 s, peak 4.89 GB |
+| openstacks-simple i13 | `mem-cap` | solved, metric 115, peak 4.58 GB |
+| storage-qualitative i17 / i18 | `mem-cap` | solved unpriced, peak 5.1 / 5.8 GB |
+| storage-qualitative i20 | `mem-cap` | solved unpriced -- **but peak 7.1 GB** |
+
+**Not fixed, and named:** `storage-qualitative` i19/i20 pass 6 GB before any
+plan exists and before any checkpoint -- `constraints::expand` materialises
+all 2.3 million preference instances and only THEN drops the 98 % that are
+statically true. That wants a streaming expansion (simplify each instance as
+it is produced), which touches the verifier and the temporal scorer too. Two
+rows, and they solve at 8 GB.
+
+### Lane M, read THROUGH THE CRUCIBLE -- a win, a regression, and what the regression was
+
+Two subsets (`crucible-spec.md` R3), same set, same 6 GB cap, same referee --
+run twice: on `69471da363ec` (= `5a102b8`, Lane M as first pushed) and, after
+what that found, on `62b4f03a51d3` (the fix). Receipts: `probes-0.28/lanes-crucible/`
+(`run-mem.sh`, `run-memhigh.sh`, `memcap.rows`, `memhigh.rows`, the two logs,
+`memhigh-compare.py`).
+
+**The confirmation: every cell the lanes candidate banked as `mem-cap` on the
+six boards -- 54, not just the fifteen the sit had out-read.** 54 banked in two
+passes, nine minutes. **16 of 54 now solve, all VAL-valid**:
+pipesworld-metric-time 13 of 22, storage-qualitative 2 of 4 (unpriced),
+and openstacks-simple i13 -- the one row the candidate had LOST against the
+published board -- back at metric 115. The other 38 are `mem-cap` still:
+storage-complex 18, storage-time-constraints 8, pipesworld-metric-time 9,
+storage-qualitative 2, pipesworld-complex 1. Those hold no plan when the
+memory goes, and this wall is deliberately blind there.
+
+**The regression read, and it is why this section exists.** The wall trips at
+4.5 GB, so it can only change a cell whose resident set gets there. The
+crucible's database names them: `run.peak_rss >= 3.5 GB` and solved, on the
+candidate -- 58 cells. Equal-N, one banked row per cell per engine:
+
+| 58 cells the candidate solved at >= 3.5 GB | |
+|---|---|
+| solved by both | 56 |
+| **lost** | **2** -- elevator-strips i30, pipesworld-complex i16, both now `mem-cap` |
+| metric priced -> **unpriced** | 4 -- storage-qualitative i15/i16, storage-simple i19/i20 |
+| metric worse | 1 (tpp-simple i17, 2409 -> 2411) |
+| metric better | 0 |
+| summed solve time | 0.78x |
+
+A lane that exists to stop `mem-cap` kills produced two. Neither was what it
+looked like:
+
+- **Both cells were ALWAYS over the cap.** Alone, under `/usr/bin/time -l`,
+  the 0.27-shaped engine (`FF_NO_MEM_WALL=1`) peaks at **6.59 GB** on
+  elevator-strips i30, and pipesworld-complex i16 reaches 6.4 GB inside a
+  grounding no wall was armed on (GB here is 2^30, as the manifest's cap is). The candidate's
+  banked rows say 4.52 and 5.89 GB because **the crucible's `rss-watchdog`
+  SAMPLES**, and a two-second spike fell between two samples. Lane M changed
+  the timing (the chase it cut was where the process used to spend its time)
+  and the same spike got caught, three attempts in three.
+- **And the wall could not see the spike**, for three reasons, each one a
+  trace (`rss_trace.py`: stderr lines stamped with the process's RSS):
+  1. *No checkpoint inside the interning loop.* `mids` is a second copy of
+     every op while `raws` is still alive. elevator-strips i30 -- 3.2 million
+     ops -- left the enumeration at 4.3 GB, UNDER the line, and was at 5.7
+     before the phase boundary could look.
+  2. *A trip was not sticky.* The freed arena goes back to the system, the
+     next tier of the chase reads 3.8 GB, grounds again, and climbs again:
+     three more tiers, 1.5 s and +0.8 GB of setup each before their first
+     counted binding. 5.6 GB at the trip, 6.4 when the process exited.
+  3. *The scorer's grounding was unarmed.* `ground_task` is the validator
+     entry, unwalled on purpose ("a plan found is a plan"). But since Lane S
+     the scorer grounds BEFORE the chase, inside the optional-work scope,
+     where the clock already stops it -- and the memory wall looked away while
+     it took pipesworld-complex i16 from 0.21 GB to 6.4 with the plan banked.
+
+**Fixed** (`mem.rs`, `ground.rs`, `search.rs`, `temporal.rs`): a checkpoint
+every 256 ops inside interning; a trip LATCHES its scope (`mem::latched`,
+cleared when the outermost `ScopedDeadline` closes) so the next grounding is
+refused at the door and the next search on its first pop; every grounding
+entry arms inside bounded work. `tests/mem_wall.rs` pins the latch, RED on
+`5a102b8` (the second tier built 29,708 nodes after the trip).
+
+| alone, `FF_MEM_BUDGET_GB=6`, true peak | `5a102b8` | fixed |
+|---|---|---|
+| elevator-strips i30 | 6.4 GB (a kill), 11 s | **4.50 GB**, 6.7 s, same makespan 1571.1 |
+| pipesworld-complex i16 | 6.4 GB (a kill), 24 s | **4.51 GB**, 19.3 s, banked plan, NOT scored |
+
+**Both subsets again, on the fix** (`run-mem-fixed.sh`, `6-`/`7-*.log`,
+`memhigh-compare-fixed.txt`):
+
+| | `5a102b8` | fixed |
+|---|---|---|
+| the 54 `mem-cap` cells, solved | 16 | **23** -- and none of the 16 lost |
+| the 58 solved at >= 3.5 GB, solved | 56 | **58 of 58, banked in ONE pass** (four, and one row still owed, before) |
+| ... metric identical | 51 | 49 |
+| ... metric worse | 1 | 1 (tpp-simple i17, 2409 -> 2411) |
+| ... **solved, metric given up** | 4 | **8** |
+| ... summed solve time vs the candidate | 0.78x | 0.76x |
+
+The seven more: pipesworld-complex i18, storage-complex i14-i18,
+storage-qualitative i19. The eight that keep their row and lose their number
+are the price, and it is stated rather than netted off: storage-qualitative
+i15/i16 and storage-simple i20 come back unpriced (the compiled preference
+task trips while grounding), and pipesworld-complex i12-i16 come back NOT
+SCORED -- their scorer grounds the whole snap task, 4.4 GB of it, to replay one
+plan. Every one of the eight sat within a gigabyte of the cap on the candidate
+by a SAMPLED peak; two cells that looked just like them were the two kills
+above.
+
+**Named, and next in line: a scorer at plan size.** Lane T already refuses to
+ground a full snap task to validate one plan (`validate_at_plan_size`: the
+domain specialised to the plan's own steps); `SoftScorer::prepare` still does
+exactly that to SCORE one. Five cells here, and every complex-preference solve
+pays it (pathways-complex i20: 12.7 s of scorer grounding). What it needs
+before it can be trusted: `verify::eval_formula` reads "fact never grounded"
+as false, and at plan size an init-true atom no step touches is never
+grounded -- so the fallback to the init has to come first, with a fixture
+that scores the same plan both ways.
+
+**The trip line was measured, not argued** (`trip-frac.tsv`, twelve at-risk
+cells x {0.75, 0.85}, true peaks). Nothing reads better at 0.85 -- same
+metrics, same makespans -- and pipesworld-metric-time i41 peaks at **5.97 of
+6** there against 4.88. 0.75 stays. `FF_MEM_TRIP_FRAC` is the knob that
+measured it.
+
+**RECORDED NEGATIVE -- pricing the unpriced plan by replay.** When the
+compiled preference task does not ground, the hard-goal plan comes back with
+`metric: null`. `verify::verify` can price any plan over the ORIGINAL pair, so
+the fallback called it (`replay-pricing-NEGATIVE.patch`, built, tested,
+removed). Three guards were needed before it told the truth -- a metric with
+any non-`is-violated` term, a precondition preference (tpp: a hard-goal plan
+violates them per step and the replay would not count it -- the number comes
+out too GOOD), a soft trajectory constraint (the replay re-expands every
+instance: storage-qualitative i20 went to 6.18 GB) -- and what was left was
+two cells. On one of them, storage-simple i20, the replay took the peak from
+4.62 GB to **5.91** and still did not fit; at 0.85 it reached 6.01. The prize
+was the price of an EMPTY plan. A banked row is not wagered for that.
+
+**What this says about the instrument** (owed to the crucible, not built):
+`run.peak_rss` is a sampled maximum, and two published-shape "solves" were
+6.6 and 6.4 GB under a 6 GB cap. `wait4` already gives the supervisor
+`ru_maxrss` -- the true peak, free -- beside the CPU time it takes from the
+same call. Until a row carries it, "solved at 5.9 GB" means "was not looking".
+
+### What the six boards' gain is MADE OF -- and the score SGPlan5 was actually ranked on
+
+With Lane M laid over the candidate (`tally.py --mem --mem-engine
+62b4f03a51d3`; an overlay of re-measured cells, so an ESTIMATE until one
+engine runs the whole set at the cut):
+
+| | published 0.27.1 | lanes candidate | + Lane M |
+|---|---:|---:|---:|
+| six IPC-5 boards, of 788 | 379 | 546 (+167, 1 lost) | **569 (+190, 0 lost)** |
+| variants SGPlan5 ran, of 678 (SGPlan5: 612) | 316 | 468 | **491 -- the gap 296 -> 121** |
+
+Per board, against SGPlan5: simple-pref 130 v 129, qual-pref 98 v 100,
+complex-pref 82 v 105, time 76 v 80, metric-time 85 v 151, constraints 20 v 47.
+
+**46 of the +190 are the EMPTY plan** (`composition.py`). Twelve
+tpp-qualitative rows, twenty-four pathways-complex, six storage-complex,
+four storage-qualitative: problems with no hard goal at all, where
+"do nothing" is a valid plan, VAL accepts it, and every preference is
+violated. That is the boards' standing convention, not something this cycle
+invented -- the published 0.27.1 boards carry 27 of them (pathways-simple i7,
+i8, i12-i30) -- but a headline that says +190 without saying **144 real plans
+and 46 empty ones** is a headline this roadmap has withdrawn before. Fifteen
+solved preference rows carry no metric at all.
+
+And coverage is not what IPC-5 ranked these tracks on. `quality.py`: over the
+cells SGPlan5 solved, the IPC score (best metric / ours, 0 for no plan or no
+metric; its `; MetricValue` against our banked metric, all minimised):
+
+| | 0.27.1 | now | SGPlan5 | better / equal / worse than SGPlan5 |
+|---|---:|---:|---:|---|
+| simple-pref (130) | 94.8 | 94.0 | 119.4 | 29 / 19 / 81 |
+| qual-pref (100) | 45.8 | 59.2 | 84.8 | 26 / 3 / 64 |
+| complex-pref (105) | 20.1 | 50.6 | 67.9 | 11 / 3 / 59 |
+
+**The lanes closed coverage and left quality where it was.** qual-pref went
+from 49 rows behind to 2, and from 39 points behind to 26. simple-pref has
+been level on rows since before this cycle and is 25 points behind. Where the
+points are: trucks (qual 5.6 of 18.5, simple 8.4 of 19.0), tpp (qual 8.5 of
+19.0, complex 2.4 of 8.0), pathways. These are the rows where the optimizer
+ends its wall holding exactly what it was handed -- incumbent zero is a FLOOR,
+and on these the floor is also the ceiling.
+
+**So "how do we beat SGPlan5" now has two halves with different answers.**
+Rows: 121 to find, 66 of them metric-time (numeric guidance -- the consumable
+the relaxation cannot see) and 27 constraints (`within`), both untouched this
+cycle. Points: the preference optimizer's first improving step on trucks, tpp
+and pathways -- a plan-side local search over the banked plan is the obvious
+candidate, since SGPlan5's own architecture is exactly that, and nothing here
+has priced it yet.
+
+## THE CUT — 0.28.0 (opened 2026-09-21)
+
+The workspace is at 0.28.0, the `cut28` set is in the manifest (the same 32
+boards as cut27, stage `benchmarks/air28`, version gate 0.28), and the release
+text is written: `CHANGELOG.md` [0.28.0], the README's Status line and "What's
+new in 0.28.0", the book's temporal, PDDL3 and tuning chapters.
+`scripts/release-notes-roll.py --check` passes.
+
+**What the release text claims, and on what.** Only what the crucible
+measured on subsets this cycle: the six IPC-5 boards (379 -> 569, labelled an
+overlay and an estimate, with its 144 / 46 real / empty split and the quality
+table against SGPlan5), and the two equal-N regression reads. It claims NO
+32-board number. The README's standings block is generated
+(`benchmarks/standings.py`) and still shows 0.27.0's sweep; the Status line
+says so in words until the sweep below is promoted.
+
+**The estimator, declared BEFORE the sweep runs** (the INSTRUMENT section
+below withdrew 0.27's +115 for want of exactly this):
+
+1. The COMPARATIVE claim 0.27.0 -> 0.28.0 is **first attempt against first
+   attempt**, per cell, over the 8,444 -- `benchmarks/attempts-estimator.py
+   --a <0.27.0 engine> --b <0.28.0 engine>`, the `first` row, with its
+   bootstrap interval. Both engines were given exactly one first attempt;
+   nothing else in the record is equal by construction.
+2. `equal-N` is reported beside it. If the two disagree in SIGN, no delta is
+   claimed and the release says so.
+3. BANKED coverage -- what the boards and the README block show -- is
+   published as the boards' standing number and never as a delta.
+4. The empty-plan count is published with the preference boards' coverage
+   (`probes-0.28/lanes-crucible/composition.py`, pointed at `air28`).
+
+**What is left, in order** (nothing here needs an engine change):
+
+1. `crucible --repo /Users/harold/ferroplan sweep --set cut28 --headless`,
+   detached, log to `benchmarks/cut28-sweep.log`. Days, not hours. No cargo
+   build or test on the box while it runs.
+2. The regression re-check through the crucible: `compare --lost` against
+   0.27.0's banked rows, then `sweep --rows` on what it names, before any row
+   is called a loss.
+3. `bash benchmarks/promote-air28.sh` (refuses a partial sweep; regenerates
+   `benchmarks/ipc-standings.md`, `STANDINGS.md` and the README block, and
+   demands `crucible standings --check` parity).
+4. `python3 scripts/standings-snapshot.py --version 0.28.0 --measured-at <the
+   sweep's date>`.
+5. The release text gets its 32-board paragraph under the estimator above; the
+   README Status line goes back to the standing sentence ("... are on
+   crates.io"); the [0.28.0] date becomes the publish date.
+   `release-notes-roll.py --check`.
+6. Full pre-flight again on the final commit (`RELEASING.md`), push, fast-forward
+   `main`, then `./publish.sh` -- the operator's step, not the cycle's.
+
+**Pre-flight on the release candidate, 2026-09-21** (`RELEASING.md`, rustc
+1.98.1 = latest stable). It ran twice, because the first run found two things
+and one of them was hiding the other.
+
+| step | verdict |
+|---|---|
+| `fmt --check`, clippy `--all-targets --all-features -D warnings`, doc `-D warnings`, `bench --no-run` | clean |
+| `test --release -p ferroplan -p ferroplan-cli -- --include-ignored` | **398 passed, 0 failed** (59 binaries) |
+| `test` (DEBUG) `-p ferroplan -p ferroplan-cli -p ferroplan-mcp` | **394 passed, 0 failed** |
+| `test --release --all` | 435 passed, 0 failed (68 binaries) |
+| `package` + `publish --dry-run -p ferroplan-sat` | clean |
+| `publish --dry-run -p ferroplan` | fails, as `RELEASING.md` says it must until `ferroplan-sat` 0.28.0 is on the index; `build -p ferroplan -p ferroplan-cli -p ferroplan-mcp` clean |
+| `maturin build --release` (ferroplan-py) | `ferroplan-0.28.0-cp38-abi3-macosx_11_0_arm64.whl`. Local, macOS-ARM: the manylinux x86 wheel that ships is UNVERIFIED until CI builds it |
+| `release-notes-roll.py --check` | clean |
+| `crucible/preflight.sh` | every step clean but `tui --dump`, which reads the OPERATOR's repo (the main checkout) and found no `cut28` there yet. Re-run once that checkout is on this commit |
+
+1. **`opt_wall::opt_ladder_spends_the_wall` was never a load flake.** It
+   failed 5 runs in 12 ALONE on an idle box. Its `resume` leg pins the
+   sprint-resume machinery, whose trigger is a FAILED LM-cut probe, and it
+   starved the probe with a slice of the WALL: 0.001 of 30 s. On a quiet M5
+   LM-cut certifies that fixture in 103 evaluations and about 30 ms, so the
+   probe SUCCEEDED half the time (child, 25 runs a setting: handover 14/25 at
+   0.001; 25/25 at 0.0003, 0.0001, 0.00003). It had been filed as a load flake
+   because a loaded box is a slower one -- the condition under which it
+   passes. Re-derived to 0.0001; 20 of 20. The file had already learned this
+   once, for the sprint slice, from the other side.
+2. **Behind it: the compression rung and the actor scheduler.** `cargo test`
+   without `--no-fail-fast` stops at the first failing BINARY, so
+   `opt_wall` had been hiding every ignored test after it in the alphabet, in
+   every run of this pass all cycle. One of them,
+   `escalation_ladder_rescues_predicate_build`, read makespan **47.0** for its
+   documented 109. The plan is valid: `examples/cabin/crew.pddl` is LOCKLESS by
+   design ("one job per worker" is `tsched`'s convention, not a
+   precondition), and Lane T's left-shift overlaps what the PDDL allows -- one
+   worker, four jobs at once. Legal, VAL-valid, and under `FF_TCONC=1` not what
+   was asked for: the rung answered before the actor scheduler was reached.
+   **Fixed:** `tcompress::declines` stands aside when `FF_TCONC` is set, and
+   the cabin crews read 109 / 63 / 47 under the README's flags on 0.27.1 and
+   0.28.0 alike. Without the flag the default route's answer on a lockless
+   domain HAS changed (109 / 152 / 198 -> 47 / 47 / 47), and the changelog, the
+   book and the example say so under "Changed". The test now pins both
+   mechanisms -- the ladder's rescue with the rung hatched off (a child
+   process), and "the smaller makespan wins" on the default route -- and
+   `tests/tcompress.rs` pins the decline. No board sets `FF_TCONC`; nothing
+   measured this cycle moves.
+
+3. **An empty file, tracked by accident, blocked the checkout the sweep runs
+   from.** `3e9e013` had committed a 0-byte `benchmarks/cut27-sweep.1.log`
+   beside a `sweep.rs` change; in the operator's checkout the REAL log of that
+   sweep (201 KB) sits untracked at the same path, so `git checkout main`
+   refused. Untracked again (`43e502f`), and the cut stages and sweep logs are
+   ignored the way every earlier cycle's are. The real log was never moved.
+4. **`golden_standings` is red in the checkout that has the raws, and should
+   be, until the promote.** It renders `STANDINGS.md` from the repo and
+   compares bytes; the movement column's predecessor is the newest snapshot
+   strictly below the WORKSPACE version, so from the bump to 0.28.0 until
+   `promote-air28.sh` regenerates the tables it reads `= (vs 0.27.0)` against
+   the committed `+1.1 pts (vs 0.26.0)`. Regenerating now would publish a table
+   of equals signs. In the worktree, where the raws are absent, the test skips
+   and `crucible/preflight.sh` is **clean** end to end (it needed the
+   operator's checkout to carry `cut28` first: `tui --dump` reads that
+   manifest, not the worktree's).
+
+**The sweep is running.** Launched 2026-09-21 ~10:50 from the operator's
+checkout (`/Users/harold/ferroplan`, `main` = `43e502f`), detached:
+`crucible --repo /Users/harold/ferroplan sweep --set cut28 --headless`, log
+`benchmarks/cut28-sweep.log`, stage `benchmarks/air28/`. Engine
+**`ff 0.28.0 [89cfdc5f06ed]`**, 8,444 instances, 32 boards. Until it says
+SWEEP COMPLETE: no cargo build or test on the box, and NOTHING rebuilds
+`/Users/harold/ferroplan/target/release/ff` -- a rebuilt binary is a different
+engine to the database, and the sweep would be measuring two.
+
+**And then it hung.** Three hours after launch the operator looked for `ff`
+and found none. The sweep was alive at 0 % CPU; the log had nothing in it but
+width changes. `sample` showed the main thread in `run_batch`, blocked on the
+batch's channel, and ONE worker left, asleep a second at a time:
+
+```rust
+if w > 0 && w >= ctx.shared.width() { sleep(1 s); continue; }   // asked FIRST
+let Some(..) = queue.pop_front() else { break };                 // never reached
+```
+
+The first batch packed 10 wide; foreign load (`mobileassetd`, `deleted`, an
+operator at the keyboard) held the policy width at 9 or under all day. Nine
+workers banked 77 cells in fifteen seconds and left; worker 9 never passed
+the width gate, so never saw the empty queue, so never dropped its sender --
+and a channel drains until every sender is gone. In the tree since `67a5ded`
+(09-05); cut27 survived it only because its width touched 10 somewhere in
+every batch, and this cycle's subsets never packed wide (`--engine` has no
+predecessor, so every cell classes solo). **Fixed:** `worker_gate` asks the
+queue first -- an empty queue ends a worker whatever the width says. Two
+fixtures, both RED under the old order: the rule, and the shape (ten workers,
+the policy pinned at nine, a five-item queue, a collector that must finish
+inside ten seconds). SIGINT ended the hung run cleanly -- 77 banked, 8,367
+owed, nothing lost -- and the sweep was restarted on the same engine
+(`89cfdc5f06ed`: only the crucible was rebuilt, never `ff`). **Owed to the
+crucible:** a sweep that has spawned nothing for N minutes while it owes rows
+and is not SUSPENDED should say so in the log. This one was found by a person
+looking at a process list.
+
+**The lesson for the gate itself:** `publish.sh` and `RELEASING.md` run the
+ignored pass fail-fast. One red binary early in the alphabet turns the rest
+of the gate off without saying so. Both now say `--no-fail-fast`.
+
+## THE INSTRUMENT — a published row is best-of-N, and N was not controlled
+
+Found while trying to reproduce ONE row. It outranks every lane below it,
+because every lane below it is scored on this instrument.
+
+**The reproduction failure.** `ipc5-metric-time`'s
+`pipesworld-metric-time` i7/i8/i9 are published SOLVED (29.46 s len 9,
+29.03 s len 11, 42.69 s len 36, `val: true` — VAL checked the plans). On
+today's box, at the board's own 60 s wall, through the board's own
+harness (`ipc67.py --track metric-time-2006`), they do not solve under
+FIVE arms: engine-0.28 1-wide, engine-0.28 2-wide, v0.27.1 1-wide,
+v0.26.0 1-wide, and by hand. v0.26.0 is the binary that solved all three
+on 2026-09-11. Not the engine, not the width, not the corpus (pinned
+2017 checkout, untouched since July), not `FF_MEM_BUDGET_GB`.
+
+**The cause, from `~/.crucible/db/crucible.db`.** The crucible re-ran
+them until they solved, and the board kept the attempt that did:
+
+```
+i7 @ 0.27.0   attempt 1 unsolved, 2 unsolved, 3 SOLVED   -> banked
+i8 @ 0.27.0   attempt 1 unsolved, 2 unsolved, 3 SOLVED   -> banked
+i9 @ 0.27.0   attempts 1-4 unsolved, attempt 5 SOLVED    -> banked (dirty)
+```
+
+My single-shot runs reproduce attempts 1–4 faithfully. Nothing is wrong
+with them.
+
+**The scale.** Across the record — keyed by BUILD, not by version string,
+because three distinct 0.26.0 builds sit in this db and keying on `ver`
+splices their attempts into one sequence — **543 cells are solved only
+because a retry rescued them**, and 324 of those winning attempts are
+`timing_quality: dirty`. Where one build both solved and failed the same
+instance (590 cells), the record banks the solve **590 times out of 590**.
+N per cell runs 1–18.
+
+**Why the retries are one-directional.** A re-run is triggered by failure
+and never by success, so extra attempts can only ADD solves:
+
+```
+                   attempt 1 SOLVED        attempt 1 FAILED       rescued
+v0.26.0       4845 cells, re-run  0.0%   3599 cells, re-run 27.0%    162
+ff 0.27.0     4827 cells, re-run  0.0%   3617 cells, re-run 68.7%    295
+```
+
+The retry rule is sound and exists for a measured reason (cut27's false
+timeouts under swap thrash; the SUSPECT rule). Two things about it are
+not: a SOLVE under the same thrash is never re-tested (0.0 %, both
+engines), and the two engines' failures were re-rolled at rates that
+differ by 2.5×.
+
+**What it does to this cycle's headline.** `benchmarks/attempts-estimator.py`,
+over the 8,444 instances both builds ran (receipt:
+`benchmarks/metrics/attempts-estimator-cut27.txt`):
+
+| estimator | v0.26.0 | ff 0.27.0 | delta | 95 % CI |
+|---|---:|---:|---:|---|
+| banked — what the boards publish | 5007 | 5122 | **+115** | [+93, +139] |
+| solved on ANY attempt | 5007 | 5122 | +115 | [+93, +139] |
+| FIRST attempt only | 4845 | 4827 | −18 | [−54, +22] |
+| **equal-N** (max over first min(N_A,N_B)) | 4931 | 4890 | **−41** | [−80, +1] |
+| per-run (expected coverage of ONE run) | 4918.6 | 4949.5 | +31 | [+4, +59] |
+
+And the delta decomposes exactly:
+
+```
+first-attempt -18  +  rescue difference (295 - 162) +133  =  +115
+```
+
+**The whole of +115 is the difference in how many failures each engine was
+allowed to retry.** On the one instrument both engines were given equally
+— their first attempt — 0.27.0 is 18 rows BEHIND, inside the noise.
+
+**This is not a claim that 0.27 regressed**, and the per-board table says
+why. Under equal-N the 2011/2014 families hold their gains
+(`ipc2014-sat` +17, `ipc2014-mco-t4` +15, `ipc7-mco-t2` +9,
+`ipc67-results` +9) while others reverse hard (`ipc5-prop` +5 → −43,
+`ipc67-temporal` −1 → −25, `ipc2018-sat` +4 → −22). Some of the engine
+work is real. The AGGREGATE is what the instrument cannot support.
+
+**A trap for whoever reads this next.** `timing_quality` is not a
+severity: clean runs solve LESS often than dirty ones (v0.26.0 28.2 % vs
+64.1 %), because clean re-runs were targeted at the hard owed rows.
+`clean-only` is therefore a biased subset, not a cleaner measurement, and
+the `+76` it reports is worth nothing.
+
+**Owed, and it blocks the lanes.** (1) Adopt one estimator, declared in
+advance — equal-N or per-run, not banked — and re-read cut27 under it;
+the db has every attempt, so this is re-analysis, not box time. (2) Re-test
+a sample of BANKED SOLVES, which nothing in the loop currently does, to
+price the ratchet's other half. (3) Publish attempts and timing_quality
+beside coverage, so a row says how many tries it took. (4) Only then
+re-read anything resting on the delta, this cycle's SGPlan arithmetic
+included.
+
+**Deliberately NOT changed here.** `README.md` ("61 % coverage
+(5,122/8,444) … +134 over 0.26.0") and `CHANGELOG.md` state the banked
+coverage of a SHIPPED release. The coverage figure is what the boards
+record and stays true as that; the COMPARATIVE claims (+134, +115) are the
+ones this section withdraws, and rewriting a published release's notes is
+the operator's call, not a correction to make quietly inside a cycle doc.
+`benchmarks/cut27-compare-0.26-vs-0.27.txt` is left exactly as the tool
+wrote it, for the same reason a receipt is not edited.
+
+## Lane W (candidate, NOT scoped) — declaring a wall can make the engine worse
+
+Found while chasing the withdrawn slicing lever, and kept because it
+reproduces in under a second on the CLASSICAL path, where the rung ladder
+actually runs. `blocks(30)` — the `tests/call_budget.rs` fixture, 30
+blocks in a single tower, `--threads 1`, release:
+
+| declared wall | solved | spent |
+|---|---|---:|
+| *none* | yes | 0.19 s |
+| 0.12 s | **no** | 0.13 s |
+| 0.20 s | **no** | 0.25 s |
+| 0.50 s | **no** | 0.59 s |
+| 1.00 s | yes | 0.18 s |
+
+A 0.5 s wall is 2.6× the unbudgeted solve time and still fails: telling
+the engine it has half a second is strictly worse than telling it
+nothing. `FF_WALL_DEBUG` names the mechanism outright —
+
+```
+wall: EHC slice exhausted (3678 evals in 0.12s), handing down the ladder
+wall: novelty-light slice exhausted (4096 pops in 0.05s)
+wall: LAMA slice extended to 0.13s ... extended to 0.37s (recency)
+wall: novelty skipped (remaining Some(0.0) unaffordable at rung entry)
+wall: best-first checkpoint expired at 1 evals (capped return)
+```
+
+— against `wall: solved by EHC` at 1.0 s and unbudgeted. EHC needs ~0.19 s
+and `FF_EHC_WALL_FRAC` (0.25) hands it 0.12 s.
+
+**The existing hatch is the zero-code arm.** `FF_NO_EHC_WALLCAP=1` converts
+every failing wall above AND finishes INSIDE it (0.11 / 0.16 / 0.18 s) —
+it is not trading the wall away. `FF_NO_RUNG_WALLCAP=1` also "solves" but
+overruns 3× (0.88–1.39 s), so it is not a candidate policy, only the
+permanent RED record it already is.
+
+**Why this is not a free +N, and why the lane is unscoped.** The
+discrimination is the whole problem, and this repo has already lost one
+round of it. `ladder_wall.rs`'s `capped` leg exists because on the
+`laddertax` shape EHC-direct eats ~2× the wall and the SLICE is what
+converts the row; blocks(30) is the opposite shape at the same rung.
+LAMA got a progress-conditional extension for exactly this reason (0.22
+Phase 5A a1: hiking-2014 i6's 43 s of steady progress vs tetris i4's 400k
+evals of none), and the 0.24 attempt to sharpen recency into ARRIVAL died
+because nurikabe and spider's constants CROSS. EHC never got either
+treatment. Its own progress signal ("no improving state") is
+arrival-shaped by construction, which is a reason to think it separates
+where LAMA's did not — and no reason at all to claim it does.
+
+Owed before any claim: the two fixtures side by side (blocks(30) green,
+`laddertax` still green), then a board A/B. Constituency on the boards is
+UNMEASURED; nothing here licenses a number.
 
 ## Anti-pots — priced at zero, standing
 

@@ -43,9 +43,21 @@ SGPlan5 on its larger instances. Every knob has a restore hatch (`FF_PREF_COMPIL
 `FF_PREF_NO_STATIC`, `FF_PREF_BARRIER`, `FF_PREF_NO_ESCALATE`, `FF_ESPC_MONO`); see
 the [tuning reference](./tuning.md).
 
-Past a certain size the search runs out the clock. On the largest instances exact
-optimization hands back the best plan found (flagged *not proven optimal*) when the
-budget dies. Full per-instance results vs SGPlan5:
+**Incumbent zero (0.28).** Before the optimizer starts, the classical ladder
+plans the HARD goals alone (soft trajectory constraints stripped — they cannot
+invalidate a plan) and that plan is lifted into the compiled task as a
+**floor**: the optimizer's own search is unchanged, and the seed is what comes
+back, with a note, only when nothing cheaper was found inside the budget. Until
+0.28 a run that ended before the optimizer's first plan reported `solved:
+false` with a valid plan milliseconds away. Two consequences worth knowing: on
+a problem with **no hard goal at all** the floor is the *empty plan* (valid,
+every preference violated), and when the compiled preference task does not
+even ground inside the wall or the memory budget the hard-goal plan is
+returned with `metric: null` and a `NOT priced` note. `FF_PREF_NO_SEED=1`
+restores 0.27.
+
+On the largest instances exact optimization may return a best-found plan (flagged
+*not proven optimal*) within the budget. Full per-instance results vs SGPlan5:
 [`benchmarks/ipc5-scoreboard.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/benchmarks/ipc5-scoreboard.md).
 
 ## Trajectory constraints (`(:constraints ...)`) — enforced since 0.7

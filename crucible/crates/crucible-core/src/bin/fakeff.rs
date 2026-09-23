@@ -73,6 +73,14 @@ fn main() {
         unsafe {
             libc::signal(libc::SIGTERM, libc::SIG_IGN);
         }
+        // Readiness handshake (v26.9.22 merge): a supervisor test that must
+        // know the ignore is in place before it sends SIGTERM can name a
+        // FAKEFF_READY_FILE; we touch it here -- after the signal(2) above --
+        // so a loaded machine can no longer win the race and kill the child
+        // before the ignore existed.
+        if let Some(ready) = env("FAKEFF_READY_FILE") {
+            let _ = std::fs::File::create(&ready).map(|f| f.set_len(0));
+        }
     }
 
     // Balloon first, so a memory cap trips before any sleep elapses.

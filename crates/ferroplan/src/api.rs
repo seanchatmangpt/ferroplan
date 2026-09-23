@@ -635,6 +635,15 @@ pub fn solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solu
     // `constrained` records that the gate compiled — the flag that tells
     // reporting to strip the synthetic TRAJ-END step (0.8 END construction);
     // it is never set on the constraint-free byte-identical path.
+    // The pair the PDDL3 route finds its HARD-GOAL plan on, taken before the
+    // gate shadows the originals (see `constraints::hard_only_gated`). Only
+    // classical preference tasks use it; a gate that refuses the stripped
+    // pair refuses the full one below, with the better message.
+    let seed_pair = if crate::temporal::is_temporal(&domain) {
+        None
+    } else {
+        crate::constraints::hard_only_gated(&domain, &problem).unwrap_or(None)
+    };
     let (domain, problem, constrained) = match crate::constraints::gate(&domain, &problem) {
         Ok(Some((d, p))) => (d, p, true),
         Ok(None) => (domain, problem, false),
@@ -682,7 +691,14 @@ pub fn solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solu
 
     match mode {
         Mode::Temporal => solve_temporal(&domain, &problem, threads),
-        Mode::Pddl3 => solve_pddl3(&domain, &problem, opts, threads, constrained),
+        Mode::Pddl3 => solve_pddl3(
+            &domain,
+            &problem,
+            seed_pair.as_ref(),
+            opts,
+            threads,
+            constrained,
+        ),
         Mode::Optimal => solve_optimal(&domain, &problem, threads, constrained),
         Mode::Sat => solve_sat(
             &domain,
@@ -1041,18 +1057,32 @@ fn solve_temporal(
     // FF_TDECOMP routes through the partition-and-resolve decomposer (Phase B), the
     // same gate as the text path (run_planner); the default is `temporal::solve` —
     // the monolithic search plus its on-failure escalation ladder.
+    // The score rides the solve (0.28 Lane S): the preference tiers build
+    // their scorer BEFORE the quality chase, so a banked plan's report never
+    // waits on a grounding paid after the wall. The decomposer path keeps
+    // the post-hoc call -- it has no tiers to bank from.
     let result = if crate::features::tdecomp() {
-        crate::tresolve::solve(domain, problem, threads)
+        crate::tresolve::solve(domain, problem, threads).map(|plan| {
+            let score = crate::temporal::score_soft(domain, problem, &plan);
+            crate::temporal::ScoredPlan {
+                plan,
+                score,
+                unscored: false,
+            }
+        })
     } else {
-        crate::temporal::solve(domain, problem, threads)
+        crate::temporal::solve_scored(domain, problem, threads)
     };
     match result {
-        Some(tp) => {
+        Some(crate::temporal::ScoredPlan {
+            plan: tp,
+            score,
+            unscored,
+        }) => {
             // The complex-preferences entry (0.25 Phase 2): a temporal
-            // plan's PDDL3 preferences are scored post-hoc against the
-            // ORIGINAL pair — the metric and the violated-instance list
-            // ride the Solution; None means the pair carries none.
-            let score = crate::temporal::score_soft(domain, problem, &tp);
+            // plan's PDDL3 preferences are scored against the ORIGINAL
+            // pair — the metric and the violated-instance list ride the
+            // Solution; None means the pair carries none.
             let mut notes = Vec::new();
             if let Some(s) = &score {
                 let viol = if s.violated.is_empty() {
@@ -1071,6 +1101,17 @@ fn solve_temporal(
                     s.satisfied,
                     s.violated.len(),
                 ));
+            } else if unscored {
+                // A valid plan with no metric beats a metric with no plan
+                // (0.28 Lane S): the scorer grounds the ORIGINAL pair, and
+                // a banked plan that arrives with the wall nearly spent --
+                // or whose scorer does not fit the memory budget (Lane M) --
+                // is reported without it rather than lost to the kill.
+                notes.push(
+                    "PDDL3 preferences NOT scored: the wall or the memory budget left \
+                     no room to build the scorer; the plan is valid, its metric is omitted"
+                        .into(),
+                );
             }
             let steps = timed_steps(&tp);
             Ok(Solution {
@@ -1280,6 +1321,9 @@ fn solve_classic(
 fn solve_pddl3(
     domain: &crate::types::Domain,
     problem: &crate::types::Problem,
+    // The soft-constraint-free pair to find the hard-goal plan on; `None`
+    // when the pair has no soft constraints (then `domain`/`problem` IS it).
+    seed_pair: Option<&(crate::types::Domain, crate::types::Problem)>,
     opts: &Options,
     threads: usize,
     // The constraint gate compiled: strip the synthetic TRAJ-END step
@@ -1325,6 +1369,21 @@ fn solve_pddl3(
         );
     }
 
+    // THE HARD GOALS' PLAN FIRST (0.28 Lane I) -- before the compiled task is
+    // even grounded, because that grounding is the expensive step and the
+    // one that can fail: storage-qualitative i20 compiles to 142k ops and
+    // 30 s of grounding on a quiet box, several times that on a busy one,
+    // while the plan for its (empty) hard goal is known in milliseconds. A
+    // route that grounds first has nothing to return when the wall arrives
+    // mid-grounding.
+    let (seed_d, seed_p) = seed_pair.map_or((domain, problem), |(d, p)| (d, p));
+    let seed_plan = pddl3::hard_goal_plan(seed_d, seed_p, threads, opts.search_cfg());
+    // From here on a plan may be in hand, so everything stops a reserve
+    // short of the wall (the Lane S rule): the runner kills AT the wall.
+    let _ground_wall = seed_plan
+        .is_some()
+        .then(|| crate::search::reserve_for_report(0))
+        .flatten();
     let task = match do_ground(&c.domain, &c.problem, threads)? {
         Grounded::Task(t) => t,
         Grounded::Trivial => return Ok(trivial(Mode::Pddl3, threads)),
@@ -1339,6 +1398,47 @@ fn solve_pddl3(
             ));
         }
         Grounded::Budget(why) => {
+            // The preference task did not ground inside the wall. With the
+            // hard goals' plan in hand that is a SOLVE the optimizer never
+            // got to price: a valid plan without a metric beats a metric
+            // without a plan.
+            if let Some(names) = &seed_plan {
+                let steps = strip_end_steps(
+                    names
+                        .iter()
+                        .enumerate()
+                        .map(|(index, name)| {
+                            let mut it = name.split_whitespace();
+                            Step {
+                                index,
+                                action: it.next().unwrap_or("").to_string(),
+                                args: it.map(str::to_string).collect(),
+                                time: None,
+                                duration: None,
+                            }
+                        })
+                        .collect(),
+                    strip_end,
+                );
+                return Ok(Solution {
+                    solved: true,
+                    mode: Mode::Pddl3,
+                    plan: Some(Plan {
+                        length: steps.len(),
+                        steps,
+                        metric: None,
+                        makespan: None,
+                    }),
+                    statistics: Statistics {
+                        threads,
+                        ..Default::default()
+                    },
+                    notes: vec![format!(
+                        "PDDL3 metric NOT priced: the preference task did not ground inside \
+                         the wall ({why}); this is the hard-goal plan, valid and unoptimized"
+                    )],
+                });
+            }
             return Ok(unsolved(
                 Mode::Pddl3,
                 Statistics {
@@ -1365,10 +1465,48 @@ fn solve_pddl3(
         .collect();
 
     // Mutex groups feed the resource-aware guidance (renewable counter resources).
+    let stamp = |what: &str| {
+        if std::env::var("FF_RES_DEBUG").is_ok() {
+            eprintln!(
+                "[p3] {what}: {:?} s of wall left",
+                crate::search::wall_remaining_secs()
+            );
+        }
+    };
+    stamp("compiled task grounded");
     let groups = crate::invariants::synthesize(&c.domain, &task);
-    match pddl3::metric_optimize(&task, cf, &forgos, &groups, c.folded_metric, threads) {
-        Some(r) => {
+    stamp("invariants synthesized");
+    // Incumbent zero (0.28 Lane I): a plan for the HARD goals, found where
+    // it is cheap to find and lifted into the compiled task, so the
+    // optimizer cannot end a run with nothing to report.
+    let seed = seed_plan
+        .as_deref()
+        .and_then(|names| pddl3::lift_seed(&task, names));
+    // The optimizer improves a plan that could already be reported, so it
+    // stops a reserve short of the wall (the Lane S rule): the runner kills
+    // AT the wall, and a metric polished until 60.4 s is a row lost.
+    let _report_wall = crate::search::reserve_for_report(task.n_ops);
+    match pddl3::metric_optimize_seeded(
+        &task,
+        cf,
+        &forgos,
+        &groups,
+        c.folded_metric,
+        threads,
+        seed.as_deref(),
+    ) {
+        Some(pddl3::SeededResult {
+            result: r,
+            from_seed,
+        }) => {
             let mut notes = Vec::new();
+            if from_seed {
+                notes.push(
+                    "the optimizer found nothing cheaper inside its budget; this is the \
+                     hard-goal plan, and the metric is what it happens to violate"
+                        .into(),
+                );
+            }
             if c.warn_other {
                 notes.push(
                     "metric has terms beyond is-violated/total-cost; optimized the supported part"

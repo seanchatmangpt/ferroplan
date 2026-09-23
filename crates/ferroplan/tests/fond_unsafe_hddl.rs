@@ -110,7 +110,7 @@ fn solved_policy_is_dead_sink_free() {
 fn abyss_both_is_typed_noplan() {
     let result = solve_hddl(ABYSS_BOTH_DOMAIN, ABYSS_BOTH_PROBLEM, &Default::default());
     match result {
-        Err(HddlError::Planner(PlannerError::NoPlan { .. })) => {}
+        Err(HddlError::Planner(PlannerError::NoPlan)) => {}
         other => panic!("abyss-both must be a typed NoPlan, got {other:?}"),
     }
 }
@@ -177,7 +177,7 @@ fn explicit_twin_with_unsafe_state_refuses() {
         problem: build(),
         limits: Default::default(),
     }) {
-        Err(PlannerError::NoPlan { .. }) => {}
+        Err(PlannerError::NoPlan) => {}
         other => panic!(
             "the explicit twin whose only route runs through an unsafe state \
              must refuse; got {other:?}"

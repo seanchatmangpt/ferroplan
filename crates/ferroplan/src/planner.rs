@@ -67,6 +67,13 @@ pub fn run_planner(
     // `constrained` records that the gate compiled — the reported plan then
     // strips the synthetic TRAJ-END step (0.8 END construction); never set
     // on the constraint-free byte-identical path.
+    // As in the library path: the pair the PDDL3 route seeds from, taken
+    // before the gate shadows the originals.
+    let seed_pair = if crate::temporal::is_temporal(&domain) {
+        None
+    } else {
+        crate::constraints::hard_only_gated(&domain, &problem).unwrap_or(None)
+    };
     let (domain, problem, constrained) = match crate::constraints::gate(&domain, &problem) {
         Ok(Some((d, p))) => (d, p, true),
         Ok(None) => (domain, problem, false),
@@ -123,6 +130,7 @@ pub fn run_planner(
             &mut out,
             &domain,
             &problem,
+            seed_pair.as_ref(),
             opts.optimize,
             threads,
             cfg,
@@ -297,6 +305,7 @@ fn plan_pddl3(
     out: &mut String,
     domain: &crate::types::Domain,
     problem: &crate::types::Problem,
+    seed_pair: Option<&(crate::types::Domain, crate::types::Problem)>,
     optimize: bool,
     threads: usize,
     cfg: crate::search::SearchCfg,
@@ -389,9 +398,34 @@ fn plan_pddl3(
         .collect();
     // Mutex groups feed the resource-aware guidance (renewable counter resources).
     let groups = crate::invariants::synthesize(&c.domain, &task);
-    match pddl3::metric_optimize(&task, cf, &forgos, &groups, c.folded_metric, threads) {
-        Some(r) => {
+    // Incumbent zero (0.28 Lane I) -- the library path's rule, so text and
+    // JSON agree on which rows solve.
+    let (seed_d, seed_p) = seed_pair.map_or((domain, problem), |(d, p)| (d, p));
+    let seed = pddl3::hard_goal_seed(seed_d, seed_p, &task, threads, cfg);
+    // The optimizer improves a plan that could already be reported, so it
+    // stops a reserve short of the wall (the Lane S rule): the runner kills
+    // AT the wall, and a metric polished until 60.4 s is a row lost.
+    let _report_wall = crate::search::reserve_for_report(task.n_ops);
+    match pddl3::metric_optimize_seeded(
+        &task,
+        cf,
+        &forgos,
+        &groups,
+        c.folded_metric,
+        threads,
+        seed.as_deref(),
+    ) {
+        Some(pddl3::SeededResult {
+            result: r,
+            from_seed,
+        }) => {
             let mut note = String::new();
+            if from_seed {
+                note.push_str(
+                    " the optimizer found nothing cheaper inside its budget; this is the \
+                     hard-goal plan.",
+                );
+            }
             if c.warn_other {
                 note.push_str(" metric has terms beyond is-violated/total-cost; optimized the supported part.");
             }
@@ -412,7 +446,11 @@ fn plan_pddl3(
             0
         }
         None => {
-            out.push_str("\n\nbest first search space empty! problem proven unsolvable.\n\n");
+            // Neither the optimizer nor the hard-goal seed produced a plan
+            // inside their budgets. Both are capped searches, so this is a
+            // budget exit and never a verdict (the 0.21 honesty bar; this
+            // branch used to say "proven unsolvable" regardless).
+            out.push_str(unsolvable_line(true));
             0
         }
     }

@@ -283,6 +283,15 @@ pub struct SearchCfg {
     /// there is no prior shape to restore). `None` (the default
     /// everywhere) is byte-identical to the pre-0.24 behavior.
     pub deadline: Option<(crate::clock::Clock, f64)>,
+    /// EHC's share of the remaining wall, for a caller that knows better
+    /// than the ladder's default quarter (`FF_EHC_WALL_FRAC`). `None` (the
+    /// default everywhere) is the env/default policy, byte-identical. The
+    /// one caller that sets it is the PDDL3 hard-goal seed (0.28 Lane I):
+    /// that ladder exists to find ONE plan, EHC is what finds it, and
+    /// rovers-qualitative i20 -- which EHC solves in 14.6 s alone -- is cut
+    /// at the 15 s quarter the moment a second job shares the box. Roadmap
+    /// 0.28's Lane W, met from the consumer's side.
+    pub ehc_wall_frac: Option<f64>,
 }
 
 // ARCHAEOLOGY (0.23 Phase 1): `tie_seed` — the diversification-on-refill
@@ -340,6 +349,7 @@ impl SearchCfg {
             pref_ops: false,
             node_bytes_target: None,
             deadline: None,
+            ehc_wall_frac: None,
         }
     }
 
@@ -575,6 +585,119 @@ pub(crate) fn arm_call_budget(
     };
     CALL_BUDGET.with(|b| *b.borrow_mut() = budget);
     CallBudgetGuard
+}
+
+/// A SCOPED TIGHTENING of this thread's deadline (0.28 Lane S): the work
+/// inside the guard's lifetime may spend the remaining wall MINUS
+/// `reserve_secs`, and the previous deadline comes back on drop.
+///
+/// It exists for OPTIONAL work on a row that is already banked. The
+/// complex-preference chase ran against the same wall as the banked plan it
+/// was trying to improve, so a chase that used its whole wall left nothing
+/// for scoring and printing the plan already in hand: pathways-complex i7
+/// returned its banked, VAL-valid plan at 21.94 s against a 20 s wall, and
+/// the board's runner kills at the wall. Every one of those rows read
+/// "unsolved" with a solution in memory.
+///
+/// Rides the per-call budget because that is the deadline every checkpoint
+/// already joins ([`effective_deadline`], [`wall_remaining_secs`]). `None`
+/// when no wall is armed at all -- the no-wall contract stays byte-identical
+/// -- and when only the ENV wall is armed under `FF_NO_RUNG_WALLCAP=1`, whose
+/// whole purpose is to keep the pre-checkpoint shapes pinnable.
+pub(crate) struct ScopedDeadline {
+    prev: Option<(crate::clock::Clock, f64)>,
+}
+
+impl Drop for ScopedDeadline {
+    fn drop(&mut self) {
+        CALL_BUDGET.with(|b| b.borrow_mut().deadline = self.prev);
+        BOUNDED_WORK.with(|n| {
+            n.set(n.get().saturating_sub(1));
+            if n.get() == 0 {
+                crate::mem::clear_latch();
+            }
+        });
+    }
+}
+
+thread_local! {
+    /// How many [`ScopedDeadline`]s are live on this thread.
+    static BOUNDED_WORK: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// Is this thread inside work somebody BOUNDED -- a quality chase over a
+/// banked plan, the grounding of a task that only prices a plan already
+/// found, a rung's bet? That is exactly the work the measured memory wall
+/// (`crate::mem`, 0.28 Lane M) may cut: stopping it loses an improvement or
+/// a bet. Everywhere else the engine keeps its 0.27 shape -- a first search
+/// that would have solved at 5.5 GB of a 6 GB budget must not be stopped at
+/// 4.5 by a rule written for work that had a plan to fall back on.
+pub(crate) fn bounded_work() -> bool {
+    BOUNDED_WORK.with(|n| n.get() > 0)
+}
+
+/// What optional work must leave on the wall for a plan ALREADY IN HAND:
+/// its own exit latency past the tightened deadline (one checkpoint cadence,
+/// one arena teardown), the replay that prices the winning plan, the report,
+/// and the process's own teardown -- the runner's clock stops at exit, not at
+/// the last byte of JSON.
+///
+/// 3 % of the wall's TOTAL, held to [0.5 s, 3 s] -- 1.8 s at the boards'
+/// 60 s. Total, not remaining: the costs being reserved for do not shrink
+/// because a long grounding already spent most of the wall (the first cut
+/// read the remainder, and storage-qualitative i20 -- 30 s of grounding --
+/// was handed 0.9 s and exited at 60.2). Plus a SIZE term, `ops / 1e5`
+/// seconds up to 5: closing, pricing and dropping a 140k-op task is where
+/// that instance's last second goes, and it is nothing at ordinary sizes
+/// (5k ops: 0.05 s). `FF_REPORT_RESERVE_SECS` overrides the whole figure
+/// (0 restores the 0.27 shape: optional work runs to the wall).
+pub(crate) fn report_reserve_secs(total_wall: f64, task_ops: usize) -> f64 {
+    std::env::var("FF_REPORT_RESERVE_SECS")
+        .ok()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .filter(|r| r.is_finite() && *r >= 0.0)
+        .unwrap_or_else(|| (total_wall * 0.03).clamp(0.5, 3.0) + (task_ops as f64 / 1e5).min(5.0))
+}
+
+/// [`tighten_deadline`] by [`report_reserve_secs`] -- the guard a route holds
+/// while it improves a plan it could already report. `task_ops` is the
+/// grounded size of what will have to be closed and dropped (0 if unknown).
+///
+/// Plus 5 % of the wall ALREADY SPENT (the first board sit's finding): the
+/// latencies being reserved for -- a checkpoint cadence, a teardown -- scale
+/// with the task, and so does everything the task has done so far. Solo,
+/// `storage-qualitative` i20 exits at 57.95 s of 60; two-wide, its 30 s
+/// grounding is 40 s, its tail stretches with it, and the fixed reserve read
+/// 60.0 -- all seven rows `ipc5-qual-pref` still missed were that shape.
+pub(crate) fn reserve_for_report(task_ops: usize) -> Option<ScopedDeadline> {
+    let total = sooner_deadline(wall_deadline(), call_budget().deadline)?.1;
+    let spent = wall_elapsed_secs().unwrap_or(0.0);
+    tighten_deadline(report_reserve_secs(total, task_ops) + 0.05 * spent)
+}
+
+/// Seconds since the PROCESS wall was armed; `None` without one. (A scoped
+/// deadline's clock starts when it was tightened, so it cannot answer this.)
+pub(crate) fn wall_elapsed_secs() -> Option<f64> {
+    wall_deadline().map(|(t0, _)| t0.elapsed_secs())
+}
+
+pub(crate) fn tighten_deadline(reserve_secs: f64) -> Option<ScopedDeadline> {
+    let prev = call_budget().deadline;
+    if prev.is_none() && !rung_wallcap_on() {
+        return None;
+    }
+    let rem = wall_remaining_secs()?;
+    let tightened = (crate::clock::Clock::now(), (rem - reserve_secs).max(0.0));
+    CALL_BUDGET.with(|b| b.borrow_mut().deadline = Some(tightened));
+    BOUNDED_WORK.with(|n| {
+        if n.get() == 0 {
+            // A stale mark (this thread was a grounding worker once) must not
+            // close a scope that has not looked at the memory yet.
+            crate::mem::clear_latch();
+        }
+        n.set(n.get() + 1)
+    });
+    Some(ScopedDeadline { prev })
 }
 
 /// The 0.22 Phase 2 checkpoint hatch: `FF_NO_RUNG_WALLCAP=1` turns OFF
@@ -870,6 +993,7 @@ pub fn search_from(
         None => task.state_key_hash(s, cost_fluent),
     };
     let batch = BATCH;
+    let mem_wall = crate::mem::MemWall::arm();
     // Phase-time attribution, printed only under FF_RES_DEBUG at the cap
     // return (measurement only — never affects behavior).
     let dbg = std::env::var("FF_RES_DEBUG").is_ok();
@@ -1129,11 +1253,32 @@ pub fn search_from(
         // plan, the same h, plus the helpful-action set the expansion below
         // marks preferred successors with. Otherwise the historical
         // evaluators, and the helpful slot is an empty (non-allocating) Vec.
+        // The IN-BATCH checkpoint (0.28 Lane I). The batch boundary below is
+        // one Clock read per 256 evaluations, which is fine at microseconds
+        // an eval and is TWO SECONDS at the 8 ms a compiled preference task
+        // costs (tpp-qualitative i12: 2,464 evals in 19.8 s) -- the whole of
+        // the reserve a banked plan's report is given. So under an armed
+        // deadline each evaluation reads the clock first, and the first one
+        // to find it expired abandons the rest of the batch. A tripped batch
+        // is a capped return that never looks at its h values, so a run that
+        // finishes inside the wall is evaluation-for-evaluation what it was.
+        // Read on the CALLING thread: the per-call budget is thread-local and
+        // the workers below would not see it.
+        let batch_wall = sooner_deadline(effective_deadline(), cfg.deadline);
+        let batch_cancel = call_budget().cancel;
+        let batch_retained = nodes.len() * per_node_model_bytes(task);
+        let batch_skipped = std::sync::atomic::AtomicUsize::new(0);
         let evals: Vec<Option<(i32, Vec<u32>)>> = par::par_map_with(
             &popped,
             threads,
             || Scratch::new(task),
             |sc, &ni| {
+                if batch_wall.is_some_and(|d| deadline_expired_reserving(d, batch_retained))
+                    || cancelled(&batch_cancel)
+                {
+                    batch_skipped.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    return None;
+                }
                 let s = &nodes[ni].state;
                 if cfg.pref_ops {
                     return relaxed_helpful(task, sc, &s.bits, &s.fv, &s.fdef, goal_pos, goal_num);
@@ -1149,7 +1294,8 @@ pub fn search_from(
         );
         let hs: Vec<Option<i32>> = evals.iter().map(|e| e.as_ref().map(|(h, _)| *h)).collect();
         t_h += t_phase.elapsed_us();
-        evaluated += popped.len();
+        let batch_skipped = batch_skipped.into_inner();
+        evaluated += popped.len() - batch_skipped;
         // The wall checkpoint (0.22 Phase 2 lever 1): the eval cap is
         // denominated in states and the wall in seconds, and on slow-eval
         // domains the two run apart by MINUTES — gear-car i6 ran this loop
@@ -1161,13 +1307,26 @@ pub fn search_from(
         // winds down and the caller reports honestly. Unarmed or
         // `FF_NO_RUNG_WALLCAP=1` ⇒ never trips.
         let retained = nodes.len() * per_node_model_bytes(task);
-        let wall_hit = wall_expired_reserving(retained)
+        let wall_hit = batch_skipped > 0
+            || wall_expired_reserving(retained)
             || cfg
                 .deadline
                 .is_some_and(|d| deadline_expired_reserving(d, retained));
         if wall_hit && std::env::var("FF_WALL_DEBUG").is_ok() {
             eprintln!("wall: best-first checkpoint expired at {evaluated} evals (capped return)");
         }
+        // The MEASURED memory wall (0.28 Lane M, `crate::mem`), beside the
+        // modelled one (`node_cap`) this loop has always had: one kernel read
+        // per batch. A trip is the same capped return -- the anytime incumbent
+        // comes back, and so does whatever the caller had banked.
+        let mem_hit = mem_wall.hit();
+        if mem_hit && std::env::var("FF_WALL_DEBUG").is_ok() {
+            eprintln!(
+                "wall: best-first MEMORY checkpoint at {evaluated} evals, {} nodes (capped return)",
+                nodes.len()
+            );
+        }
+        let wall_hit = wall_hit || mem_hit;
         // The node cap (0.8 Phase 3) trips at the same batch boundary as the
         // eval cap: `nodes.len()` counts INSERTED successors — the quantity
         // that actually holds the memory — and is maintained serially, so the
@@ -1230,8 +1389,18 @@ pub fn search_from(
             .filter_map(|(&ni, e)| e.as_ref().map(|(h, help)| (ni, *h, help)))
             .collect();
         let t_phase = crate::clock::Clock::now();
+        let expand_tripped = std::sync::atomic::AtomicBool::new(false);
         let cand_chunks: Vec<Vec<(usize, usize, State, u64, i32, bool)>> =
             par::par_map(&live, threads, |&(ni, ph, helpful)| {
+                // The in-batch checkpoint's second half: on a task whose
+                // states are wide enough, EXPANSION is the slow phase
+                // (storage-qualitative i20: one 348-node batch, 2.3 s).
+                if batch_wall.is_some_and(|d| deadline_expired_reserving(d, batch_retained))
+                    || cancelled(&batch_cancel)
+                {
+                    expand_tripped.store(true, std::sync::atomic::Ordering::Relaxed);
+                    return Vec::new();
+                }
                 let st = &nodes[ni].state;
                 let mut v = Vec::new();
                 let mut cands = Vec::new();
@@ -1260,6 +1429,27 @@ pub fn search_from(
             });
 
         t_exp += t_phase.elapsed_us();
+        if expand_tripped.into_inner() {
+            // A half-expanded batch is not a frontier: the same capped
+            // return as the batch-boundary trip, with nothing inserted.
+            if std::env::var("FF_WALL_DEBUG").is_ok() {
+                eprintln!(
+                    "wall: best-first checkpoint expired mid-expansion at {evaluated} evals (capped return)"
+                );
+            }
+            if let Some(ni) = best_acc.or(len_acc) {
+                return PlanResult::Plan {
+                    ops: reconstruct(&nodes, ni),
+                    advance,
+                    evaluated,
+                    max_g,
+                };
+            }
+            return PlanResult::Unsolvable {
+                evaluated,
+                capped: true,
+            };
+        }
 
         // SERIAL: dedup + insert (deterministic order, independent of threads).
         let t_phase = crate::clock::Clock::now();
@@ -1567,7 +1757,13 @@ pub fn plan_avoiding(
         }
     };
     if ehc_first {
-        if let Some((ops, evaluated)) = ehc(task, forbidden, cfg.max_eval, cfg.deadline) {
+        if let Some((ops, evaluated)) = ehc(
+            task,
+            forbidden,
+            cfg.max_eval,
+            cfg.deadline,
+            cfg.ehc_wall_frac,
+        ) {
             narrate_rung("EHC");
             return PlanOutcome {
                 ops: Some(ops),
@@ -1876,6 +2072,7 @@ fn ehc(
     forbidden: &[bool],
     max_eval: usize,
     deadline: Option<(crate::clock::Clock, f64)>,
+    wall_frac: Option<f64>,
 ) -> Option<(Vec<usize>, usize)> {
     // The caller's stop flag, read ONCE from the thread-local into an owned
     // handle: EHC and its lookahead both poll it, and every rung of the
@@ -1898,7 +2095,7 @@ fn ehc(
         wall_remaining_secs().map(|rem| {
             (
                 crate::clock::Clock::now(),
-                wall_frac_env("FF_EHC_WALL_FRAC", 0.25) * rem,
+                wall_frac.unwrap_or_else(|| wall_frac_env("FF_EHC_WALL_FRAC", 0.25)) * rem,
             )
         })
     } else {

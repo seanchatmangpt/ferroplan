@@ -121,9 +121,9 @@ fn expr_has_duration(e: &Expr) -> bool {
     }
 }
 
-/// Swap the ghost-fluent for flesh: the action's real duration expression,
-/// dropped into duration-dependent conditions and effects.
-fn expr_subst_duration(e: &Expr, dur: &Expr) -> Expr {
+/// Substitute the `?duration` pseudo-fluent with the action's duration
+/// expression (PDDL2.1 duration-dependent effects/conditions).
+pub(crate) fn expr_subst_duration(e: &Expr, dur: &Expr) -> Expr {
     match e {
         Expr::Num(n) => Expr::Num(*n),
         Expr::Fluent(f, _) if f == crate::types::DURATION_PSEUDO => dur.clone(),
@@ -148,7 +148,7 @@ fn expr_subst_duration(e: &Expr, dur: &Expr) -> Expr {
     }
 }
 
-fn formula_map_exprs(f: &Formula, m: &impl Fn(&Expr) -> Expr) -> Formula {
+pub(crate) fn formula_map_exprs(f: &Formula, m: &impl Fn(&Expr) -> Expr) -> Formula {
     match f {
         Formula::Comp(op, l, r) => Formula::Comp(*op, m(l), m(r)),
         Formula::And(v) => Formula::And(v.iter().map(|x| formula_map_exprs(x, m)).collect()),
@@ -165,7 +165,7 @@ fn formula_map_exprs(f: &Formula, m: &impl Fn(&Expr) -> Expr) -> Formula {
     }
 }
 
-fn effect_map_exprs(e: &Effect, m: &impl Fn(&Expr) -> Expr) -> Effect {
+pub(crate) fn effect_map_exprs(e: &Effect, m: &impl Fn(&Expr) -> Expr) -> Effect {
     match e {
         Effect::Num(op, f, a, v) => Effect::Num(*op, f.clone(), a.clone(), m(v)),
         Effect::And(v) => Effect::And(v.iter().map(|x| effect_map_exprs(x, m)).collect()),
@@ -571,7 +571,12 @@ fn duration_bind<'a>(snap: &'a SnapInfo, args: &[&'a str]) -> HashMap<&'a str, &
         .collect()
 }
 
-fn eval_expr(e: &Expr, bind: &HashMap<&str, &str>, task: &PackedTask, init: &State) -> Option<f64> {
+pub(crate) fn eval_expr(
+    e: &Expr,
+    bind: &HashMap<&str, &str>,
+    task: &PackedTask,
+    init: &State,
+) -> Option<f64> {
     match e {
         Expr::Num(n) => Some(*n),
         Expr::Fluent(name, terms) => {
@@ -617,6 +622,35 @@ fn eval_expr(e: &Expr, bind: &HashMap<&str, &str>, task: &PackedTask, init: &Sta
 /// grounded transition guard — a delete-then-re-add used to slip through
 /// the gap unseen; the kiln-gap fixture nails that door shut.
 pub fn solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> {
+    solve_tiers(domain, problem, threads, false).map(|sp| sp.plan)
+}
+
+/// A solved temporal task with its preference score (0.28 Lane S).
+pub struct ScoredPlan {
+    pub plan: TimedPlan,
+    /// [`score_soft`]'s verdict; `None` when the pair carries no preferences
+    /// -- or when `unscored` says why not.
+    pub score: Option<SoftScore>,
+    /// The pair HAS preferences and the plan is valid, but the wall left no
+    /// room to build the scorer. The row is reported rather than lost: a
+    /// plan without a metric is a solve, a plan never printed is not.
+    pub unscored: bool,
+}
+
+/// [`solve`] with the plan's preference score attached (0.28 Lane S) -- the
+/// entry the JSON path uses. The score is the same [`score_soft`] the caller
+/// used to run AFTER the solve returned; what moved is WHEN its expensive
+/// half runs. See `solve_tiers`.
+pub fn solve_scored(domain: &Domain, problem: &Problem, threads: usize) -> Option<ScoredPlan> {
+    solve_tiers(domain, problem, threads, true)
+}
+
+fn solve_tiers(
+    domain: &Domain,
+    problem: &Problem,
+    threads: usize,
+    want_score: bool,
+) -> Option<ScoredPlan> {
     // The complex-preferences tiers (0.25 Phase 2): preferences never
     // gate validity, so the router BANKS COVERAGE FIRST (soft trajectory
     // constraints dropped; goal preferences already lower to trivially-
@@ -625,18 +659,96 @@ pub fn solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<Timed
     // plans(banked), so the chase can never lose the banked row — the
     // 0.24 promotion lesson, applied from birth this time. All-or-
     // nothing: a chase plan satisfies EVERY preference; partial
-    // satisfaction is the named 0.26 residue. Scoring is post-hoc and
-    // search-independent ([`score_soft`], the validate-fold machinery).
+    // satisfaction is the named 0.26 residue. Scoring is search-
+    // independent ([`score_soft`], the validate-fold machinery).
     let soft = crate::constraints::has_soft_constraints(domain, problem)
         || crate::pddl3::goal_has_pref(&problem.goal);
     if !soft {
-        return solve_prefless(domain, problem, threads);
+        let plan = solve_prefless(domain, problem, threads)?;
+        let score = want_score
+            .then(|| score_soft(domain, problem, &plan))
+            .flatten();
+        return Some(ScoredPlan {
+            plan,
+            score,
+            unscored: false,
+        });
     }
     let (d2, p2, n_prefs) = pref_variant(domain, problem, &mut |_| false);
     let banked = solve_prefless(&d2, &p2, threads)?;
+    // A BANKED ROW MUST CROSS THE WIRE (0.28 Lane S). Everything below this
+    // line is optional work on a plan that already solves the task, and
+    // until 0.28 it was charged to the same wall as the plan it was trying
+    // to improve: the chase ran to the deadline, the ladder under it opened
+    // further rungs past the deadline, and THEN the caller grounded the
+    // original task a second time to score whatever came back
+    // (pathways-complex i20: 12.7 s of scoring, all of it past the wall;
+    // i7: a banked, VAL-valid plan returned at 21.94 s of a 20 s wall). The
+    // board's runner kills AT the wall, so every such row read "unsolved"
+    // with a solution in memory.
+    //
+    // So: ONE tightened deadline covers all the optional work. The scorer's
+    // expensive half -- its grounding -- is paid first, while there is wall
+    // to pay it with; the chase gets what is left; and both stop a reserve
+    // short of the wall. If even the scorer cannot be built inside that, the
+    // banked plan is returned UNSCORED rather than not at all.
+    let dbg = std::env::var("FF_WALL_DEBUG").is_ok();
+    let _optional_wall = crate::search::reserve_for_report(0);
+    let scorer = want_score
+        .then(|| SoftScorer::prepare(domain, problem))
+        .flatten();
+    let unscored = want_score && scorer.is_none();
+    let banked_score = scorer.as_ref().and_then(|sc| sc.score(&banked));
+    if crate::search::wall_hard_expired() {
+        if dbg {
+            eprintln!(
+                "wall: preference chase skipped (the wall is inside the banked plan's reserve)"
+            );
+        }
+        return Some(ScoredPlan {
+            plan: banked,
+            score: banked_score,
+            unscored,
+        });
+    }
+    match chase_prefs(domain, problem, threads, n_prefs) {
+        Some(plan) => {
+            let score = scorer.as_ref().and_then(|sc| sc.score(&plan));
+            Some(ScoredPlan {
+                plan,
+                score,
+                unscored,
+            })
+        }
+        None => {
+            if dbg {
+                eprintln!("wall: preference chase found nothing; returning the banked plan");
+            }
+            Some(ScoredPlan {
+                plan: banked,
+                score: banked_score,
+                unscored,
+            })
+        }
+    }
+}
+
+/// The quality chase over an already-banked row: every preference hardened,
+/// then the static-liveness middle tier. `None` = keep the banked plan. Runs
+/// under [`solve_tiers`]'s tightened deadline, and re-reads the wall before
+/// each tier so an expired chase cannot open another grounding.
+fn chase_prefs(
+    domain: &Domain,
+    problem: &Problem,
+    threads: usize,
+    n_prefs: usize,
+) -> Option<TimedPlan> {
     let (d1, p1, _) = pref_variant(domain, problem, &mut |_| true);
     if let Some(plan) = solve_prefless(&d1, &p1, threads) {
         return Some(plan);
+    }
+    if crate::search::wall_hard_expired() {
+        return None;
     }
     // The static-liveness middle tier: the full chase failed, and one
     // STATICALLY-dead preference (a body peval_static proves hopeless —
@@ -662,7 +774,7 @@ pub fn solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<Timed
             }
         }
     }
-    Some(banked)
+    None
 }
 
 /// Build the preference-tier variant of a pair: `keep` decides each
@@ -688,6 +800,74 @@ fn pref_variant(
 /// exhaustion rung — exactly what `solve` was before the preference
 /// tiers, and what every preference-free task still runs unchanged.
 fn solve_prefless(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> {
+    // THE COMPRESSION RUNG (0.28 Lane T, `crate::tcompress`): tasks that do
+    // not need concurrency are planned classically and put back on the
+    // clock. It BANKS; the decision-epoch ladder below then runs as a
+    // bounded quality chase, and the smaller makespan is returned -- so a
+    // row the ladder already solved keeps its plan unless the rung's is
+    // better, and a row it never solved has one. `FF_NO_TCOMPRESS=1` is the
+    // byte-identity restore: with it set this function IS
+    // `solve_decision_epoch`.
+    let dbg = std::env::var("FF_WALL_DEBUG").is_ok();
+    if let Some(why) = crate::tcompress::declines(domain, problem) {
+        if dbg {
+            eprintln!("wall: compression rung declined ({why})");
+        }
+        return solve_decision_epoch(domain, problem, threads);
+    }
+    match crate::tcompress::solve(domain, problem, threads, crate::tcompress::Bet::First) {
+        Some(banked) => {
+            // The chase is optional work on a banked row: a quarter of what
+            // is left (`FF_TCOMPRESS_CHASE_FRAC`), not the wall. Unarmed,
+            // the ladder runs to its own deterministic caps, as it always
+            // has.
+            let chased = {
+                let chase = crate::search::wall_frac_env("FF_TCOMPRESS_CHASE_FRAC", 0.25);
+                let _chase_wall = crate::search::wall_remaining_secs()
+                    .map(|rem| rem * (1.0 - chase.min(1.0)))
+                    .and_then(crate::search::tighten_deadline);
+                solve_decision_epoch(domain, problem, threads)
+            };
+            match chased {
+                Some(plan) if plan.makespan < banked.makespan => {
+                    if dbg {
+                        eprintln!(
+                            "wall: the ladder's makespan {:.3} beats the compression rung's {:.3}",
+                            plan.makespan, banked.makespan
+                        );
+                    }
+                    Some(plan)
+                }
+                _ => Some(banked),
+            }
+        }
+        None => {
+            let plan = solve_decision_epoch(domain, problem, threads);
+            // A ladder that found nothing leaves the rung a second, unbounded
+            // attempt: the first was a bet (a quarter of the wall, or a few
+            // thousand evaluations), and nothing else is going to use what
+            // is left -- the "exhausted its budgets with 46 s of wall left"
+            // rows, and every unwalled failure.
+            if plan.is_none() && crate::search::wall_remaining_secs().map_or(true, |s| s > 1.0) {
+                if dbg {
+                    eprintln!("wall: compression rung, second attempt on what the ladder left");
+                }
+                return crate::tcompress::solve(
+                    domain,
+                    problem,
+                    threads,
+                    crate::tcompress::Bet::Rest,
+                );
+            }
+            plan
+        }
+    }
+}
+
+/// The temporal router below the compression rung: promoted SAT, the
+/// decision-epoch ladder, the exhaustion rung -- exactly what
+/// `solve_prefless` was before 0.28.
+fn solve_decision_epoch(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> {
     // The SAT rung's arming policy (0.24 Phase 3), per the house law (no
     // sweep arms = no evidence): `FF_NO_SAT` is the byte-identity restore
     // — with it set this function IS `solve_ladder`, byte for byte. The
@@ -760,9 +940,19 @@ fn solve_ladder(domain: &Domain, problem: &Problem, threads: usize) -> Option<Ti
     if full_identical && std::env::var("FF_WALL_DEBUG").is_ok() {
         eprintln!("wall: ladder Full tier skipped (demand identical to the numeric tier)");
     }
+    // A rung opened after the wall is work nobody can collect (0.28 Lane S):
+    // the Full tier and the decomposer each re-compile and re-ground before
+    // their first clock read, which is where the preference chase's overrun
+    // past an expired wall was being spent.
+    if crate::search::wall_hard_expired() {
+        return None;
+    }
     if ambient != DemandMode::Full && !full_identical {
         if let Some(plan) = solve_monolithic(domain, problem, threads, DemandMode::Full) {
             return Some(plan);
+        }
+        if crate::search::wall_hard_expired() {
+            return None;
         }
     }
     // Decomposer rung — the ladder variant, which skips the decomposer's own
@@ -1025,6 +1215,7 @@ fn reconcile_durations(task: &PackedTask, c: &TemporalCompiled, plan: TimedPlan)
             time: f64,
             op: usize,
             is_start: bool,
+            zero_end: bool,
             /// step index + snap + args, for state-dependent starts only
             fix: Option<(usize, &'a SnapInfo, Vec<&'a str>)>,
         }
@@ -1067,12 +1258,14 @@ fn reconcile_durations(task: &PackedTask, c: &TemporalCompiled, plan: TimedPlan)
                         time: step.time,
                         op: sop,
                         is_start: true,
+                        zero_end: false,
                         fix: state_dep.then_some((si, *snap, args)),
                     });
                     hs.push(H {
                         time: step.time + dur,
                         op: eop,
                         is_start: false,
+                        zero_end: dur.abs() < EPS / 2.0,
                         fix: None,
                     });
                 }
@@ -1084,6 +1277,7 @@ fn reconcile_durations(task: &PackedTask, c: &TemporalCompiled, plan: TimedPlan)
                         time: step.time,
                         op,
                         is_start: true,
+                        zero_end: false,
                         fix: None,
                     });
                 }
@@ -1102,11 +1296,17 @@ fn reconcile_durations(task: &PackedTask, c: &TemporalCompiled, plan: TimedPlan)
                     time: *t,
                     op,
                     is_start: false,
+                    zero_end: false,
                     fix: None,
                 });
             }
         }
-        hs.sort_by_key(|h| ((h.time / EPS).round() as i64, h.is_start));
+        hs.sort_by_key(|h| {
+            (
+                (h.time / EPS).round() as i64,
+                epoch_rank(h.is_start, h.zero_end),
+            )
+        });
 
         let mut state = task.initial();
         let mut fixes: Vec<(usize, f64)> = Vec::new();
@@ -3026,6 +3226,10 @@ fn temporal_search(
         return None;
     }
     let t0 = crate::clock::Clock::now();
+    let mem_wall = crate::mem::MemWall::arm();
+    // Starts due: the FIRST pop looks, so a search opened inside a scope that
+    // has already tripped (`mem::latched`) stops before it has built anything.
+    let mut pops_since_mem_check = 256u32;
     if dbg {
         eprintln!(
             "[tsearch] pass start: prune={prune} masked={} words={} fv={} rel_fluents={} tils={} ops={}",
@@ -3292,7 +3496,26 @@ fn temporal_search(
         let wall_hit = wall.is_some_and(|d| {
             crate::search::deadline_expired_reserving(d, nodes.len().saturating_mul(per_node))
         }) || crate::search::cancelled(&cancel);
-        if wall_hit && std::env::var("FF_WALL_DEBUG").is_ok() {
+        // The MEASURED memory wall (0.28 Lane M): a kernel read every 256
+        // pops. This arena is the one the `mem-cap` rows die in -- the
+        // modelled cap above does not hold it -- and since the compression
+        // rung this search is often OPTIONAL work over a banked plan, which a
+        // watchdog kill takes with it.
+        let mem_hit = pops_since_mem_check >= 256 && {
+            pops_since_mem_check = 0;
+            mem_wall.hit()
+        };
+        pops_since_mem_check += 1;
+        if mem_hit && std::env::var("FF_WALL_DEBUG").is_ok() {
+            eprintln!(
+                "wall: temporal search MEMORY checkpoint (nodes {}, evaluated {}) at {}ms",
+                nodes.len(),
+                stats.evaluated,
+                t0.elapsed_ms()
+            );
+        }
+        let wall_hit = wall_hit || mem_hit;
+        if wall_hit && !mem_hit && std::env::var("FF_WALL_DEBUG").is_ok() {
             eprintln!(
                 "wall: temporal search checkpoint expired (nodes {}, evaluated {}) at {}ms",
                 nodes.len(),
@@ -3890,6 +4113,7 @@ fn monitor_audit(
         time: f64,
         op: usize,
         is_start: bool,
+        zero_end: bool,
     }
     let mut hs: Vec<H> = Vec::new();
     for step in &plan.steps {
@@ -3909,11 +4133,13 @@ fn monitor_audit(
                     time: step.time,
                     op: so,
                     is_start: true,
+                    zero_end: false,
                 });
                 hs.push(H {
                     time: step.time + dur,
                     op: eo,
                     is_start: false,
+                    zero_end: dur.abs() < EPS / 2.0,
                 });
             }
             None => {
@@ -3924,6 +4150,7 @@ fn monitor_audit(
                     time: step.time,
                     op,
                     is_start: true,
+                    zero_end: false,
                 });
             }
         }
@@ -3935,10 +4162,16 @@ fn monitor_audit(
                 time: t,
                 op,
                 is_start: false,
+                zero_end: false,
             });
         }
     }
-    hs.sort_by_key(|h| ((h.time / EPS).round() as i64, h.is_start));
+    hs.sort_by_key(|h| {
+        (
+            (h.time / EPS).round() as i64,
+            epoch_rank(h.is_start, h.zero_end),
+        )
+    });
     let dbg = std::env::var("FF_RES_DEBUG").is_ok();
     let mut s = task.initial();
     for h in &hs {
@@ -4066,11 +4299,11 @@ pub fn validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<
         time: f64,
         op: usize,
         is_start: bool,
-        /// A duration cross-check held back for later — STATE-DEPENDENT
-        /// durations whose bounds read a fluent some op still assigns,
-        /// checked against the simulation state at the moment this start
-        /// fires, exactly as the search itself resolved it.
-        /// `(stated duration, snap, args, step display)`.
+        zero_end: bool,
+        /// Deferred duration cross-check for STATE-DEPENDENT durations
+        /// (bounds reading fluents some op assigns): evaluated against the
+        /// simulation state when this start fires, exactly as the search
+        /// resolved it. `(stated duration, snap, args, step display)`.
         dur_check: Option<(f64, &'a SnapInfo, Vec<&'a str>, &'a str)>,
     }
     let mut happenings: Vec<Happening> = Vec::new();
@@ -4133,12 +4366,14 @@ pub fn validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<
                     time: step.time,
                     op: find(&with("-START"))?,
                     is_start: true,
+                    zero_end: false,
                     dur_check,
                 });
                 happenings.push(Happening {
                     time: step.time + dur,
                     op: find(&with("-END"))?,
                     is_start: false,
+                    zero_end: dur.abs() < EPS / 2.0,
                     dur_check: None,
                 });
             }
@@ -4146,6 +4381,7 @@ pub fn validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<
                 time: step.time,
                 op: find(&step.action)?,
                 is_start: true,
+                zero_end: false,
                 dur_check: None,
             }),
         }
@@ -4163,6 +4399,7 @@ pub fn validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<
                 // fire with ends (before starts) at the same epoch, so a gate the TIL
                 // opens is available to an action starting at that instant.
                 is_start: false,
+                zero_end: false,
                 dur_check: None,
             });
         }
@@ -4173,7 +4410,12 @@ pub fn validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<
     // decision-epoch semantics. Key on the ε-grid-rounded time, not the raw float,
     // so a producer-END and consumer-START at the same epoch order deterministically
     // even when composition offsets introduce sub-ε float noise.
-    happenings.sort_by_key(|h| ((h.time / EPS).round() as i64, h.is_start));
+    happenings.sort_by_key(|h| {
+        (
+            (h.time / EPS).round() as i64,
+            epoch_rank(h.is_start, h.zero_end),
+        )
+    });
     let mut state = init.clone();
     // Constraint folds observe S_0 (time 0), then every post-happening
     // state AT ITS HAPPENING TIME — the timed operators (0.24 Phase 4)
@@ -4257,220 +4499,288 @@ pub struct SoftScore {
 /// when the plan does not replay (a plan this cannot score is a plan
 /// `validate` would reject — callers score validated plans).
 pub fn score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Option<SoftScore> {
-    let objs = crate::ground::objects_by_type(domain, problem);
-    let goal_prefs = crate::pddl3::preferences(&problem.goal, &objs);
-    let exp = crate::constraints::expand(domain, problem).ok()?;
-    // Condition preferences (0.28 Lane B): `(preference p (at start phi))`
-    // on a durative action, bound per plan step. The search drops them
-    // (grounding reads a positive Pref as true); the count lives here, one
-    // instance per APPLICATION -- PDDL3's action-preference semantics.
-    let cond_prefs: Vec<Vec<(TimeSpec, String, Formula)>> = plan
-        .steps
-        .iter()
-        .map(|step| {
-            let mut it = step.action.split_whitespace();
-            let head = it.next().unwrap_or("");
-            let args: Vec<&str> = it.collect();
-            let Some(da) = domain
-                .durative_actions
-                .iter()
-                .find(|a| a.name.eq_ignore_ascii_case(head))
-            else {
-                return Vec::new();
-            };
-            if step.duration.is_none() || da.params.len() != args.len() {
-                return Vec::new();
-            }
-            let b: HashMap<Sym, Sym> = da
-                .params
-                .iter()
-                .zip(&args)
-                .map(|((v, _), a)| (v.clone(), a.to_string()))
-                .collect();
+    SoftScorer::prepare(domain, problem)?.score(plan)
+}
+
+/// [`score_soft`] split at its cost line (0.28 Lane S): `prepare` pays the
+/// expansion and the GROUNDING of the original pair once, `score` is a
+/// replay. The preference tiers build the scorer right after banking --
+/// while there is wall to pay for it -- and score the banked plan and the
+/// chase's plan through the same instance, instead of grounding the task
+/// again after the deadline for a plan that was already in hand.
+pub struct SoftScorer<'a> {
+    domain: &'a Domain,
+    problem: &'a Problem,
+    objs: HashMap<Sym, Vec<Sym>>,
+    goal_prefs: Vec<(String, Formula)>,
+    exp: crate::constraints::Expanded,
+    c: TemporalCompiled,
+    task: PackedTask,
+}
+
+impl<'a> SoftScorer<'a> {
+    /// `None` when the pair carries no preferences of any kind (goal, soft
+    /// trajectory, or durative-action condition), or when expansion or
+    /// grounding fails -- the cases where [`score_soft`] has nothing to say
+    /// about ANY plan.
+    pub fn prepare(domain: &'a Domain, problem: &'a Problem) -> Option<Self> {
+        let objs = crate::ground::objects_by_type(domain, problem);
+        let goal_prefs = crate::pddl3::preferences(&problem.goal, &objs);
+        let exp = crate::constraints::expand(domain, problem).ok()?;
+        let cond_prefs_declared = domain.durative_actions.iter().any(|da| {
             da.conditions
                 .iter()
-                .filter_map(|(ts, f)| match f {
-                    Formula::Pref(name, phi) => Some((
-                        *ts,
-                        name.clone()
-                            .unwrap_or_else(|| format!("{}-condition", da.name)),
-                        crate::constraints::expand_quantifiers(
-                            &crate::pddl3::subst_formula(phi, &b),
-                            &objs,
-                        ),
-                    )),
-                    _ => None,
-                })
-                .collect()
-        })
-        .collect();
-    if goal_prefs.is_empty() && exp.soft.is_empty() && cond_prefs.iter().all(Vec::is_empty) {
-        return None;
-    }
-    let c = compile(domain, problem);
-    let task = crate::ground::ground_task(&c.domain, &c.problem, 1)?;
-    let find = |disp: &str| task.op_display.iter().position(|d| d == disp);
-
-    struct H {
-        time: f64,
-        op: usize,
-        is_start: bool,
-        step: Option<usize>,
-    }
-    let mut hs: Vec<H> = Vec::new();
-    for (si, step) in plan.steps.iter().enumerate() {
-        let mut it = step.action.splitn(2, ' ');
-        let head = it.next().unwrap_or("");
-        let rest = it.next();
-        let with = |suffix: &str| match rest {
-            Some(r) => format!("{head}{suffix} {r}"),
-            None => format!("{head}{suffix}"),
-        };
-        match step.duration {
-            Some(dur) => {
-                hs.push(H {
-                    time: step.time,
-                    op: find(&with("-START"))?,
-                    is_start: true,
-                    step: Some(si),
-                });
-                hs.push(H {
-                    time: step.time + dur,
-                    op: find(&with("-END"))?,
-                    is_start: false,
-                    step: Some(si),
-                });
-            }
-            None => hs.push(H {
-                time: step.time,
-                op: find(&step.action)?,
-                is_start: true,
-                step: None,
-            }),
-        }
-    }
-    // TILs replay as exogenous happenings up to the plan horizon, with
-    // ends at the same epoch — validate's rule, verbatim.
-    let horizon = hs.iter().map(|h| h.time).fold(0.0f64, f64::max);
-    for (t, name) in &c.til_ops {
-        if *t <= horizon + EPS {
-            hs.push(H {
-                time: *t,
-                op: find(name)?,
-                is_start: false,
-                step: None,
-            });
-        }
-    }
-    hs.sort_by_key(|h| ((h.time / EPS).round() as i64, h.is_start));
-
-    let mut state = task.initial();
-    // One fold per soft-instance MEMBER, tagged with its instance index —
-    // an instance is violated iff ANY member's fold rejects.
-    let mut folds: Vec<(usize, crate::constraints::Fold)> = Vec::new();
-    for (i, (_, members)) in exp.soft.iter().enumerate() {
-        for t in members {
-            folds.push((i, crate::constraints::Fold::new(t)));
-        }
-    }
-    for (_, f) in &mut folds {
-        f.step_at(0.0, &mut |phi| {
-            crate::verify::eval_formula(&task, &state, phi)
+                .any(|(_, f)| matches!(f, Formula::Pref(..)))
         });
-    }
-    // (step, condition index, violated so far) for each open `over all`
-    // preference: it reads every state strictly inside its action's
-    // interval, i.e. the state before each happening up to its own end.
-    let mut open: Vec<(usize, usize, bool)> = Vec::new();
-    let mut cond_seen: Vec<(String, bool)> = Vec::new();
-    for h in &hs {
-        for (s, k, v) in &mut open {
-            if !*v && !crate::verify::eval_formula(&task, &state, &cond_prefs[*s][*k].2) {
-                *v = true;
-            }
-        }
-        if let Some(s) = h.step {
-            for (ts, name, phi) in &cond_prefs[s] {
-                if matches!(
-                    (ts, h.is_start),
-                    (TimeSpec::Start, true) | (TimeSpec::End, false)
-                ) {
-                    let held = crate::verify::eval_formula(&task, &state, phi);
-                    cond_seen.push((name.clone(), !held));
-                }
-            }
-            if !h.is_start {
-                open.retain(|&(os, k, v)| {
-                    if os == s {
-                        cond_seen.push((cond_prefs[s][k].1.clone(), v));
-                        false
-                    } else {
-                        true
-                    }
-                });
-            }
-        }
-        if !task.op_applicable(h.op, &state) {
+        if goal_prefs.is_empty() && exp.soft.is_empty() && !cond_prefs_declared {
             return None;
         }
-        state = task.apply(h.op, &state);
-        if let (Some(s), true) = (h.step, h.is_start) {
-            for (k, (ts, _, _)) in cond_prefs[s].iter().enumerate() {
-                if *ts == TimeSpec::All {
-                    open.push((s, k, false));
+        let c = compile(domain, problem);
+        let task = crate::ground::ground_task(&c.domain, &c.problem, 1)?;
+        Some(SoftScorer {
+            domain,
+            problem,
+            objs,
+            goal_prefs,
+            exp,
+            c,
+            task,
+        })
+    }
+
+    /// Score one plan. `None` when the plan does not replay, or when it
+    /// touches no preference at all (a pair whose only preferences are
+    /// action conditions, and a plan that applies none of those actions).
+    pub fn score(&self, plan: &TimedPlan) -> Option<SoftScore> {
+        let SoftScorer {
+            domain,
+            problem,
+            objs,
+            goal_prefs,
+            exp,
+            c,
+            task,
+        } = self;
+        // Condition preferences (0.28 Lane B): `(preference p (at start phi))`
+        // on a durative action, bound per plan step. The search drops them
+        // (grounding reads a positive Pref as true); the count lives here, one
+        // instance per APPLICATION -- PDDL3's action-preference semantics.
+        let cond_prefs: Vec<Vec<(TimeSpec, String, Formula)>> = plan
+            .steps
+            .iter()
+            .map(|step| {
+                let mut it = step.action.split_whitespace();
+                let head = it.next().unwrap_or("");
+                let args: Vec<&str> = it.collect();
+                let Some(da) = domain
+                    .durative_actions
+                    .iter()
+                    .find(|a| a.name.eq_ignore_ascii_case(head))
+                else {
+                    return Vec::new();
+                };
+                if step.duration.is_none() || da.params.len() != args.len() {
+                    return Vec::new();
                 }
+                let b: HashMap<Sym, Sym> = da
+                    .params
+                    .iter()
+                    .zip(&args)
+                    .map(|((v, _), a)| (v.clone(), a.to_string()))
+                    .collect();
+                da.conditions
+                    .iter()
+                    .filter_map(|(ts, f)| match f {
+                        Formula::Pref(name, phi) => Some((
+                            *ts,
+                            name.clone()
+                                .unwrap_or_else(|| format!("{}-condition", da.name)),
+                            crate::constraints::expand_quantifiers(
+                                &crate::pddl3::subst_formula(phi, &b),
+                                objs,
+                            ),
+                        )),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .collect();
+        if goal_prefs.is_empty() && exp.soft.is_empty() && cond_prefs.iter().all(Vec::is_empty) {
+            return None;
+        }
+        let find = |disp: &str| task.op_display.iter().position(|d| d == disp);
+
+        struct H {
+            time: f64,
+            op: usize,
+            is_start: bool,
+            zero_end: bool,
+            step: Option<usize>,
+        }
+        let mut hs: Vec<H> = Vec::new();
+        for (si, step) in plan.steps.iter().enumerate() {
+            let mut it = step.action.splitn(2, ' ');
+            let head = it.next().unwrap_or("");
+            let rest = it.next();
+            let with = |suffix: &str| match rest {
+                Some(r) => format!("{head}{suffix} {r}"),
+                None => format!("{head}{suffix}"),
+            };
+            match step.duration {
+                Some(dur) => {
+                    hs.push(H {
+                        time: step.time,
+                        op: find(&with("-START"))?,
+                        is_start: true,
+                        zero_end: false,
+                        step: Some(si),
+                    });
+                    hs.push(H {
+                        time: step.time + dur,
+                        op: find(&with("-END"))?,
+                        is_start: false,
+                        zero_end: dur.abs() < EPS / 2.0,
+                        step: Some(si),
+                    });
+                }
+                None => hs.push(H {
+                    time: step.time,
+                    op: find(&step.action)?,
+                    is_start: true,
+                    zero_end: false,
+                    step: None,
+                }),
+            }
+        }
+        // TILs replay as exogenous happenings up to the plan horizon, with
+        // ends at the same epoch — validate's rule, verbatim.
+        let horizon = hs.iter().map(|h| h.time).fold(0.0f64, f64::max);
+        for (t, name) in &c.til_ops {
+            if *t <= horizon + EPS {
+                hs.push(H {
+                    time: *t,
+                    op: find(name)?,
+                    is_start: false,
+                    zero_end: false,
+                    step: None,
+                });
+            }
+        }
+        hs.sort_by_key(|h| {
+            (
+                (h.time / EPS).round() as i64,
+                epoch_rank(h.is_start, h.zero_end),
+            )
+        });
+
+        let mut state = task.initial();
+        // One fold per soft-instance MEMBER, tagged with its instance index —
+        // an instance is violated iff ANY member's fold rejects.
+        let mut folds: Vec<(usize, crate::constraints::Fold)> = Vec::new();
+        for (i, (_, members)) in exp.soft.iter().enumerate() {
+            for t in members {
+                folds.push((i, crate::constraints::Fold::new(t)));
             }
         }
         for (_, f) in &mut folds {
-            f.step_at(h.time, &mut |phi| {
-                crate::verify::eval_formula(&task, &state, phi)
+            f.step_at(0.0, &mut |phi| {
+                crate::verify::eval_formula(task, &state, phi)
             });
         }
-    }
+        // (step, condition index, violated so far) for each open `over all`
+        // preference: it reads every state strictly inside its action's
+        // interval, i.e. the state before each happening up to its own end.
+        let mut open: Vec<(usize, usize, bool)> = Vec::new();
+        let mut cond_seen: Vec<(String, bool)> = Vec::new();
+        for h in &hs {
+            for (s, k, v) in &mut open {
+                if !*v && !crate::verify::eval_formula(task, &state, &cond_prefs[*s][*k].2) {
+                    *v = true;
+                }
+            }
+            if let Some(s) = h.step {
+                for (ts, name, phi) in &cond_prefs[s] {
+                    if matches!(
+                        (ts, h.is_start),
+                        (TimeSpec::Start, true) | (TimeSpec::End, false)
+                    ) {
+                        let held = crate::verify::eval_formula(task, &state, phi);
+                        cond_seen.push((name.clone(), !held));
+                    }
+                }
+                if !h.is_start {
+                    open.retain(|&(os, k, v)| {
+                        if os == s {
+                            cond_seen.push((cond_prefs[s][k].1.clone(), v));
+                            false
+                        } else {
+                            true
+                        }
+                    });
+                }
+            }
+            if !task.op_applicable(h.op, &state) {
+                return None;
+            }
+            state = task.apply(h.op, &state);
+            if let (Some(s), true) = (h.step, h.is_start) {
+                for (k, (ts, _, _)) in cond_prefs[s].iter().enumerate() {
+                    if *ts == TimeSpec::All {
+                        open.push((s, k, false));
+                    }
+                }
+            }
+            for (_, f) in &mut folds {
+                f.step_at(h.time, &mut |phi| {
+                    crate::verify::eval_formula(task, &state, phi)
+                });
+            }
+        }
 
-    let mut inst_viol = vec![false; exp.soft.len()];
-    for (i, f) in &folds {
-        if !f.accepted() {
-            inst_viol[*i] = true;
+        let mut inst_viol = vec![false; exp.soft.len()];
+        for (i, f) in &folds {
+            if !f.accepted() {
+                inst_viol[*i] = true;
+            }
         }
-    }
-    let mut violated: Vec<String> = Vec::new();
-    let mut satisfied = 0usize;
-    let mut counts: HashMap<String, f64> = HashMap::new();
-    for (i, (name, _)) in exp.soft.iter().enumerate() {
-        if inst_viol[i] {
-            violated.push(name.clone());
-            *counts.entry(name.to_ascii_uppercase()).or_insert(0.0) += 1.0;
-        } else {
-            satisfied += 1;
+        let mut violated: Vec<String> = Vec::new();
+        let mut satisfied = 0usize;
+        let mut counts: HashMap<String, f64> = HashMap::new();
+        for (i, (name, _)) in exp.soft.iter().enumerate() {
+            if inst_viol[i] {
+                violated.push(name.clone());
+                *counts.entry(name.to_ascii_uppercase()).or_insert(0.0) += 1.0;
+            } else {
+                satisfied += 1;
+            }
         }
-    }
-    for (name, v) in cond_seen {
-        if v {
-            *counts.entry(name.to_ascii_uppercase()).or_insert(0.0) += 1.0;
-            violated.push(name);
-        } else {
-            satisfied += 1;
+        for (name, v) in cond_seen {
+            if v {
+                *counts.entry(name.to_ascii_uppercase()).or_insert(0.0) += 1.0;
+                violated.push(name);
+            } else {
+                satisfied += 1;
+            }
         }
-    }
-    for (name, phi) in &goal_prefs {
-        if crate::verify::eval_formula(&task, &state, phi) {
-            satisfied += 1;
-        } else {
-            violated.push(name.clone());
-            *counts.entry(name.to_ascii_uppercase()).or_insert(0.0) += 1.0;
+        for (name, phi) in goal_prefs.iter() {
+            if crate::verify::eval_formula(task, &state, phi) {
+                satisfied += 1;
+            } else {
+                violated.push(name.clone());
+                *counts.entry(name.to_ascii_uppercase()).or_insert(0.0) += 1.0;
+            }
         }
-    }
 
-    let metric = problem
-        .metric
-        .as_ref()
-        .and_then(|(_, e)| eval_pref_metric(e, &counts, plan.makespan, &task, &state));
-    Some(SoftScore {
-        metric,
-        violated,
-        satisfied,
-    })
+        let metric = problem
+            .metric
+            .as_ref()
+            .and_then(|(_, e)| eval_pref_metric(e, &counts, plan.makespan, task, &state));
+        Some(SoftScore {
+            metric,
+            violated,
+            satisfied,
+        })
+    }
 }
 
 /// Evaluate a PDDL3 `:metric` expression under the scored plan:
@@ -4563,6 +4873,7 @@ pub(crate) fn treplay_with_exempt(
         time: f64,
         op: usize,
         is_start: bool,
+        zero_end: bool,
     }
     let mut hs: Vec<H> = Vec::new();
     for step in &plan.steps {
@@ -4579,11 +4890,13 @@ pub(crate) fn treplay_with_exempt(
                     time: step.time,
                     op: find(&with("-START"))?,
                     is_start: true,
+                    zero_end: false,
                 });
                 hs.push(H {
                     time: step.time + dur,
                     op: find(&with("-END"))?,
                     is_start: false,
+                    zero_end: dur.abs() < EPS / 2.0,
                 });
             }
             None => {
@@ -4595,6 +4908,7 @@ pub(crate) fn treplay_with_exempt(
                     // from the agenda BEFORE same-instant starts in the
                     // search; the replay sorts them with the ends to match.
                     is_start: exempt.binary_search(&op).is_err() && !head.ends_with("-END"),
+                    zero_end: false,
                     op,
                 });
             }
@@ -4602,7 +4916,12 @@ pub(crate) fn treplay_with_exempt(
     }
     // Same ε-grid-rounded ordering as `validate` (ends before starts at one epoch),
     // so the decomposer's per-contract replay agrees with the global validator.
-    hs.sort_by_key(|h| ((h.time / EPS).round() as i64, h.is_start));
+    hs.sort_by_key(|h| {
+        (
+            (h.time / EPS).round() as i64,
+            epoch_rank(h.is_start, h.zero_end),
+        )
+    });
     let mut s = state.clone();
     for h in &hs {
         if exempt.binary_search(&h.op).is_err() && !task.op_applicable(h.op, &s) {
@@ -4619,6 +4938,23 @@ pub(crate) fn treplay_with_exempt(
 
 /// The regulation gap between mutex happenings — PDDL2.1's own convention.
 pub(crate) const EPS: f64 = 0.001;
+
+/// A happening's rank inside one ε-epoch. Ends fire before starts -- an end
+/// frees the token a same-instant start takes (the decision-epoch order) --
+/// with ONE exception (0.28): the END of a ZERO-DURATION step shares its own
+/// START's epoch, and "ends first" fired it before the start that makes it
+/// applicable. Every replay in this module sorted that way, so every plan
+/// through pathways' dur-0 `choose`/`initialize` was refused by the
+/// validator, though the search that builds such plans and VAL both order
+/// the pair start-then-end. Those ends fire last.
+#[inline]
+pub(crate) fn epoch_rank(is_start: bool, zero_end: bool) -> u8 {
+    if zero_end {
+        2
+    } else {
+        is_start as u8
+    }
+}
 
 /// Re-time a plan so mutex happenings are ε-separated (PDDL2.1 / VAL validity):
 /// the decision-epoch search coincides dependent happenings (e.g. one action
