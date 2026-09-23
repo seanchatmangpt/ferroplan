@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-09-22 — The fork reconciles with upstream's 0.28.0
+
+Upstream cut its own 0.28.0 while this fork had already tagged `v0.28.0`
+(17e38bb, the FOND-HTN wave-6 land), so the two version lines collided.
+This release merges upstream `main` @ a05b604 (the 0.28 cut: tcompress,
+mem, temporal/pddl3/search/api, crucible select) into the fork line and
+bumps the workspace to **0.28.1** to disambiguate going forward. The fork's
+HDDL/FOND front-end, its hddl dependency edge, and the v26.9.22 deep lane
+(durable oracle/corpus homes, skip-by-name deep-lane tests, standing guard)
+carry through unchanged.
+
+
 ### The FOND-HTN line — HDDL in, policy out
 
 The unreleased cycle adds a second language front-end and a second solver

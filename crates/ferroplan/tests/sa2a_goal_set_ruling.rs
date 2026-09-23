@@ -74,7 +74,7 @@ fn fresh_run_at_head_yields_no_verdict_within_the_default_wall() {
                 "the default wall is part of the pinned fresh-run receipt"
             );
         }
-        Err(HddlError::Planner(PlannerError::NoPlan { .. })) => {
+        Err(HddlError::Planner(PlannerError::NoPlan)) => {
             // Also lawful under ruling (a) — the 6cacbda behavior. The pin
             // accepts either no-verdict shape but never a plan.
             let _ = elapsed;

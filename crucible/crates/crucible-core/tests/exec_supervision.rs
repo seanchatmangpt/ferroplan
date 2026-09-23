@@ -243,14 +243,34 @@ fn a_missing_planner_is_a_sweep_error_not_a_result() {
 #[test]
 fn cancellation_escalates_to_a_group_kill() {
     let (tx, rx) = mpsc::channel();
+    // The cancel must not race the child's own startup: under a loaded test
+    // runner the 600 ms this test once slept was not always enough for the
+    // child to exec and install its SIGTERM ignore, and the polite ask then
+    // killed it instead of being ignored (term 15, not the escalated 9).
+    // fakeff now touches a ready file the moment the ignore is installed;
+    // we wait for it, bounded, before asking.
+    let ready = std::env::temp_dir().join(format!("fakeff-ready-{}-{}", std::process::id(), line!()));
+    let _ = std::fs::remove_file(&ready);
+    let ready_str = ready.to_string_lossy().to_string();
     let h = std::thread::spawn(move || {
         Case::new()
             .set("FAKEFF_SLEEP_MS", "60000")
             .set("FAKEFF_IGNORE_TERM", "1")
+            .set("FAKEFF_READY_FILE", &ready_str)
             .timeout_ms(60_000)
             .run(rx)
     });
-    std::thread::sleep(Duration::from_millis(600));
+    let ready_deadline = Instant::now() + Duration::from_secs(30);
+    while !ready.exists() {
+        assert!(
+            Instant::now() < ready_deadline,
+            "fakeff never signalled readiness at {ready:?}"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    // Give the signal(2) call itself a beat to be fully retired; the file is
+    // created after it returns, so this is belt and braces.
+    std::thread::sleep(Duration::from_millis(50));
     tx.send(Ctl::Cancel).unwrap();
     let started = Instant::now();
     let out = h.join().unwrap().expect("runs");
