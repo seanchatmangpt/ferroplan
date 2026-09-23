@@ -1,0 +1,11 @@
+{
+  "wo": "FERROPLAN-26922-07",
+  "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88",
+  "branch": "fer-07-respawns",
+  "merge_sha": "2262e13",
+  "commit": "22e4c78",
+  "command": "cargo test -p ferroplan --test fond_unsafe_hddl ; CARGO_TARGET_WASM32_WASIP1_RUNNER='wasmtime run' cargo clippy -p ferroplan-wasm --target wasm32-wasip1 -- -D warnings ; git worktree list | wc -l",
+  "exit": 0,
+  "output_excerpt": "fond-htn-54 finished (4 tests green first run: abyss-avoid policy never gambles, abyss-both typed NoPlan, explicit unsafe_states twin refuses and solves without the entry, dead-sink-freedom walk); fond-htn-55 finished (fp_dealloc/fp_call -> pub unsafe extern C with # Safety; wasip1 clippy exit 0; wasm ABI symbols/args unchanged); fond-htn-48 finished (43 merged worktrees pruned, branches verified 0 commits outside main, dirty residue preserved on preserve/v26922-wt-h60/61/62); 47/49/50/51/52/53/56 retired with rationale. Worktree count 50 -> 7 at prune time (remainder: main, release integration checkout, per-WO checkouts, another lane's law-FERROPLAN-26922-09 checkout); final lane-close count measured after per-WO teardown.",
+  "standing": "ALIVE"
+}

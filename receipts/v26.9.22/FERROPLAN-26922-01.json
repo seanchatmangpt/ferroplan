@@ -1,0 +1,11 @@
+{
+  "wo": "FERROPLAN-26922-01",
+  "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88",
+  "branch": "fer-01-fmt",
+  "merge_sha": "dc327a3",
+  "commit": "ddcb782",
+  "command": "cargo fmt --all -- --check && cargo check -p ferroplan --lib --locked",
+  "exit": 0,
+  "output_excerpt": "FMT-CHECK-OK; Finished `dev` profile target(s) in 17.32s \u2014 fmt reconciles the 4 ppcx hunks in crates/ferroplan/src/policy_validation.rs (56 insertions, 26 deletions)",
+  "standing": "ALIVE"
+}

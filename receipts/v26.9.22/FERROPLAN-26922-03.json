@@ -1,0 +1,11 @@
+{
+  "wo": "FERROPLAN-26922-03",
+  "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88",
+  "branch": "fer-03-htn67",
+  "merge_sha": "c9e87f3",
+  "commit": "00730a1",
+  "command": "cargo test -p ferroplan --test sa2a_goal_set_ruling && cargo test -p ferroplan --lib planning_runtime && git ls-files --error-unmatch docs/jira/v26.9.17/fond-htn-67-sa2a-goal-set-semantics-divergence.md",
+  "exit": 0,
+  "output_excerpt": "2 passed, 1 ignored (120 s probe) / 15 passed (planning_runtime). Ruling (a) recorded with dated PARTIAL_ALIVE row: fresh run at HEAD is wall-bound (typed Timeout{10000} at defaults; no verdict at 120 s), no plan forms for the :goal-less goal-set fixture; option (b) not implemented. Fixtures vendored byte-identical from autofde-lab @ 8ef74497 (md5 595501e5/d884ad3b). Remaining: beam4pm b4p-f5-06 flip-ledger write-back (owning lane: beam4pm).",
+  "standing": "ALIVE"
+}

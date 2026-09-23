@@ -1,0 +1,11 @@
+{
+  "wo": "FERROPLAN-26922-05",
+  "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88",
+  "branch": "fer-05-upstream",
+  "merge_sha": "a4c5a33",
+  "commit": "8430031 (upstream merge) + 85105d0 (release 0.28.1)",
+  "command": "git fetch upstream && git ls-remote upstream refs/heads/main && git merge upstream/main ; cargo fmt --all -- --check && cargo clippy --workspace --exclude ferroplan-bevy --all-targets --all-features -- -D warnings && cargo test --workspace --exclude ferroplan-bevy && (cd crucible && cargo test)",
+  "exit": 0,
+  "output_excerpt": "upstream main re-resolved at execution time = a05b604; merge-base --is-ancestor satisfied post-merge (a05b604 ancestor of release). Hand-resolved: ground.rs (upstream and_merge_owned), temporal.rs x2 (pub(crate) expr_subst_duration for merged tcompress.rs; Happening.zero_end), CHANGELOG union, README/book prose (fork links), ferroplan Cargo.toml kept hddl edge, py lock regenerated. Version bumped 0.28.0 -> 0.28.1 (fork tag v0.28.0 @17e38bb predates upstream's 0.28.0). Clippy 1.97 fallout fixed (NoPlan unit variant). Crucible escalation test steadied via FAKEFF_READY_FILE handshake (startup race killed the child with SIGTERM before the ignore was installed under load). All gates exit 0.",
+  "standing": "ALIVE"
+}

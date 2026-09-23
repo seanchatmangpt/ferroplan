@@ -1,0 +1,11 @@
+{
+  "wo": "FERROPLAN-26922-08",
+  "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88",
+  "branch": "fer-08-integration-branch",
+  "merge_sha": "d8964e8-merge-into-release",
+  "commit": "d8964e8",
+  "command": "git merge-base --is-ancestor 18dbc73 main || ! git ls-remote --exit-code origin refs/heads/integration/all-open-prs-2026-07-31 ; grep -Eq 'Standing: (CLOSED|DONE|ALIVE)' docs/jira/v26.9.19/008-*.md docs/jira/v26.9.19/009-*.md",
+  "exit": 0,
+  "output_excerpt": "RULING: delete with rationale. integration/all-open-prs-2026-07-31 (70 patches) and feeder feat/v26.8.1-full-planning-ggen (69 patches) deleted on origin; ls-remote exit 2 (absent). Rationale recorded in tickets 008/009 (Standing: CLOSED): two-month-stale v26.8.1 ggen full_planning graph, no consumer, seams since redesigned by fond-htn waves; tips preserved locally on preserve/v26922/integration-all-open-prs (18dbc73) and preserve/v26922/feat-v26.8.1-full-planning-ggen (f302693).",
+  "standing": "ALIVE"
+}

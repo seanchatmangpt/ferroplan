@@ -1,0 +1,11 @@
+{
+  "wo": "FERROPLAN-26922-06",
+  "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88",
+  "branch": "fer-06-standing-guard",
+  "merge_sha": "3055469",
+  "commit": "c464795",
+  "command": "python3 scripts/verify_ticket_standing.py docs/jira ; (mutated copy) python3 scripts/verify_ticket_standing.py /tmp/v26922-guard-negative",
+  "exit": 0,
+  "output_excerpt": "guard found exactly the WO's 49 contradictions; reconciled by setting each frontmatter standing to its ledger's last-row standing token (ledger untouched); post-fix: OK: 67 frontmatter ticket(s) agree, exit 0; mutated copy (one frontmatter set back to BLOCKED) exits 1 with a per-file report.",
+  "standing": "ALIVE"
+}

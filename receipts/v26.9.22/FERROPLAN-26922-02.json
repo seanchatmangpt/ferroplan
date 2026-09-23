@@ -1,0 +1,11 @@
+{
+  "wo": "FERROPLAN-26922-02",
+  "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88",
+  "branch": "fer-02-deep-lane",
+  "merge_sha": "2fd5527",
+  "commit": "476e7b2 + fb71504",
+  "command": "(cd plugins/chatman-ecosystem && python3.13 -m pytest -q) ; cargo test --release -p ferroplan --test {differential_fuzz,fond_flat_oracle,grounding_prune_ipc_rerun,ground_caps_ipc_addendum,memory_stress} -- --ignored",
+  "exit": 0,
+  "output_excerpt": "plugin pytest 293 passed; deep-lane ignored binaries all ok with loud SKIP-BY-NAME notes when the external harness/corpus is absent; memory_stress FULL run exit 0 (binding-product-8p end-to-end ~59 ms after the lifted relevance prune); full workspace suite re-run green (one doctest E0460 failure was a shared-target-dir artifact, green on clean rerun). CI-on-main acceptance deferred to the lane push: gh run list --branch main --workflow CI -L1 must say success \u2014 see the lane report for the observed value after push.",
+  "standing": "ALIVE"
+}
