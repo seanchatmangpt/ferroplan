@@ -1,5 +1,0 @@
-(define (problem lights)
-  (:domain switches)
-  (:objects l1 l2 - loc s1 - switch)
-  (:init (at l1) (link s1 l2))
-  (:goal (powered l2)))
