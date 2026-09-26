@@ -394,6 +394,130 @@ mod browser_impl {
             serialize_or_error!(&sol)
         }
 
+        /// Follow-before-rethink: preserve the still-applicable prefix of the
+        /// stashed plan and search only for the broken tail. This manufactures
+        /// a candidate plan; it does not execute it.
+        pub fn replan_following(&mut self, evals: usize, mem_mb: usize) -> String {
+            if evals == 0 || evals > WASM_MAX_THINK_EVALS {
+                return err_json(
+                    "FP_LIMIT_SEARCH",
+                    "evals must be within the browser production budget",
+                );
+            }
+            if mem_mb == 0 || mem_mb > WASM_MAX_THINK_MEMORY_MB {
+                return err_json(
+                    "FP_LIMIT_MEMORY",
+                    "mem_mb must be within the browser production budget",
+                );
+            }
+            let Some(prior) = self.plan.clone() else {
+                return err_json("FP_NO_PLAN", "session has no stashed plan to follow");
+            };
+            let sol =
+                self.inner
+                    .replan_following(&prior, self.cursor, evals, Some(mem_mb));
+            self.plan = if sol.solved { sol.plan.clone() } else { None };
+            self.cursor = 0;
+            serialize_or_error!(&sol)
+        }
+
+        /// DfCM repair router. Preserve the cheapest reversible option:
+        /// goal-met -> valid suffix reuse -> follow-biased repair -> full
+        /// bounded replan. It never advances the cursor or actuates.
+        pub fn repair(&mut self, evals: usize, mem_mb: usize) -> String {
+            if evals == 0 || evals > WASM_MAX_THINK_EVALS {
+                return err_json(
+                    "FP_LIMIT_SEARCH",
+                    "evals must be within the browser production budget",
+                );
+            }
+            if mem_mb == 0 || mem_mb > WASM_MAX_THINK_MEMORY_MB {
+                return err_json(
+                    "FP_LIMIT_MEMORY",
+                    "mem_mb must be within the browser production budget",
+                );
+            }
+
+            if self.inner.goal_met() {
+                return serde_json::json!({
+                    "decision": "goal_met",
+                    "trigger": "goal_met",
+                    "plan_valid": null,
+                    "previous_suffix": [],
+                    "suffix": [],
+                    "solution": null,
+                })
+                .to_string();
+            }
+
+            match self.plan.clone() {
+                Some(prior) => {
+                    let from = self.cursor.min(prior.steps.len());
+                    let previous_suffix = prior.steps[from..].to_vec();
+                    if self.inner.plan_still_valid(&prior, self.cursor) {
+                        return serde_json::json!({
+                            "decision": "reuse_suffix",
+                            "trigger": "none",
+                            "plan_valid": true,
+                            "previous_suffix": previous_suffix,
+                            "suffix": previous_suffix,
+                            "solution": null,
+                        })
+                        .to_string();
+                    }
+
+                    let sol = self
+                        .inner
+                        .replan_following(&prior, self.cursor, evals, Some(mem_mb));
+                    let decision = if sol.solved {
+                        "replanned_following"
+                    } else {
+                        "replan_unsolved"
+                    };
+                    self.plan = if sol.solved { sol.plan.clone() } else { None };
+                    self.cursor = 0;
+                    let suffix = self
+                        .plan
+                        .as_ref()
+                        .map(|plan| plan.steps.clone())
+                        .unwrap_or_default();
+                    serde_json::json!({
+                        "decision": decision,
+                        "trigger": "invalid_plan",
+                        "plan_valid": false,
+                        "previous_suffix": previous_suffix,
+                        "suffix": suffix,
+                        "solution": sol,
+                    })
+                    .to_string()
+                }
+                None => {
+                    let sol = self.inner.replan_budgeted(evals, Some(mem_mb));
+                    let decision = if sol.solved {
+                        "replanned_full"
+                    } else {
+                        "replan_unsolved"
+                    };
+                    self.plan = if sol.solved { sol.plan.clone() } else { None };
+                    self.cursor = 0;
+                    let suffix = self
+                        .plan
+                        .as_ref()
+                        .map(|plan| plan.steps.clone())
+                        .unwrap_or_default();
+                    serde_json::json!({
+                        "decision": decision,
+                        "trigger": "no_plan",
+                        "plan_valid": null,
+                        "previous_suffix": [],
+                        "suffix": suffix,
+                        "solution": sol,
+                    })
+                    .to_string()
+                }
+            }
+        }
+
         /// Replay the stored plan's tail from the cursor forward — free, no
         /// search spent.
         pub fn valid(&self) -> bool {
