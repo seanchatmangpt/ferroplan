@@ -35,7 +35,7 @@ Paste a PDDL domain + problem, hit **Plan** — everything runs client-side.
   `set_fact` / `set_fluent`, `fact` / `fluent`, `observe`, `goal_met` — what
   the live pages drive. `repair` is the DfCM path: goal-met -> zero-search
   suffix reuse -> follow-biased tail repair -> bounded full replan; it never
-  executes an action. `probe_json` evaluates bounded counterfactual goals/world observations over cheap forks while leaving the parent session unchanged. Probe admission refuses the whole request on duplicate candidate ids (`FP_DUPLICATE_CANDIDATE`) or an empty/oversized id (`FP_LIMIT_CANDIDATE`), and refuses a single candidate whose sight states one fact both true and false (`outcome: refused`, `stage: observe`). Benchmark and regression bound: `benchmarks/dfcm-repair-v26.9.26.json`.
+  executes an action. `probe_json` evaluates bounded counterfactual goals/world observations over cheap forks while leaving the parent session unchanged. Probe admission refuses the whole request on duplicate candidate ids (`FP_DUPLICATE_CANDIDATE`) or an empty/oversized id (`FP_LIMIT_CANDIDATE`), and refuses a single candidate whose sight states one fact both true and false (`outcome: refused`, `stage: observe`). Both surfaces (browser `WasmSession` and WASI `session_repair`/`session_probe`) run one shared kernel, `src/dfcm_route.rs`; the browser parity tests diff the browser output against that kernel. Benchmark and regression bound: `benchmarks/dfcm-repair-v26.9.26.json`.
 - `version() -> string`.
 
 ## The live pages

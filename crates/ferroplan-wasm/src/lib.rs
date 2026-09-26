@@ -24,6 +24,7 @@
 //! = "wasi")`); this file's `#[wasm_bindgen]` surface only compiles for the
 //! browser target.
 
+pub mod dfcm_route;
 pub mod probe_guard;
 
 #[cfg(all(target_arch = "wasm32", target_os = "wasi"))]
@@ -51,8 +52,6 @@ mod browser_impl {
     const WASM_JSON_FIELD_BYTES: usize = 16 * 1024 * 1024;
     const WASM_MAX_THINK_EVALS: usize = 1_000_000;
     const WASM_MAX_THINK_MEMORY_MB: usize = 2_048;
-    const WASM_MAX_PROBE_CANDIDATES: usize = 32;
-    const WASM_MAX_PROBE_OBSERVATIONS: usize = 1_024;
 
     macro_rules! serialize_or_error {
         ($value:expr) => {
@@ -332,15 +331,6 @@ mod browser_impl {
     /// shape exactly: think stashes the plan, `valid()` is a free replay of
     /// the suffix, `step_json()` / `advance()` walk it one beat at a time. All
     /// untrusted string/JSON boundaries are explicitly bounded.
-    #[derive(serde::Deserialize)]
-    struct BrowserProbeCandidate {
-        id: String,
-        goal: Option<String>,
-        #[serde(default)]
-        sight: Vec<(String, bool)>,
-        restrict_contains: Option<String>,
-    }
-
     #[wasm_bindgen]
     pub struct WasmSession {
         inner: ferroplan::Session,
@@ -348,6 +338,7 @@ mod browser_impl {
         cursor: usize,
     }
 
+    #[cfg(target_arch = "wasm32")]
     #[wasm_bindgen]
     extern "C" {
         #[wasm_bindgen(js_namespace = console, js_name = error)]
@@ -369,6 +360,10 @@ mod browser_impl {
                 ProductionLimits::default().max_problem_bytes,
                 "problem",
             )?;
+            // `console.error` exists only under a JS host; on the native host
+            // (tests/dfcm_browser_parity.rs) keep Rust's default hook so a
+            // failing assertion reports its test instead of aborting.
+            #[cfg(target_arch = "wasm32")]
             std::panic::set_hook(Box::new(|info| {
                 js_console_error(&format!("wasm panic: {info}"));
             }));
@@ -486,84 +481,8 @@ mod browser_impl {
                 );
             }
 
-            if self.inner.goal_met() {
-                return serde_json::json!({
-                    "decision": "goal_met",
-                    "trigger": "goal_met",
-                    "plan_valid": null,
-                    "previous_suffix": [],
-                    "suffix": [],
-                    "solution": null,
-                })
-                .to_string();
-            }
-
-            match self.plan.clone() {
-                Some(prior) => {
-                    let from = self.cursor.min(prior.steps.len());
-                    let previous_suffix = prior.steps[from..].to_vec();
-                    if self.inner.plan_still_valid(&prior, self.cursor) {
-                        return serde_json::json!({
-                            "decision": "reuse_suffix",
-                            "trigger": "none",
-                            "plan_valid": true,
-                            "previous_suffix": previous_suffix,
-                            "suffix": previous_suffix,
-                            "solution": null,
-                        })
-                        .to_string();
-                    }
-
-                    let sol = self
-                        .inner
-                        .replan_following(&prior, self.cursor, evals, Some(mem_mb));
-                    let decision = if sol.solved {
-                        "replanned_following"
-                    } else {
-                        "replan_unsolved"
-                    };
-                    self.plan = if sol.solved { sol.plan.clone() } else { None };
-                    self.cursor = 0;
-                    let suffix = self
-                        .plan
-                        .as_ref()
-                        .map(|plan| plan.steps.clone())
-                        .unwrap_or_default();
-                    serde_json::json!({
-                        "decision": decision,
-                        "trigger": "invalid_plan",
-                        "plan_valid": false,
-                        "previous_suffix": previous_suffix,
-                        "suffix": suffix,
-                        "solution": sol,
-                    })
-                    .to_string()
-                }
-                None => {
-                    let sol = self.inner.replan_budgeted(evals, Some(mem_mb));
-                    let decision = if sol.solved {
-                        "replanned_full"
-                    } else {
-                        "replan_unsolved"
-                    };
-                    self.plan = if sol.solved { sol.plan.clone() } else { None };
-                    self.cursor = 0;
-                    let suffix = self
-                        .plan
-                        .as_ref()
-                        .map(|plan| plan.steps.clone())
-                        .unwrap_or_default();
-                    serde_json::json!({
-                        "decision": decision,
-                        "trigger": "no_plan",
-                        "plan_valid": null,
-                        "previous_suffix": [],
-                        "suffix": suffix,
-                        "solution": sol,
-                    })
-                    .to_string()
-                }
-            }
+            crate::dfcm_route::repair(&self.inner, &mut self.plan, &mut self.cursor, evals, mem_mb)
+                .to_string()
         }
 
         /// Compare bounded counterfactual candidates over cheap forks without
@@ -586,110 +505,17 @@ mod browser_impl {
                     "mem_mb must be within the browser production budget",
                 );
             }
-            let candidates: Vec<BrowserProbeCandidate> = match serde_json::from_str(candidates_json)
+            let candidates: Vec<crate::dfcm_route::ProbeCandidate> =
+                match serde_json::from_str(candidates_json) {
+                    Ok(candidates) => candidates,
+                    Err(error) => return err_json("FP_ADAPTER", &format!("candidates: {error}")),
+                };
+            if let Err((code, message)) =
+                crate::dfcm_route::admit_candidates(&candidates, WASM_TEXT_FIELD_BYTES, "browser")
             {
-                Ok(candidates) => candidates,
-                Err(error) => return err_json("FP_ADAPTER", &format!("candidates: {error}")),
-            };
-            if candidates.is_empty() || candidates.len() > WASM_MAX_PROBE_CANDIDATES {
-                return err_json(
-                    "FP_LIMIT_CANDIDATES",
-                    "candidates must contain between 1 and 32 entries",
-                );
+                return err_json(code, &message);
             }
-            if let Some(id) =
-                crate::probe_guard::malformed_id(candidates.iter().map(|c| c.id.as_str()))
-            {
-                return err_json(
-                    "FP_LIMIT_CANDIDATE",
-                    &format!("candidate id `{id}` must be 1..=256 bytes"),
-                );
-            }
-            if let Some(id) =
-                crate::probe_guard::duplicate_id(candidates.iter().map(|c| c.id.as_str()))
-            {
-                return err_json(
-                    "FP_DUPLICATE_CANDIDATE",
-                    &format!("candidate id `{id}` is delivered more than once"),
-                );
-            }
-            if candidates.iter().any(|candidate| {
-                candidate
-                    .goal
-                    .as_ref()
-                    .is_some_and(|goal| goal.len() > WASM_TEXT_FIELD_BYTES)
-                    || candidate.sight.len() > WASM_MAX_PROBE_OBSERVATIONS
-                    || candidate.sight.iter().any(|(fact, _)| fact.len() > 4_096)
-                    || candidate
-                        .restrict_contains
-                        .as_ref()
-                        .is_some_and(|filter| filter.len() > 4_096)
-            }) {
-                return err_json(
-                    "FP_LIMIT_CANDIDATE",
-                    "candidate id, goal, observation, or restriction exceeds the browser probe limit",
-                );
-            }
-
-            let results = candidates
-                .iter()
-                .map(|candidate| {
-                    if let Some(fact) = crate::probe_guard::contradictory_fact(&candidate.sight) {
-                        return serde_json::json!({
-                            "id": candidate.id,
-                            "outcome": "refused",
-                            "stage": "observe",
-                            "error": format!("contradictory observation of `{fact}`"),
-                        });
-                    }
-                    let mut mind = self.inner.fork();
-                    if let Some(goal) = &candidate.goal {
-                        if let Err(error) = mind.set_goal(goal) {
-                            return serde_json::json!({
-                                "id": candidate.id,
-                                "outcome": "refused",
-                                "stage": "set_goal",
-                                "error": error,
-                            });
-                        }
-                    }
-                    if let Some(filter) = &candidate.restrict_contains {
-                        let filter = filter.clone();
-                        mind.restrict_ops(move |display| display.contains(&filter));
-                    }
-                    let surprises = if candidate.sight.is_empty() {
-                        Vec::new()
-                    } else {
-                        let refs = candidate
-                            .sight
-                            .iter()
-                            .map(|(fact, value)| (fact.as_str(), *value))
-                            .collect::<Vec<_>>();
-                        match mind.observe(&refs) {
-                            Ok(news) => news,
-                            Err(error) => {
-                                return serde_json::json!({
-                                    "id": candidate.id,
-                                    "outcome": "refused",
-                                    "stage": "observe",
-                                    "error": error,
-                                })
-                            }
-                        }
-                    };
-                    let solution = mind.replan_budgeted(evals, Some(mem_mb));
-                    serde_json::json!({
-                        "id": candidate.id,
-                        "outcome": if solution.solved { "solved" } else { "unsolved" },
-                        "surprises": surprises,
-                        "goal_met_before_search": mind.goal_met(),
-                        "world_bytes": mind.world_bytes(),
-                        "mind_bytes": mind.mind_bytes(),
-                        "solution": solution,
-                    })
-                })
-                .collect::<Vec<_>>();
-
+            let results = crate::dfcm_route::probe_all(&self.inner, &candidates, evals, mem_mb);
             serde_json::json!({
                 "candidate_count": results.len(),
                 "results": results,

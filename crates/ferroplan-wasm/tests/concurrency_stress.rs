@@ -26,6 +26,11 @@
 #[path = "../src/probe_guard.rs"]
 mod probe_guard;
 
+// `wasi_abi.rs` routes repair/probe through the shared kernel at
+// `crate::dfcm_route`; the host view binds that path to the library's own
+// compiled kernel (the same module the browser surface calls).
+use ferroplan_wasm::dfcm_route;
+
 #[allow(dead_code)]
 #[path = "../src/wasi_abi.rs"]
 mod wasi_abi_host_view;

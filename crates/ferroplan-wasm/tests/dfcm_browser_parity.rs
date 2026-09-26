@@ -7,13 +7,18 @@
 //! guards are exercised on every ordinary test run. No doubles: every call
 //! goes through a real grounded `ferroplan::Session`.
 //!
-//! Caveat: `WasmSession::new` installs a panic hook that calls
-//! `console.error`, which does not exist natively, so a failing assertion
-//! here aborts the test binary instead of printing a report. The assertion
-//! messages are still correct; rerun a single test to localize a failure.
+//! `WasmSession::new` installs its `console.error` panic hook only on
+//! `wasm32`, so a failing assertion here reports its own test natively.
+//!
+//! The corridor tests below compare the browser surface against the shared
+//! `ferroplan_wasm::dfcm_route` kernel (the code the WASI surface runs) on a
+//! separately grounded `ferroplan::Session` with the same history, instead
+//! of against hand-written literals, and hold the browser surface to the
+//! same strict follow-before-rethink bound as the WASI court.
 
 #![cfg(not(target_family = "wasm"))]
 
+use ferroplan_wasm::dfcm_route::{self, fixture, ProbeCandidate};
 use ferroplan_wasm::{fond_validate, WasmSession};
 use serde_json::{json, Value};
 
@@ -199,4 +204,124 @@ fn browser_fond_validate_typed_refusals_and_subject_binding() {
     ));
     assert_eq!(own["valid"], json!(true), "{own}");
     assert_eq!(own["guarantee"], json!("STRONG_CYCLIC"), "{own}");
+}
+
+fn kernel_corridor(n: usize) -> ferroplan::Session {
+    let opts = ferroplan::Options {
+        threads: 1,
+        max_evaluated: Some(ferroplan::ProductionLimits::default().max_evaluated),
+        ..Default::default()
+    };
+    ferroplan::Session::new(
+        fixture::CORRIDOR_DOMAIN,
+        &fixture::corridor_problem(n),
+        &opts,
+    )
+    .expect("corridor grounds")
+}
+
+fn evaluated(v: &Value) -> u64 {
+    v["statistics"]["evaluated_states"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("{v}"))
+}
+
+/// Browser twin of the WASI regression court, and a differential against
+/// the kernel: every route decision on the browser surface must be
+/// byte-identical to the kernel's decision on the same world history.
+#[test]
+fn browser_repair_matches_the_kernel_and_follow_is_strictly_cheaper() {
+    let n = 24;
+    let k = n / 2;
+    let mut browser = WasmSession::new(fixture::CORRIDOR_DOMAIN, &fixture::corridor_problem(n))
+        .unwrap_or_else(|_| panic!("corridor must ground"));
+    let mut kernel = kernel_corridor(n);
+    let (mut plan, mut cursor) = (None, 0_usize);
+
+    let b_first = parse(&browser.repair(10_000, 64));
+    let k_first = dfcm_route::repair(&kernel, &mut plan, &mut cursor, 10_000, 64);
+    assert_eq!(b_first, k_first);
+    assert_eq!(b_first["decision"], json!("replanned_full"), "{b_first}");
+
+    let b_reuse = parse(&browser.repair(10_000, 64));
+    let k_reuse = dfcm_route::repair(&kernel, &mut plan, &mut cursor, 10_000, 64);
+    assert_eq!(b_reuse, k_reuse);
+    assert_eq!(b_reuse["decision"], json!("reuse_suffix"), "{b_reuse}");
+
+    let blocked = format!("(clear r{k})");
+    browser
+        .observe(&json!([[blocked, false]]).to_string())
+        .unwrap_or_else(|_| panic!("drift must be observable"));
+    kernel
+        .observe(&[(blocked.as_str(), false)])
+        .expect("drift observable");
+
+    let mut full = browser.fork();
+    let full = parse(&full.think(10_000, 64));
+    assert_eq!(full["solved"], json!(true), "{full}");
+
+    let b_follow = parse(&browser.repair(10_000, 64));
+    let k_follow = dfcm_route::repair(&kernel, &mut plan, &mut cursor, 10_000, 64);
+    assert_eq!(b_follow, k_follow);
+    assert_eq!(
+        b_follow["decision"],
+        json!("replanned_following"),
+        "{b_follow}"
+    );
+    assert!(
+        evaluated(&b_follow["solution"]) < evaluated(&full),
+        "browser follow {} must be strictly below full {}",
+        evaluated(&b_follow["solution"]),
+        evaluated(&full)
+    );
+    let witness = format!("followed {} still-applicable step(s)", k - 1);
+    assert!(
+        b_follow["solution"]["notes"]
+            .as_array()
+            .is_some_and(|notes| notes
+                .iter()
+                .any(|n| n.as_str().is_some_and(|n| n.contains(&witness)))),
+        "missing kept-prefix witness `{witness}`: {b_follow}"
+    );
+    assert!(browser.valid());
+}
+
+/// Probe differential: the browser probe's per-candidate results equal the
+/// kernel's, including the budget pass-through (evals=1 must not solve).
+#[test]
+fn browser_probe_matches_the_kernel_including_the_search_budget() {
+    let n = 24;
+    let browser = WasmSession::new(fixture::CORRIDOR_DOMAIN, &fixture::corridor_problem(n))
+        .unwrap_or_else(|_| panic!("corridor must ground"));
+    let kernel = kernel_corridor(n);
+    let raw = json!([
+        {"id": "blocked", "sight": [[format!("(clear r{})", n / 2), false]]},
+        {"id": "at-goal", "sight": [["(at r0)", false], [format!("(at r{n})"), true]]},
+        {"id": "seal-only", "restrict_contains": "SEAL"},
+        {"id": "contradiction", "sight": [["(at r1)", true], ["(AT  R1)", false]]}
+    ]);
+    let candidates: Vec<ProbeCandidate> = serde_json::from_value(raw.clone()).unwrap();
+    for evals in [1_usize, 10_000] {
+        let b = parse(&browser.probe_json(&raw.to_string(), evals, 64));
+        let k = dfcm_route::probe_all(&kernel, &candidates, evals, 64);
+        assert_eq!(b["results"], json!(k), "evals={evals}");
+        let blocked = &b["results"][0];
+        if evals == 1 {
+            assert_eq!(blocked["outcome"], json!("unsolved"), "{blocked}");
+        } else {
+            assert_eq!(blocked["outcome"], json!("solved"), "{blocked}");
+        }
+        assert_eq!(
+            b["results"][1]["goal_met_before_search"],
+            json!(true),
+            "{b}"
+        );
+        assert_eq!(
+            b["results"][0]["goal_met_before_search"],
+            json!(false),
+            "{b}"
+        );
+        assert_eq!(b["results"][3]["outcome"], json!("refused"), "{b}");
+    }
+    assert!(!browser.has_plan() && !browser.goal_met());
 }

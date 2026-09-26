@@ -111,8 +111,6 @@ const WASI_TEXT_FIELD_BYTES: usize = 1024 * 1024;
 const WASI_JSON_FIELD_BYTES: usize = 16 * 1024 * 1024;
 const WASI_MAX_THINK_EVALS: usize = 1_000_000;
 const WASI_MAX_THINK_MEMORY_MB: usize = 2_048;
-const WASI_MAX_PROBE_CANDIDATES: usize = 32;
-const WASI_MAX_PROBE_OBSERVATIONS: usize = 1_024;
 
 struct WasiSession {
     inner: ferroplan::Session,
@@ -394,15 +392,6 @@ struct PlanProductionReq {
     max_plan_steps: Option<usize>,
     max_output_bytes: Option<usize>,
     request_id: Option<String>,
-}
-
-#[derive(Clone, Deserialize)]
-struct SessionProbeCandidate {
-    id: String,
-    goal: Option<String>,
-    #[serde(default)]
-    sight: Vec<(String, bool)>,
-    restrict_contains: Option<String>,
 }
 
 fn op_plan_production(req: &Value) -> Result<Value, String> {
@@ -823,83 +812,9 @@ fn op_session_repair(req: &Value) -> Result<Value, String> {
         Ok(budget) => budget,
         Err(refusal) => return Ok(refusal),
     };
-
     with_session(handle, |s| {
-        if s.inner.goal_met() {
-            return Ok(json!({
-                "decision": "goal_met",
-                "trigger": "goal_met",
-                "plan_valid": Value::Null,
-                "previous_suffix": [],
-                "suffix": [],
-                "solution": Value::Null,
-            }));
-        }
-
-        match s.plan.clone() {
-            Some(prior) => {
-                let from = s.cursor.min(prior.steps.len());
-                let previous_suffix = prior.steps[from..].to_vec();
-                if s.inner.plan_still_valid(&prior, s.cursor) {
-                    return Ok(json!({
-                        "decision": "reuse_suffix",
-                        "trigger": "none",
-                        "plan_valid": true,
-                        "previous_suffix": previous_suffix,
-                        "suffix": previous_suffix,
-                        "solution": Value::Null,
-                    }));
-                }
-
-                let sol = s
-                    .inner
-                    .replan_following(&prior, s.cursor, evals, Some(mem_mb));
-                let decision = if sol.solved {
-                    "replanned_following"
-                } else {
-                    "replan_unsolved"
-                };
-                s.plan = if sol.solved { sol.plan.clone() } else { None };
-                s.cursor = 0;
-                let suffix = s
-                    .plan
-                    .as_ref()
-                    .map(|plan| plan.steps.clone())
-                    .unwrap_or_default();
-                Ok(json!({
-                    "decision": decision,
-                    "trigger": "invalid_plan",
-                    "plan_valid": false,
-                    "previous_suffix": previous_suffix,
-                    "suffix": suffix,
-                    "solution": sol,
-                }))
-            }
-            None => {
-                let sol = s.inner.replan_budgeted(evals, Some(mem_mb));
-                let decision = if sol.solved {
-                    "replanned_full"
-                } else {
-                    "replan_unsolved"
-                };
-                s.plan = if sol.solved { sol.plan.clone() } else { None };
-                s.cursor = 0;
-                let suffix = s
-                    .plan
-                    .as_ref()
-                    .map(|plan| plan.steps.clone())
-                    .unwrap_or_default();
-                Ok(json!({
-                    "decision": decision,
-                    "trigger": "no_plan",
-                    "plan_valid": Value::Null,
-                    "previous_suffix": [],
-                    "suffix": suffix,
-                    "solution": sol,
-                }))
-            }
-        }
-    })?
+        crate::dfcm_route::repair(&s.inner, &mut s.plan, &mut s.cursor, evals, mem_mb)
+    })
 }
 
 fn op_session_probe(req: &Value) -> Result<Value, String> {
@@ -911,109 +826,16 @@ fn op_session_probe(req: &Value) -> Result<Value, String> {
     let candidates_value = req
         .get("candidates")
         .ok_or_else(|| "missing field `candidates`".to_string())?;
-    let candidates: Vec<SessionProbeCandidate> =
+    let candidates: Vec<crate::dfcm_route::ProbeCandidate> =
         serde_json::from_value(candidates_value.clone()).map_err(|e| format!("candidates: {e}"))?;
-    if candidates.is_empty() || candidates.len() > WASI_MAX_PROBE_CANDIDATES {
-        return Ok(err_json(
-            "FP_LIMIT_CANDIDATES",
-            "candidates must contain between 1 and 32 entries",
-        ));
+    if let Err((code, message)) =
+        crate::dfcm_route::admit_candidates(&candidates, WASI_TEXT_FIELD_BYTES, "WASI")
+    {
+        return Ok(err_json(code, &message));
     }
-    if let Some(id) = crate::probe_guard::malformed_id(candidates.iter().map(|c| c.id.as_str())) {
-        return Ok(err_json(
-            "FP_LIMIT_CANDIDATE",
-            &format!("candidate id `{id}` must be 1..=256 bytes"),
-        ));
-    }
-    if let Some(id) = crate::probe_guard::duplicate_id(candidates.iter().map(|c| c.id.as_str())) {
-        return Ok(err_json(
-            "FP_DUPLICATE_CANDIDATE",
-            &format!("candidate id `{id}` is delivered more than once"),
-        ));
-    }
-    if candidates.iter().any(|candidate| {
-        candidate
-            .goal
-            .as_ref()
-            .is_some_and(|goal| goal.len() > WASI_TEXT_FIELD_BYTES)
-            || candidate.sight.len() > WASI_MAX_PROBE_OBSERVATIONS
-            || candidate.sight.iter().any(|(fact, _)| fact.len() > 4_096)
-            || candidate
-                .restrict_contains
-                .as_ref()
-                .is_some_and(|filter| filter.len() > 4_096)
-    }) {
-        return Ok(err_json(
-            "FP_LIMIT_CANDIDATE",
-            "candidate id, goal, observation, or restriction exceeds the WASI probe limit",
-        ));
-    }
-
     let results = with_session(handle, |parent| {
-        candidates
-            .iter()
-            .map(|candidate| {
-                if let Some(fact) = crate::probe_guard::contradictory_fact(&candidate.sight) {
-                    return json!({
-                        "id": candidate.id,
-                        "outcome": "refused",
-                        "stage": "observe",
-                        "error": format!("contradictory observation of `{fact}`"),
-                    });
-                }
-                let mut mind = parent.inner.fork();
-
-                if let Some(goal) = &candidate.goal {
-                    if let Err(error) = mind.set_goal(goal) {
-                        return json!({
-                            "id": candidate.id,
-                            "outcome": "refused",
-                            "stage": "set_goal",
-                            "error": error,
-                        });
-                    }
-                }
-
-                if let Some(filter) = &candidate.restrict_contains {
-                    let filter = filter.clone();
-                    mind.restrict_ops(move |display| display.contains(&filter));
-                }
-
-                let surprises = if candidate.sight.is_empty() {
-                    Vec::new()
-                } else {
-                    let refs = candidate
-                        .sight
-                        .iter()
-                        .map(|(fact, value)| (fact.as_str(), *value))
-                        .collect::<Vec<_>>();
-                    match mind.observe(&refs) {
-                        Ok(news) => news,
-                        Err(error) => {
-                            return json!({
-                                "id": candidate.id,
-                                "outcome": "refused",
-                                "stage": "observe",
-                                "error": error,
-                            })
-                        }
-                    }
-                };
-
-                let solution = mind.replan_budgeted(evals, Some(mem_mb));
-                json!({
-                    "id": candidate.id,
-                    "outcome": if solution.solved { "solved" } else { "unsolved" },
-                    "surprises": surprises,
-                    "goal_met_before_search": mind.goal_met(),
-                    "world_bytes": mind.world_bytes(),
-                    "mind_bytes": mind.mind_bytes(),
-                    "solution": solution,
-                })
-            })
-            .collect::<Vec<_>>()
+        crate::dfcm_route::probe_all(&parent.inner, &candidates, evals, mem_mb)
     })?;
-
     Ok(json!({
         "parent_handle": handle,
         "candidate_count": results.len(),
@@ -1925,7 +1747,7 @@ mod tests {
     #[test]
     fn session_probe_refuses_oversized_candidate_sets_before_forking() {
         let handle = repair_session();
-        let candidates = (0..=WASI_MAX_PROBE_CANDIDATES)
+        let candidates = (0..=crate::dfcm_route::MAX_PROBE_CANDIDATES)
             .map(|i| json!({"id": format!("c{i}")}))
             .collect::<Vec<_>>();
         let refused = dispatch_json(&json!({
@@ -2359,49 +2181,7 @@ mod tests {
 
     // ---- regression bound + benchmark over a scalable corridor fixture ----
 
-    const CORRIDOR_DOMAIN: &str = r#"(define (domain corridor)
-  (:requirements :strips :typing)
-  (:types room)
-  (:predicates (at ?r - room) (link ?a - room ?b - room) (clear ?r - room))
-  (:action go
-    :parameters (?a - room ?b - room)
-    :precondition (and (at ?a) (link ?a ?b) (clear ?b))
-    :effect (and (at ?b) (not (at ?a))))
-  (:action seal
-    :parameters (?r - room)
-    :precondition (clear ?r)
-    :effect (not (clear ?r))))"#;
-
-    /// Corridor r0..rN plus a two-room detour x_i,y_i around every room: the
-    /// main line is strictly shorter, so a blocked room forces a local
-    /// detour that follow-biased repair can splice onto the kept prefix.
-    /// `seal` exists only so `clear` is a dynamic (observable) fact; it
-    /// never helps the goal, so the planner never selects it.
-    fn corridor_problem(n: usize) -> String {
-        let mut objects = Vec::new();
-        let mut init = vec!["(at r0)".to_string()];
-        for i in 0..=n {
-            objects.push(format!("r{i}"));
-            init.push(format!("(clear r{i})"));
-        }
-        for i in 0..n {
-            init.push(format!("(link r{i} r{})", i + 1));
-            if i + 2 <= n {
-                objects.push(format!("x{i}"));
-                objects.push(format!("y{i}"));
-                init.push(format!("(clear x{i})"));
-                init.push(format!("(clear y{i})"));
-                init.push(format!("(link r{i} x{i})"));
-                init.push(format!("(link x{i} y{i})"));
-                init.push(format!("(link y{i} r{})", i + 2));
-            }
-        }
-        format!(
-            "(define (problem corridor{n}) (:domain corridor) (:objects {} - room) (:init {}) (:goal (at r{n})))",
-            objects.join(" "),
-            init.join(" ")
-        )
-    }
+    use crate::dfcm_route::fixture::{corridor_problem, CORRIDOR_DOMAIN};
 
     fn corridor_session(n: usize) -> u64 {
         let created = call(json!({
@@ -2422,8 +2202,8 @@ mod tests {
 
     /// Committed regression bound (deterministic counts, not wall time):
     /// reuse spends zero search; follow-biased repair keeps the unbroken
-    /// prefix verbatim and never evaluates more states than a full replan
-    /// from the same drifted world.
+    /// prefix verbatim, says so in its notes, and evaluates strictly fewer
+    /// states than a full replan from the same drifted world.
     #[test]
     fn dfcm_repair_regression_bound_on_a_blocked_corridor() {
         let n = 24;
@@ -2466,11 +2246,22 @@ mod tests {
             );
             assert_eq!(suffix[i]["args"], prior[i]["args"], "step {i}: {repaired}");
         }
+        // Strict: a revert of follow-before-rethink to a full replan makes
+        // both counts equal (26 == 26 at n=24), which `<=` would admit.
         assert!(
-            evaluated(&repaired["solution"]) <= evaluated(&full),
-            "follow {} > full {}",
+            evaluated(&repaired["solution"]) < evaluated(&full),
+            "follow {} must be strictly below full {}",
             evaluated(&repaired["solution"]),
             evaluated(&full)
+        );
+        let witness = format!("followed {} still-applicable step(s)", k - 1);
+        assert!(
+            repaired["solution"]["notes"]
+                .as_array()
+                .is_some_and(|notes| notes
+                    .iter()
+                    .any(|n| n.as_str().is_some_and(|n| n.contains(&witness)))),
+            "missing kept-prefix witness `{witness}`: {repaired}"
         );
         println!(
             "DFCM_BOUND n={n} full_evaluated={} follow_evaluated={} kept_prefix={}",
@@ -2491,8 +2282,8 @@ mod tests {
     /// dispatch. Run: `CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime cargo
     /// test -p ferroplan-wasm --target wasm32-wasip1 --release --lib
     /// dfcm_route_bench -- --ignored --nocapture`. Numbers are recorded in
-    /// `benchmarks/dfcm-repair-v26.9.26.json`; the committed bound is the
-    /// ordering reuse < follow <= think (a regression would invert it).
+    /// `benchmarks/dfcm-repair-v26.9.26.json`; the wall-clock ordering is
+    /// reuse < think at every n and follow < think at n >= 64.
     #[test]
     #[ignore = "benchmark; run explicitly with --ignored --nocapture"]
     fn dfcm_route_bench() {
@@ -2544,10 +2335,16 @@ mod tests {
                 "DFCM_BENCH n={n} iterations={iterations} think_ns={th} repair_reuse_ns={re} repair_follow_ns={fo} probe8_ns={pr}"
             );
             assert!(re < th, "reuse ({re} ns) must beat a full think ({th} ns)");
-            assert!(
-                fo < th,
-                "follow repair ({fo} ns) must beat a full think ({th} ns)"
-            );
+            // At n=16 follow is only ~7% faster than think on native, inside
+            // wall-clock noise, so the ordering is asserted only where the
+            // margin is structural (n=64: ~2.5x native, ~3x wasip1). The
+            // deterministic court is `dfcm_repair_regression_bound_on_a_blocked_corridor`.
+            if n >= 64 {
+                assert!(
+                    fo < th,
+                    "follow repair ({fo} ns) must beat a full think ({th} ns)"
+                );
+            }
             free(handle);
         }
     }
