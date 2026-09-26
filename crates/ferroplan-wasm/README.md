@@ -30,11 +30,11 @@ Paste a PDDL domain + problem, hit **Plan** — everything runs client-side.
   `Solution`'s `plan` field.
 - `WasmSession` — the live `Session` surface: `fork`, `set_goal`,
   `restrict_prefix_claims` / `restrict_contains`, `think`, `valid` /
-  `plan_valid_json`, `replan_following`, `repair`, `apply_start`, `elapse`,
+  `plan_valid_json`, `replan_following`, `repair`, `probe_json`, `apply_start`, `elapse`,
   `set_fact` / `set_fluent`, `fact` / `fluent`, `observe`, `goal_met` — what
   the live pages drive. `repair` is the DfCM path: goal-met -> zero-search
   suffix reuse -> follow-biased tail repair -> bounded full replan; it never
-  executes an action.
+  executes an action. `probe_json` evaluates bounded counterfactual goals/world observations over cheap forks while leaving the parent session unchanged.
 - `version() -> string`.
 
 ## The live pages
