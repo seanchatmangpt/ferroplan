@@ -53,6 +53,8 @@
 //!     preserving the still-applicable prefix of the stashed plan when possible
 //!   - `session_repair` `{handle, evals, mem_mb}` -> DfCM repair decision JSON:
 //!     goal-met -> reuse-valid-suffix -> follow-biased replan -> full replan
+//!   - `session_probe` `{handle, candidates, evals, mem_mb}` -> bounded
+//!     counterfactual results over cheap forks; the parent session is unchanged
 //!   - `session_valid` `{handle}` -> `{valid:bool}`
 //!   - `session_step` `{handle}` -> the current step, or `null`
 //!   - `session_suffix` `{handle}` -> the remaining steps array
@@ -105,6 +107,8 @@ const WASI_TEXT_FIELD_BYTES: usize = 1024 * 1024;
 const WASI_JSON_FIELD_BYTES: usize = 16 * 1024 * 1024;
 const WASI_MAX_THINK_EVALS: usize = 1_000_000;
 const WASI_MAX_THINK_MEMORY_MB: usize = 2_048;
+const WASI_MAX_PROBE_CANDIDATES: usize = 32;
+const WASI_MAX_PROBE_OBSERVATIONS: usize = 1_024;
 
 struct WasiSession {
     inner: ferroplan::Session,
@@ -333,6 +337,7 @@ fn dispatch(input: &[u8]) -> Result<Vec<u8>, String> {
         "session_think" => op_session_think(&req)?,
         "session_replan_following" => op_session_replan_following(&req)?,
         "session_repair" => op_session_repair(&req)?,
+        "session_probe" => op_session_probe(&req)?,
         "session_valid" => op_session_valid(&req)?,
         "session_step" => op_session_step(&req)?,
         "session_suffix" => op_session_suffix(&req)?,
@@ -384,6 +389,15 @@ struct PlanProductionReq {
     max_plan_steps: Option<usize>,
     max_output_bytes: Option<usize>,
     request_id: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+struct SessionProbeCandidate {
+    id: String,
+    goal: Option<String>,
+    #[serde(default)]
+    sight: Vec<(String, bool)>,
+    restrict_contains: Option<String>,
 }
 
 fn op_plan_production(req: &Value) -> Result<Value, String> {
@@ -842,6 +856,110 @@ fn op_session_repair(req: &Value) -> Result<Value, String> {
             }
         }
     })?
+}
+
+fn op_session_probe(req: &Value) -> Result<Value, String> {
+    let handle = field_u64(req, "handle")?;
+    let (evals, mem_mb) = match session_budget(req)? {
+        Ok(budget) => budget,
+        Err(refusal) => return Ok(refusal),
+    };
+    let candidates_value = req
+        .get("candidates")
+        .ok_or_else(|| "missing field `candidates`".to_string())?;
+    let candidates: Vec<SessionProbeCandidate> =
+        serde_json::from_value(candidates_value.clone())
+            .map_err(|e| format!("candidates: {e}"))?;
+    if candidates.is_empty() || candidates.len() > WASI_MAX_PROBE_CANDIDATES {
+        return Ok(err_json(
+            "FP_LIMIT_CANDIDATES",
+            "candidates must contain between 1 and 32 entries",
+        ));
+    }
+    if candidates.iter().any(|candidate| {
+        candidate.id.len() > 256
+            || candidate
+                .goal
+                .as_ref()
+                .is_some_and(|goal| goal.len() > WASI_TEXT_FIELD_BYTES)
+            || candidate.sight.len() > WASI_MAX_PROBE_OBSERVATIONS
+            || candidate
+                .sight
+                .iter()
+                .any(|(fact, _)| fact.len() > 4_096)
+            || candidate
+                .restrict_contains
+                .as_ref()
+                .is_some_and(|filter| filter.len() > 4_096)
+    }) {
+        return Ok(err_json(
+            "FP_LIMIT_CANDIDATE",
+            "candidate id, goal, observation, or restriction exceeds the WASI probe limit",
+        ));
+    }
+
+    let results = with_session(handle, |parent| {
+        candidates
+            .iter()
+            .map(|candidate| {
+                let mut mind = parent.inner.fork();
+
+                if let Some(goal) = &candidate.goal {
+                    if let Err(error) = mind.set_goal(goal) {
+                        return json!({
+                            "id": candidate.id,
+                            "outcome": "refused",
+                            "stage": "set_goal",
+                            "error": error,
+                        });
+                    }
+                }
+
+                if let Some(filter) = &candidate.restrict_contains {
+                    let filter = filter.clone();
+                    mind.restrict_ops(move |display| display.contains(&filter));
+                }
+
+                let surprises = if candidate.sight.is_empty() {
+                    Vec::new()
+                } else {
+                    let refs = candidate
+                        .sight
+                        .iter()
+                        .map(|(fact, value)| (fact.as_str(), *value))
+                        .collect::<Vec<_>>();
+                    match mind.observe(&refs) {
+                        Ok(news) => news,
+                        Err(error) => {
+                            return json!({
+                                "id": candidate.id,
+                                "outcome": "refused",
+                                "stage": "observe",
+                                "error": error,
+                            })
+                        }
+                    }
+                };
+
+                let solution = mind.replan_budgeted(evals, Some(mem_mb));
+                json!({
+                    "id": candidate.id,
+                    "outcome": if solution.solved { "solved" } else { "unsolved" },
+                    "surprises": surprises,
+                    "goal_met_before_search": mind.goal_met(),
+                    "world_bytes": mind.world_bytes(),
+                    "mind_bytes": mind.mind_bytes(),
+                    "solution": solution,
+                })
+            })
+            .collect::<Vec<_>>()
+    })?;
+
+    Ok(json!({
+        "parent_handle": handle,
+        "candidate_count": results.len(),
+        "results": results,
+    }))
 }
 
 fn op_session_valid(req: &Value) -> Result<Value, String> {
@@ -1625,6 +1743,98 @@ mod tests {
         assert_eq!(repaired["decision"], json!("replanned_full"), "{repaired}");
         assert_eq!(repaired["trigger"], json!("no_plan"), "{repaired}");
         assert_eq!(repaired["solution"]["solved"], json!(true), "{repaired}");
+
+        let freed = dispatch_json(&json!({"op": "session_free", "handle": handle}));
+        assert_eq!(freed["freed"], json!(true));
+    }
+
+    #[test]
+    fn session_probe_evaluates_counterfactual_forks_without_mutating_the_parent() {
+        let handle = repair_session();
+
+        let probed = dispatch_json(&json!({
+            "op": "session_probe",
+            "handle": handle,
+            "evals": 10_000,
+            "mem_mb": 64,
+            "candidates": [
+                {
+                    "id": "baseline",
+                    "goal": "(at b)"
+                },
+                {
+                    "id": "counterfactual-c",
+                    "goal": "(at b)",
+                    "sight": [["(at a)", false], ["(at c)", true]]
+                },
+                {
+                    "id": "unreachable-c",
+                    "goal": "(at c)"
+                }
+            ]
+        }));
+        assert_eq!(probed["candidate_count"], json!(3), "{probed}");
+        let results = probed["results"].as_array().expect("probe results");
+        assert_eq!(results[0]["outcome"], json!("solved"), "{probed}");
+        assert_eq!(results[1]["outcome"], json!("solved"), "{probed}");
+        assert!(
+            results[1]["surprises"]
+                .as_array()
+                .is_some_and(|news| !news.is_empty()),
+            "the counterfactual must differ from parent belief: {probed}"
+        );
+        assert_eq!(results[2]["outcome"], json!("unsolved"), "{probed}");
+
+        let parent_plan = dispatch_json(&json!({
+            "op": "session_has_plan",
+            "handle": handle
+        }));
+        assert_eq!(
+            parent_plan["has_plan"],
+            json!(false),
+            "probing must not stash a candidate into the parent: {parent_plan}"
+        );
+        let parent_a = dispatch_json(&json!({
+            "op": "session_fact",
+            "handle": handle,
+            "name": "(at a)"
+        }));
+        let parent_c = dispatch_json(&json!({
+            "op": "session_fact",
+            "handle": handle,
+            "name": "(at c)"
+        }));
+        assert_eq!(parent_a["value"], json!(true), "{parent_a}");
+        assert_eq!(parent_c["value"], json!(false), "{parent_c}");
+
+        let freed = dispatch_json(&json!({"op": "session_free", "handle": handle}));
+        assert_eq!(freed["freed"], json!(true));
+    }
+
+    #[test]
+    fn session_probe_refuses_oversized_candidate_sets_before_forking() {
+        let handle = repair_session();
+        let candidates = (0..=WASI_MAX_PROBE_CANDIDATES)
+            .map(|i| json!({"id": format!("c{i}")}))
+            .collect::<Vec<_>>();
+        let refused = dispatch_json(&json!({
+            "op": "session_probe",
+            "handle": handle,
+            "evals": 10_000,
+            "mem_mb": 64,
+            "candidates": candidates
+        }));
+        assert_eq!(
+            refused["error"]["code"],
+            json!("FP_LIMIT_CANDIDATES"),
+            "{refused}"
+        );
+
+        let parent_plan = dispatch_json(&json!({
+            "op": "session_has_plan",
+            "handle": handle
+        }));
+        assert_eq!(parent_plan["has_plan"], json!(false));
 
         let freed = dispatch_json(&json!({"op": "session_free", "handle": handle}));
         assert_eq!(freed["freed"], json!(true));
