@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Upstream sync — browser demo offline copy
+
+- Merged upstream `hhh42/ferroplan@9d8f16abc1738bf34c5f9488c6bba7e29b713621` into the downstream line.
+  The browser planner can now be explicitly saved for offline use: a service worker
+  precaches the demo shell and WASM bundle, reports cache/build status, refreshes
+  stale entries in the background, and supports removal. The Pages workflow stamps
+  the service worker with the deploying commit and validates the worker + manifest.
+
+
 ## [0.28.1] - 2026-09-22 — The fork reconciles with upstream's 0.28.0
 
 Upstream cut its own 0.28.0 while this fork had already tagged `v0.28.0`
