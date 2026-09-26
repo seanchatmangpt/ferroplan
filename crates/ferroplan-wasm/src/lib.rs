@@ -24,18 +24,24 @@
 //! = "wasi")`); this file's `#[wasm_bindgen]` surface only compiles for the
 //! browser target.
 
+pub mod dfcm_route;
+pub mod probe_guard;
+
 #[cfg(all(target_arch = "wasm32", target_os = "wasi"))]
 pub mod wasi_abi;
 
 #[cfg(not(all(target_arch = "wasm32", target_os = "wasi")))]
 use ferroplan::{
-    capability_manifest, solve, solve_production, Mode, Options, ProductionLimits, Search,
+    capability_manifest, solve, solve_production, validate_fond_policy, Mode, Options,
+    PlanningProblem, ProductionLimits, Search, UniversalPlan,
 };
 #[cfg(not(all(target_arch = "wasm32", target_os = "wasi")))]
 use wasm_bindgen::prelude::*;
 
 #[cfg(not(all(target_arch = "wasm32", target_os = "wasi")))]
-pub use browser_impl::{explain, plan, plan_production, readiness, version, WasmSession};
+pub use browser_impl::{
+    explain, fond_validate, plan, plan_production, readiness, version, WasmSession,
+};
 
 #[cfg(not(all(target_arch = "wasm32", target_os = "wasi")))]
 mod browser_impl {
@@ -136,6 +142,38 @@ mod browser_impl {
             &limits,
             request_id.as_deref(),
         ))
+    }
+
+    /// Independently validate a FOND UniversalPlan against the exact
+    /// PlanningProblem JSON. Evidence only; no policy action is selected or
+    /// executed by this function.
+    #[wasm_bindgen]
+    pub fn fond_validate(problem_json: &str, plan_json: &str) -> String {
+        if problem_json.len() > WASM_JSON_FIELD_BYTES || plan_json.len() > WASM_JSON_FIELD_BYTES {
+            return err_json(
+                "FP_LIMIT_INPUT",
+                "problem or plan exceeds the browser JSON limit",
+            );
+        }
+        let problem: PlanningProblem = match serde_json::from_str(problem_json) {
+            Ok(problem) => problem,
+            Err(error) => {
+                return err_json(
+                    "FP_INVALID_PROBLEM",
+                    &format!("problem: invalid PlanningProblem JSON: {error}"),
+                )
+            }
+        };
+        let plan: UniversalPlan = match serde_json::from_str(plan_json) {
+            Ok(plan) => plan,
+            Err(error) => {
+                return err_json(
+                    "FP_INVALID_POLICY",
+                    &format!("plan: invalid UniversalPlan JSON: {error}"),
+                )
+            }
+        };
+        serialize_or_error!(&validate_fond_policy(&problem, &plan))
     }
 
     /// Canonical capability contract and deterministic manifest fingerprint.
@@ -300,6 +338,7 @@ mod browser_impl {
         cursor: usize,
     }
 
+    #[cfg(target_arch = "wasm32")]
     #[wasm_bindgen]
     extern "C" {
         #[wasm_bindgen(js_namespace = console, js_name = error)]
@@ -321,6 +360,10 @@ mod browser_impl {
                 ProductionLimits::default().max_problem_bytes,
                 "problem",
             )?;
+            // `console.error` exists only under a JS host; on the native host
+            // (tests/dfcm_browser_parity.rs) keep Rust's default hook so a
+            // failing assertion reports its test instead of aborting.
+            #[cfg(target_arch = "wasm32")]
             std::panic::set_hook(Box::new(|info| {
                 js_console_error(&format!("wasm panic: {info}"));
             }));
@@ -392,6 +435,92 @@ mod browser_impl {
             self.plan = if sol.solved { sol.plan.clone() } else { None };
             self.cursor = 0;
             serialize_or_error!(&sol)
+        }
+
+        /// Follow-before-rethink: preserve the still-applicable prefix of the
+        /// stashed plan and search only for the broken tail. This manufactures
+        /// a candidate plan; it does not execute it.
+        pub fn replan_following(&mut self, evals: usize, mem_mb: usize) -> String {
+            if evals == 0 || evals > WASM_MAX_THINK_EVALS {
+                return err_json(
+                    "FP_LIMIT_SEARCH",
+                    "evals must be within the browser production budget",
+                );
+            }
+            if mem_mb == 0 || mem_mb > WASM_MAX_THINK_MEMORY_MB {
+                return err_json(
+                    "FP_LIMIT_MEMORY",
+                    "mem_mb must be within the browser production budget",
+                );
+            }
+            let Some(prior) = self.plan.clone() else {
+                return err_json("FP_NO_PLAN", "session has no stashed plan to follow");
+            };
+            let sol = self
+                .inner
+                .replan_following(&prior, self.cursor, evals, Some(mem_mb));
+            self.plan = if sol.solved { sol.plan.clone() } else { None };
+            self.cursor = 0;
+            serialize_or_error!(&sol)
+        }
+
+        /// DfCM repair router. Preserve the cheapest reversible option:
+        /// goal-met -> valid suffix reuse -> follow-biased repair -> full
+        /// bounded replan. It never advances the cursor or actuates.
+        pub fn repair(&mut self, evals: usize, mem_mb: usize) -> String {
+            if evals == 0 || evals > WASM_MAX_THINK_EVALS {
+                return err_json(
+                    "FP_LIMIT_SEARCH",
+                    "evals must be within the browser production budget",
+                );
+            }
+            if mem_mb == 0 || mem_mb > WASM_MAX_THINK_MEMORY_MB {
+                return err_json(
+                    "FP_LIMIT_MEMORY",
+                    "mem_mb must be within the browser production budget",
+                );
+            }
+
+            crate::dfcm_route::repair(&self.inner, &mut self.plan, &mut self.cursor, evals, mem_mb)
+                .to_string()
+        }
+
+        /// Compare bounded counterfactual candidates over cheap forks without
+        /// mutating this parent session. Each candidate may retarget the goal,
+        /// observe a bounded fact set, and optionally restrict its action
+        /// surface by display substring.
+        pub fn probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) -> String {
+            if candidates_json.len() > WASM_JSON_FIELD_BYTES {
+                return err_json("FP_LIMIT_INPUT", "candidate JSON exceeds the browser limit");
+            }
+            if evals == 0 || evals > WASM_MAX_THINK_EVALS {
+                return err_json(
+                    "FP_LIMIT_SEARCH",
+                    "evals must be within the browser production budget",
+                );
+            }
+            if mem_mb == 0 || mem_mb > WASM_MAX_THINK_MEMORY_MB {
+                return err_json(
+                    "FP_LIMIT_MEMORY",
+                    "mem_mb must be within the browser production budget",
+                );
+            }
+            let candidates: Vec<crate::dfcm_route::ProbeCandidate> =
+                match serde_json::from_str(candidates_json) {
+                    Ok(candidates) => candidates,
+                    Err(error) => return err_json("FP_ADAPTER", &format!("candidates: {error}")),
+                };
+            if let Err((code, message)) =
+                crate::dfcm_route::admit_candidates(&candidates, WASM_TEXT_FIELD_BYTES, "browser")
+            {
+                return err_json(code, &message);
+            }
+            let results = crate::dfcm_route::probe_all(&self.inner, &candidates, evals, mem_mb);
+            serde_json::json!({
+                "candidate_count": results.len(),
+                "results": results,
+            })
+            .to_string()
         }
 
         /// Replay the stored plan's tail from the cursor forward — free, no

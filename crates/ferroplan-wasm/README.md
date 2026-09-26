@@ -24,14 +24,18 @@ Paste a PDDL domain + problem, hit **Plan** — everything runs client-side.
 
 - `plan(domain: string, problem: string, mode?: string) -> string` — returns a
   JSON-serialized `Solution` (or `{"error": "..."}`). `mode` ∈ auto | ff | pddl3 | partition | temporal.
+- `fond_validate(problem_json, plan_json) -> string` — independently validates a FOND `UniversalPlan` against the exact universal-planning problem and returns typed strong / strong-cyclic / invalid evidence; never actuates.
 - `explain(domain, problem, plan_json) -> string` — plan introspection
   (0.18): causal links (classical), invariant spans (temporal), preference
   breakdown (PDDL3), as an `Explanation` JSON. `plan_json` is a
   `Solution`'s `plan` field.
 - `WasmSession` — the live `Session` surface: `fork`, `set_goal`,
   `restrict_prefix_claims` / `restrict_contains`, `think`, `valid` /
-  `plan_valid_json`, `apply_start`, `elapse`, `set_fact` / `set_fluent`,
-  `fact` / `fluent`, `observe`, `goal_met` — what the live pages drive.
+  `plan_valid_json`, `replan_following`, `repair`, `probe_json`, `apply_start`, `elapse`,
+  `set_fact` / `set_fluent`, `fact` / `fluent`, `observe`, `goal_met` — what
+  the live pages drive. `repair` is the DfCM path: goal-met -> zero-search
+  suffix reuse -> follow-biased tail repair -> bounded full replan; it never
+  executes an action. `probe_json` evaluates bounded counterfactual goals/world observations over cheap forks while leaving the parent session unchanged. Probe admission refuses the whole request on duplicate candidate ids (`FP_DUPLICATE_CANDIDATE`) or an empty/oversized id (`FP_LIMIT_CANDIDATE`), and refuses a single candidate whose sight states one fact both true and false (`outcome: refused`, `stage: observe`). Both surfaces (browser `WasmSession` and WASI `session_repair`/`session_probe`) run one shared kernel, `src/dfcm_route.rs`; the browser parity tests diff the browser output against that kernel. Benchmark and regression bound: `benchmarks/dfcm-repair-v26.9.26.json`.
 - `version() -> string`.
 
 ## The live pages

@@ -20,6 +20,17 @@
 // The pulled-in module carries its own `#[cfg(test)] mod tests` (the
 // single-threaded op tests from wave-3 ticket 17) — compiled here too, so
 // they get their only native-host execution alongside the stress suite.
+// `wasi_abi.rs` resolves its shared probe guards as `crate::probe_guard`,
+// so the host view pulls in that exact source file at the same crate path.
+#[allow(dead_code)]
+#[path = "../src/probe_guard.rs"]
+mod probe_guard;
+
+// `wasi_abi.rs` routes repair/probe through the shared kernel at
+// `crate::dfcm_route`; the host view binds that path to the library's own
+// compiled kernel (the same module the browser surface calls).
+use ferroplan_wasm::dfcm_route;
+
 #[allow(dead_code)]
 #[path = "../src/wasi_abi.rs"]
 mod wasi_abi_host_view;
