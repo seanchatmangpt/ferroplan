@@ -24,6 +24,7 @@ Paste a PDDL domain + problem, hit **Plan** — everything runs client-side.
 
 - `plan(domain: string, problem: string, mode?: string) -> string` — returns a
   JSON-serialized `Solution` (or `{"error": "..."}`). `mode` ∈ auto | ff | pddl3 | partition | temporal.
+- `fond_validate(problem_json, plan_json) -> string` — independently validates a FOND `UniversalPlan` against the exact universal-planning problem and returns typed strong / strong-cyclic / invalid evidence; never actuates.
 - `explain(domain, problem, plan_json) -> string` — plan introspection
   (0.18): causal links (classical), invariant spans (temporal), preference
   breakdown (PDDL3), as an `Explanation` JSON. `plan_json` is a
