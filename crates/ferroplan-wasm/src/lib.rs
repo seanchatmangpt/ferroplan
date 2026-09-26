@@ -24,6 +24,8 @@
 //! = "wasi")`); this file's `#[wasm_bindgen]` surface only compiles for the
 //! browser target.
 
+pub mod probe_guard;
+
 #[cfg(all(target_arch = "wasm32", target_os = "wasi"))]
 pub mod wasi_abi;
 
@@ -595,12 +597,27 @@ mod browser_impl {
                     "candidates must contain between 1 and 32 entries",
                 );
             }
+            if let Some(id) =
+                crate::probe_guard::malformed_id(candidates.iter().map(|c| c.id.as_str()))
+            {
+                return err_json(
+                    "FP_LIMIT_CANDIDATE",
+                    &format!("candidate id `{id}` must be 1..=256 bytes"),
+                );
+            }
+            if let Some(id) =
+                crate::probe_guard::duplicate_id(candidates.iter().map(|c| c.id.as_str()))
+            {
+                return err_json(
+                    "FP_DUPLICATE_CANDIDATE",
+                    &format!("candidate id `{id}` is delivered more than once"),
+                );
+            }
             if candidates.iter().any(|candidate| {
-                candidate.id.len() > 256
-                    || candidate
-                        .goal
-                        .as_ref()
-                        .is_some_and(|goal| goal.len() > WASM_TEXT_FIELD_BYTES)
+                candidate
+                    .goal
+                    .as_ref()
+                    .is_some_and(|goal| goal.len() > WASM_TEXT_FIELD_BYTES)
                     || candidate.sight.len() > WASM_MAX_PROBE_OBSERVATIONS
                     || candidate.sight.iter().any(|(fact, _)| fact.len() > 4_096)
                     || candidate
@@ -617,6 +634,14 @@ mod browser_impl {
             let results = candidates
                 .iter()
                 .map(|candidate| {
+                    if let Some(fact) = crate::probe_guard::contradictory_fact(&candidate.sight) {
+                        return serde_json::json!({
+                            "id": candidate.id,
+                            "outcome": "refused",
+                            "stage": "observe",
+                            "error": format!("contradictory observation of `{fact}`"),
+                        });
+                    }
                     let mut mind = self.inner.fork();
                     if let Some(goal) = &candidate.goal {
                         if let Err(error) = mind.set_goal(goal) {

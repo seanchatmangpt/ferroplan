@@ -471,8 +471,15 @@ fn op_fond_policy(req: &Value) -> Result<Value, String> {
 fn op_fond_validate(req: &Value) -> Result<Value, String> {
     let problem_text = field_str(req, "problem")?;
     bounded(problem_text, WASI_JSON_FIELD_BYTES, "problem")?;
-    let problem: PlanningProblem = serde_json::from_str(problem_text)
-        .map_err(|e| format!("problem: invalid PlanningProblem JSON: {e}"))?;
+    let problem: PlanningProblem = match serde_json::from_str(problem_text) {
+        Ok(problem) => problem,
+        Err(error) => {
+            return Ok(err_json(
+                "FP_INVALID_PROBLEM",
+                &format!("problem: invalid PlanningProblem JSON: {error}"),
+            ))
+        }
+    };
     let plan_value = req
         .get("plan")
         .ok_or_else(|| "missing field `plan`".to_string())?;
@@ -912,12 +919,23 @@ fn op_session_probe(req: &Value) -> Result<Value, String> {
             "candidates must contain between 1 and 32 entries",
         ));
     }
+    if let Some(id) = crate::probe_guard::malformed_id(candidates.iter().map(|c| c.id.as_str())) {
+        return Ok(err_json(
+            "FP_LIMIT_CANDIDATE",
+            &format!("candidate id `{id}` must be 1..=256 bytes"),
+        ));
+    }
+    if let Some(id) = crate::probe_guard::duplicate_id(candidates.iter().map(|c| c.id.as_str())) {
+        return Ok(err_json(
+            "FP_DUPLICATE_CANDIDATE",
+            &format!("candidate id `{id}` is delivered more than once"),
+        ));
+    }
     if candidates.iter().any(|candidate| {
-        candidate.id.len() > 256
-            || candidate
-                .goal
-                .as_ref()
-                .is_some_and(|goal| goal.len() > WASI_TEXT_FIELD_BYTES)
+        candidate
+            .goal
+            .as_ref()
+            .is_some_and(|goal| goal.len() > WASI_TEXT_FIELD_BYTES)
             || candidate.sight.len() > WASI_MAX_PROBE_OBSERVATIONS
             || candidate.sight.iter().any(|(fact, _)| fact.len() > 4_096)
             || candidate
@@ -935,6 +953,14 @@ fn op_session_probe(req: &Value) -> Result<Value, String> {
         candidates
             .iter()
             .map(|candidate| {
+                if let Some(fact) = crate::probe_guard::contradictory_fact(&candidate.sight) {
+                    return json!({
+                        "id": candidate.id,
+                        "outcome": "refused",
+                        "stage": "observe",
+                        "error": format!("contradictory observation of `{fact}`"),
+                    });
+                }
                 let mut mind = parent.inner.fork();
 
                 if let Some(goal) = &candidate.goal {
@@ -1708,8 +1734,8 @@ mod tests {
 
     const REPAIR_PROBLEM: &str = r#"(define (problem repair)
   (:domain rooms)
-  (:objects a b c - room)
-  (:init (at a) (link a b) (link c b))
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c b))
   (:goal (at b)))"#;
 
     fn repair_session() -> u64 {
@@ -1846,12 +1872,17 @@ mod tests {
                     "sight": [["(at a)", false], ["(at c)", true]]
                 },
                 {
-                    "id": "unreachable-c",
-                    "goal": "(at c)"
+                    "id": "stranded",
+                    "goal": "(at b)",
+                    "sight": [["(at a)", false]]
+                },
+                {
+                    "id": "ungrounded-d",
+                    "goal": "(at d)"
                 }
             ]
         }));
-        assert_eq!(probed["candidate_count"], json!(3), "{probed}");
+        assert_eq!(probed["candidate_count"], json!(4), "{probed}");
         let results = probed["results"].as_array().expect("probe results");
         assert_eq!(results[0]["outcome"], json!("solved"), "{probed}");
         assert_eq!(results[1]["outcome"], json!("solved"), "{probed}");
@@ -1862,6 +1893,8 @@ mod tests {
             "the counterfactual must differ from parent belief: {probed}"
         );
         assert_eq!(results[2]["outcome"], json!("unsolved"), "{probed}");
+        assert_eq!(results[3]["outcome"], json!("refused"), "{probed}");
+        assert_eq!(results[3]["stage"], json!("set_goal"), "{probed}");
 
         let parent_plan = dispatch_json(&json!({
             "op": "session_has_plan",
@@ -1916,6 +1949,607 @@ mod tests {
 
         let freed = dispatch_json(&json!({"op": "session_free", "handle": handle}));
         assert_eq!(freed["freed"], json!(true));
+    }
+
+    // ------------------------------------------------------------------
+    // v26.9.26 hardening of the DfCM repair / probe / FOND-validate ops.
+    // Every test drives the real dispatch path over real Ferroplan sessions
+    // (no doubles). Each named falsifier is the observation that would
+    // refute the PR's claimed capability.
+    // ------------------------------------------------------------------
+
+    fn call(req: Value) -> Value {
+        dispatch_json(&req)
+    }
+
+    fn think(handle: u64) -> Value {
+        call(json!({"op": "session_think", "handle": handle, "evals": 10_000, "mem_mb": 64}))
+    }
+
+    fn repair(handle: u64) -> Value {
+        call(json!({"op": "session_repair", "handle": handle, "evals": 10_000, "mem_mb": 64}))
+    }
+
+    fn suffix(handle: u64) -> Value {
+        call(json!({"op": "session_suffix", "handle": handle}))
+    }
+
+    fn free(handle: u64) {
+        let freed = call(json!({"op": "session_free", "handle": handle}));
+        assert_eq!(freed["freed"], json!(true), "{freed}");
+    }
+
+    fn probe(handle: u64, candidates: Value) -> Value {
+        call(json!({
+            "op": "session_probe",
+            "handle": handle,
+            "evals": 10_000,
+            "mem_mb": 64,
+            "candidates": candidates,
+        }))
+    }
+
+    /// Falsifier (duplicate delivery): two candidates with one id would make
+    /// an id-keyed consumer silently drop one result.
+    #[test]
+    fn session_probe_refuses_duplicate_candidate_ids_before_forking() {
+        let handle = repair_session();
+        let refused = probe(
+            handle,
+            json!([{"id": "same", "goal": "(at b)"}, {"id": "same", "goal": "(at c)"}]),
+        );
+        assert_eq!(
+            refused["error"]["code"],
+            json!("FP_DUPLICATE_CANDIDATE"),
+            "{refused}"
+        );
+        let has_plan = call(json!({"op": "session_has_plan", "handle": handle}));
+        assert_eq!(has_plan["has_plan"], json!(false), "{has_plan}");
+        free(handle);
+    }
+
+    #[test]
+    fn session_probe_refuses_empty_and_oversized_candidate_ids() {
+        let handle = repair_session();
+        let empty = probe(handle, json!([{"id": ""}]));
+        assert_eq!(
+            empty["error"]["code"],
+            json!("FP_LIMIT_CANDIDATE"),
+            "{empty}"
+        );
+        let long = probe(handle, json!([{"id": "x".repeat(257)}]));
+        assert_eq!(long["error"]["code"], json!("FP_LIMIT_CANDIDATE"), "{long}");
+        let edge = probe(handle, json!([{"id": "x".repeat(256)}]));
+        assert_eq!(edge["candidate_count"], json!(1), "{edge}");
+        free(handle);
+    }
+
+    /// Falsifier (malformed input): a sight that says both `true` and
+    /// `false` for one fact would otherwise resolve by list order.
+    #[test]
+    fn session_probe_refuses_contradictory_sight_per_candidate_only() {
+        let handle = repair_session();
+        let probed = probe(
+            handle,
+            json!([
+                {"id": "contradiction", "goal": "(at b)",
+                 "sight": [["(at c)", true], ["(AT  C)", false]]},
+                {"id": "baseline", "goal": "(at b)"}
+            ]),
+        );
+        let results = probed["results"].as_array().expect("results");
+        assert_eq!(results[0]["outcome"], json!("refused"), "{probed}");
+        assert_eq!(results[0]["stage"], json!("observe"), "{probed}");
+        assert!(
+            results[0]["error"]
+                .as_str()
+                .is_some_and(|e| e.contains("contradictory")),
+            "{probed}"
+        );
+        assert_eq!(results[1]["outcome"], json!("solved"), "{probed}");
+        let c = call(json!({"op": "session_fact", "handle": handle, "name": "(at c)"}));
+        assert_eq!(
+            c["value"],
+            json!(false),
+            "the parent must not see the probe: {c}"
+        );
+        free(handle);
+    }
+
+    /// Falsifier (unauthorized widening/narrowing leaking across forks): a
+    /// candidate's action restriction must stay inside its own fork.
+    #[test]
+    fn session_probe_restriction_does_not_leak_into_the_parent() {
+        let handle = repair_session();
+        let probed = probe(
+            handle,
+            json!([{"id": "starved", "goal": "(at b)", "restrict_contains": "NO-SUCH-ACTION"}]),
+        );
+        assert_eq!(
+            probed["results"][0]["outcome"],
+            json!("unsolved"),
+            "{probed}"
+        );
+        let parent = think(handle);
+        assert_eq!(
+            parent["solved"],
+            json!(true),
+            "parent keeps its full action surface: {parent}"
+        );
+        free(handle);
+    }
+
+    /// Falsifier (replay mismatch): the same probe over the same parent must
+    /// be byte-identical — probes are deterministic evidence.
+    #[test]
+    fn session_probe_replays_byte_identically() {
+        let handle = repair_session();
+        let candidates = json!([
+            {"id": "baseline", "goal": "(at b)"},
+            {"id": "counterfactual-c", "goal": "(at b)", "sight": [["(at a)", false], ["(at c)", true]]},
+            {"id": "stranded", "sight": [["(at a)", false]]}
+        ]);
+        let first = serde_json::to_string(&probe(handle, candidates.clone())).unwrap();
+        let second = serde_json::to_string(&probe(handle, candidates)).unwrap();
+        assert_eq!(first, second);
+        free(handle);
+    }
+
+    /// Falsifier (reordering): results come back in request order, so a
+    /// reversed request yields the reversed result list, entry for entry.
+    #[test]
+    fn session_probe_results_follow_request_order() {
+        let handle = repair_session();
+        let a = json!({"id": "a", "goal": "(at b)"});
+        let b = json!({"id": "b", "goal": "(at c)"});
+        let forward = probe(handle, json!([a.clone(), b.clone()]));
+        let reverse = probe(handle, json!([b, a]));
+        let fwd = forward["results"].as_array().unwrap();
+        let rev = reverse["results"].as_array().unwrap();
+        assert_eq!(fwd[0], rev[1], "{forward} vs {reverse}");
+        assert_eq!(fwd[1], rev[0], "{forward} vs {reverse}");
+        free(handle);
+    }
+
+    #[test]
+    fn session_probe_preserves_the_parent_plan_and_cursor() {
+        let handle = repair_session();
+        assert_eq!(think(handle)["solved"], json!(true));
+        let before = suffix(handle);
+        let probed = probe(
+            handle,
+            json!([{"id": "counterfactual-c", "sight": [["(at a)", false], ["(at c)", true]]}]),
+        );
+        assert_eq!(probed["results"][0]["outcome"], json!("solved"), "{probed}");
+        assert_eq!(suffix(handle), before);
+        let valid = call(json!({"op": "session_valid", "handle": handle}));
+        assert_eq!(valid["valid"], json!(true), "{valid}");
+        free(handle);
+    }
+
+    #[test]
+    fn session_probe_rejects_non_array_candidates_and_unknown_handles() {
+        let handle = repair_session();
+        let malformed = dispatch(
+            &serde_json::to_vec(&json!({
+                "op": "session_probe", "handle": handle, "evals": 10, "mem_mb": 8,
+                "candidates": {"id": "not-an-array"}
+            }))
+            .unwrap(),
+        );
+        assert!(malformed.is_err_and(|e| e.contains("candidates")));
+        free(handle);
+        let stale = dispatch(
+            &serde_json::to_vec(&json!({
+                "op": "session_probe", "handle": handle, "evals": 10, "mem_mb": 8,
+                "candidates": [{"id": "x"}]
+            }))
+            .unwrap(),
+        );
+        assert!(stale.is_err(), "a freed handle is a stale subject");
+    }
+
+    /// Falsifier (unauthorized spend): an out-of-budget repair must refuse
+    /// before touching the stashed plan.
+    #[test]
+    fn session_repair_refuses_out_of_budget_requests_without_mutation() {
+        let handle = repair_session();
+        assert_eq!(think(handle)["solved"], json!(true));
+        call(json!({"op": "session_observe", "handle": handle,
+                    "sight": [["(at a)", false], ["(at c)", true]]}));
+        let before = suffix(handle);
+        for (evals, mem_mb, code) in [
+            (0_u64, 64_u64, "FP_LIMIT_SEARCH"),
+            ((WASI_MAX_THINK_EVALS + 1) as u64, 64, "FP_LIMIT_SEARCH"),
+            (10_000, 0, "FP_LIMIT_MEMORY"),
+            (
+                10_000,
+                (WASI_MAX_THINK_MEMORY_MB + 1) as u64,
+                "FP_LIMIT_MEMORY",
+            ),
+        ] {
+            let refused = call(json!({"op": "session_repair", "handle": handle,
+                                      "evals": evals, "mem_mb": mem_mb}));
+            assert_eq!(refused["error"]["code"], json!(code), "{refused}");
+            assert_eq!(
+                suffix(handle),
+                before,
+                "refusal must not mutate the session"
+            );
+        }
+        free(handle);
+    }
+
+    #[test]
+    fn session_repair_and_follow_refuse_stale_handles_and_missing_plans() {
+        let handle = repair_session();
+        let no_plan = dispatch(
+            &serde_json::to_vec(&json!({"op": "session_replan_following", "handle": handle,
+                                        "evals": 10, "mem_mb": 8}))
+            .unwrap(),
+        );
+        assert!(no_plan.is_err_and(|e| e.contains("no stashed plan")));
+        free(handle);
+        let stale = dispatch(
+            &serde_json::to_vec(&json!({"op": "session_repair", "handle": handle,
+                                        "evals": 10, "mem_mb": 8}))
+            .unwrap(),
+        );
+        assert!(stale.is_err(), "a freed handle is a stale subject");
+    }
+
+    #[test]
+    fn session_repair_short_circuits_when_the_goal_is_already_met() {
+        let handle = repair_session();
+        assert_eq!(think(handle)["solved"], json!(true));
+        let before = suffix(handle);
+        call(json!({"op": "session_observe", "handle": handle,
+                    "sight": [["(at a)", false], ["(at b)", true]]}));
+        let repaired = repair(handle);
+        assert_eq!(repaired["decision"], json!("goal_met"), "{repaired}");
+        assert_eq!(repaired["solution"], Value::Null, "{repaired}");
+        assert_eq!(suffix(handle), before, "goal_met must not discard lineage");
+        free(handle);
+    }
+
+    /// Falsifier (stale cursor): once the cursor walks past the plan end
+    /// while the goal is still unmet, reuse of an empty suffix would be a
+    /// false "nothing to do". The router must re-derive a plan instead.
+    #[test]
+    fn session_repair_never_reuses_an_exhausted_suffix_while_the_goal_is_unmet() {
+        for advances in [1_usize, 3] {
+            let handle = repair_session();
+            assert_eq!(think(handle)["solved"], json!(true));
+            for _ in 0..advances {
+                call(json!({"op": "session_advance", "handle": handle}));
+            }
+            let repaired = repair(handle);
+            assert_ne!(repaired["decision"], json!("reuse_suffix"), "{repaired}");
+            assert_eq!(repaired["solution"]["solved"], json!(true), "{repaired}");
+            assert!(
+                !repaired["suffix"].as_array().unwrap().is_empty(),
+                "{repaired}"
+            );
+            let valid = call(json!({"op": "session_valid", "handle": handle}));
+            assert_eq!(valid["valid"], json!(true), "{valid}");
+            free(handle);
+        }
+    }
+
+    /// Falsifier (replay mismatch): repairing twice must converge — the
+    /// second repair reuses exactly the suffix the first one stashed.
+    #[test]
+    fn session_repair_is_idempotent_after_a_follow_repair() {
+        let handle = repair_session();
+        assert_eq!(think(handle)["solved"], json!(true));
+        call(json!({"op": "session_observe", "handle": handle,
+                    "sight": [["(at a)", false], ["(at c)", true]]}));
+        let first = repair(handle);
+        assert_eq!(first["decision"], json!("replanned_following"), "{first}");
+        let second = repair(handle);
+        assert_eq!(second["decision"], json!("reuse_suffix"), "{second}");
+        assert_eq!(second["solution"], Value::Null, "{second}");
+        assert_eq!(second["suffix"], first["suffix"], "{first} vs {second}");
+        free(handle);
+    }
+
+    fn dead_end_subject_json() -> String {
+        json!({
+            "states": [{ "id": "s0" }, { "id": "g", "facts": ["done"] }, { "id": "dead" }],
+            "initial_states": ["s0"],
+            "goal": { "facts": ["done"] },
+            "transitions": [
+                { "action": "flip", "from": "s0", "to": "g", "probability_ppm": 500_000 },
+                { "action": "flip", "from": "s0", "to": "dead", "probability_ppm": 500_000 },
+            ],
+        })
+        .to_string()
+    }
+
+    fn retry_loop_policy() -> Value {
+        let plan = call(json!({
+            "op": "fond_policy",
+            "problem": retry_loop_problem_json(),
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert_eq!(plan["solved"], json!(true), "{plan}");
+        plan
+    }
+
+    /// Falsifier (wrong subject/digest): a policy synthesized for one
+    /// problem must not validate against a different problem.
+    #[test]
+    fn fond_validate_refuses_a_policy_bound_to_a_different_subject() {
+        let report = call(json!({
+            "op": "fond_validate",
+            "problem": dead_end_subject_json(),
+            "plan": retry_loop_policy(),
+        }));
+        assert_eq!(report["valid"], json!(false), "{report}");
+        assert_eq!(report["guarantee"], json!("INVALID"), "{report}");
+    }
+
+    /// Falsifier (reordering): policy outcome order is not semantic.
+    #[test]
+    fn fond_validate_is_independent_of_outcome_order() {
+        let original = retry_loop_policy();
+        let mut reordered = original.clone();
+        reordered["policy"][0]["outcomes"]
+            .as_array_mut()
+            .expect("outcomes")
+            .reverse();
+        assert_ne!(original, reordered, "the fixture must actually reorder");
+        let a = call(
+            json!({"op": "fond_validate", "problem": retry_loop_problem_json(), "plan": original}),
+        );
+        let b = call(
+            json!({"op": "fond_validate", "problem": retry_loop_problem_json(), "plan": reordered}),
+        );
+        assert_eq!(a["valid"], json!(true), "{a}");
+        assert_eq!(b["valid"], a["valid"], "{a} vs {b}");
+        assert_eq!(b["guarantee"], a["guarantee"], "{a} vs {b}");
+    }
+
+    /// Falsifier (duplicate delivery): a policy that names one state twice
+    /// is an ambiguous controller and must be refused with evidence.
+    #[test]
+    fn fond_validate_refuses_duplicate_policy_entries() {
+        let mut plan = retry_loop_policy();
+        let entry = plan["policy"][0].clone();
+        plan["policy"].as_array_mut().expect("policy").push(entry);
+        let report = call(
+            json!({"op": "fond_validate", "problem": retry_loop_problem_json(), "plan": plan}),
+        );
+        assert_eq!(report["valid"], json!(false), "{report}");
+        assert!(
+            report["issues"]
+                .to_string()
+                .to_ascii_lowercase()
+                .contains("duplicate"),
+            "{report}"
+        );
+    }
+
+    #[test]
+    fn fond_validate_returns_typed_refusals_for_malformed_input() {
+        let bad_problem = call(
+            json!({"op": "fond_validate", "problem": "{not json", "plan": retry_loop_policy()}),
+        );
+        assert_eq!(
+            bad_problem["error"]["code"],
+            json!("FP_INVALID_PROBLEM"),
+            "{bad_problem}"
+        );
+        let bad_plan = call(
+            json!({"op": "fond_validate", "problem": retry_loop_problem_json(), "plan": [1, 2, 3]}),
+        );
+        assert_eq!(
+            bad_plan["error"]["code"],
+            json!("FP_INVALID_POLICY"),
+            "{bad_plan}"
+        );
+        let missing = dispatch(
+            &serde_json::to_vec(
+                &json!({"op": "fond_validate", "problem": retry_loop_problem_json()}),
+            )
+            .unwrap(),
+        );
+        assert!(missing.is_err_and(|e| e.contains("plan")));
+    }
+
+    // ---- regression bound + benchmark over a scalable corridor fixture ----
+
+    const CORRIDOR_DOMAIN: &str = r#"(define (domain corridor)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room) (clear ?r - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b) (clear ?b))
+    :effect (and (at ?b) (not (at ?a))))
+  (:action seal
+    :parameters (?r - room)
+    :precondition (clear ?r)
+    :effect (not (clear ?r))))"#;
+
+    /// Corridor r0..rN plus a two-room detour x_i,y_i around every room: the
+    /// main line is strictly shorter, so a blocked room forces a local
+    /// detour that follow-biased repair can splice onto the kept prefix.
+    /// `seal` exists only so `clear` is a dynamic (observable) fact; it
+    /// never helps the goal, so the planner never selects it.
+    fn corridor_problem(n: usize) -> String {
+        let mut objects = Vec::new();
+        let mut init = vec!["(at r0)".to_string()];
+        for i in 0..=n {
+            objects.push(format!("r{i}"));
+            init.push(format!("(clear r{i})"));
+        }
+        for i in 0..n {
+            init.push(format!("(link r{i} r{})", i + 1));
+            if i + 2 <= n {
+                objects.push(format!("x{i}"));
+                objects.push(format!("y{i}"));
+                init.push(format!("(clear x{i})"));
+                init.push(format!("(clear y{i})"));
+                init.push(format!("(link r{i} x{i})"));
+                init.push(format!("(link x{i} y{i})"));
+                init.push(format!("(link y{i} r{})", i + 2));
+            }
+        }
+        format!(
+            "(define (problem corridor{n}) (:domain corridor) (:objects {} - room) (:init {}) (:goal (at r{n})))",
+            objects.join(" "),
+            init.join(" ")
+        )
+    }
+
+    fn corridor_session(n: usize) -> u64 {
+        let created = call(json!({
+            "op": "session_new",
+            "domain": CORRIDOR_DOMAIN,
+            "problem": corridor_problem(n),
+        }));
+        created["handle"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("{created}"))
+    }
+
+    fn evaluated(solution: &Value) -> u64 {
+        solution["statistics"]["evaluated_states"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("{solution}"))
+    }
+
+    /// Committed regression bound (deterministic counts, not wall time):
+    /// reuse spends zero search; follow-biased repair keeps the unbroken
+    /// prefix verbatim and never evaluates more states than a full replan
+    /// from the same drifted world.
+    #[test]
+    fn dfcm_repair_regression_bound_on_a_blocked_corridor() {
+        let n = 24;
+        let handle = corridor_session(n);
+        let first = think(handle);
+        assert_eq!(first["solved"], json!(true), "{first}");
+        let prior = first["plan"]["steps"].as_array().unwrap().clone();
+        assert_eq!(prior.len(), n, "main line is the shortest plan: {first}");
+
+        let reused = repair(handle);
+        assert_eq!(reused["decision"], json!("reuse_suffix"), "{reused}");
+        assert_eq!(
+            reused["solution"],
+            Value::Null,
+            "reuse must cost zero search"
+        );
+
+        let k = n / 2;
+        let blocked = format!("(clear r{k})");
+        call(json!({"op": "session_observe", "handle": handle, "sight": [[blocked, false]]}));
+
+        let full_fork = call(json!({"op": "session_fork", "handle": handle}))["handle"]
+            .as_u64()
+            .expect("fork handle");
+        call(json!({"op": "session_drop_plan", "handle": full_fork}));
+        let full = think(full_fork);
+        assert_eq!(full["solved"], json!(true), "{full}");
+
+        let repaired = repair(handle);
+        assert_eq!(
+            repaired["decision"],
+            json!("replanned_following"),
+            "{repaired}"
+        );
+        let suffix = repaired["suffix"].as_array().unwrap();
+        for i in 0..(k - 1) {
+            assert_eq!(
+                suffix[i]["action"], prior[i]["action"],
+                "step {i}: {repaired}"
+            );
+            assert_eq!(suffix[i]["args"], prior[i]["args"], "step {i}: {repaired}");
+        }
+        assert!(
+            evaluated(&repaired["solution"]) <= evaluated(&full),
+            "follow {} > full {}",
+            evaluated(&repaired["solution"]),
+            evaluated(&full)
+        );
+        println!(
+            "DFCM_BOUND n={n} full_evaluated={} follow_evaluated={} kept_prefix={}",
+            evaluated(&full),
+            evaluated(&repaired["solution"]),
+            k - 1
+        );
+        free(full_fork);
+        free(handle);
+    }
+
+    fn median_ns(mut samples: Vec<u128>) -> u128 {
+        samples.sort_unstable();
+        samples[samples.len() / 2]
+    }
+
+    /// Wall-clock benchmark of the DfCM routes through the real WASI
+    /// dispatch. Run: `CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime cargo
+    /// test -p ferroplan-wasm --target wasm32-wasip1 --release --lib
+    /// dfcm_route_bench -- --ignored --nocapture`. Numbers are recorded in
+    /// `benchmarks/dfcm-repair-v26.9.26.json`; the committed bound is the
+    /// ordering reuse < follow <= think (a regression would invert it).
+    #[test]
+    #[ignore = "benchmark; run explicitly with --ignored --nocapture"]
+    fn dfcm_route_bench() {
+        let iterations = 31;
+        for n in [16_usize, 64] {
+            let handle = corridor_session(n);
+            let mut think_ns = Vec::new();
+            let mut reuse_ns = Vec::new();
+            let mut follow_ns = Vec::new();
+            let mut probe_ns = Vec::new();
+            let k = n / 2;
+            for _ in 0..iterations {
+                call(json!({"op": "session_observe", "handle": handle,
+                            "sight": [[format!("(clear r{k})"), true]]}));
+                let t = std::time::Instant::now();
+                assert_eq!(think(handle)["solved"], json!(true));
+                think_ns.push(t.elapsed().as_nanos());
+
+                let t = std::time::Instant::now();
+                assert_eq!(repair(handle)["decision"], json!("reuse_suffix"));
+                reuse_ns.push(t.elapsed().as_nanos());
+
+                call(json!({"op": "session_observe", "handle": handle,
+                            "sight": [[format!("(clear r{k})"), false]]}));
+                let t = std::time::Instant::now();
+                assert_eq!(repair(handle)["decision"], json!("replanned_following"));
+                follow_ns.push(t.elapsed().as_nanos());
+
+                let candidates = (0..8)
+                    .map(|i| {
+                        json!({"id": format!("c{i}"),
+                                    "sight": [[format!("(clear r{})", 1 + i % (n - 1)), false]]})
+                    })
+                    .collect::<Vec<_>>();
+                let t = std::time::Instant::now();
+                assert_eq!(
+                    probe(handle, json!(candidates))["candidate_count"],
+                    json!(8)
+                );
+                probe_ns.push(t.elapsed().as_nanos());
+            }
+            let (th, re, fo, pr) = (
+                median_ns(think_ns),
+                median_ns(reuse_ns),
+                median_ns(follow_ns),
+                median_ns(probe_ns),
+            );
+            println!(
+                "DFCM_BENCH n={n} iterations={iterations} think_ns={th} repair_reuse_ns={re} repair_follow_ns={fo} probe8_ns={pr}"
+            );
+            assert!(re < th, "reuse ({re} ns) must beat a full think ({th} ns)");
+            assert!(
+                fo < th,
+                "follow repair ({fo} ns) must beat a full think ({th} ns)"
+            );
+            free(handle);
+        }
     }
 
     // ------------------------------------------------------------------
