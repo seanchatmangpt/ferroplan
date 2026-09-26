@@ -46,6 +46,8 @@ mod browser_impl {
     const WASM_JSON_FIELD_BYTES: usize = 16 * 1024 * 1024;
     const WASM_MAX_THINK_EVALS: usize = 1_000_000;
     const WASM_MAX_THINK_MEMORY_MB: usize = 2_048;
+    const WASM_MAX_PROBE_CANDIDATES: usize = 32;
+    const WASM_MAX_PROBE_OBSERVATIONS: usize = 1_024;
 
     macro_rules! serialize_or_error {
         ($value:expr) => {
@@ -293,6 +295,15 @@ mod browser_impl {
     /// shape exactly: think stashes the plan, `valid()` is a free replay of
     /// the suffix, `step_json()` / `advance()` walk it one beat at a time. All
     /// untrusted string/JSON boundaries are explicitly bounded.
+    #[derive(serde::Deserialize)]
+    struct BrowserProbeCandidate {
+        id: String,
+        goal: Option<String>,
+        #[serde(default)]
+        sight: Vec<(String, bool)>,
+        restrict_contains: Option<String>,
+    }
+
     #[wasm_bindgen]
     pub struct WasmSession {
         inner: ferroplan::Session,
@@ -516,6 +527,117 @@ mod browser_impl {
                     .to_string()
                 }
             }
+        }
+
+        /// Compare bounded counterfactual candidates over cheap forks without
+        /// mutating this parent session. Each candidate may retarget the goal,
+        /// observe a bounded fact set, and optionally restrict its action
+        /// surface by display substring.
+        pub fn probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) -> String {
+            if candidates_json.len() > WASM_JSON_FIELD_BYTES {
+                return err_json("FP_LIMIT_INPUT", "candidate JSON exceeds the browser limit");
+            }
+            if evals == 0 || evals > WASM_MAX_THINK_EVALS {
+                return err_json(
+                    "FP_LIMIT_SEARCH",
+                    "evals must be within the browser production budget",
+                );
+            }
+            if mem_mb == 0 || mem_mb > WASM_MAX_THINK_MEMORY_MB {
+                return err_json(
+                    "FP_LIMIT_MEMORY",
+                    "mem_mb must be within the browser production budget",
+                );
+            }
+            let candidates: Vec<BrowserProbeCandidate> =
+                match serde_json::from_str(candidates_json) {
+                    Ok(candidates) => candidates,
+                    Err(error) => return err_json("FP_ADAPTER", &format!("candidates: {error}")),
+                };
+            if candidates.is_empty() || candidates.len() > WASM_MAX_PROBE_CANDIDATES {
+                return err_json(
+                    "FP_LIMIT_CANDIDATES",
+                    "candidates must contain between 1 and 32 entries",
+                );
+            }
+            if candidates.iter().any(|candidate| {
+                candidate.id.len() > 256
+                    || candidate
+                        .goal
+                        .as_ref()
+                        .is_some_and(|goal| goal.len() > WASM_TEXT_FIELD_BYTES)
+                    || candidate.sight.len() > WASM_MAX_PROBE_OBSERVATIONS
+                    || candidate
+                        .sight
+                        .iter()
+                        .any(|(fact, _)| fact.len() > 4_096)
+                    || candidate
+                        .restrict_contains
+                        .as_ref()
+                        .is_some_and(|filter| filter.len() > 4_096)
+            }) {
+                return err_json(
+                    "FP_LIMIT_CANDIDATE",
+                    "candidate id, goal, observation, or restriction exceeds the browser probe limit",
+                );
+            }
+
+            let results = candidates
+                .iter()
+                .map(|candidate| {
+                    let mut mind = self.inner.fork();
+                    if let Some(goal) = &candidate.goal {
+                        if let Err(error) = mind.set_goal(goal) {
+                            return serde_json::json!({
+                                "id": candidate.id,
+                                "outcome": "refused",
+                                "stage": "set_goal",
+                                "error": error,
+                            });
+                        }
+                    }
+                    if let Some(filter) = &candidate.restrict_contains {
+                        let filter = filter.clone();
+                        mind.restrict_ops(move |display| display.contains(&filter));
+                    }
+                    let surprises = if candidate.sight.is_empty() {
+                        Vec::new()
+                    } else {
+                        let refs = candidate
+                            .sight
+                            .iter()
+                            .map(|(fact, value)| (fact.as_str(), *value))
+                            .collect::<Vec<_>>();
+                        match mind.observe(&refs) {
+                            Ok(news) => news,
+                            Err(error) => {
+                                return serde_json::json!({
+                                    "id": candidate.id,
+                                    "outcome": "refused",
+                                    "stage": "observe",
+                                    "error": error,
+                                })
+                            }
+                        }
+                    };
+                    let solution = mind.replan_budgeted(evals, Some(mem_mb));
+                    serde_json::json!({
+                        "id": candidate.id,
+                        "outcome": if solution.solved { "solved" } else { "unsolved" },
+                        "surprises": surprises,
+                        "goal_met_before_search": mind.goal_met(),
+                        "world_bytes": mind.world_bytes(),
+                        "mind_bytes": mind.mind_bytes(),
+                        "solution": solution,
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            serde_json::json!({
+                "candidate_count": results.len(),
+                "results": results,
+            })
+            .to_string()
         }
 
         /// Replay the stored plan's tail from the cursor forward — free, no
