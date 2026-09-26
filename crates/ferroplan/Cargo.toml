@@ -15,11 +15,11 @@ readme = "../../README.md"
 [dependencies]
 # The SAT compilation wing's solver (0.24 Phase 2) — the first wiring of
 # the absorbed crate, version-pinned like every other in-workspace dep.
-ferroplan-sat = { path = "../ferroplan-sat", version = "0.28.1" }
+ferroplan-sat = { path = "../ferroplan-sat", version = "0.29.0" }
 # HDDL front-end (parse -> ground -> translate) for the `hddl` module's
 # planning_runtime entry point. One-way dependency edge -- see the note in
 # ferroplan-hddl's Cargo.toml on why the direction is this way, not reversed.
-ferroplan-hddl = { path = "../ferroplan-hddl", version = "0.28.1" }
+ferroplan-hddl = { path = "../ferroplan-hddl", version = "0.29.0" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -58,4 +58,10 @@ harness = false
 
 [[bench]]
 name = "fond"
+harness = false
+
+# Many-minds fork cost (0.29): world_bytes / mind_bytes / fork latency at
+# N = 1, 8, 64, 512 live forks off one grounded world.
+[[bench]]
+name = "session_fork"
 harness = false

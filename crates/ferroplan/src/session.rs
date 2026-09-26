@@ -1951,6 +1951,74 @@ impl Session {
         }
     }
 
+    /// The follow-biased think (0.29): [`Session::replan_following`] under a
+    /// [`ThinkBudget`], stamped like [`Session::think`]. The prior plan's
+    /// still-applicable suffix (`from_step..`) replays first (zero search
+    /// when it still reaches the goal), and only the broken tail is
+    /// searched. If that leg comes back without a plan, the orbit-aware
+    /// [`Session::think`] runs on whatever eval (and wall) budget remains,
+    /// and the returned `spent_evals` / `statistics.evaluated_states` count
+    /// BOTH legs.
+    ///
+    /// Honesty is inherited, not re-derived: a follow leg that burns the
+    /// whole budget reports [`ThinkVerdict::Capped`] (it proves nothing), and
+    /// [`ThinkVerdict::Exhausted`] only ever comes from the fallback think's
+    /// own complete classical search. The follow leg itself checks no wall
+    /// clock (it is an eval-bounded search); `wall_ms` bounds the fallback.
+    /// With no eval cap anywhere (neither the budget nor the session's own
+    /// `max_evaluated`), there is no budget to share between legs, so this
+    /// is exactly [`Session::think`].
+    pub fn think_following(&self, prior: &Plan, from_step: usize, budget: &ThinkBudget) -> Think {
+        let t0 = crate::clock::Clock::now();
+        let Some(max_evaluated) = budget.max_evaluated.or(self.max_evaluated) else {
+            return self.think(budget);
+        };
+        let followed = self.replan_following(prior, from_step, max_evaluated, budget.memory_mb);
+        let followed_evals = followed.statistics.evaluated_states;
+        if followed.solved {
+            return Think {
+                solution: followed,
+                capped: false,
+                spent_ms: t0.elapsed_ms() as u64,
+                spent_evals: followed_evals,
+                verdict: ThinkVerdict::Solved,
+            };
+        }
+        let remaining_evals = max_evaluated.saturating_sub(followed_evals);
+        let remaining_wall = budget
+            .wall_ms
+            .map(|ms| ms.saturating_sub(t0.elapsed_ms() as u64));
+        if remaining_evals == 0 || remaining_wall == Some(0) {
+            let mut solution = followed;
+            solution.notes.push(format!(
+                "follow-biased think capped at {followed_evals} evals: no plan within \
+                 budget; the goal was NOT proven unreachable"
+            ));
+            return Think {
+                solution,
+                capped: true,
+                spent_ms: t0.elapsed_ms() as u64,
+                spent_evals: followed_evals,
+                verdict: ThinkVerdict::Capped,
+            };
+        }
+        let mut think = self.think(&ThinkBudget {
+            max_evaluated: Some(remaining_evals),
+            wall_ms: remaining_wall,
+            memory_mb: budget.memory_mb,
+        });
+        think.spent_evals += followed_evals;
+        think.solution.statistics.evaluated_states += followed_evals;
+        think.spent_ms = t0.elapsed_ms() as u64;
+        think.solution.notes.insert(
+            0,
+            "follow-biased rethink found no plan; fell back to the orbit-aware think \
+             on the remaining budget"
+                .into(),
+        );
+        think
+    }
+
     /// The temporal arm of [`Session::think`]: the plain bounded ladder plus
     /// the pass-boundary wall check, stamped. An unsolved temporal think is
     /// ALWAYS [`ThinkVerdict::Capped`] — between the eval budget, the node
