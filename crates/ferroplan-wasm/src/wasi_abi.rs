@@ -23,7 +23,17 @@
 //!     (`problem` is JSON text of a `PlanningProblem`, not PDDL; forces
 //!     `PlanningType::Hierarchical` via `solve_planning_type`)
 //!   - `fond_policy` `{domain, problem, limits?}` -> `UniversalPlan` JSON
-//!     (same wire shape as `htn_plan`; forces `PlanningType::Fond`)
+//!     (same wire shape as `htn_plan`; forces `PlanningType::Fond`), plus a
+//!     `validation` field: the independent `validate_fond_policy` report
+//!     (`PolicyValidationReport`) over the returned policy, so every policy
+//!     leaves the ABI already classified `STRONG` / `STRONG_CYCLIC` /
+//!     `INVALID`. Evidence only; it grants no execution authority.
+//!   - `fond_policy_validate` `{problem, plan}` -> `PolicyValidationReport`
+//!     JSON. `problem` is `PlanningProblem` JSON text (as for
+//!     `fond_policy`); `plan` is a `UniversalPlan` object or its JSON text.
+//!     Validation is independent of synthesis (see
+//!     `ferroplan::policy_validation`), so a caller-edited or foreign
+//!     policy is judged by the same court as a synthesized one.
 //!   - `hddl_solve` `{domain, problem, limits?}` -> `UniversalPlan` JSON.
 //!     `domain`/`problem` are HDDL source text (not classical PDDL); parsed,
 //!     grounded, and translated by `ferroplan_hddl`, then solved by the
@@ -43,12 +53,25 @@
 //!   - `explain` `{domain, problem, plan}` (plan = a `Plan` object, not a
 //!     JSON string) -> explanation JSON
 //!   - `session_new` `{domain, problem}` -> `{handle}`
-//!   - `session_fork` `{handle}` -> `{handle: new_handle}`
+//!   - `session_fork` `{handle, keep_plan?}` -> `{handle: new_handle}`.
+//!     `keep_plan` (default `false`) clones the parent's current plan and
+//!     cursor into the fork, so a fork can be advanced/validated against the
+//!     same suffix; the default keeps the historical plan-less fork.
 //!   - `session_free` `{handle}` -> `{freed:true}`
 //!   - `session_set_goal` `{handle, goal}` -> `{ok:true}`
 //!   - `session_restrict_prefix_claims` `{handle, prefix, claimed}` -> `{ok:true}`
 //!   - `session_restrict_contains` `{handle, filter}` -> `{ok:true}`
-//!   - `session_think` `{handle, evals, mem_mb}` -> `Solution` JSON
+//!   - `session_think` `{handle, evals, mem_mb, prefer_follow?}` ->
+//!     `Solution` JSON plus `verdict` (`solved` | `capped` | `exhausted`),
+//!     `capped` (bool) and `spent_evals`. Runs `Session::think` (the
+//!     budget-stamped, orbit-aware think; plan parity with the former
+//!     `replan_budgeted` path is pinned by `tests/think_following.rs` in
+//!     the `ferroplan` crate). `prefer_follow: true` with a held plan runs
+//!     `Session::think_following(plan, cursor, budget)` instead: the held
+//!     plan's still-applicable suffix replays first, and only the broken
+//!     tail is searched. `capped` never reads as unreachable; only
+//!     `exhausted` is a proof (classical complete search). Wall-clock
+//!     spend is deliberately not on the wire (it would break byte replay).
 //!   - `session_valid` `{handle}` -> `{valid:bool}`
 //!   - `session_step` `{handle}` -> the current step, or `null`
 //!   - `session_suffix` `{handle}` -> the remaining steps array
@@ -85,11 +108,12 @@
 //! dealloc it afterward); the response buffer is host-owned, freed via
 //! `fp_dealloc(out_ptr, out_len)` after reading.
 
+use ferroplan::planning_runtime::UniversalPlan;
 use ferroplan::planning_runtime::{solve_planning_type, PlanningProblem, UniversalPlanningRequest};
 use ferroplan::planning_types::PlanningType;
 use ferroplan::{
-    capability_manifest, solve, solve_hddl, solve_production, HddlError, Mode, Options,
-    PlannerLimits, ProductionLimits, Search,
+    capability_manifest, solve, solve_hddl, solve_production, validate_fond_policy, HddlError,
+    Mode, Options, PlannerLimits, ProductionLimits, Search, ThinkBudget, ThinkVerdict,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -316,6 +340,7 @@ fn dispatch(input: &[u8]) -> Result<Vec<u8>, String> {
         "plan_production" => op_plan_production(&req)?,
         "htn_plan" => op_htn_plan(&req)?,
         "fond_policy" => op_fond_policy(&req)?,
+        "fond_policy_validate" => op_fond_policy_validate(&req)?,
         "hddl_solve" => op_hddl_solve(&req)?,
         "readiness" => op_readiness()?,
         "version" => json!({ "version": env!("CARGO_PKG_VERSION") }),
@@ -441,11 +466,35 @@ fn op_fond_policy(req: &Value) -> Result<Value, String> {
     solve_universal(req, PlanningType::Fond)
 }
 
-fn solve_universal(req: &Value, planning_type: PlanningType) -> Result<Value, String> {
+/// `{op:"fond_policy_validate", problem, plan}` -> `PolicyValidationReport`
+/// JSON. `problem` is `PlanningProblem` JSON text; `plan` is a
+/// `UniversalPlan` object (or its JSON text). A plan that does not decode is
+/// a dispatch `Err` naming the field, same as an undecodable `problem`.
+fn op_fond_policy_validate(req: &Value) -> Result<Value, String> {
+    let problem = parse_planning_problem(req)?;
+    let plan_value = req
+        .get("plan")
+        .ok_or_else(|| "missing field `plan`".to_string())?;
+    let plan: UniversalPlan = match plan_value {
+        Value::String(text) => {
+            bounded(text, WASI_JSON_FIELD_BYTES, "plan")?;
+            serde_json::from_str(text)
+        }
+        other => serde_json::from_value(other.clone()),
+    }
+    .map_err(|e| format!("plan: invalid UniversalPlan JSON: {e}"))?;
+    serde_json::to_value(validate_fond_policy(&problem, &plan)).map_err(|e| e.to_string())
+}
+
+fn parse_planning_problem(req: &Value) -> Result<PlanningProblem, String> {
     let problem_text = field_str(req, "problem")?;
     bounded(problem_text, WASI_JSON_FIELD_BYTES, "problem")?;
-    let problem: PlanningProblem = serde_json::from_str(problem_text)
-        .map_err(|e| format!("problem: invalid PlanningProblem JSON: {e}"))?;
+    serde_json::from_str(problem_text)
+        .map_err(|e| format!("problem: invalid PlanningProblem JSON: {e}"))
+}
+
+fn solve_universal(req: &Value, planning_type: PlanningType) -> Result<Value, String> {
+    let problem = parse_planning_problem(req)?;
     let limits: PlannerLimits = match req.get("limits") {
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("limits: {e}"))?,
         None => PlannerLimits::default(),
@@ -456,7 +505,18 @@ fn solve_universal(req: &Value, planning_type: PlanningType) -> Result<Value, St
         limits,
     };
     match solve_planning_type(&request) {
-        Ok(plan) => serde_json::to_value(plan).map_err(|e| e.to_string()),
+        Ok(plan) => {
+            let validation = (planning_type == PlanningType::Fond)
+                .then(|| validate_fond_policy(&request.problem, &plan));
+            let mut value = serde_json::to_value(plan).map_err(|e| e.to_string())?;
+            if let (Some(report), Some(object)) = (validation, value.as_object_mut()) {
+                object.insert(
+                    "validation".to_string(),
+                    serde_json::to_value(report).map_err(|e| e.to_string())?,
+                );
+            }
+            Ok(value)
+        }
         Err(e) => Ok(err_json("FP_ADAPTER", &e.to_string())),
     }
 }
@@ -622,10 +682,15 @@ fn op_session_new(req: &Value) -> Result<Value, String> {
 
 fn op_session_fork(req: &Value) -> Result<Value, String> {
     let handle = field_u64(req, "handle")?;
+    let keep_plan = match req.get("keep_plan") {
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(b)) => *b,
+        Some(_) => return Err("keep_plan must be a boolean".to_string()),
+    };
     let forked = with_session(handle, |s| WasiSession {
         inner: s.inner.fork(),
-        plan: None,
-        cursor: 0,
+        plan: if keep_plan { s.plan.clone() } else { None },
+        cursor: if keep_plan { s.cursor } else { 0 },
     })?;
     let new_handle = insert_session(forked)?;
     Ok(json!({ "handle": new_handle }))
@@ -708,13 +773,45 @@ fn op_session_think(req: &Value) -> Result<Value, String> {
             "mem_mb must be within the WASI production budget",
         ));
     }
-    let sol = with_session(handle, |s| {
-        let sol = s.inner.replan_budgeted(evals, Some(mem_mb));
-        s.plan = if sol.solved { sol.plan.clone() } else { None };
+    let prefer_follow = match req.get("prefer_follow") {
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(b)) => *b,
+        Some(_) => return Err("prefer_follow must be a boolean".to_string()),
+    };
+    let budget = ThinkBudget {
+        max_evaluated: Some(evals),
+        wall_ms: None,
+        memory_mb: Some(mem_mb),
+    };
+    let think = with_session(handle, |s| {
+        let think = match (prefer_follow, s.plan.as_ref()) {
+            (true, Some(prior)) => s.inner.think_following(prior, s.cursor, &budget),
+            _ => s.inner.think(&budget),
+        };
+        s.plan = if think.solution.solved {
+            think.solution.plan.clone()
+        } else {
+            None
+        };
         s.cursor = 0;
-        sol
+        think
     })?;
-    serde_json::to_value(sol).map_err(|e| e.to_string())
+    let mut value = serde_json::to_value(&think.solution).map_err(|e| e.to_string())?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| "internal: Solution did not serialize to an object".to_string())?;
+    object.insert("verdict".to_string(), json!(verdict_str(think.verdict)));
+    object.insert("capped".to_string(), json!(think.capped));
+    object.insert("spent_evals".to_string(), json!(think.spent_evals));
+    Ok(value)
+}
+
+fn verdict_str(verdict: ThinkVerdict) -> &'static str {
+    match verdict {
+        ThinkVerdict::Solved => "solved",
+        ThinkVerdict::Capped => "capped",
+        ThinkVerdict::Exhausted => "exhausted",
+    }
 }
 
 fn op_session_valid(req: &Value) -> Result<Value, String> {
@@ -1375,6 +1472,282 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
+    // 0.29: replan mechanism ops (fond_policy_validate, fond_policy
+    // `validation`, session_fork{keep_plan}, session_think verdicts and
+    // prefer_follow). Real parsed PDDL, real grounding, real search.
+    // ------------------------------------------------------------------
+
+    /// Four-room corridor a -> b -> c -> d: exactly one plan, three `go`s.
+    const CORRIDOR_DOMAIN: &str = "(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))";
+
+    const CORRIDOR_PROBLEM: &str = "(define (problem corridor)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c d))
+  (:goal (at d)))";
+
+    /// d disconnected: the goal is provably unreachable.
+    const CORRIDOR_DEAD_END_PROBLEM: &str = "(define (problem dead-end)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c))
+  (:goal (at d)))";
+
+    fn open_corridor(problem: &str) -> u64 {
+        let opened = dispatch_json(&json!({
+            "op": "session_new",
+            "domain": CORRIDOR_DOMAIN,
+            "problem": problem,
+        }));
+        opened["handle"].as_u64().expect("session handle")
+    }
+
+    fn think(handle: u64, evals: u64, prefer_follow: Option<bool>) -> Value {
+        let mut req =
+            json!({ "op": "session_think", "handle": handle, "evals": evals, "mem_mb": 64 });
+        if let Some(pf) = prefer_follow {
+            req["prefer_follow"] = json!(pf);
+        }
+        dispatch_json(&req)
+    }
+
+    fn suffix(handle: u64) -> Value {
+        dispatch_json(&json!({ "op": "session_suffix", "handle": handle }))
+    }
+
+    fn free(handle: u64) {
+        let freed = dispatch_json(&json!({ "op": "session_free", "handle": handle }));
+        assert_eq!(freed["freed"], json!(true));
+    }
+
+    #[test]
+    fn fond_policy_response_carries_an_independent_validation_report() {
+        let response = dispatch_json(&json!({
+            "op": "fond_policy",
+            "problem": retry_loop_problem_json(),
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert_eq!(response["solved"], json!(true), "{response}");
+        let validation = &response["validation"];
+        assert_eq!(validation["valid"], json!(true), "{response}");
+        assert_eq!(
+            validation["guarantee"],
+            json!("STRONG_CYCLIC"),
+            "{response}"
+        );
+        assert_eq!(validation["issues"], json!([]), "{response}");
+    }
+
+    #[test]
+    fn htn_plan_response_has_no_fond_validation_field() {
+        let response = dispatch_json(&json!({
+            "op": "htn_plan",
+            "problem": json!({
+                "tasks": [{ "id": "top" }, { "id": "p1", "primitive_action": "a1" }],
+                "root_tasks": ["top"],
+                "methods": [{ "id": "m-top", "task": "top", "subtasks": ["p1"] }],
+            }).to_string(),
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert!(response.get("validation").is_none(), "{response}");
+    }
+
+    #[test]
+    fn fond_policy_validate_admits_the_synthesized_retry_policy() {
+        let solved = dispatch_json(&json!({
+            "op": "fond_policy",
+            "problem": retry_loop_problem_json(),
+            "limits": { "max_wall_ms": 0 },
+        }));
+        let report = dispatch_json(&json!({
+            "op": "fond_policy_validate",
+            "problem": retry_loop_problem_json(),
+            "plan": solved,
+        }));
+        assert_eq!(report["valid"], json!(true), "{report}");
+        assert_eq!(report["guarantee"], json!("STRONG_CYCLIC"), "{report}");
+        assert_eq!(report["reachable_goals"], json!(["g"]), "{report}");
+
+        // The plan may also arrive as JSON text.
+        let as_text = dispatch_json(&json!({
+            "op": "fond_policy_validate",
+            "problem": retry_loop_problem_json(),
+            "plan": solved.to_string(),
+        }));
+        assert_eq!(as_text, report);
+    }
+
+    #[test]
+    fn fond_policy_validate_refuses_a_policy_with_a_mutated_outcome() {
+        let mut solved = dispatch_json(&json!({
+            "op": "fond_policy",
+            "problem": retry_loop_problem_json(),
+            "limits": { "max_wall_ms": 0 },
+        }));
+        // Falsifier: drop the self-loop outcome; the declared outcomes no
+        // longer match the transition relation, so the court must refuse.
+        let outcomes = solved["policy"][0]["outcomes"]
+            .as_array_mut()
+            .expect("outcomes array");
+        outcomes.retain(|o| o["state"] != json!("s0"));
+        assert_eq!(outcomes.len(), 1);
+        let report = dispatch_json(&json!({
+            "op": "fond_policy_validate",
+            "problem": retry_loop_problem_json(),
+            "plan": solved,
+        }));
+        assert_eq!(report["valid"], json!(false), "{report}");
+        assert_eq!(report["guarantee"], json!("INVALID"), "{report}");
+        assert!(
+            report["issues"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|i| i["code"] == json!("OUTCOME_MISMATCH")),
+            "{report}"
+        );
+    }
+
+    #[test]
+    fn fond_policy_validate_names_an_undecodable_plan() {
+        let err = dispatch(
+            &serde_json::to_vec(&json!({
+                "op": "fond_policy_validate",
+                "problem": retry_loop_problem_json(),
+                "plan": "not a plan {{",
+            }))
+            .unwrap(),
+        )
+        .expect_err("undecodable plan is a dispatch Err");
+        assert!(err.contains("plan: invalid UniversalPlan JSON"), "{err}");
+    }
+
+    #[test]
+    fn session_think_reports_solved_with_verdict_fields() {
+        let h = open_corridor(CORRIDOR_PROBLEM);
+        let out = think(h, 10_000, None);
+        assert_eq!(out["solved"], json!(true), "{out}");
+        assert_eq!(out["verdict"], json!("solved"), "{out}");
+        assert_eq!(out["capped"], json!(false), "{out}");
+        assert!(out["spent_evals"].as_u64().is_some(), "{out}");
+        assert_eq!(out["plan"]["length"], json!(3), "{out}");
+        free(h);
+    }
+
+    #[test]
+    fn session_think_reports_exhausted_on_an_unreachable_goal() {
+        let h = open_corridor(CORRIDOR_DEAD_END_PROBLEM);
+        let out = think(h, 10_000, None);
+        assert_eq!(out["solved"], json!(false), "{out}");
+        assert_eq!(out["verdict"], json!("exhausted"), "{out}");
+        assert_eq!(out["capped"], json!(false), "{out}");
+        let has = dispatch_json(&json!({ "op": "session_has_plan", "handle": h }));
+        assert_eq!(has["has_plan"], json!(false));
+        free(h);
+    }
+
+    #[test]
+    fn session_think_with_one_eval_reports_capped_not_unreachable() {
+        let h = open_corridor(CORRIDOR_PROBLEM);
+        let out = think(h, 1, None);
+        assert_eq!(out["solved"], json!(false), "{out}");
+        assert_eq!(out["verdict"], json!("capped"), "{out}");
+        assert_eq!(out["capped"], json!(true), "{out}");
+        free(h);
+    }
+
+    #[test]
+    fn session_fork_keep_plan_preserves_the_plan_and_cursor() {
+        let parent = open_corridor(CORRIDOR_PROBLEM);
+        assert_eq!(think(parent, 10_000, None)["verdict"], json!("solved"));
+        dispatch_json(&json!({ "op": "session_advance", "handle": parent }));
+        let parent_suffix = suffix(parent);
+        assert_eq!(parent_suffix.as_array().unwrap().len(), 2);
+
+        let kept =
+            dispatch_json(&json!({ "op": "session_fork", "handle": parent, "keep_plan": true }))
+                ["handle"]
+                .as_u64()
+                .unwrap();
+        assert_eq!(suffix(kept), parent_suffix, "fork must carry plan + cursor");
+
+        let bare = dispatch_json(&json!({ "op": "session_fork", "handle": parent }))["handle"]
+            .as_u64()
+            .unwrap();
+        assert_eq!(suffix(bare), json!([]), "default fork stays plan-less");
+
+        // Advancing the fork must not move the parent.
+        dispatch_json(&json!({ "op": "session_advance", "handle": kept }));
+        assert_eq!(suffix(kept).as_array().unwrap().len(), 1);
+        assert_eq!(
+            suffix(parent),
+            parent_suffix,
+            "parent cursor unchanged by fork"
+        );
+
+        let bad = dispatch(
+            &serde_json::to_vec(
+                &json!({ "op": "session_fork", "handle": parent, "keep_plan": "yes" }),
+            )
+            .unwrap(),
+        );
+        assert!(bad.is_err(), "non-boolean keep_plan is refused");
+        for h in [parent, kept, bare] {
+            free(h);
+        }
+    }
+
+    #[test]
+    fn session_think_prefer_follow_keeps_the_suffix_with_fewer_evals() {
+        let h = open_corridor(CORRIDOR_PROBLEM);
+        let first = think(h, 10_000, None);
+        let plan_steps = first["plan"]["steps"].as_array().unwrap().clone();
+        dispatch_json(&json!({ "op": "session_advance", "handle": h }));
+        // The host reports step 0 executed: the world is now at b.
+        dispatch_json(
+            &json!({ "op": "session_set_fact", "handle": h, "name": "(at a)", "value": false }),
+        );
+        dispatch_json(
+            &json!({ "op": "session_set_fact", "handle": h, "name": "(at b)", "value": true }),
+        );
+
+        // Fork keeps the plan so both paths start from the same state.
+        let twin = dispatch_json(&json!({ "op": "session_fork", "handle": h, "keep_plan": true }))
+            ["handle"]
+            .as_u64()
+            .unwrap();
+        let followed = think(h, 10_000, Some(true));
+        let unbiased = think(twin, 10_000, Some(false));
+        assert_eq!(followed["verdict"], json!("solved"), "{followed}");
+        assert_eq!(unbiased["verdict"], json!("solved"), "{unbiased}");
+
+        let action_args = |steps: &[Value]| {
+            steps
+                .iter()
+                .map(|s| (s["action"].clone(), s["args"].clone()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            action_args(followed["plan"]["steps"].as_array().unwrap()),
+            action_args(&plan_steps[1..]),
+            "prefer_follow must keep the held suffix verbatim"
+        );
+        assert!(
+            followed["spent_evals"].as_u64().unwrap() < unbiased["spent_evals"].as_u64().unwrap(),
+            "follow {followed} vs unbiased {unbiased}"
+        );
+        free(h);
+        free(twin);
+    }
+
+    // ------------------------------------------------------------------
     // fond-htn-29 (wave v26.9.17): 40-thread mixed-workload concurrency
     // stress through the dispatch surface.
     //
@@ -1400,7 +1773,8 @@ mod tests {
     mod concurrency_stress {
         use super::super::dispatch;
         use super::{
-            retry_loop_problem_json, TRANSPORT_ONEOF_EMPTY_DOMAIN, TRANSPORT_ONEOF_EMPTY_PROBLEM,
+            retry_loop_problem_json, CORRIDOR_DOMAIN, CORRIDOR_PROBLEM,
+            TRANSPORT_ONEOF_EMPTY_DOMAIN, TRANSPORT_ONEOF_EMPTY_PROBLEM,
         };
         use serde_json::{json, Value};
         use std::sync::atomic::{AtomicBool, Ordering};
@@ -1499,6 +1873,63 @@ mod tests {
             })
         }
 
+        /// 0.29 `fond_policy_validate` over a fixed, hand-written retry
+        /// policy (no synthesis in the loop: the court alone is exercised).
+        fn fond_validate_request() -> Value {
+            json!({
+                "op": "fond_policy_validate",
+                "problem": retry_loop_problem_json(),
+                "plan": {
+                    "planning_type": "fond",
+                    "solved": true,
+                    "policy": [{
+                        "state": "s0",
+                        "action": "flip",
+                        "outcomes": [
+                            { "state": "g", "probability_ppm": 500_000 },
+                            { "state": "s0", "probability_ppm": 500_000 },
+                        ],
+                    }],
+                },
+            })
+        }
+
+        fn handle_of(out: &[u8]) -> u64 {
+            let v: Value = serde_json::from_slice(out).expect("handle response is JSON");
+            v["handle"].as_u64().expect("handle")
+        }
+
+        /// 0.29 session replan ops as one scenario: new -> think -> advance
+        /// -> fork{keep_plan} -> suffix(fork) -> think{prefer_follow}(fork)
+        /// -> free both. Handles are process-global and differ per call, so
+        /// only the handle-free responses (the two thinks and the suffix)
+        /// are concatenated into the byte record compared against the
+        /// golden; every call still goes through the real wire path.
+        fn session_replan_scenario() -> Vec<u8> {
+            let h = handle_of(&call(&json!({
+                "op": "session_new",
+                "domain": CORRIDOR_DOMAIN,
+                "problem": CORRIDOR_PROBLEM,
+            })));
+            let mut record = call(&json!({
+                "op": "session_think", "handle": h, "evals": 10_000, "mem_mb": 64,
+            }));
+            call(&json!({ "op": "session_advance", "handle": h }));
+            let f = handle_of(&call(&json!({
+                "op": "session_fork", "handle": h, "keep_plan": true,
+            })));
+            record.push(b'\n');
+            record.extend(call(&json!({ "op": "session_suffix", "handle": f })));
+            record.push(b'\n');
+            record.extend(call(&json!({
+                "op": "session_think", "handle": f, "evals": 10_000, "mem_mb": 64,
+                "prefer_follow": true,
+            })));
+            call(&json!({ "op": "session_free", "handle": f }));
+            call(&json!({ "op": "session_free", "handle": h }));
+            record
+        }
+
         // -- goldens --
 
         struct Goldens {
@@ -1506,6 +1937,8 @@ mod tests {
             fond_retry: Vec<u8>,
             fond_dead_end: Vec<u8>,
             htn_chain: Vec<u8>,
+            fond_validate: Vec<u8>,
+            session_replan: Vec<u8>,
         }
 
         /// Single-threaded goldens, computed in the test's own thread BEFORE
@@ -1519,6 +1952,8 @@ mod tests {
                 fond_retry: call(&fond_retry_request()),
                 fond_dead_end: call(&fond_dead_end_request()),
                 htn_chain: call(&htn_chain_request()),
+                fond_validate: call(&fond_validate_request()),
+                session_replan: session_replan_scenario(),
             };
             let first = build();
             let second = build();
@@ -1537,6 +1972,14 @@ mod tests {
             assert_eq!(
                 first.htn_chain, second.htn_chain,
                 "single-threaded htn_plan is not byte-stable"
+            );
+            assert_eq!(
+                first.fond_validate, second.fond_validate,
+                "single-threaded fond_policy_validate is not byte-stable"
+            );
+            assert_eq!(
+                first.session_replan, second.session_replan,
+                "single-threaded session replan scenario is not byte-stable"
             );
             first
         }
@@ -1588,13 +2031,15 @@ mod tests {
         /// The mixed workload: hddl_solve (micro Transport oneof-empty
         /// FOND-HTN), fond_policy on the retry loop (strong-cyclic solve),
         /// fond_policy on the dead-end variant (typed NoPlan refusal), and
-        /// htn_plan on the single-method chain — interleaved round-robin,
+        /// htn_plan on the single-method chain, fond_policy_validate on a
+        /// fixed retry policy, and the 0.29 session replan scenario
+        /// (think / fork{keep_plan} / think{prefer_follow}) — interleaved round-robin,
         /// staggered by thread id so at any instant different threads sit in
         /// different ops (including two DISTINCT fond inputs alternating, so
         /// a cross-thread response mixup cannot pass unnoticed).
         fn mixed_round_robin(thread: usize, goldens: &Goldens) {
             for iter in 0..ITERS_PER_THREAD {
-                match (thread + iter) % 4 {
+                match (thread + iter) % 6 {
                     0 => {
                         let out = call(&hddl_solve_request());
                         assert_matches_golden(
@@ -1625,9 +2070,29 @@ mod tests {
                             "fond_policy/dead-end",
                         );
                     }
-                    _ => {
+                    3 => {
                         let out = call(&htn_chain_request());
                         assert_matches_golden(&out, &goldens.htn_chain, thread, iter, "htn_plan");
+                    }
+                    4 => {
+                        let out = call(&fond_validate_request());
+                        assert_matches_golden(
+                            &out,
+                            &goldens.fond_validate,
+                            thread,
+                            iter,
+                            "fond_policy_validate",
+                        );
+                    }
+                    _ => {
+                        let out = session_replan_scenario();
+                        assert_matches_golden(
+                            &out,
+                            &goldens.session_replan,
+                            thread,
+                            iter,
+                            "session_replan",
+                        );
                     }
                 }
             }
