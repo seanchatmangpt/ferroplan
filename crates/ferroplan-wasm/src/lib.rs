@@ -36,7 +36,9 @@ use ferroplan::{
 use wasm_bindgen::prelude::*;
 
 #[cfg(not(all(target_arch = "wasm32", target_os = "wasi")))]
-pub use browser_impl::{fond_validate, explain, plan, plan_production, readiness, version, WasmSession};
+pub use browser_impl::{
+    explain, fond_validate, plan, plan_production, readiness, version, WasmSession,
+};
 
 #[cfg(not(all(target_arch = "wasm32", target_os = "wasi")))]
 mod browser_impl {
@@ -147,7 +149,10 @@ mod browser_impl {
     #[wasm_bindgen]
     pub fn fond_validate(problem_json: &str, plan_json: &str) -> String {
         if problem_json.len() > WASM_JSON_FIELD_BYTES || plan_json.len() > WASM_JSON_FIELD_BYTES {
-            return err_json("FP_LIMIT_INPUT", "problem or plan exceeds the browser JSON limit");
+            return err_json(
+                "FP_LIMIT_INPUT",
+                "problem or plan exceeds the browser JSON limit",
+            );
         }
         let problem: PlanningProblem = match serde_json::from_str(problem_json) {
             Ok(problem) => problem,
