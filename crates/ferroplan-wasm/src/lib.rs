@@ -424,9 +424,9 @@ mod browser_impl {
             let Some(prior) = self.plan.clone() else {
                 return err_json("FP_NO_PLAN", "session has no stashed plan to follow");
             };
-            let sol =
-                self.inner
-                    .replan_following(&prior, self.cursor, evals, Some(mem_mb));
+            let sol = self
+                .inner
+                .replan_following(&prior, self.cursor, evals, Some(mem_mb));
             self.plan = if sol.solved { sol.plan.clone() } else { None };
             self.cursor = 0;
             serialize_or_error!(&sol)
@@ -549,11 +549,11 @@ mod browser_impl {
                     "mem_mb must be within the browser production budget",
                 );
             }
-            let candidates: Vec<BrowserProbeCandidate> =
-                match serde_json::from_str(candidates_json) {
-                    Ok(candidates) => candidates,
-                    Err(error) => return err_json("FP_ADAPTER", &format!("candidates: {error}")),
-                };
+            let candidates: Vec<BrowserProbeCandidate> = match serde_json::from_str(candidates_json)
+            {
+                Ok(candidates) => candidates,
+                Err(error) => return err_json("FP_ADAPTER", &format!("candidates: {error}")),
+            };
             if candidates.is_empty() || candidates.len() > WASM_MAX_PROBE_CANDIDATES {
                 return err_json(
                     "FP_LIMIT_CANDIDATES",
@@ -567,10 +567,7 @@ mod browser_impl {
                         .as_ref()
                         .is_some_and(|goal| goal.len() > WASM_TEXT_FIELD_BYTES)
                     || candidate.sight.len() > WASM_MAX_PROBE_OBSERVATIONS
-                    || candidate
-                        .sight
-                        .iter()
-                        .any(|(fact, _)| fact.len() > 4_096)
+                    || candidate.sight.iter().any(|(fact, _)| fact.len() > 4_096)
                     || candidate
                         .restrict_contains
                         .as_ref()
