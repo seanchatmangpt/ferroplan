@@ -63,7 +63,7 @@ Metric-FF (EHC reaches goals in dozens of evaluations, not thousands); numeric
 trails and IPC-5 preference quality is competitive-not-winning — see
 [Benchmarks](#benchmarks).
 
-> Status: **v0.28.0** — release candidate on `main`: the 32-board cut sweep that regenerates the table above is in flight, and [crates.io](https://crates.io/crates/ferroplan) carries v0.27.1 (`ferroplan`, `ferroplan-cli`, `ferroplan-mcp`, `ferroplan-sat`) until it lands. APIs may shift before 1.0.
+> Status: **v0.28.1** — released 2026-09-22 (the fork reconciles with upstream's 0.28.0; `v0.28.0` is a tagged release on this line, not a candidate). See [CHANGELOG](CHANGELOG.md) for the 0.28.x entries. APIs may shift before 1.0.
 
 <!-- WHATSNEW:BEGIN — newest first; trimmed by scripts/release-notes-roll.py -->
 
@@ -200,6 +200,13 @@ ff -o temporal-domain.pddl -f problem.pddl --mode temporal --decompose
 
 # self-contained JSON job: {"domain": "...", "problem": "...", "options": {...}}
 ff --json-request job.json
+
+# readiness contract: capability manifest + deterministic fingerprint
+ff --readiness
+
+# bounded production envelope: always JSON, stable exit classes
+# (0 solved / 2 refused-parse / 3 no-plan / 4 unsupported / 5 limit / 7 refused / 70 failed)
+ff -o domain.pddl -f problem.pddl --production --request-id 42
 ```
 
 Run `ff --help` for all flags (`--search`, `--weight-g/--weight-h`,
@@ -381,11 +388,11 @@ measurement switch is in the book's
 | crate | what |
 |---|---|
 | [`ferroplan`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan) | the library: engine + modes + `solve` / `decompose` / `Session` API |
-| [`ferroplan-cli`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-cli) | the `ff` binary (clap + JSON) |
-| [`ferroplan-mcp`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-mcp) | an MCP server exposing `solve` / `validate` / `decompose` over stdio — so an LLM agent can author PDDL and drive the planner |
+| [`ferroplan-cli`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-cli) | the `ff` binary (clap + JSON); also installs `ferroplan-harvest` (`collect`/`compile`/`replay` — evidence-bounded GitHub work harvester and PPDDL corpus compiler, see `docs/production-ppddl.md`) |
+| [`ferroplan-mcp`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-mcp) | an MCP server exposing 42 tools (`solve` / `validate` / `decompose`, `session_*`, `cmca_*`, `verify_receipt`, `dx_*`, … — previously three separate binaries, merged) over stdio — so an LLM agent can author PDDL and drive the planner |
 | [`ferroplan-bevy`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-bevy) | Bevy app: visualize, inspect & animate a domain+problem (`cargo run -p ferroplan-bevy [domain.pddl problem.pddl]`) |
 | [`ferroplan-wasm`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-wasm) | WebAssembly binding behind the client-side [browser demo](https://seanchatmangpt.github.io/ferroplan/demo/index.html) — `solve` a domain+problem entirely in-page |
-| [`ferroplan-py`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-py) | Python binding (`pip`-installable extension module) exposing `solve` for embedding in Python tools |
+| [`ferroplan-py`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-py) | Python binding (`pip`-installable extension module) exposing `plan`, `plan_production`, `readiness`, and `version` for embedding in Python tools |
 
 ## Examples
 

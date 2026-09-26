@@ -68,6 +68,12 @@ Re-lock the workspace-excluded `crates/ferroplan-py/Cargo.lock` too
 (`cargo update -w --manifest-path crates/ferroplan-py/Cargo.toml`). Commit
 and tag (`vX.Y.Z`).
 
+Bump BOTH `crates/ferroplan-py/Cargo.toml` AND `crates/ferroplan-py/pyproject.toml`
+(`[project]` version — maturin builds the wheel from pyproject when present): the
+0.28.1 cut (85105d0) bumped only Cargo.toml, so the wheel metadata stayed 0.28.0
+(pyproject.toml:7 vs Cargo.toml:7) while CHANGELOG/README claimed 0.28.1. Cut the
+git tag in the same step (v0.28.1 is absent; tags top out at v0.28.0).
+
 ## Refresh the record (standings, history, release notes)
 
 Three scripted steps, in this order. All are idempotent, so re-running is safe.

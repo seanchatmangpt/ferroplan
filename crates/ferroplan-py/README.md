@@ -37,3 +37,12 @@ print("ferroplan", ferroplan.version())
 `plan(domain, problem, mode=None, threads=None)` returns a JSON string of the
 `Solution` (or `{"error": "..."}`). `mode` ∈ `auto | ff | pddl3 | partition |
 temporal` (`auto` routes durative-action problems to the temporal solver).
+
+`plan_production(domain, problem, mode=None, threads=None, max_evaluated=None,
+request_id=None, max_domain_bytes=None, max_problem_bytes=None,
+max_plan_steps=None, max_output_bytes=None, max_workers=None)` runs the bounded
+candidate-only production envelope and returns a JSON string carrying the
+outcome class — new service integrations should use this rather than `plan`.
+`readiness()` returns the capability-manifest contract report
+(`schema_version: "ferroplan.readiness-contract.v1"`, manifest fingerprint,
+product version) as a JSON string.

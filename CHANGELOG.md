@@ -193,19 +193,28 @@ recorded verdicts do.
   assembled, and a caller's larger budget cannot raise it. Four IPC-2023
   instances hit it with roughly 16,800–46,661 composite states still
   queued (`tests/fixtures/htn-oracle/RESULTS.md`). Ticket fond-htn-23.
-- **Conditional-effect grounding.** Action-level conditional effects are
+- **Conditional-effect grounding.** ~~Action-level conditional effects are
   an honest refusal (`nested 'when' is out of scope`), and method-
   `:effect` domains fail grounding (`unbound variable`): loud typed
   errors, not panics. Two PANDA corpus pairs are admitted mismatches on
-  exactly this. Ticket fond-htn-24.
+  exactly this. Ticket fond-htn-24.~~ **Superseded 2026-09-17** (`818e9ea`,
+  `24c94f6`): HDDL now grounds action-level conditional effects (one-level
+  `when`-in-`when` flattening), method `:effect`, and `:htn :parameters`
+  existential root-network bindings; `docs/FOND-HTN.md` records both tickets
+  as landed. This historical row describes pre-0.28.1 behavior.
 - **Parse depth.** The parser recurses per nesting level with no depth
   budget: 250-deep effects parse, 500 abort, 1000 kill the process. It is
   carried as an `#[ignore]`d adversarial tripwire until fixed. Ticket
   fond-htn-22.
-- **`(= …)` in goals.** The built-in term-equality predicate parses and
+- **`(= …)` in goals.** ~~The built-in term-equality predicate parses and
   validates but never evaluates true in `translate`, so affected
   deterministic fixtures return `NoPlan`; the mismatch goldens are
-  committed. Ticket fond-htn-21.
+  committed. Ticket fond-htn-21.~~ **Superseded 2026-09-17** (`d2faf4d`,
+  `24c94f6`): `(= x y)` now evaluates in ground goals, method/action
+  preconditions, `when` guards, and goal-DNF folds (new
+  `GroundError::GroundGoal::Eq`, `TranslateError::MalformedTermEquality`);
+  fixtures that returned `NoPlan` now solve. This historical row describes
+  pre-0.28.1 behavior.
 
 ### Finished hardening
 

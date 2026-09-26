@@ -24,6 +24,10 @@ Paste a PDDL domain + problem, hit **Plan** — everything runs client-side.
 
 - `plan(domain: string, problem: string, mode?: string) -> string` — returns a
   JSON-serialized `Solution` (or `{"error": "..."}`). `mode` ∈ auto | ff | pddl3 | partition | temporal.
+- `plan_production(domain, problem, mode?, search?, max_evaluated?, max_plan_steps?, max_output_bytes?, request_id?) -> string` — the bounded
+  candidate-only production envelope; always returns a JSON outcome.
+- `readiness() -> string` — canonical capability manifest + deterministic
+  fingerprint contract report (`ferroplan.readiness-contract.v1`).
 - `explain(domain, problem, plan_json) -> string` — plan introspection
   (0.18): causal links (classical), invariant spans (temporal), preference
   breakdown (PDDL3), as an `Explanation` JSON. `plan_json` is a

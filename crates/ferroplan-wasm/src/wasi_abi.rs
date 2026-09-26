@@ -24,6 +24,15 @@
 //!     `PlanningType::Hierarchical` via `solve_planning_type`)
 //!   - `fond_policy` `{domain, problem, limits?}` -> `UniversalPlan` JSON
 //!     (same wire shape as `htn_plan`; forces `PlanningType::Fond`)
+//!   - `fond_policy_validate` `{problem, plan}` -> `PolicyValidationReport`
+//!     JSON. `problem` is JSON text of a `PlanningProblem` (same wire shape
+//!     as `fond_policy`'s `problem` field); `plan` is a `UniversalPlan`
+//!     object (the `fond_policy`/`hddl_solve` response body — the same
+//!     inline-object convention `explain`/`session_plan_valid` use). Runs
+//!     the independent validator (`ferroplan::validate_fond_policy`; no
+//!     shared fixpoint code with the synthesizer). An invalid policy is a
+//!     `valid:false` report (`guarantee:"INVALID"` + typed issues), a
+//!     normal response — only an unparseable request is a dispatch `Err`.
 //!   - `hddl_solve` `{domain, problem, limits?}` -> `UniversalPlan` JSON.
 //!     `domain`/`problem` are HDDL source text (not classical PDDL); parsed,
 //!     grounded, and translated by `ferroplan_hddl`, then solved by the
@@ -55,6 +64,14 @@
 //!   - `session_advance` `{handle}` -> `{ok:true}`
 //!   - `session_drop_plan` `{handle}` -> `{ok:true}`
 //!   - `session_has_plan` `{handle}` -> `{has_plan:bool}`
+//!   - `session_install_plan` `{handle, plan}` -> `{ok:true}`. Stashes an
+//!     externally produced `UniversalPlan` object (the `fond_policy` /
+//!     `hddl_solve` response body) into the session's plan slot and resets
+//!     the cursor to 0 — the same post-solve state `session_think` leaves —
+//!     so `session_step`/`session_valid`/`session_suffix` drive it exactly
+//!     like a locally solved plan. Refusals are typed error envelopes:
+//!     `FP_INVALID_REQUEST` (plan is not `UniversalPlan` JSON),
+//!     `FP_VALIDATION` (plan marked unsolved, or carries no steps).
 //!   - `session_set_fact` `{handle, name, value}` -> `{ok:true}`
 //!   - `session_set_timed_fact` `{handle, dt, name, value}` -> `{ok:true}`
 //!   - `session_observe` `{handle, sight:[[name,value],...]}` -> news JSON
@@ -85,11 +102,13 @@
 //! dealloc it afterward); the response buffer is host-owned, freed via
 //! `fp_dealloc(out_ptr, out_len)` after reading.
 
-use ferroplan::planning_runtime::{solve_planning_type, PlanningProblem, UniversalPlanningRequest};
+use ferroplan::planning_runtime::{
+    solve_planning_type, PlanningProblem, UniversalPlan, UniversalPlanningRequest,
+};
 use ferroplan::planning_types::PlanningType;
 use ferroplan::{
-    capability_manifest, solve, solve_hddl, solve_production, HddlError, Mode, Options,
-    PlannerLimits, ProductionLimits, Search,
+    capability_manifest, solve, solve_hddl, solve_production, validate_fond_policy, HddlError,
+    Mode, Options, PlannerLimits, ProductionLimits, Search,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -316,6 +335,7 @@ fn dispatch(input: &[u8]) -> Result<Vec<u8>, String> {
         "plan_production" => op_plan_production(&req)?,
         "htn_plan" => op_htn_plan(&req)?,
         "fond_policy" => op_fond_policy(&req)?,
+        "fond_policy_validate" => op_fond_policy_validate(&req)?,
         "hddl_solve" => op_hddl_solve(&req)?,
         "readiness" => op_readiness()?,
         "version" => json!({ "version": env!("CARGO_PKG_VERSION") }),
@@ -333,6 +353,7 @@ fn dispatch(input: &[u8]) -> Result<Vec<u8>, String> {
         "session_advance" => op_session_advance(&req)?,
         "session_drop_plan" => op_session_drop_plan(&req)?,
         "session_has_plan" => op_session_has_plan(&req)?,
+        "session_install_plan" => op_session_install_plan(&req)?,
         "session_set_fact" => op_session_set_fact(&req)?,
         "session_set_timed_fact" => op_session_set_timed_fact(&req)?,
         "session_observe" => op_session_observe(&req)?,
@@ -459,6 +480,34 @@ fn solve_universal(req: &Value, planning_type: PlanningType) -> Result<Value, St
         Ok(plan) => serde_json::to_value(plan).map_err(|e| e.to_string()),
         Err(e) => Ok(err_json("FP_ADAPTER", &e.to_string())),
     }
+}
+
+/// `{op:"fond_policy_validate", problem, plan}` -> `PolicyValidationReport`
+/// JSON. Runs `ferroplan::validate_fond_policy` — the independent validator
+/// (it reconstructs the selected-action graph from the declared transitions
+/// and shares no fixpoint code with the synthesizer) — across the process
+/// boundary, so a host can audit a policy it did not produce. The wire
+/// shapes reuse the file's existing dialects exactly: `problem` is UTF-8
+/// JSON text of a `PlanningProblem` (the `fond_policy` convention), `plan`
+/// is a `UniversalPlan` object (the `explain`/`session_plan_valid`
+/// convention), and the report serializes with the validator's own serde
+/// (`guarantee` in SCREAMING_SNAKE_CASE, issues as `{"code":..}` tags) — no
+/// new wire vocabulary. A REFUTED policy is a *normal response*
+/// (`valid:false`, `guarantee:"INVALID"`, typed issues), never an error
+/// envelope; only an unparseable request is a dispatch `Err`, mirroring
+/// `solve_universal`/`op_explain`.
+fn op_fond_policy_validate(req: &Value) -> Result<Value, String> {
+    let problem_text = field_str(req, "problem")?;
+    bounded(problem_text, WASI_JSON_FIELD_BYTES, "problem")?;
+    let problem: PlanningProblem = serde_json::from_str(problem_text)
+        .map_err(|e| format!("problem: invalid PlanningProblem JSON: {e}"))?;
+    let plan_value = req
+        .get("plan")
+        .ok_or_else(|| "missing field `plan`".to_string())?;
+    let plan: UniversalPlan = serde_json::from_value(plan_value.clone())
+        .map_err(|e| format!("plan: invalid UniversalPlan JSON: {e}"))?;
+    let report = validate_fond_policy(&problem, &plan);
+    serde_json::to_value(report).map_err(|e| e.to_string())
 }
 
 fn adapter_refusal_json(request_id: Option<&str>, message: &str) -> Value {
@@ -769,6 +818,71 @@ fn op_session_has_plan(req: &Value) -> Result<Value, String> {
     let handle = field_u64(req, "handle")?;
     let has_plan = with_session(handle, |s| s.plan.is_some())?;
     Ok(json!({ "has_plan": has_plan }))
+}
+
+/// `{op:"session_install_plan", handle, plan}` -> `{ok:true}`. Installs an
+/// externally produced plan into a live session: the plan slot is filled
+/// and the cursor resets to 0, byte-for-byte the post-solve state
+/// `op_session_think` leaves behind, so the strategic loop can hand the
+/// session a policy from anywhere (another process, a validator round-trip)
+/// and drive it with the ordinary `session_step`/`session_valid`/
+/// `session_suffix` machinery. The universal IR carries state-graph steps
+/// (`PlanStep { action }`), so the install converts them to the session's
+/// classical `Step` list — action name only (`PlanStep` has no argument
+/// vector; `plan_still_valid` matches the rendered name against the
+/// grounded `op_display`s). Refusals are typed error envelopes, never
+/// panics: `FP_INVALID_REQUEST` for a `plan` that is not `UniversalPlan`
+/// JSON, `FP_VALIDATION` for a plan its producer marked unsolved or that
+/// carries no steps; a missing `plan` field stays a dispatch `Err` (the
+/// file-wide convention), and nothing is stashed unless every check passed.
+fn op_session_install_plan(req: &Value) -> Result<Value, String> {
+    let handle = field_u64(req, "handle")?;
+    let plan_value = req
+        .get("plan")
+        .ok_or_else(|| "missing field `plan`".to_string())?;
+    let plan: UniversalPlan = match serde_json::from_value(plan_value.clone()) {
+        Ok(plan) => plan,
+        Err(e) => {
+            return Ok(err_json(
+                "FP_INVALID_REQUEST",
+                &format!("plan: invalid UniversalPlan JSON: {e}"),
+            ))
+        }
+    };
+    if !plan.solved {
+        return Ok(err_json(
+            "FP_VALIDATION",
+            "plan is not solved; refusing to install",
+        ));
+    }
+    if plan.steps.is_empty() {
+        return Ok(err_json(
+            "FP_VALIDATION",
+            "plan carries no steps; refusing to install",
+        ));
+    }
+    let installed = ferroplan::api::Plan {
+        steps: plan
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(index, step)| ferroplan::api::Step {
+                index,
+                action: step.action.clone(),
+                args: Vec::new(),
+                time: None,
+                duration: None,
+            })
+            .collect(),
+        length: plan.steps.len(),
+        metric: None,
+        makespan: None,
+    };
+    with_session(handle, |s| {
+        s.plan = Some(installed);
+        s.cursor = 0;
+    })?;
+    Ok(json!({ "ok": true }))
 }
 
 fn op_session_set_fact(req: &Value) -> Result<Value, String> {
@@ -1278,6 +1392,300 @@ mod tests {
             json!(false),
             "a structural dead end is not retryable: {response}"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // W1 (lane wave v26.9.25): `fond_policy_validate` /
+    // `session_install_plan` — the two edges that let the strategic loop
+    // run the INDEPENDENT FOND validator across the process boundary and
+    // install an externally produced plan into a live session. Same wire
+    // path as every test above: `dispatch_json`, JSON bytes in / JSON
+    // bytes out, exactly as a beam4pm host would call `fp_call`.
+    // ------------------------------------------------------------------
+
+    /// Acyclic two-step chain: s0 -advance-> s1 -finish-> g. No
+    /// nondeterminism, so `fond_policy` synthesizes a policy the
+    /// independent validator must admit as Strong (mirrors
+    /// `policy_validation`'s own `admits_an_acyclic_strong_policy`, but
+    /// through the wire: the plan validated is the plan the ABI produced).
+    fn strong_chain_problem_json() -> String {
+        json!({
+            "states": [
+                { "id": "s0" },
+                { "id": "s1" },
+                { "id": "g", "facts": ["goal"] },
+            ],
+            "initial_states": ["s0"],
+            "goal": { "facts": ["goal"] },
+            "transitions": [
+                { "action": "advance", "from": "s0", "to": "s1", "probability_ppm": 1_000_000 },
+                { "action": "finish", "from": "s1", "to": "g", "probability_ppm": 1_000_000 },
+            ],
+        })
+        .to_string()
+    }
+
+    fn synthesized_strong_chain_plan() -> Value {
+        let synthesized = dispatch_json(&json!({
+            "op": "fond_policy",
+            "problem": strong_chain_problem_json(),
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert!(
+            synthesized.get("error").is_none(),
+            "the strong chain must solve, got: {synthesized}"
+        );
+        assert_eq!(synthesized["solved"], json!(true), "{synthesized}");
+        synthesized
+    }
+
+    /// (W1-a) `fond_policy_validate` on a synthesized strong policy: the
+    /// independent validator must admit it as `STRONG` with zero issues and
+    /// full reachability evidence (all three states, sorted, plus the goal)
+    /// — the report shape has to survive the wire intact.
+    #[test]
+    fn fond_policy_validate_admits_a_synthesized_strong_policy() {
+        let problem = strong_chain_problem_json();
+        let synthesized = synthesized_strong_chain_plan();
+
+        let report = dispatch_json(&json!({
+            "op": "fond_policy_validate",
+            "problem": problem,
+            "plan": synthesized,
+        }));
+        assert!(report.get("error").is_none(), "{report}");
+        assert_eq!(report["valid"], json!(true), "{report}");
+        assert_eq!(report["guarantee"], json!("STRONG"), "{report}");
+        assert_eq!(report["issues"], json!([]), "{report}");
+        assert_eq!(
+            report["reachable_states"],
+            json!(["g", "s0", "s1"]),
+            "reachability evidence must survive the wire, sorted: {report}"
+        );
+        assert_eq!(report["reachable_goals"], json!(["g"]), "{report}");
+    }
+
+    /// (W1-a, fairness branch) The retry-loop policy — strong-cyclic only,
+    /// per `fond_policy_op_solves_the_retry_loop_with_a_closed_policy` —
+    /// must come back through the independent validator as `STRONG_CYCLIC`
+    /// with zero issues: the fairness-dependent branch survives the
+    /// boundary too, and the validator does not lazily overgrade it to
+    /// Strong.
+    #[test]
+    fn fond_policy_validate_admits_the_retry_loop_only_as_strong_cyclic() {
+        let problem = retry_loop_problem_json();
+        let synthesized = dispatch_json(&json!({
+            "op": "fond_policy",
+            "problem": problem,
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert!(synthesized.get("error").is_none(), "{synthesized}");
+
+        let report = dispatch_json(&json!({
+            "op": "fond_policy_validate",
+            "problem": problem,
+            "plan": synthesized,
+        }));
+        assert_eq!(report["valid"], json!(true), "{report}");
+        assert_eq!(report["guarantee"], json!("STRONG_CYCLIC"), "{report}");
+        assert_eq!(report["issues"], json!([]), "{report}");
+    }
+
+    /// (W1-b) Mutate the synthesized strong plan ON THE WIRE (s0's advance
+    /// outcome loses 10% of its probability mass) and the independent
+    /// validator must refuse it: `valid:false`, `guarantee:"INVALID"`, with
+    /// a typed `OUTCOME_MISMATCH` issue. This is also the anti-vacuity
+    /// witness for the whole op: a validator stubbed to always answer
+    /// STRONG fails THIS assertion.
+    #[test]
+    fn fond_policy_validate_refuses_a_mutated_plan_with_typed_issues() {
+        let problem = strong_chain_problem_json();
+        let mut synthesized = synthesized_strong_chain_plan();
+        synthesized["policy"][0]["outcomes"][0]["probability_ppm"] = json!(900_000);
+        assert_ne!(
+            synthesized["policy"][0]["outcomes"][0]["probability_ppm"],
+            json!(1_000_000),
+            "the mutation must actually change the wire plan"
+        );
+
+        let report = dispatch_json(&json!({
+            "op": "fond_policy_validate",
+            "problem": problem,
+            "plan": synthesized,
+        }));
+        assert_eq!(report["valid"], json!(false), "{report}");
+        assert_eq!(report["guarantee"], json!("INVALID"), "{report}");
+        let codes: Vec<&str> = report["issues"]
+            .as_array()
+            .expect("issues array")
+            .iter()
+            .map(|issue| issue["code"].as_str().unwrap_or_default())
+            .collect();
+        assert!(
+            codes.contains(&"OUTCOME_MISMATCH"),
+            "drifted outcome mass must surface as a typed OUTCOME_MISMATCH: {report}"
+        );
+        // Deliberately NOT asserting INVALID_PROBABILITY_MASS here: the
+        // validator sums the mass of the PROBLEM's declared transitions
+        // (unmutated, still 1_000_000) and only compares the policy's
+        // declared outcomes against them — so a plan-side drift fires
+        // OUTCOME_MISMATCH alone. That asymmetry is validator semantics,
+        // not a wire defect.
+    }
+
+    /// (W1-c, request shape) A `plan` that is not a `UniversalPlan` object
+    /// must be a dispatch `Err` naming the field (the `op_explain`
+    /// convention for malformed inline plan objects), never a panic and
+    /// never a silently-strong report.
+    #[test]
+    fn fond_policy_validate_rejects_a_malformed_plan_object() {
+        let err = dispatch(
+            &serde_json::to_vec(&json!({
+                "op": "fond_policy_validate",
+                "problem": strong_chain_problem_json(),
+                "plan": { "solved": "definitely" },
+            }))
+            .unwrap(),
+        )
+        .unwrap_err();
+        assert!(
+            err.contains("plan") && err.contains("UniversalPlan"),
+            "error should name the failing field and model: {err}"
+        );
+    }
+
+    /// Hand-authored for this ticket (W1). Minimal STRIPS domain whose one
+    /// grounded op display is exactly `finish` — the name a
+    /// `PlanStep{action:"finish"}` converts to — so an installed
+    /// UniversalPlan step replays applicably from the initial world and
+    /// lands the goal, which is what `session_valid`'s free replay proves.
+    const INSTALL_SESSION_DOMAIN: &str = r#"(define (domain install-one)
+  (:predicates (ready) (done))
+  (:action finish
+    :precondition (ready)
+    :effect (and (not (ready)) (done))))"#;
+
+    const INSTALL_SESSION_PROBLEM: &str = r#"(define (problem install-one-1)
+  (:domain install-one)
+  (:init (ready))
+  (:goal (done)))"#;
+
+    fn install_one_plan_json() -> Value {
+        json!({
+            "planning_type": "fond",
+            "solved": true,
+            // The action name MUST be the session's grounded op-display
+            // form: PDDL names are case-folded to uppercase by the parser,
+            // so `(action finish ...)` grounds to `FINISH` and
+            // `plan_still_valid` matches display strings case-sensitively.
+            // An external producer names steps in the session's own
+            // vocabulary — that matching is exactly what `session_valid`
+            // audits after the install.
+            "steps": [ { "action": "FINISH" } ],
+            "policy": [],
+        })
+    }
+
+    /// (W1-d, happy path) Install an externally produced plan into a fresh
+    /// session, then drive the session ops exactly as the strategic loop
+    /// would: the stash is visible (`session_has_plan`), the cursor sits on
+    /// the installed first step (`session_step`), and the free replay
+    /// (`session_valid`) certifies the suffix from the CURRENT world — the
+    /// same post-install state `session_think` leaves after a local solve.
+    #[test]
+    fn session_install_plan_stashes_an_external_plan_and_the_session_walks_it() {
+        let session = dispatch_json(&json!({
+            "op": "session_new",
+            "domain": INSTALL_SESSION_DOMAIN,
+            "problem": INSTALL_SESSION_PROBLEM,
+        }));
+        let handle = session["handle"].as_u64().expect("session handle");
+        assert_eq!(
+            dispatch_json(&json!({ "op": "session_has_plan", "handle": handle }))["has_plan"],
+            json!(false),
+            "a fresh session must start planless"
+        );
+
+        let installed = dispatch_json(&json!({
+            "op": "session_install_plan",
+            "handle": handle,
+            "plan": install_one_plan_json(),
+        }));
+        assert_eq!(installed, json!({ "ok": true }), "{installed}");
+
+        assert_eq!(
+            dispatch_json(&json!({ "op": "session_has_plan", "handle": handle }))["has_plan"],
+            json!(true),
+            "the install must be visible through the ordinary session surface"
+        );
+        let step = dispatch_json(&json!({ "op": "session_step", "handle": handle }));
+        assert_eq!(step["action"], json!("FINISH"), "{step}");
+        assert_eq!(
+            dispatch_json(&json!({ "op": "session_valid", "handle": handle }))["valid"],
+            json!(true),
+            "the installed suffix must replay applicably to the goal from the current world"
+        );
+        dispatch_json(&json!({ "op": "session_free", "handle": handle }));
+    }
+
+    /// (W1-d, refusals) Invalid installs come back as typed error envelopes
+    /// on the wire, never panics, and never touch the plan slot: a plan its
+    /// producer marked unsolved and a stepless plan are `FP_VALIDATION`
+    /// refusals; a plan that is not `UniversalPlan` JSON is
+    /// `FP_INVALID_REQUEST`; a missing `plan` field stays a dispatch `Err`
+    /// naming the field (the file-wide convention).
+    #[test]
+    fn session_install_plan_refuses_invalid_plans_with_typed_envelopes() {
+        let session = dispatch_json(&json!({
+            "op": "session_new",
+            "domain": INSTALL_SESSION_DOMAIN,
+            "problem": INSTALL_SESSION_PROBLEM,
+        }));
+        let handle = session["handle"].as_u64().expect("session handle");
+
+        let unsolved = dispatch_json(&json!({
+            "op": "session_install_plan",
+            "handle": handle,
+            "plan": { "planning_type": "fond", "solved": false,
+                      "steps": [ { "action": "finish" } ] },
+        }));
+        assert_eq!(unsolved["error"]["code"], json!("FP_VALIDATION"), "{unsolved}");
+        assert_eq!(unsolved["error"]["retryable"], json!(false), "{unsolved}");
+
+        let stepless = dispatch_json(&json!({
+            "op": "session_install_plan",
+            "handle": handle,
+            "plan": { "planning_type": "fond", "solved": true, "steps": [] },
+        }));
+        assert_eq!(stepless["error"]["code"], json!("FP_VALIDATION"), "{stepless}");
+
+        let malformed = dispatch_json(&json!({
+            "op": "session_install_plan",
+            "handle": handle,
+            "plan": { "solved": "definitely" },
+        }));
+        assert_eq!(
+            malformed["error"]["code"],
+            json!("FP_INVALID_REQUEST"),
+            "{malformed}"
+        );
+        assert_eq!(malformed["error"]["retryable"], json!(false), "{malformed}");
+
+        let missing = dispatch(
+            &serde_json::to_vec(&json!({ "op": "session_install_plan", "handle": handle }))
+                .unwrap(),
+        );
+        assert!(
+            missing.unwrap_err().contains("plan"),
+            "a missing plan field is a dispatch Err naming it"
+        );
+
+        assert_eq!(
+            dispatch_json(&json!({ "op": "session_has_plan", "handle": handle }))["has_plan"],
+            json!(false),
+            "refused installs must leave the session planless"
+        );
+        dispatch_json(&json!({ "op": "session_free", "handle": handle }));
     }
 
     /// (c) `htn_plan` on a single-method two-level hierarchy: `top` (level 0,
