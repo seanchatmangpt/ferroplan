@@ -24,6 +24,8 @@
 //!     `PlanningType::Hierarchical` via `solve_planning_type`)
 //!   - `fond_policy` `{domain, problem, limits?}` -> `UniversalPlan` JSON
 //!     (same wire shape as `htn_plan`; forces `PlanningType::Fond`)
+//!   - `fond_validate` `{problem, plan}` -> independent `PolicyValidationReport`
+//!     over the exact `PlanningProblem` and returned `UniversalPlan`; evidence only
 //!   - `hddl_solve` `{domain, problem, limits?}` -> `UniversalPlan` JSON.
 //!     `domain`/`problem` are HDDL source text (not classical PDDL); parsed,
 //!     grounded, and translated by `ferroplan_hddl`, then solved by the
@@ -91,11 +93,13 @@
 //! dealloc it afterward); the response buffer is host-owned, freed via
 //! `fp_dealloc(out_ptr, out_len)` after reading.
 
-use ferroplan::planning_runtime::{solve_planning_type, PlanningProblem, UniversalPlanningRequest};
+use ferroplan::planning_runtime::{
+    solve_planning_type, PlanningProblem, UniversalPlan, UniversalPlanningRequest,
+};
 use ferroplan::planning_types::PlanningType;
 use ferroplan::{
-    capability_manifest, solve, solve_hddl, solve_production, HddlError, Mode, Options,
-    PlannerLimits, ProductionLimits, Search,
+    capability_manifest, solve, solve_hddl, solve_production, validate_fond_policy, HddlError,
+    Mode, Options, PlannerLimits, ProductionLimits, Search,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -324,6 +328,7 @@ fn dispatch(input: &[u8]) -> Result<Vec<u8>, String> {
         "plan_production" => op_plan_production(&req)?,
         "htn_plan" => op_htn_plan(&req)?,
         "fond_policy" => op_fond_policy(&req)?,
+        "fond_validate" => op_fond_validate(&req)?,
         "hddl_solve" => op_hddl_solve(&req)?,
         "readiness" => op_readiness()?,
         "version" => json!({ "version": env!("CARGO_PKG_VERSION") }),
@@ -459,6 +464,38 @@ fn op_htn_plan(req: &Value) -> Result<Value, String> {
 /// Same wire shape as `op_htn_plan`; forces `PlanningType::Fond`.
 fn op_fond_policy(req: &Value) -> Result<Value, String> {
     solve_universal(req, PlanningType::Fond)
+}
+
+/// Validate a candidate FOND policy independently from synthesis. This op
+/// manufactures evidence only; it never selects or executes the policy action.
+fn op_fond_validate(req: &Value) -> Result<Value, String> {
+    let problem_text = field_str(req, "problem")?;
+    bounded(problem_text, WASI_JSON_FIELD_BYTES, "problem")?;
+    let problem: PlanningProblem = serde_json::from_str(problem_text)
+        .map_err(|e| format!("problem: invalid PlanningProblem JSON: {e}"))?;
+    let plan_value = req
+        .get("plan")
+        .ok_or_else(|| "missing field `plan`".to_string())?;
+    if serde_json::to_string(plan_value)
+        .map(|encoded| encoded.len())
+        .unwrap_or(WASI_JSON_FIELD_BYTES + 1)
+        > WASI_JSON_FIELD_BYTES
+    {
+        return Ok(err_json(
+            "FP_LIMIT_INPUT",
+            "plan exceeds the WASI adapter input limit",
+        ));
+    }
+    let plan: UniversalPlan = match serde_json::from_value(plan_value.clone()) {
+        Ok(plan) => plan,
+        Err(error) => {
+            return Ok(err_json(
+                "FP_INVALID_POLICY",
+                &format!("plan: invalid UniversalPlan JSON: {error}"),
+            ))
+        }
+    };
+    serde_json::to_value(validate_fond_policy(&problem, &plan)).map_err(|e| e.to_string())
 }
 
 fn solve_universal(req: &Value, planning_type: PlanningType) -> Result<Value, String> {
@@ -1474,6 +1511,51 @@ mod tests {
                 "policy must be closed: outcome {state} is neither covered nor the goal: {response}"
             );
         }
+    }
+
+    #[test]
+    fn fond_validate_independently_admits_the_retry_loop_policy_as_strong_cyclic() {
+        let problem = retry_loop_problem_json();
+        let plan = dispatch_json(&json!({
+            "op": "fond_policy",
+            "problem": problem,
+            "limits": { "max_wall_ms": 0 },
+        }));
+        assert_eq!(plan["solved"], json!(true), "{plan}");
+
+        let report = dispatch_json(&json!({
+            "op": "fond_validate",
+            "problem": retry_loop_problem_json(),
+            "plan": plan,
+        }));
+        assert_eq!(report["valid"], json!(true), "{report}");
+        assert_eq!(report["guarantee"], json!("STRONG_CYCLIC"), "{report}");
+        assert_eq!(report["issues"], json!([]), "{report}");
+    }
+
+    #[test]
+    fn fond_validate_refuses_policy_outcome_drift_independently_of_synthesis() {
+        let problem = retry_loop_problem_json();
+        let mut plan = dispatch_json(&json!({
+            "op": "fond_policy",
+            "problem": problem,
+            "limits": { "max_wall_ms": 0 },
+        }));
+        plan["policy"][0]["outcomes"][0]["probability_ppm"] = json!(400_000);
+
+        let report = dispatch_json(&json!({
+            "op": "fond_validate",
+            "problem": retry_loop_problem_json(),
+            "plan": plan,
+        }));
+        assert_eq!(report["valid"], json!(false), "{report}");
+        assert_eq!(report["guarantee"], json!("INVALID"), "{report}");
+        assert!(
+            report["issues"]
+                .as_array()
+                .is_some_and(|issues| !issues.is_empty()),
+            "drift must produce a concrete falsifier: {report}"
+        );
     }
 
     /// (b, negative) `fond_policy` on the dead-end variant: `flip`'s second
