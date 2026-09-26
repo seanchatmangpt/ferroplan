@@ -868,8 +868,7 @@ fn op_session_probe(req: &Value) -> Result<Value, String> {
         .get("candidates")
         .ok_or_else(|| "missing field `candidates`".to_string())?;
     let candidates: Vec<SessionProbeCandidate> =
-        serde_json::from_value(candidates_value.clone())
-            .map_err(|e| format!("candidates: {e}"))?;
+        serde_json::from_value(candidates_value.clone()).map_err(|e| format!("candidates: {e}"))?;
     if candidates.is_empty() || candidates.len() > WASI_MAX_PROBE_CANDIDATES {
         return Ok(err_json(
             "FP_LIMIT_CANDIDATES",
@@ -883,10 +882,7 @@ fn op_session_probe(req: &Value) -> Result<Value, String> {
                 .as_ref()
                 .is_some_and(|goal| goal.len() > WASI_TEXT_FIELD_BYTES)
             || candidate.sight.len() > WASI_MAX_PROBE_OBSERVATIONS
-            || candidate
-                .sight
-                .iter()
-                .any(|(fact, _)| fact.len() > 4_096)
+            || candidate.sight.iter().any(|(fact, _)| fact.len() > 4_096)
             || candidate
                 .restrict_contains
                 .as_ref()
