@@ -49,6 +49,10 @@
 //!   - `session_restrict_prefix_claims` `{handle, prefix, claimed}` -> `{ok:true}`
 //!   - `session_restrict_contains` `{handle, filter}` -> `{ok:true}`
 //!   - `session_think` `{handle, evals, mem_mb}` -> `Solution` JSON
+//!   - `session_replan_following` `{handle, evals, mem_mb}` -> `Solution` JSON,
+//!     preserving the still-applicable prefix of the stashed plan when possible
+//!   - `session_repair` `{handle, evals, mem_mb}` -> DfCM repair decision JSON:
+//!     goal-met -> reuse-valid-suffix -> follow-biased replan -> full replan
 //!   - `session_valid` `{handle}` -> `{valid:bool}`
 //!   - `session_step` `{handle}` -> the current step, or `null`
 //!   - `session_suffix` `{handle}` -> the remaining steps array
@@ -327,6 +331,8 @@ fn dispatch(input: &[u8]) -> Result<Vec<u8>, String> {
         "session_restrict_prefix_claims" => op_session_restrict_prefix_claims(&req)?,
         "session_restrict_contains" => op_session_restrict_contains(&req)?,
         "session_think" => op_session_think(&req)?,
+        "session_replan_following" => op_session_replan_following(&req)?,
+        "session_repair" => op_session_repair(&req)?,
         "session_valid" => op_session_valid(&req)?,
         "session_step" => op_session_step(&req)?,
         "session_suffix" => op_session_suffix(&req)?,
@@ -686,8 +692,7 @@ fn op_session_restrict_contains(req: &Value) -> Result<Value, String> {
     Ok(json!({ "ok": true }))
 }
 
-fn op_session_think(req: &Value) -> Result<Value, String> {
-    let handle = field_u64(req, "handle")?;
+fn session_budget(req: &Value) -> Result<Result<(usize, usize), Value>, String> {
     let evals = req
         .get("evals")
         .and_then(Value::as_u64)
@@ -697,17 +702,26 @@ fn op_session_think(req: &Value) -> Result<Value, String> {
         .and_then(Value::as_u64)
         .ok_or_else(|| "missing field `mem_mb`".to_string())? as usize;
     if evals == 0 || evals > WASI_MAX_THINK_EVALS {
-        return Ok(err_json(
+        return Ok(Err(err_json(
             "FP_LIMIT_SEARCH",
             "evals must be within the WASI production budget",
-        ));
+        )));
     }
     if mem_mb == 0 || mem_mb > WASI_MAX_THINK_MEMORY_MB {
-        return Ok(err_json(
+        return Ok(Err(err_json(
             "FP_LIMIT_MEMORY",
             "mem_mb must be within the WASI production budget",
-        ));
+        )));
     }
+    Ok(Ok((evals, mem_mb)))
+}
+
+fn op_session_think(req: &Value) -> Result<Value, String> {
+    let handle = field_u64(req, "handle")?;
+    let (evals, mem_mb) = match session_budget(req)? {
+        Ok(budget) => budget,
+        Err(refusal) => return Ok(refusal),
+    };
     let sol = with_session(handle, |s| {
         let sol = s.inner.replan_budgeted(evals, Some(mem_mb));
         s.plan = if sol.solved { sol.plan.clone() } else { None };
@@ -715,6 +729,119 @@ fn op_session_think(req: &Value) -> Result<Value, String> {
         sol
     })?;
     serde_json::to_value(sol).map_err(|e| e.to_string())
+}
+
+/// Follow-before-rethink over the stashed plan. This is CONSTRUCT-only:
+/// it manufactures and stashes a candidate replacement plan but never
+/// advances the cursor, applies an action, or grants authority.
+fn op_session_replan_following(req: &Value) -> Result<Value, String> {
+    let handle = field_u64(req, "handle")?;
+    let (evals, mem_mb) = match session_budget(req)? {
+        Ok(budget) => budget,
+        Err(refusal) => return Ok(refusal),
+    };
+
+    let result = with_session(handle, |s| {
+        let Some(prior) = s.plan.clone() else {
+            return Err("session has no stashed plan to follow".to_string());
+        };
+        let sol = s
+            .inner
+            .replan_following(&prior, s.cursor, evals, Some(mem_mb));
+        s.plan = if sol.solved { sol.plan.clone() } else { None };
+        s.cursor = 0;
+        Ok(sol)
+    })??;
+    serde_json::to_value(result).map_err(|e| e.to_string())
+}
+
+/// DfCM repair router: preserve the maximum reversible option before paying
+/// for broader search. A valid suffix is reused with zero search; only a
+/// broken suffix earns follow-biased replanning. With no prior plan, the
+/// router falls back to the ordinary bounded replan. It never actuates.
+fn op_session_repair(req: &Value) -> Result<Value, String> {
+    let handle = field_u64(req, "handle")?;
+    let (evals, mem_mb) = match session_budget(req)? {
+        Ok(budget) => budget,
+        Err(refusal) => return Ok(refusal),
+    };
+
+    with_session(handle, |s| {
+        if s.inner.goal_met() {
+            return Ok(json!({
+                "decision": "goal_met",
+                "trigger": "goal_met",
+                "plan_valid": Value::Null,
+                "previous_suffix": [],
+                "suffix": [],
+                "solution": Value::Null,
+            }));
+        }
+
+        match s.plan.clone() {
+            Some(prior) => {
+                let from = s.cursor.min(prior.steps.len());
+                let previous_suffix = prior.steps[from..].to_vec();
+                if s.inner.plan_still_valid(&prior, s.cursor) {
+                    return Ok(json!({
+                        "decision": "reuse_suffix",
+                        "trigger": "none",
+                        "plan_valid": true,
+                        "previous_suffix": previous_suffix,
+                        "suffix": previous_suffix,
+                        "solution": Value::Null,
+                    }));
+                }
+
+                let sol = s
+                    .inner
+                    .replan_following(&prior, s.cursor, evals, Some(mem_mb));
+                let decision = if sol.solved {
+                    "replanned_following"
+                } else {
+                    "replan_unsolved"
+                };
+                s.plan = if sol.solved { sol.plan.clone() } else { None };
+                s.cursor = 0;
+                let suffix = s
+                    .plan
+                    .as_ref()
+                    .map(|plan| plan.steps.clone())
+                    .unwrap_or_default();
+                Ok(json!({
+                    "decision": decision,
+                    "trigger": "invalid_plan",
+                    "plan_valid": false,
+                    "previous_suffix": previous_suffix,
+                    "suffix": suffix,
+                    "solution": sol,
+                }))
+            }
+            None => {
+                let sol = s.inner.replan_budgeted(evals, Some(mem_mb));
+                let decision = if sol.solved {
+                    "replanned_full"
+                } else {
+                    "replan_unsolved"
+                };
+                s.plan = if sol.solved { sol.plan.clone() } else { None };
+                s.cursor = 0;
+                let suffix = s
+                    .plan
+                    .as_ref()
+                    .map(|plan| plan.steps.clone())
+                    .unwrap_or_default();
+                Ok(json!({
+                    "decision": decision,
+                    "trigger": "no_plan",
+                    "plan_valid": Value::Null,
+                    "previous_suffix": [],
+                    "suffix": suffix,
+                    "solution": sol,
+                }))
+            }
+        }
+    })?
 }
 
 fn op_session_valid(req: &Value) -> Result<Value, String> {
@@ -1372,6 +1499,135 @@ mod tests {
         assert!(malformed_problem["error"]["message"]
             .as_str()
             .is_some_and(|message| message.contains("HDDL parse error")));
+    }
+
+    const REPAIR_DOMAIN: &str = r#"(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))"#;
+
+    const REPAIR_PROBLEM: &str = r#"(define (problem repair)
+  (:domain rooms)
+  (:objects a b c - room)
+  (:init (at a) (link a b) (link c b))
+  (:goal (at b)))"#;
+
+    fn repair_session() -> u64 {
+        let created = dispatch_json(&json!({
+            "op": "session_new",
+            "domain": REPAIR_DOMAIN,
+            "problem": REPAIR_PROBLEM,
+        }));
+        created["handle"].as_u64().expect("session handle")
+    }
+
+    #[test]
+    fn session_repair_reuses_a_still_valid_suffix_without_search() {
+        let handle = repair_session();
+        let first = dispatch_json(&json!({
+            "op": "session_think",
+            "handle": handle,
+            "evals": 10_000,
+            "mem_mb": 64,
+        }));
+        assert_eq!(first["solved"], json!(true), "{first}");
+
+        let repaired = dispatch_json(&json!({
+            "op": "session_repair",
+            "handle": handle,
+            "evals": 10_000,
+            "mem_mb": 64,
+        }));
+        assert_eq!(repaired["decision"], json!("reuse_suffix"), "{repaired}");
+        assert_eq!(repaired["trigger"], json!("none"), "{repaired}");
+        assert_eq!(repaired["plan_valid"], json!(true), "{repaired}");
+        assert_eq!(repaired["solution"], Value::Null, "{repaired}");
+        assert_eq!(
+            repaired["previous_suffix"], repaired["suffix"],
+            "zero-search reuse must preserve the exact suffix: {repaired}"
+        );
+        assert!(
+            !repaired["suffix"].as_array().unwrap().is_empty(),
+            "the fixture must carry a real remaining plan: {repaired}"
+        );
+
+        let freed = dispatch_json(&json!({"op": "session_free", "handle": handle}));
+        assert_eq!(freed["freed"], json!(true));
+    }
+
+    #[test]
+    fn session_repair_uses_follow_biased_replanning_after_world_drift() {
+        let handle = repair_session();
+        let first = dispatch_json(&json!({
+            "op": "session_think",
+            "handle": handle,
+            "evals": 10_000,
+            "mem_mb": 64,
+        }));
+        assert_eq!(first["solved"], json!(true), "{first}");
+
+        let observed = dispatch_json(&json!({
+            "op": "session_observe",
+            "handle": handle,
+            "sight": [["(at a)", false], ["(at c)", true]],
+        }));
+        assert!(
+            observed.as_array().is_some_and(|news| !news.is_empty()),
+            "the drift must be a real Ferroplan surprise: {observed}"
+        );
+
+        let valid = dispatch_json(&json!({"op": "session_valid", "handle": handle}));
+        assert_eq!(valid["valid"], json!(false), "{valid}");
+
+        let repaired = dispatch_json(&json!({
+            "op": "session_repair",
+            "handle": handle,
+            "evals": 10_000,
+            "mem_mb": 64,
+        }));
+        assert_eq!(
+            repaired["decision"],
+            json!("replanned_following"),
+            "{repaired}"
+        );
+        assert_eq!(repaired["trigger"], json!("invalid_plan"), "{repaired}");
+        assert_eq!(repaired["plan_valid"], json!(false), "{repaired}");
+        assert_eq!(repaired["solution"]["solved"], json!(true), "{repaired}");
+        assert!(
+            !repaired["previous_suffix"].as_array().unwrap().is_empty(),
+            "the old candidate must remain visible for lineage: {repaired}"
+        );
+        assert!(
+            !repaired["suffix"].as_array().unwrap().is_empty(),
+            "the replacement candidate must be stashed: {repaired}"
+        );
+
+        let valid_after = dispatch_json(&json!({"op": "session_valid", "handle": handle}));
+        assert_eq!(valid_after["valid"], json!(true), "{valid_after}");
+
+        let freed = dispatch_json(&json!({"op": "session_free", "handle": handle}));
+        assert_eq!(freed["freed"], json!(true));
+    }
+
+    #[test]
+    fn session_repair_with_no_prior_plan_uses_bounded_full_replan() {
+        let handle = repair_session();
+        let repaired = dispatch_json(&json!({
+            "op": "session_repair",
+            "handle": handle,
+            "evals": 10_000,
+            "mem_mb": 64,
+        }));
+        assert_eq!(repaired["decision"], json!("replanned_full"), "{repaired}");
+        assert_eq!(repaired["trigger"], json!("no_plan"), "{repaired}");
+        assert_eq!(repaired["solution"]["solved"], json!(true), "{repaired}");
+
+        let freed = dispatch_json(&json!({"op": "session_free", "handle": handle}));
+        assert_eq!(freed["freed"], json!(true));
     }
 
     // ------------------------------------------------------------------
