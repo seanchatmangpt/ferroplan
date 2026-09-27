@@ -64,7 +64,7 @@ Metric-FF (EHC reaches goals in dozens of evaluations, not thousands); numeric
 trails and IPC-5 preference quality is competitive-not-winning — see
 [Benchmarks](#benchmarks).
 
-> Status: **v0.28.0** — release candidate on `main`: the 32-board cut sweep that regenerates the table above is in flight, and [crates.io](https://crates.io/crates/ferroplan) carries v0.27.1 (`ferroplan`, `ferroplan-cli`, `ferroplan-mcp`, `ferroplan-sat`) until it lands. APIs may shift before 1.0.
+> Status: **v0.29.0** on `main` (crates.io release pending — [crates.io](https://crates.io/crates/ferroplan) still carries v0.27.1 for `ferroplan`, `ferroplan-cli`, `ferroplan-mcp`, `ferroplan-sat` until it lands). APIs may shift before 1.0.
 
 <!-- WHATSNEW:BEGIN — newest first; trimmed by scripts/release-notes-roll.py -->
 
@@ -320,7 +320,13 @@ witnesses it:
   [`ferroplan-wasm`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-wasm)
   (`fond_policy_op_solves_the_retry_loop_with_a_closed_policy`,
   `htn_plan_op_preserves_the_decomposition_order_of_a_two_level_hierarchy`,
-  `hddl_solve_malformed_hddl_text_is_a_typed_error_not_a_trap`).
+  `hddl_solve_malformed_hddl_text_is_a_typed_error_not_a_trap`). The 0.29.0
+  replan-mechanism surface adds `fond_policy_validate` (`{problem, plan}` →
+  policy validation report), `session_fork` with `{keep_plan}`, and
+  `session_think` verdicts (`solved` | `capped` | `exhausted`) — with
+  `prefer_follow` routing through the new Rust API
+  `Session::think_following(prior, from_step, budget)` — plus an exit-0/2
+  validation CLI, `crates/ferroplan-hddl/examples/validate_files.rs`.
 - **Eve bridge** — `solve_hddl_from_eve` feeds the Eve `DecomposeHddl` lifecycle
   stage (a typed LLM-authored handoff) into the same HDDL pipeline
   (`solve_hddl_from_eve_solves_a_deterministic_regime_micro_domain`).
