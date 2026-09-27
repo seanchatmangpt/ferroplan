@@ -13,6 +13,37 @@ All notable changes to this project are documented here.
   the service worker with the deploying commit and validates the worker + manifest.
 
 
+## [0.29.0] - 2026-09-25 — the replan mechanism
+
+Authority NONE: every new surface returns evidence (plans, verdicts,
+validation reports), never actuation.
+
+### Added
+
+- **`fond_policy_validate` WASI op** (`crates/ferroplan-wasm/src/wasi_abi.rs`):
+  `{problem, plan}` → `PolicyValidationReport`; `fond_policy` responses now
+  carry a `validation` report.
+- **`session_fork` `{keep_plan}`** (default `false`): the forked session
+  clones the parent's current plan and cursor.
+- **Think verdicts + `prefer_follow`**: `session_think` returns the Solution
+  plus a `verdict` (`solved` | `capped` | `exhausted`), `capped`, and
+  `spent_evals` — `capped` never reads as unreachable, only `exhausted` is a
+  proof — and `prefer_follow: true` with a held plan routes through the new
+  **`Session::think_following(prior, from_step, ThinkBudget)`**
+  (`crates/ferroplan/src/session.rs`), which replays the held suffix and
+  searches only the broken tail.
+- **`validate_files` example CLI**
+  (`crates/ferroplan-hddl/examples/validate_files.rs`): exit 0 when the
+  plans are admissible, exit 2 with the failing stage and message otherwise.
+
+### Security
+
+- Lockfile-only dependency bumps (c526232): `crossbeam-epoch` 0.9.18 → 0.9.21
+  (RUSTSEC-2026-0204), `event-listener` 5.4.1 → 5.4.2 (RUSTSEC-2026-0221),
+  `spin` 0.10.0 → 0.10.1 (unyanked). No manifest or API changes; `cargo
+  audit` clean at 526 dependencies.
+
+
 ## [0.28.1] - 2026-09-22 — The fork reconciles with upstream's 0.28.0
 
 Upstream cut its own 0.28.0 while this fork had already tagged `v0.28.0`
