@@ -1,0 +1,12 @@
+use ferroplan_runtime::{receipt::Receipt, replay};
+#[test]
+fn routing_replays() {
+    let r = Receipt {
+        subject_sha: "abc".into(),
+        epoch: 1,
+        provider: "p".into(),
+        edge: "e".into(),
+        outcome: "ok".into(),
+    };
+    assert!(replay::same_decision(&r, &r));
+}

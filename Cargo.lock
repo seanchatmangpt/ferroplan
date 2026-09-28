@@ -2500,6 +2500,10 @@ name = "ferroplan-hddl"
 version = "0.29.0"
 
 [[package]]
+name = "ferroplan-runtime"
+version = "0.29.0"
+
+[[package]]
 name = "ferroplan-mcp"
 version = "0.29.0"
 dependencies = [
