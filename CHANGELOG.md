@@ -27,6 +27,12 @@ verdicts, validation reports) and grants no execution authority.
 - **`ferroplan-runtime`**, a new workspace crate: a multi-plan provider
   switching control plane (authority, budget, circuit, lease, scheduler,
   receipt/OCEL evidence, replay, TLA and trim-tab evidence).
+- **DfCM session repair and probes** (`ferroplan-wasm`): `session_repair`
+  (reuse a valid suffix with zero search, else follow-biased replan, else full
+  replan), `session_replan_following`, bounded counterfactual `session_probe`
+  over cheap forks (the parent is untouched), `fond_validate` with structured
+  `FP_*` refusals, and browser parity for all of them. Construct-only: none
+  advance the cursor or actuate.
 - `ferroplan-hddl` `validate_files` example: parse, static validation and
   method grounding over HDDL files; exit 2 names the failing stage.
 
