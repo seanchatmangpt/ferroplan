@@ -17,7 +17,7 @@
 //! A second target lives alongside this browser one: `cargo build -p
 //! ferroplan-wasm --release --target wasm32-wasip1` builds a plain
 //! linear-memory JSON ABI (no wasm-bindgen, no JS glue) for a BEAM host
-//! (wasmex/wasmtime) — see [`wasi_abi`], which mirrors beam4pm's own
+//! (wasmex/wasmtime) — see `wasi_abi`, which mirrors beam4pm's own
 //! `rust4pm-wasm` adapter shape exactly (`fp_alloc`/`fp_call`/`fp_dealloc`,
 //! same handle-registry discipline). The two targets are mutually
 //! exclusive at compile time (`cfg(target_os = "unknown")` vs `cfg(target_os

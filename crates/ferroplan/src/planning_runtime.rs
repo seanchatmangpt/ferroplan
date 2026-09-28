@@ -6,19 +6,19 @@
 //! front-ends may manufacture it directly.  The module performs no actuation.
 //!
 //! Scope caveat for the HTN family ([`PlanningType::Hierarchical`] and every
-//! other planner routed through [`hierarchical_plan`]): decomposition is
+//! other planner routed through `hierarchical_plan`): decomposition is
 //! *structural only* — methods are tried exhaustively with depth-first
 //! backtracking over the task/method hierarchy, but subtask ordering carries
 //! no precondition, effect, or goal semantics.  A `solved: true` hierarchical
 //! plan therefore means "every root decomposed down to primitive actions",
 //! not "the emitted action sequence reaches the goal from the initial state"
 //! (that guarantee belongs to the state-searching planners).  Every plan
-//! returned by [`hierarchical_plan`] carries a note stating exactly this.
+//! returned by `hierarchical_plan` carries a note stating exactly this.
 //!
 //! # Bound policy
 //!
-//! Loops computing a *structural fixpoint* — [`fond_policy`]'s least
-//! fixpoint and [`fond_policy_strong_cyclic`]'s reachability/prune phases —
+//! Loops computing a *structural fixpoint* — `fond_policy`'s least
+//! fixpoint and `fond_policy_strong_cyclic`'s reachability/prune phases —
 //! are bounded by their own mathematics, not by caller-set caps: every
 //! changing round admits or prunes at least one state, so each converges
 //! within `problem.states.len() + 1` rounds, and a `states + 1` round
@@ -27,8 +27,8 @@
 //! stale, policy. For those loops `PlannerLimits::max_iterations` is
 //! advisory: it no longer gates them (a caller-set cap below the fixpoint's
 //! convergence need used to reject solvable domains with a bogus `NoPlan`).
-//! Structural *search* bounds stay hard: [`conformant_plan`]'s belief BFS
-//! and [`contingent_policy`]'s AND-OR search explore a space whose size is
+//! Structural *search* bounds stay hard: `conformant_plan`'s belief BFS
+//! and `contingent_policy`'s AND-OR search explore a space whose size is
 //! defined by `PlannerLimits::max_depth`/`max_states`, so those caps remain
 //! load-bearing limits there, and `PlannerLimits::max_wall_ms` bounds real
 //! time everywhere.
@@ -876,7 +876,7 @@ fn fond_policy(
 
 /// Strong-cyclic FOND fixpoint solver (Cimatti, Pistore, Roveri, Traverso,
 /// *"Weak, Strong, and Strong Cyclic Planning via Symbolic Model Checking,"*
-/// AIJ 2003 — the standard reference algorithm). Unlike [`fond_policy`] (a
+/// AIJ 2003 — the standard reference algorithm). Unlike `fond_policy` (a
 /// least fixpoint grown from the goal outward, which can only express
 /// acyclic strong plans — a cyclic state's own successor set always
 /// contains a not-yet-`winning` member, namely itself, at the moment it
@@ -1324,7 +1324,7 @@ fn conformant_plan(
     Err(PlannerError::NoPlan)
 }
 
-/// Memo entry for [`contingent_policy`]'s belief search. A `Solved` policy is
+/// Memo entry for `contingent_policy`'s belief search. A `Solved` policy is
 /// depth-independent — the policy for a belief does not depend on the path
 /// that reached it — and is reused verbatim. A *failure*, though, is only
 /// ever witnessed at a particular remaining budget: `max_depth` can cut the

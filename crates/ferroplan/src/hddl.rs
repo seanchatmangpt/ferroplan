@@ -198,7 +198,7 @@ pub fn adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) -> PlanningP
 }
 
 /// Ground-instance budget per unit of [`PlannerLimits::max_states`] — the
-/// calibration constant of [`grounding_limits_from`]. Chosen so that
+/// calibration constant of `grounding_limits_from`. Chosen so that
 /// `PlannerLimits::default()` (`max_states = 100_000`) reproduces, exactly,
 /// the grounding envelope `solve_hddl` has always applied
 /// (`GroundingLimits::default()`: 10_000 ground actions, 10_000 ground
@@ -275,7 +275,7 @@ fn grounding_limits_from(limits: &PlannerLimits) -> ferroplan_hddl::grounder::Gr
 }
 
 /// Composite-state budget per unit of [`PlannerLimits::max_states`] — the
-/// calibration constant of [`translate_limits_from`]. Chosen so that
+/// calibration constant of `translate_limits_from`. Chosen so that
 /// `PlannerLimits::default()` (`max_states = 100_000`) reproduces, exactly,
 /// the translate envelope `solve_hddl` has always applied
 /// (`TranslateLimits::default()`: 200 000 composite states, 10 s wall) — the
@@ -292,7 +292,7 @@ const MAX_STATES_PER_COMPOSITE_STATE: usize = 2;
 /// Derive the translate-phase limits [`solve_hddl_inner`] passes to
 /// `ferroplan_hddl::translate::translate` from the caller's
 /// [`PlannerLimits`] — the translate-side half of the capacity plumbing
-/// (the grounding-side counterpart is [`grounding_limits_from`]; the two
+/// (the grounding-side counterpart is `grounding_limits_from`; the two
 /// are independent seams in the same pipeline function). Supersedes the
 /// never-landed ticket fond-htn-23 design (a dedicated
 /// `PlannerLimits::max_composite_states` field) with the same
@@ -306,7 +306,7 @@ const MAX_STATES_PER_COMPOSITE_STATE: usize = 2;
 ///   ceiling proportionally.
 /// - `max_wall`: `Some(max_wall_ms)` verbatim, with `max_wall_ms == 0`
 ///   mapping to `None` (unbounded), matching `max_wall_ms`'s own documented
-///   convention and [`grounding_limits_from`]. Behavior note, same class as
+///   convention and `grounding_limits_from`. Behavior note, same class as
 ///   the grounding-side one: before this plumbing, a caller's
 ///   `max_wall_ms` — however large — never lifted translate's *internal*
 ///   10 s wall (the wave-4 sweep's 9 `LIMIT:translate-wall` refusals,
@@ -333,11 +333,11 @@ fn translate_limits_from(limits: &PlannerLimits) -> ferroplan_hddl::translate::T
 /// with no wall-clock guard of its own -- `ferroplan_hddl::grounder::ground`
 /// and `ferroplan_hddl::translate::translate` each already enforce their own
 /// wall-clock caps internally (`GroundingLimits::max_wall`, derived from the
-/// caller's `limits` by [`grounding_limits_from`]; `TranslateLimits::max_wall`
-/// likewise derived by [`translate_limits_from`]),
+/// caller's `limits` by `grounding_limits_from`; `TranslateLimits::max_wall`
+/// likewise derived by `translate_limits_from`),
 /// `solve_planning_type` enforces `limits.max_wall_ms` inside
 /// `fond_policy`/`fond_policy_strong_cyclic`, and the grounding instance
-/// caps are likewise derived from `limits` (see [`grounding_limits_from`]) --
+/// caps are likewise derived from `limits` (see `grounding_limits_from`) --
 /// but `ferroplan_hddl::parser::parse_domain`/`parse_problem` have no
 /// iteration or wall-clock concept at all. `solve_hddl` (below) wraps this
 /// function in a watchdog so the parser (or any future phase that similarly
@@ -380,10 +380,10 @@ fn solve_hddl_inner(
 /// thread is not synchronously reclaimed. The worker thread is not left
 /// truly unbounded either, though: `ground` carries the wall-clock check
 /// derived from this same `limits` (`GroundingLimits::max_wall`, see
-/// [`grounding_limits_from`]) and its instance caps are likewise
+/// `grounding_limits_from`) and its instance caps are likewise
 /// `limits`-derived, `translate` carries its own internal wall-clock check
 /// (`TranslateLimits::max_wall`, likewise derived from `limits`, see
-/// [`translate_limits_from`]), and
+/// `translate_limits_from`), and
 /// `fond_policy`/`fond_policy_strong_cyclic` check `limits.max_wall_ms`
 /// directly, so every phase past the parser also exits on its own within
 /// roughly one more `max_wall_ms`-scaled budget even if this watchdog has
@@ -453,7 +453,7 @@ pub fn solve_hddl(
 ///    root task is spliced in as a trailing
 ///    `(:htn :ordered-subtasks ROOT_TASK)` section — inserted *before the
 ///    problem's closing parenthesis* by a comment-aware depth scan
-///    ([`insert_htn_section`]), never naive end-of-text appending (a
+///    (`insert_htn_section`), never naive end-of-text appending (a
 ///    trailing `;` comment would otherwise end up inside the new section).
 /// 3. If the problem **does** declare a root network, it must be exactly the
 ///    single Eve root task; anything else is a
@@ -463,14 +463,14 @@ pub fn solve_hddl(
 ///    mismatch is refused instead of resolved.
 ///
 /// The Eve root task itself is parsed with the *real* problem grammar (via a
-/// synthetic probe problem, [`eve_root_task_network`]) rather than a
+/// synthetic probe problem, `eve_root_task_network`) rather than a
 /// hand-rolled mini-parser, so whatever the pipeline ultimately accepts, the
 /// bridge accepts and compares exactly the same shapes.
 ///
 /// # Regimes
 ///
-/// Both [`PlanningRegime::Deterministic`] and
-/// [`PlanningRegime::Probabilistic`] handoffs run the *same* HDDL half:
+/// Both `PlanningRegime::Deterministic` and
+/// `PlanningRegime::Probabilistic` handoffs run the *same* HDDL half:
 /// parse -> ground -> translate -> FOND solve. The PPDDL half of a
 /// Probabilistic handoff (`handoff.ppddl`) is **explicitly out of scope**
 /// here — governing uncertainty is the `GovernUncertaintyPpddl` stage, owned

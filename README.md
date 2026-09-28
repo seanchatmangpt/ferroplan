@@ -64,9 +64,20 @@ Metric-FF (EHC reaches goals in dozens of evaluations, not thousands); numeric
 trails and IPC-5 preference quality is competitive-not-winning — see
 [Benchmarks](#benchmarks).
 
-> Status: **v0.28.0** — release candidate on `main`: the 32-board cut sweep that regenerates the table above is in flight, and [crates.io](https://crates.io/crates/ferroplan) carries v0.27.1 (`ferroplan`, `ferroplan-cli`, `ferroplan-mcp`, `ferroplan-sat`) until it lands. APIs may shift before 1.0.
+> Status: **v0.29.0** — release candidate on `main` (cut label v26.9.28): the standings table above is still the 0.28 sweep and has not been re-measured for this cut, and [crates.io](https://crates.io/crates/ferroplan) carries v0.27.1 (`ferroplan`, `ferroplan-cli`, `ferroplan-mcp`, `ferroplan-sat`) until it lands. APIs may shift before 1.0.
 
 <!-- WHATSNEW:BEGIN — newest first; trimmed by scripts/release-notes-roll.py -->
+
+
+> **What's new in 0.29.0 — mechanism, not authority.** A held plan can now be
+> *followed*: `Session::think_following` replays the still-applicable suffix
+> and searches only the broken tail, and the WASI ABI reports a `verdict`
+> (`solved`, `capped`, `exhausted`) so a budget cap never reads as a proof of
+> unreachability. FOND policies leave the ABI already validated by an
+> independent checker (`fond_policy_validate`). A new `ferroplan-runtime`
+> crate adds a multi-plan provider-switching control plane, and the browser
+> demo can be saved for offline use. Everything new returns evidence; nothing
+> new acts. Details in the [changelog](https://github.com/seanchatmangpt/ferroplan/blob/main/CHANGELOG.md).
 
 
 
@@ -106,20 +117,6 @@ trails and IPC-5 preference quality is competitive-not-winning — see
 > keep at once — the memory lane's first push lost two solved instances, and
 > it was the subset read, not the test suite, that found them and the three
 > holes behind them.
-
-
-
-
-> **What's new in 0.27.1 — a budget the caller can set, and withdraw.**
-> No engine change; coverage is unchanged from 0.27.0. `Options` gains
-> `wall_ms` (this call's wall in milliseconds, armed before parsing so it
-> bounds grounding too) and `should_continue` (an `Arc<AtomicBool>` you
-> flip to stop the call). Both default to `None` and are inert unless set.
-> They are the budget `max_evaluated` could not express — it caps
-> evaluated states, and grounding runs before the first state exists —
-> and the one `FF_TIME_LIMIT` could not, being armed once per process. A
-> stop returns `solved: false` with a note naming which budget bound and
-> where, never the word "unsolvable".
 
 Earlier releases are summarised in the [changelog](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG.md) and its [archive](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG-ARCHIVE.md).
 <!-- WHATSNEW:END -->
