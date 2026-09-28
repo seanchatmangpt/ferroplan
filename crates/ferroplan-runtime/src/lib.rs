@@ -1,6 +1,7 @@
 pub mod authority;
 pub mod backoff;
 pub mod budget;
+pub mod capability;
 pub mod circuit;
 pub mod context;
 pub mod coordinator;
