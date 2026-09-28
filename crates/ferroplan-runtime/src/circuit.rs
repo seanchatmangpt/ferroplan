@@ -1,1 +1,13 @@
-#[derive(Default)] pub struct Circuit{pub failures:u32,pub threshold:u32} impl Circuit{pub fn record_failure(&mut self){self.failures+=1} pub fn open(&self)->bool{self.threshold>0&&self.failures>=self.threshold}}
+#[derive(Default)]
+pub struct Circuit {
+    pub failures: u32,
+    pub threshold: u32,
+}
+impl Circuit {
+    pub fn record_failure(&mut self) {
+        self.failures += 1
+    }
+    pub fn open(&self) -> bool {
+        self.threshold > 0 && self.failures >= self.threshold
+    }
+}

@@ -1,1 +1,13 @@
-use crate::{graph::Graph,recovery}; pub struct Coordinator{pub graph:Graph,pub excluded:Vec<String>} impl Coordinator{pub fn fail(&mut self,id:&str){if !self.excluded.iter().any(|x|x==id){self.excluded.push(id.into())} recovery::exclude_failed(&mut self.graph,id);}}
+use crate::{graph::Graph, recovery};
+pub struct Coordinator {
+    pub graph: Graph,
+    pub excluded: Vec<String>,
+}
+impl Coordinator {
+    pub fn fail(&mut self, id: &str) {
+        if !self.excluded.iter().any(|x| x == id) {
+            self.excluded.push(id.into())
+        }
+        recovery::exclude_failed(&mut self.graph, id);
+    }
+}

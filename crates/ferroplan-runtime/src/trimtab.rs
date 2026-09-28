@@ -1,1 +1,17 @@
-#[derive(Clone,Debug)] pub struct ModelRole{pub context:bool,pub select:bool,pub construct:bool,pub do_act:bool} impl Default for ModelRole{fn default()->Self{Self{context:true,select:false,construct:false,do_act:false}}}
+#[derive(Clone, Debug)]
+pub struct ModelRole {
+    pub context: bool,
+    pub select: bool,
+    pub construct: bool,
+    pub do_act: bool,
+}
+impl Default for ModelRole {
+    fn default() -> Self {
+        Self {
+            context: true,
+            select: false,
+            construct: false,
+            do_act: false,
+        }
+    }
+}

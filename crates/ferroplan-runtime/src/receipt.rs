@@ -1,1 +1,13 @@
-#[derive(Clone,Debug,PartialEq,Eq)] pub struct Receipt{pub subject_sha:String,pub epoch:u64,pub provider:String,pub edge:String,pub outcome:String} impl Receipt{pub fn exact(&self)->bool{!self.subject_sha.is_empty()&&!self.provider.is_empty()&&!self.edge.is_empty()}}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Receipt {
+    pub subject_sha: String,
+    pub epoch: u64,
+    pub provider: String,
+    pub edge: String,
+    pub outcome: String,
+}
+impl Receipt {
+    pub fn exact(&self) -> bool {
+        !self.subject_sha.is_empty() && !self.provider.is_empty() && !self.edge.is_empty()
+    }
+}

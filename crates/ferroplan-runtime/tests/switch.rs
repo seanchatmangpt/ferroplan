@@ -1,1 +1,17 @@
-use ferroplan_runtime::{plan::Plan,switch}; #[test] fn failed_provider_not_reused(){let p=vec![Plan{provider:"bad".into(),steps:vec!["x".into()],cost:1},Plan{provider:"good".into(),steps:vec!["x".into()],cost:2}];assert_eq!(switch::next(&p,"bad").unwrap().provider,"good");}
+use ferroplan_runtime::{plan::Plan, switch};
+#[test]
+fn failed_provider_not_reused() {
+    let p = vec![
+        Plan {
+            provider: "bad".into(),
+            steps: vec!["x".into()],
+            cost: 1,
+        },
+        Plan {
+            provider: "good".into(),
+            steps: vec!["x".into()],
+            cost: 2,
+        },
+    ];
+    assert_eq!(switch::next(&p, "bad").unwrap().provider, "good");
+}
