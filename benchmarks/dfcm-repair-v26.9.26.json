@@ -1,0 +1,95 @@
+{
+  "schema": "ferroplan/bench-receipt/1",
+  "subject": "ferroplan-wasm DfCM session ops (session_repair, session_probe) via the shared dfcm_route kernel, WASI dispatch path",
+  "parent_sha": "d0b987dcb6e9e0db54700d914aa425ad32c903b9",
+  "fixture": "corridor r0..rN with a two-room detour per room; blocked room r(N/2); median of 31 iterations",
+  "toolchain": "rustc 1.97.1 (8bab26f4f 2026-07-14); wasmtime 48.0.1; aarch64-apple-darwin host",
+  "commands": {
+    "wasi": "CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime cargo test -p ferroplan-wasm --target wasm32-wasip1 --release --lib dfcm_route_bench -- --ignored --nocapture",
+    "native_host_view": "cargo test -p ferroplan-wasm --release --test concurrency_stress dfcm_route_bench -- --ignored --nocapture",
+    "deterministic_courts": "cargo test -p ferroplan-wasm --release (dfcm_route::tests, concurrency_stress, dfcm_browser_parity)"
+  },
+  "deterministic_regression_bound": {
+    "n": 24,
+    "full_replan_evaluated_states": 26,
+    "follow_repair_evaluated_states": 15,
+    "kept_prefix_steps": 11,
+    "reuse_suffix_evaluated_states": 0,
+    "bound": "reuse solution is null (zero search); follow evaluated_states < full evaluated_states (strict); solution notes witness 'followed k-1 still-applicable step(s)'; first k-1 prior steps kept verbatim",
+    "tests": [
+      "dfcm_route::tests::repair_follow_is_strictly_cheaper_than_a_full_replan_and_keeps_the_prefix",
+      "wasi_abi::tests::dfcm_repair_regression_bound_on_a_blocked_corridor",
+      "dfcm_browser_parity::browser_repair_matches_the_kernel_and_follow_is_strictly_cheaper"
+    ],
+    "anti_vacuity": {
+      "M2 repair uses replan_budgeted instead of replan_following": "killed by all three tests above (follow 26 == full 26 fails the strict bound)",
+      "M13 probe searches with usize::MAX, None": "killed by dfcm_route::tests::probe_search_honours_the_evaluation_budget and dfcm_browser_parity::browser_probe_matches_the_kernel_including_the_search_budget"
+    }
+  },
+  "wall_clock_median_ns": {
+    "wasm32-wasip1": {
+      "n16": {
+        "think": 259208,
+        "repair_reuse": 49250,
+        "repair_follow": 177750,
+        "probe8": 2290125
+      },
+      "n64": {
+        "think": 11876292,
+        "repair_reuse": 173417,
+        "repair_follow": 3922334,
+        "probe8": 100974334
+      }
+    },
+    "native_host": {
+      "n16": {
+        "think": 123833,
+        "repair_reuse": 40125,
+        "repair_follow": 113583,
+        "probe8": 1121125
+      },
+      "n64": {
+        "think": 3731084,
+        "repair_reuse": 148000,
+        "repair_follow": 1482667,
+        "probe8": 32599083
+      }
+    },
+    "load_average_1m_at_run": 68.17
+  },
+  "wall_clock_bound": "asserted in dfcm_route_bench: repair_reuse < think at every n; repair_follow < think at n >= 64 only (n=16 native margin is ~8%, inside wall-clock noise)",
+  "noise_note": "probe8 runs 8 sequential forked searches and varies about 2.4x between runs at n=64 on wasip1 (101 ms here vs 244 ms in the previous run); no bound is asserted on it",
+  "authority": "NONE",
+  "evidence_ceiling": "LOCAL_RUN",
+  "identity_note": "measured on the exact tree committed as the single child of parent_sha (a commit cannot name its own hash); the earlier receipt named 25716858 plus uncommitted work",
+  "previous_run_parent_25716858": {
+    "wasm32-wasip1": {
+      "n16": {
+        "think": 255167,
+        "repair_reuse": 45166,
+        "repair_follow": 171583,
+        "probe8": 2272250
+      },
+      "n64": {
+        "think": 12072750,
+        "repair_reuse": 172250,
+        "repair_follow": 3930792,
+        "probe8": 243783375
+      }
+    },
+    "native_host": {
+      "n16": {
+        "think": 108167,
+        "repair_reuse": 34916,
+        "repair_follow": 103125,
+        "probe8": 1003875
+      },
+      "n64": {
+        "think": 3688333,
+        "repair_reuse": 139875,
+        "repair_follow": 1469792,
+        "probe8": 37069459
+      }
+    }
+  }
+}
