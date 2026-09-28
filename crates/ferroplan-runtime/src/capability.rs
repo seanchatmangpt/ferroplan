@@ -1,1 +1,6 @@
-#[derive(Clone,Debug,PartialEq,Eq)] pub struct Capability(pub &'static str); pub fn compatible(a:&[Capability],required:&str)->bool{a.iter().any(|c|c.0==required)}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Capability(pub &'static str);
+
+pub fn compatible(available: &[Capability], required: &str) -> bool {
+    available.iter().any(|capability| capability.0 == required)
+}
