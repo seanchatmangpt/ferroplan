@@ -1,0 +1,1 @@
+use std::collections::BTreeSet; #[derive(Default)] pub struct Registry{ids:BTreeSet<String>} impl Registry{pub fn register(&mut self,id:impl Into<String>){self.ids.insert(id.into());} pub fn contains(&self,id:&str)->bool{self.ids.contains(id)}}

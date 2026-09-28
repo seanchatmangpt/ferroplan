@@ -1,0 +1,1 @@
+use crate::edge::Edge; #[derive(Default)] pub struct Graph{pub edges:Vec<Edge>} impl Graph{pub fn lawful(&self)->impl Iterator<Item=&Edge>{self.edges.iter().filter(|e|e.enabled)} pub fn exclude(&mut self,id:&str){if let Some(e)=self.edges.iter_mut().find(|e|e.id==id){e.exclude()}}}

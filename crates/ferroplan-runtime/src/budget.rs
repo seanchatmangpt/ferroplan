@@ -1,0 +1,1 @@
+#[derive(Clone,Debug)] pub struct Budget{remaining:u32} impl Budget{pub fn new(n:u32)->Self{Self{remaining:n}} pub fn take(&mut self)->bool{if self.remaining==0{false}else{self.remaining-=1;true}} pub fn remaining(&self)->u32{self.remaining}}

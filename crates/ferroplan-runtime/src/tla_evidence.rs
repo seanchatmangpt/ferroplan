@@ -1,0 +1,1 @@
+#[derive(Clone,Debug,PartialEq,Eq)] pub struct Counterexample{pub invariant:String,pub trace:Vec<String>} impl Counterexample{pub fn actionable(&self)->bool{!self.invariant.is_empty()&&!self.trace.is_empty()}}
