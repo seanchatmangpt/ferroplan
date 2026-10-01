@@ -298,7 +298,7 @@ defmodule Ex4pmEngine.Ferroplan.Host do
         {:ok, bytes}
 
       {:error, :enoent} ->
-        {:error, Refusal.new(:wasm_not_vendored, "no engine at #{path}; run `mix ex4pm.vendor`", details: %{path: path})}
+        {:error, Refusal.new(:wasm_not_vendored, "no engine at #{path}; place the pinned ferroplan_wasm.wasm there (vendor task not generated)", details: %{path: path})}
 
       {:error, reason} ->
         {:error, Refusal.new(:wasm_unreadable, "cannot read #{path}: #{:file.format_error(reason)}", details: %{path: path})}

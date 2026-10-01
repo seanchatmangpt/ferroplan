@@ -23,7 +23,7 @@ path = "../ggen-marketplace/packs/wasi-json-abi-pack"
 [[generation.rules]]
 name = "wasm-capability-registry"
 query    = { pack = "wasi-json-abi-pack", output = "queries", file = "registry.rq" }
-template = { pack = "wasi-json-abi-pack", output = "templates", file = "wasm_capability_registry.json.tmpl" }
+template = { file = "ontology/templates/wasm_capability_registry.json.tmpl" }
 output_file = "crates/ferroplan-wasm/registry/capability-registry.json"
 mode = "Overwrite"
 
@@ -36,7 +36,7 @@ mode = "Overwrite"
 
 [[generation.rules]]
 name = "wasm-artifacts"
-query    = { pack = "wasi-json-abi-pack", output = "queries", file = "registry.rq" }
+query    = { pack = "wasi-json-abi-pack", output = "queries", file = "artifacts.rq" }
 template = { pack = "wasi-json-abi-pack", output = "templates", file = "wasm_artifacts.sha256.tmpl" }
 output_file = "crates/ferroplan-wasm/registry/ARTIFACTS.sha256"
 mode = "Create"

@@ -173,7 +173,7 @@ defmodule Ex4pmEngine.Ferroplan.EngineLoad do
        Refusal.new(
          :wasm_import_surface_mismatch,
          "engine imports outside the allowlist: #{Enum.join(offenders, ", ")}",
-         %{
+         details: %{
            unexpected: unexpected_modules,
            unexpected_functions: unexpected_functions,
            allowed: [@import_module],
@@ -198,7 +198,7 @@ defmodule Ex4pmEngine.Ferroplan.EngineLoad do
       :ok
     else
       {:error,
-       Refusal.new(:wasm_missing_export, "engine lacks required exports: #{Enum.join(missing, ", ")}", %{
+       Refusal.new(:wasm_missing_export, "engine lacks required exports: #{Enum.join(missing, ", ")}", details: %{
          missing: missing,
          required: @required_exports
        })}

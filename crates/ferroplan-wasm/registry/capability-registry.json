@@ -24,10 +24,10 @@
     "FP_WORKER_PANICKED"
   ],
   "exports": [
-    "fp_abi_version",
     "fp_alloc",
     "fp_call",
-    "fp_free"
+    "fp_dealloc",
+    "memory"
   ],
   "imports_policy": "wasi_snapshot_preview1",
   "limits": {

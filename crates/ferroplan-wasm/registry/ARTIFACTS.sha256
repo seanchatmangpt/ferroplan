@@ -8,4 +8,4 @@
 # placeholders with the digest and size of the module built by
 #   cargo build --locked --target wasm32-wasip1 --profile wasm
 # and regenerate the pin after any src/ change.
-wasm <sha256> <bytes> ferroplan_wasm.wasm
+wasm 088d9c3b0306e36123ddc1ee780ad7e9d4bd2ebb54f9726c43f40a2f6d718233 3521589 ferroplan_wasm.wasm

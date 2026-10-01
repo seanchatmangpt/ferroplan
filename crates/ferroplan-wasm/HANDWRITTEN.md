@@ -36,3 +36,9 @@ removing an op requires editing both.
 
 authorityClaim: NONE. Hooks and generators express intent only; no generated
 file authorizes actuation.
+
+## Local template divergences
+
+The beam-host templates and the capability-registry template are local copies; each divergence from
+its pack is listed in `beam-host-templates/DIVERGENCE.md` and guarded by `tests/copy_drift.rs`.
+Generated `.ex` output is not `mix format`-clean (consumers format on adoption).

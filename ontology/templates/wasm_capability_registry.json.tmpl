@@ -1,0 +1,36 @@
+{#- LOCAL DIVERGENCE from wasi-json-abi-pack: exports are the live fp_* ABI (fp_alloc, fp_call, fp_dealloc, memory); upstream hardcodes <prefix>_abi_version and <prefix>_free. See crates/ferroplan-wasm/PACK-GAPS.md. -#}
+{%- set op_list = ops | split(pat="@@") | sort -%}
+{%- set code_list = codes | split(pat="@@") | sort -%}
+{
+  "abi_version": {{ abi_version }},
+  "crate": {{ crate_name | json_encode() | safe }},
+  "error_codes": [
+{%- for c in code_list %}
+{%- set p = c | split(pat="##") %}
+    {{ p[1] | json_encode() | safe }}{% if not loop.last %},{% endif %}
+{%- endfor %}
+  ],
+  "exports": [
+    "{{ export_prefix }}_alloc",
+    "{{ export_prefix }}_call",
+    "{{ export_prefix }}_dealloc",
+    "memory"
+  ],
+  "imports_policy": {{ imports_policy | json_encode() | safe }},
+  "limits": {
+    "max_json_depth": {{ max_json_depth }},
+    "max_request_bytes": {{ max_request_bytes }},
+    "stack_size_bytes": {{ stack_size_bytes }}
+  },
+  "ops": [
+{%- for o in op_list %}
+{%- set p = o | split(pat="##") %}
+    {
+      "name": {{ p[1] | json_encode() | safe }},
+      "request_fields": [{% for f in p[2] | split(pat=",") %}{% if f | trim != "" %}{% if not loop.first %}, {% endif %}{{ f | trim | json_encode() | safe }}{% endif %}{% endfor %}],
+      "response_fields": [{% for f in p[3] | split(pat=",") %}{% if f | trim != "" %}{% if not loop.first %}, {% endif %}{{ f | trim | json_encode() | safe }}{% endif %}{% endfor %}]
+    }{% if not loop.last %},{% endif %}
+{%- endfor %}
+  ],
+  "schema": "wasi-json-abi.capability-registry/1"
+}
