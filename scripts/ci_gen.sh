@@ -6,6 +6,10 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 gen="$root/scripts/ci_gen"
 files="ci planning-runtime ecosystem-alive-format-closure daily-agent-methods ferroplan-harvester"
+if [ "${1:-}" = "--check" ] && ! cmp -s "$root/ontology/ferroplan-ci.ttl" "$gen/ontology/ferroplan-ci.ttl"; then
+  echo "CI_ONTOLOGY_COPY_DRIFT: scripts/ci_gen/ontology/ferroplan-ci.ttl != ontology/ferroplan-ci.ttl (run scripts/ci_gen.sh to resync)" >&2
+  exit 1
+fi
 cp "$root/ontology/ferroplan-ci.ttl" "$gen/ontology/ferroplan-ci.ttl"
 rm -rf "$gen/.github"
 (cd "$gen" && ggen sync run >/dev/null 2>&1)

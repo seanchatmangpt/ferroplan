@@ -108,6 +108,58 @@ fci:job_ci_rust_core_s07 a gha:Step ;
   gha:runCommand """RUSTDOCFLAGS='-D warnings' cargo doc --no-deps --all-features --workspace --exclude ferroplan-bevy
 cargo bench --no-run -p ferroplan""" .
 
+fci:job_ci_rust_core_s08 a gha:Step ;
+  gha:inJob fci:job_ci_rust_core ;
+  gha:stepOrder 8 ;
+  gha:stepName """Drift gates""" ;
+  gha:runCommand """python3 scripts/drift_gates.py""" .
+
+fci:job_ci_rust_core_s09 a gha:Step ;
+  gha:inJob fci:job_ci_rust_core ;
+  gha:stepOrder 9 ;
+  gha:stepName """Generator drift (needs ggen + sibling packs)""" ;
+  gha:runCommand """# ggen and the ../ggen-marketplace packs are path dependencies that a clean runner does not have.
+# Present: both gates run and fail on drift. Absent: skipped with a notice; the cargo drift tests above still run.
+if command -v ggen >/dev/null 2>&1 && [ -d ../ggen-marketplace/packs ]; then
+  scripts/ci_gen.sh --check
+  cargo install just --locked
+  just wasm-gen-check
+else
+  echo "::notice::ggen or ../ggen-marketplace unavailable; skipping ci_gen --check and wasm-gen-check"
+fi""" .
+
+fci:job_ci_wasm_pin a gha:Job ;
+  gha:inWorkflow fci:wf_ci ;
+  gha:jobName """wasm-pin""" ;
+  gha:runner """ubuntu-24.04""" ;
+  gha:timeoutMinutes 30
+  ; gha:dependsOn fci:job_ci_classify
+  ; gha:condition """needs.classify.outputs.rust == 'true'"""
+  ; gha:jobExtra """name: WASM artifact pin
+continue-on-error: true  # advisory until the first green run on a stock runner"""
+  .
+
+fci:job_ci_wasm_pin_s01 a gha:Step ;
+  gha:inJob fci:job_ci_wasm_pin ;
+  gha:stepOrder 1 ;
+  gha:usesAction """actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2""" ;
+  gha:withParam """ref: ${{ github.event.pull_request.head.sha || github.sha }}""" ;
+  gha:withParam """persist-credentials: false""" .
+
+fci:job_ci_wasm_pin_s02 a gha:Step ;
+  gha:inJob fci:job_ci_wasm_pin ;
+  gha:stepOrder 2 ;
+  gha:usesAction """dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c""" ;
+  gha:withParam """toolchain: stable""" ;
+  gha:withParam """targets: wasm32-wasip1""" .
+
+fci:job_ci_wasm_pin_s03 a gha:Step ;
+  gha:inJob fci:job_ci_wasm_pin ;
+  gha:stepOrder 3 ;
+  gha:stepName """Build wasm32-wasip1 and compare against ontology pin""" ;
+  gha:runCommand """cargo install just --locked
+just wasm-build-pin""" .
+
 fci:job_ci_plugin a gha:Job ;
   gha:inWorkflow fci:wf_ci ;
   gha:jobName """plugin""" ;
