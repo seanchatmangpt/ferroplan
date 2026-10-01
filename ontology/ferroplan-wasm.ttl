@@ -1,0 +1,341 @@
+# ferroplan-wasm.ttl -- ferroplan's instance of the wasi-json-abi-pack vocabulary.
+# Source of ABI truth: crates/ferroplan-wasm/src/wasi_abi.rs (dispatch: 38 ops).
+# Drift guard: crates/ferroplan-wasm/tests/abi_ontology_drift.rs compares wja:opName
+# against the dispatch arms. Error style is refusal-kind: failures are
+# {"error":{"code":"FP_*","message":...,"retryable":false}}; plan_production uses
+# the OperationEnvelope. Handle-bearing session ops carry u64 handles (never reused).
+# Pin: ferroplan HEAD a03b5cc2eb93 (v0.29.0), `cargo build -p ferroplan-wasm --release
+# --target wasm32-wasip1`; matches ex4pm priv/ferroplan/MANIFEST.json bytes.
+# Source commit is deliberately absent from the pin: identity, not authority.
+
+@prefix wja: <https://ggen.dev/ontology/wasi-json-abi#> .
+@prefix fpw: <http://ferroplan.io/wasm#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+fpw:module a wja:WasmModule ;
+    rdfs:label "ferroplan WASI module" ;
+    wja:crateName "ferroplan-wasm" ;
+    wja:exportPrefix "fp" ;
+    wja:abiVersion 1 ;
+    wja:maxRequestBytes 16777216 ;
+    wja:maxJsonDepth 128 ;
+    wja:stackSizeBytes 16777216 ;
+    wja:errorStyle "refusal-kind" ;
+    wja:hasAbiVersionExport false ;
+    wja:cfgGate "all(target_arch = \"wasm32\", target_os = \"wasi\")" ;
+    wja:wasmEnvVar "FERROPLAN_WASM_PATH" ;
+    wja:wasmBuildPackage "ferroplan-wasm" ;
+    wja:bufferStyle "boxed-slice" ;
+    wja:wasmSha256 "088d9c3b0306e36123ddc1ee780ad7e9d4bd2ebb54f9726c43f40a2f6d718233" ;
+    wja:wasmBytes 3521589 ;
+    fpw:toolchain "stable" ;
+    fpw:buildTarget "wasm32-wasip1" ;
+    fpw:buildProfile "release" ;
+    fpw:exports "memory,fp_alloc,fp_call,fp_dealloc" ;
+    wja:importsPolicy "wasi_snapshot_preview1" ;
+    wja:hasOp fpw:op-plan , fpw:op-plan-production , fpw:op-htn-plan , fpw:op-fond-policy , fpw:op-fond-policy-validate , fpw:op-fond-validate , fpw:op-hddl-solve , fpw:op-readiness , fpw:op-version , fpw:op-explain , fpw:op-session-new , fpw:op-session-fork , fpw:op-session-free , fpw:op-session-set-goal , fpw:op-session-restrict-prefix-claims , fpw:op-session-restrict-contains , fpw:op-session-think , fpw:op-session-replan-following , fpw:op-session-repair , fpw:op-session-probe , fpw:op-session-valid , fpw:op-session-step , fpw:op-session-suffix , fpw:op-session-advance , fpw:op-session-drop-plan , fpw:op-session-has-plan , fpw:op-session-set-fact , fpw:op-session-set-timed-fact , fpw:op-session-observe , fpw:op-session-goal-met , fpw:op-session-fact , fpw:op-session-apply-start , fpw:op-session-elapse , fpw:op-session-set-fluent , fpw:op-session-fluent , fpw:op-session-plan-valid , fpw:op-session-world-bytes , fpw:op-session-mind-bytes ;
+    wja:hasWasiImport fpw:imp-random-get , fpw:imp-environ-get , fpw:imp-environ-sizes-get , fpw:imp-clock-time-get , fpw:imp-fd-close , fpw:imp-fd-fdstat-get , fpw:imp-fd-filestat-get , fpw:imp-fd-prestat-get , fpw:imp-fd-prestat-dir-name , fpw:imp-fd-read , fpw:imp-fd-write , fpw:imp-path-open , fpw:imp-proc-exit , fpw:imp-sched-yield ;
+    wja:hasErrorCode fpw:err-fp-adapter , fpw:err-fp-unknown-op , fpw:err-fp-limit-input , fpw:err-fp-invalid-request , fpw:err-fp-invalid-problem , fpw:err-fp-invalid-policy , fpw:err-fp-validation , fpw:err-fp-invariant , fpw:err-fp-limit-search , fpw:err-fp-limit-memory , fpw:err-fp-limit-candidates , fpw:err-fp-limit-candidate , fpw:err-fp-duplicate-candidate , fpw:err-fp-parse , fpw:err-fp-hddl-ground , fpw:err-fp-hddl-translate , fpw:err-fp-hddl-root-mismatch , fpw:err-fp-model , fpw:err-fp-timeout , fpw:err-fp-worker-panicked .
+
+fpw:op-plan a wja:Op ;
+    wja:opName "plan" ;
+    wja:opOrder 1 ;
+    wja:requestFields "op,domain,problem,mode,search,flags" ;
+    wja:responseFields "solved,mode,plan,statistics,notes" ;
+    wja:exampleRequest "{\"op\":\"plan\",\"domain\":\"(define (domain d) (:requirements :strips) (:predicates (a) (b)) (:action go :parameters () :precondition (a) :effect (and (b) (not (a)))))\",\"problem\":\"(define (problem p) (:domain d) (:init (a)) (:goal (b)))\"}" .
+
+fpw:op-plan-production a wja:Op ;
+    wja:opName "plan_production" ;
+    wja:opOrder 2 ;
+    wja:requestFields "op,domain,problem,mode,search,max_evaluated,max_plan_steps,max_output_bytes,request_id" ;
+    wja:responseFields "schema_version,request_id,capability_id,capability_version,build_identity,input_fingerprint,authority,outcome,validation,elapsed_micros,counters,warnings,payload,error" ;
+    wja:exampleRequest "{\"op\":\"plan_production\",\"domain\":\"(define (domain d) (:requirements :strips) (:predicates (a) (b)) (:action go :parameters () :precondition (a) :effect (and (b) (not (a)))))\",\"problem\":\"(define (problem p) (:domain d) (:init (a)) (:goal (b)))\",\"mode\":\"auto\",\"request_id\":\"example-1\"}" .
+
+fpw:op-htn-plan a wja:Op ;
+    wja:opName "htn_plan" ;
+    wja:opOrder 3 ;
+    wja:requestFields "op,problem,limits" ;
+    wja:responseFields "planning_type,solved,steps,policy,decomposition,notes" ;
+    wja:exampleRequest "{\"op\":\"htn_plan\",\"problem\":\"{\\\"tasks\\\":[{\\\"id\\\":\\\"top\\\"},{\\\"id\\\":\\\"p1\\\",\\\"primitive_action\\\":\\\"a1\\\"}],\\\"root_tasks\\\":[\\\"top\\\"],\\\"methods\\\":[{\\\"id\\\":\\\"m-top\\\",\\\"task\\\":\\\"top\\\",\\\"subtasks\\\":[\\\"p1\\\"]}]}\",\"limits\":{\"max_wall_ms\":0}}" .
+
+fpw:op-fond-policy a wja:Op ;
+    wja:opName "fond_policy" ;
+    wja:opOrder 4 ;
+    wja:requestFields "op,problem,limits" ;
+    wja:responseFields "planning_type,solved,steps,policy,decomposition,notes,validation" ;
+    wja:exampleRequest "{\"op\":\"fond_policy\",\"problem\":\"{\\\"states\\\":[{\\\"id\\\":\\\"s0\\\"},{\\\"id\\\":\\\"g\\\",\\\"facts\\\":[\\\"done\\\"]}],\\\"initial_states\\\":[\\\"s0\\\"],\\\"goal\\\":{\\\"facts\\\":[\\\"done\\\"]},\\\"transitions\\\":[{\\\"action\\\":\\\"flip\\\",\\\"from\\\":\\\"s0\\\",\\\"to\\\":\\\"g\\\",\\\"probability_ppm\\\":500000},{\\\"action\\\":\\\"flip\\\",\\\"from\\\":\\\"s0\\\",\\\"to\\\":\\\"s0\\\",\\\"probability_ppm\\\":500000}]}\",\"limits\":{\"max_wall_ms\":0}}" .
+
+fpw:op-fond-policy-validate a wja:Op ;
+    wja:opName "fond_policy_validate" ;
+    wja:opOrder 5 ;
+    wja:requestFields "op,problem,plan" ;
+    wja:responseFields "valid,guarantee,reachable_states,reachable_goals,issues" ;
+    wja:exampleRequest "{\"op\":\"fond_policy_validate\",\"problem\":\"{\\\"states\\\":[{\\\"id\\\":\\\"s0\\\"},{\\\"id\\\":\\\"g\\\",\\\"facts\\\":[\\\"done\\\"]}],\\\"initial_states\\\":[\\\"s0\\\"],\\\"goal\\\":{\\\"facts\\\":[\\\"done\\\"]},\\\"transitions\\\":[{\\\"action\\\":\\\"flip\\\",\\\"from\\\":\\\"s0\\\",\\\"to\\\":\\\"g\\\",\\\"probability_ppm\\\":500000},{\\\"action\\\":\\\"flip\\\",\\\"from\\\":\\\"s0\\\",\\\"to\\\":\\\"s0\\\",\\\"probability_ppm\\\":500000}]}\",\"plan\":{\"planning_type\":\"fond\",\"solved\":true,\"steps\":[],\"policy\":[{\"state\":\"s0\",\"action\":\"flip\",\"outcomes\":[{\"state\":\"g\",\"probability_ppm\":500000},{\"state\":\"s0\",\"probability_ppm\":500000}]}],\"decomposition\":[],\"notes\":[]}}" .
+
+fpw:op-fond-validate a wja:Op ;
+    wja:opName "fond_validate" ;
+    wja:opOrder 6 ;
+    wja:requestFields "op,problem,plan" ;
+    wja:responseFields "valid,guarantee,reachable_states,reachable_goals,issues" ;
+    wja:exampleRequest "{\"op\":\"fond_validate\",\"problem\":\"{\\\"states\\\":[{\\\"id\\\":\\\"s0\\\"},{\\\"id\\\":\\\"g\\\",\\\"facts\\\":[\\\"done\\\"]}],\\\"initial_states\\\":[\\\"s0\\\"],\\\"goal\\\":{\\\"facts\\\":[\\\"done\\\"]},\\\"transitions\\\":[{\\\"action\\\":\\\"flip\\\",\\\"from\\\":\\\"s0\\\",\\\"to\\\":\\\"g\\\",\\\"probability_ppm\\\":500000},{\\\"action\\\":\\\"flip\\\",\\\"from\\\":\\\"s0\\\",\\\"to\\\":\\\"s0\\\",\\\"probability_ppm\\\":500000}]}\",\"plan\":{\"planning_type\":\"fond\",\"solved\":true,\"steps\":[],\"policy\":[{\"state\":\"s0\",\"action\":\"flip\",\"outcomes\":[{\"state\":\"g\",\"probability_ppm\":500000},{\"state\":\"s0\",\"probability_ppm\":500000}]}],\"decomposition\":[],\"notes\":[]}}" .
+
+fpw:op-hddl-solve a wja:Op ;
+    wja:opName "hddl_solve" ;
+    wja:opOrder 7 ;
+    wja:requestFields "op,domain,problem,limits" ;
+    wja:responseFields "planning_type,solved,steps,policy,decomposition,notes" ;
+    wja:exampleRequest "{\"op\":\"hddl_solve\",\"domain\":\"(define (domain transport-oneof) (:types loc) (:predicates (at ?l - loc)(connected ?a - loc ?b - loc)(has-package)(delivered)) (:task deliver :parameters (?from - loc ?to - loc)) (:action pickup :parameters (?l - loc) :precondition (at ?l) :effect (has-package)) (:action drive :parameters (?a - loc ?b - loc) :precondition (and (at ?a)(connected ?a ?b)) :effect (oneof (and (not (at ?a))(at ?b)) (and))) (:action dropoff :parameters () :precondition (has-package) :effect (delivered)) (:method m-deliver :parameters (?from ?to) :task (deliver ?from ?to) :ordered-subtasks (and (t1 (pickup ?from))(t2 (drive ?from ?to))(t3 (dropoff)))))\",\"problem\":\"(define (problem transport-oneof-p1)(:domain transport-oneof)(:objects l1 l2 - loc)(:htn :parameters () :ordered-subtasks (and (m1 (deliver l1 l2))))(:init (at l1)(connected l1 l2))(:goal (and (delivered))))\",\"limits\":{\"max_wall_ms\":0}}" .
+
+fpw:op-readiness a wja:Op ;
+    wja:opName "readiness" ;
+    wja:opOrder 8 ;
+    wja:requestFields "op" ;
+    wja:responseFields "schema_version,product_version,manifest_fingerprint,contract_valid,admission_state,admission_notice,manifest" ;
+    wja:exampleRequest "{\"op\":\"readiness\"}" .
+
+fpw:op-version a wja:Op ;
+    wja:opName "version" ;
+    wja:opOrder 9 ;
+    wja:requestFields "op" ;
+    wja:responseFields "version" ;
+    wja:exampleRequest "{\"op\":\"version\"}" .
+
+fpw:op-explain a wja:Op ;
+    wja:opName "explain" ;
+    wja:opOrder 10 ;
+    wja:requestFields "op,domain,problem,plan" ;
+    wja:responseFields "kind,causal_links,invariant_spans,preferences" ;
+    wja:exampleRequest "{\"op\":\"explain\",\"domain\":\"(define (domain d) (:requirements :strips) (:predicates (a) (b)) (:action go :parameters () :precondition (a) :effect (and (b) (not (a)))))\",\"problem\":\"(define (problem p) (:domain d) (:init (a)) (:goal (b)))\",\"plan\":{\"steps\":[{\"index\":0,\"action\":\"go\",\"args\":[]}],\"length\":1}}" .
+
+fpw:op-session-new a wja:Op ;
+    wja:opName "session_new" ;
+    wja:opOrder 11 ;
+    wja:requestFields "op,domain,problem" ;
+    wja:responseFields "handle" ;
+    wja:exampleRequest "{\"op\":\"session_new\",\"domain\":\"(define (domain d) (:requirements :strips) (:predicates (a) (b)) (:action go :parameters () :precondition (a) :effect (and (b) (not (a)))))\",\"problem\":\"(define (problem p) (:domain d) (:init (a)) (:goal (b)))\"}" .
+
+fpw:op-session-fork a wja:Op ;
+    wja:opName "session_fork" ;
+    wja:opOrder 12 ;
+    wja:requestFields "op,handle,keep_plan" ;
+    wja:responseFields "handle" ;
+    wja:exampleRequest "{\"op\":\"session_fork\",\"handle\":1,\"keep_plan\":false}" .
+
+fpw:op-session-free a wja:Op ;
+    wja:opName "session_free" ;
+    wja:opOrder 13 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "freed" ;
+    wja:exampleRequest "{\"op\":\"session_free\",\"handle\":1}" .
+
+fpw:op-session-set-goal a wja:Op ;
+    wja:opName "session_set_goal" ;
+    wja:opOrder 14 ;
+    wja:requestFields "op,handle,goal" ;
+    wja:responseFields "ok" ;
+    wja:exampleRequest "{\"op\":\"session_set_goal\",\"handle\":1,\"goal\":\"(b)\"}" .
+
+fpw:op-session-restrict-prefix-claims a wja:Op ;
+    wja:opName "session_restrict_prefix_claims" ;
+    wja:opOrder 15 ;
+    wja:requestFields "op,handle,prefix,claimed" ;
+    wja:responseFields "ok" ;
+    wja:exampleRequest "{\"op\":\"session_restrict_prefix_claims\",\"handle\":1,\"prefix\":\"(go\",\"claimed\":\"A,B\"}" .
+
+fpw:op-session-restrict-contains a wja:Op ;
+    wja:opName "session_restrict_contains" ;
+    wja:opOrder 16 ;
+    wja:requestFields "op,handle,filter" ;
+    wja:responseFields "ok" ;
+    wja:exampleRequest "{\"op\":\"session_restrict_contains\",\"handle\":1,\"filter\":\"go\"}" .
+
+fpw:op-session-think a wja:Op ;
+    wja:opName "session_think" ;
+    wja:opOrder 17 ;
+    wja:requestFields "op,handle,evals,mem_mb,prefer_follow" ;
+    wja:responseFields "solved,mode,plan,statistics,notes,verdict,capped,spent_evals" ;
+    wja:exampleRequest "{\"op\":\"session_think\",\"handle\":1,\"evals\":100000,\"mem_mb\":256}" .
+
+fpw:op-session-replan-following a wja:Op ;
+    wja:opName "session_replan_following" ;
+    wja:opOrder 18 ;
+    wja:requestFields "op,handle,evals,mem_mb" ;
+    wja:responseFields "solved,mode,plan,statistics,notes" ;
+    wja:exampleRequest "{\"op\":\"session_replan_following\",\"handle\":1,\"evals\":100000,\"mem_mb\":256}" .
+
+fpw:op-session-repair a wja:Op ;
+    wja:opName "session_repair" ;
+    wja:opOrder 19 ;
+    wja:requestFields "op,handle,evals,mem_mb" ;
+    wja:responseFields "decision,trigger,plan_valid,previous_suffix,suffix,solution" ;
+    wja:exampleRequest "{\"op\":\"session_repair\",\"handle\":1,\"evals\":100000,\"mem_mb\":256}" .
+
+fpw:op-session-probe a wja:Op ;
+    wja:opName "session_probe" ;
+    wja:opOrder 20 ;
+    wja:requestFields "op,handle,candidates,evals,mem_mb" ;
+    wja:responseFields "parent_handle,candidate_count,results" ;
+    wja:exampleRequest "{\"op\":\"session_probe\",\"handle\":1,\"candidates\":[{\"id\":\"c1\",\"goal\":\"(b)\",\"sight\":[[\"A\",true]]}],\"evals\":100000,\"mem_mb\":256}" .
+
+fpw:op-session-valid a wja:Op ;
+    wja:opName "session_valid" ;
+    wja:opOrder 21 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "valid" ;
+    wja:exampleRequest "{\"op\":\"session_valid\",\"handle\":1}" .
+
+fpw:op-session-step a wja:Op ;
+    wja:opName "session_step" ;
+    wja:opOrder 22 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "index,action,args,time,duration" ;
+    wja:exampleRequest "{\"op\":\"session_step\",\"handle\":1}" .
+
+fpw:op-session-suffix a wja:Op ;
+    wja:opName "session_suffix" ;
+    wja:opOrder 23 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "steps" ;
+    wja:exampleRequest "{\"op\":\"session_suffix\",\"handle\":1}" .
+
+fpw:op-session-advance a wja:Op ;
+    wja:opName "session_advance" ;
+    wja:opOrder 24 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "ok" ;
+    wja:exampleRequest "{\"op\":\"session_advance\",\"handle\":1}" .
+
+fpw:op-session-drop-plan a wja:Op ;
+    wja:opName "session_drop_plan" ;
+    wja:opOrder 25 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "ok" ;
+    wja:exampleRequest "{\"op\":\"session_drop_plan\",\"handle\":1}" .
+
+fpw:op-session-has-plan a wja:Op ;
+    wja:opName "session_has_plan" ;
+    wja:opOrder 26 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "has_plan" ;
+    wja:exampleRequest "{\"op\":\"session_has_plan\",\"handle\":1}" .
+
+fpw:op-session-set-fact a wja:Op ;
+    wja:opName "session_set_fact" ;
+    wja:opOrder 27 ;
+    wja:requestFields "op,handle,name,value" ;
+    wja:responseFields "ok" ;
+    wja:exampleRequest "{\"op\":\"session_set_fact\",\"handle\":1,\"name\":\"A\",\"value\":true}" .
+
+fpw:op-session-set-timed-fact a wja:Op ;
+    wja:opName "session_set_timed_fact" ;
+    wja:opOrder 28 ;
+    wja:requestFields "op,handle,name,dt,value" ;
+    wja:responseFields "ok" ;
+    wja:exampleRequest "{\"op\":\"session_set_timed_fact\",\"handle\":1,\"name\":\"A\",\"dt\":1.5,\"value\":true}" .
+
+fpw:op-session-observe a wja:Op ;
+    wja:opName "session_observe" ;
+    wja:opOrder 29 ;
+    wja:requestFields "op,handle,sight" ;
+    wja:responseFields "news" ;
+    wja:exampleRequest "{\"op\":\"session_observe\",\"handle\":1,\"sight\":[[\"A\",true]]}" .
+
+fpw:op-session-goal-met a wja:Op ;
+    wja:opName "session_goal_met" ;
+    wja:opOrder 30 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "goal_met" ;
+    wja:exampleRequest "{\"op\":\"session_goal_met\",\"handle\":1}" .
+
+fpw:op-session-fact a wja:Op ;
+    wja:opName "session_fact" ;
+    wja:opOrder 31 ;
+    wja:requestFields "op,handle,name" ;
+    wja:responseFields "value" ;
+    wja:exampleRequest "{\"op\":\"session_fact\",\"handle\":1,\"name\":\"A\"}" .
+
+fpw:op-session-apply-start a wja:Op ;
+    wja:opName "session_apply_start" ;
+    wja:opOrder 32 ;
+    wja:requestFields "op,handle,name" ;
+    wja:responseFields "ok" ;
+    wja:exampleRequest "{\"op\":\"session_apply_start\",\"handle\":1,\"name\":\"(go)\"}" .
+
+fpw:op-session-elapse a wja:Op ;
+    wja:opName "session_elapse" ;
+    wja:opOrder 33 ;
+    wja:requestFields "op,handle,dt" ;
+    wja:responseFields "fired" ;
+    wja:exampleRequest "{\"op\":\"session_elapse\",\"handle\":1,\"dt\":1.0}" .
+
+fpw:op-session-set-fluent a wja:Op ;
+    wja:opName "session_set_fluent" ;
+    wja:opOrder 34 ;
+    wja:requestFields "op,handle,name,value" ;
+    wja:responseFields "ok" ;
+    wja:exampleRequest "{\"op\":\"session_set_fluent\",\"handle\":1,\"name\":\"F\",\"value\":2.0}" .
+
+fpw:op-session-fluent a wja:Op ;
+    wja:opName "session_fluent" ;
+    wja:opOrder 35 ;
+    wja:requestFields "op,handle,name" ;
+    wja:responseFields "value" ;
+    wja:exampleRequest "{\"op\":\"session_fluent\",\"handle\":1,\"name\":\"F\"}" .
+
+fpw:op-session-plan-valid a wja:Op ;
+    wja:opName "session_plan_valid" ;
+    wja:opOrder 36 ;
+    wja:requestFields "op,handle,from,plan" ;
+    wja:responseFields "valid" ;
+    wja:exampleRequest "{\"op\":\"session_plan_valid\",\"handle\":1,\"from\":0,\"plan\":{\"steps\":[{\"index\":0,\"action\":\"go\",\"args\":[]}],\"length\":1}}" .
+
+fpw:op-session-world-bytes a wja:Op ;
+    wja:opName "session_world_bytes" ;
+    wja:opOrder 37 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "bytes" ;
+    wja:exampleRequest "{\"op\":\"session_world_bytes\",\"handle\":1}" .
+
+fpw:op-session-mind-bytes a wja:Op ;
+    wja:opName "session_mind_bytes" ;
+    wja:opOrder 38 ;
+    wja:requestFields "op,handle" ;
+    wja:responseFields "bytes" ;
+    wja:exampleRequest "{\"op\":\"session_mind_bytes\",\"handle\":1}" .
+
+fpw:err-fp-adapter a wja:ErrorCode ; wja:codeName "FP_ADAPTER" ; wja:codeOrder 1 .
+fpw:err-fp-unknown-op a wja:ErrorCode ; wja:codeName "FP_UNKNOWN_OP" ; wja:codeOrder 2 .
+fpw:err-fp-limit-input a wja:ErrorCode ; wja:codeName "FP_LIMIT_INPUT" ; wja:codeOrder 3 .
+fpw:err-fp-invalid-request a wja:ErrorCode ; wja:codeName "FP_INVALID_REQUEST" ; wja:codeOrder 4 .
+fpw:err-fp-invalid-problem a wja:ErrorCode ; wja:codeName "FP_INVALID_PROBLEM" ; wja:codeOrder 5 .
+fpw:err-fp-invalid-policy a wja:ErrorCode ; wja:codeName "FP_INVALID_POLICY" ; wja:codeOrder 6 .
+fpw:err-fp-validation a wja:ErrorCode ; wja:codeName "FP_VALIDATION" ; wja:codeOrder 7 .
+fpw:err-fp-invariant a wja:ErrorCode ; wja:codeName "FP_INVARIANT" ; wja:codeOrder 8 .
+fpw:err-fp-limit-search a wja:ErrorCode ; wja:codeName "FP_LIMIT_SEARCH" ; wja:codeOrder 9 .
+fpw:err-fp-limit-memory a wja:ErrorCode ; wja:codeName "FP_LIMIT_MEMORY" ; wja:codeOrder 10 .
+fpw:err-fp-limit-candidates a wja:ErrorCode ; wja:codeName "FP_LIMIT_CANDIDATES" ; wja:codeOrder 11 .
+fpw:err-fp-limit-candidate a wja:ErrorCode ; wja:codeName "FP_LIMIT_CANDIDATE" ; wja:codeOrder 12 .
+fpw:err-fp-duplicate-candidate a wja:ErrorCode ; wja:codeName "FP_DUPLICATE_CANDIDATE" ; wja:codeOrder 13 .
+fpw:err-fp-parse a wja:ErrorCode ; wja:codeName "FP_PARSE" ; wja:codeOrder 14 .
+fpw:err-fp-hddl-ground a wja:ErrorCode ; wja:codeName "FP_HDDL_GROUND" ; wja:codeOrder 15 .
+fpw:err-fp-hddl-translate a wja:ErrorCode ; wja:codeName "FP_HDDL_TRANSLATE" ; wja:codeOrder 16 .
+fpw:err-fp-hddl-root-mismatch a wja:ErrorCode ; wja:codeName "FP_HDDL_ROOT_MISMATCH" ; wja:codeOrder 17 .
+fpw:err-fp-model a wja:ErrorCode ; wja:codeName "FP_MODEL" ; wja:codeOrder 18 .
+fpw:err-fp-timeout a wja:ErrorCode ; wja:codeName "FP_TIMEOUT" ; wja:codeOrder 19 .
+fpw:err-fp-worker-panicked a wja:ErrorCode ; wja:codeName "FP_WORKER_PANICKED" ; wja:codeOrder 20 .
+
+fpw:imp-random-get a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "random_get" .
+fpw:imp-environ-get a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "environ_get" .
+fpw:imp-environ-sizes-get a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "environ_sizes_get" .
+fpw:imp-clock-time-get a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "clock_time_get" .
+fpw:imp-fd-close a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "fd_close" .
+fpw:imp-fd-fdstat-get a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "fd_fdstat_get" .
+fpw:imp-fd-filestat-get a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "fd_filestat_get" .
+fpw:imp-fd-prestat-get a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "fd_prestat_get" .
+fpw:imp-fd-prestat-dir-name a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "fd_prestat_dir_name" .
+fpw:imp-fd-read a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "fd_read" .
+fpw:imp-fd-write a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "fd_write" .
+fpw:imp-path-open a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "path_open" .
+fpw:imp-proc-exit a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "proc_exit" .
+fpw:imp-sched-yield a wja:WasiImport ; wja:importModule "wasi_snapshot_preview1" ; wja:importName "sched_yield" .

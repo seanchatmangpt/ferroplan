@@ -1,0 +1,284 @@
+---
+to: generated/beam-host/wasm_config.ex
+sparql:
+  profile: |
+    PREFIX qri: <https://seanchatmangpt.github.io/packs/qri-qualification-profile-pack#>
+    SELECT ?app ?root ?task_root ?prefix ?abi_version ?free_symbol ?len_type ?alloc_zero_policy ?out_mode
+           ?req_consumed ?pin_format ?path_env ?handle_noun ?taxonomy_ns ?refusal_module ?request_cap
+           ?manifest_rel ?wasm_rel ?manifest_schema ?ok_key ?op_key ?probe_op ?probe_expect
+           ?telemetry_root ?pool_strategy ?pool_size ?pool_size_source ?engine_id ?doc_example_op WHERE {
+      ?c a qri:CapabilityContract ; qri:hostProfile ?hp ; qri:abiSymbolPrefix ?prefix .
+      OPTIONAL { ?c qri:abiVersion ?abiv }
+      OPTIONAL { ?hp qri:otpApp ?a }
+      OPTIONAL { ?hp qri:moduleRoot ?r }
+      OPTIONAL { ?hp qri:taskModuleRoot ?tr }
+      OPTIONAL { ?hp qri:freeSymbol ?fs }
+      OPTIONAL { ?hp qri:lenType ?lt }
+      OPTIONAL { ?hp qri:allocZeroPolicy ?azp }
+      OPTIONAL { ?hp qri:outMode ?om }
+      OPTIONAL { ?hp qri:reqConsumed ?rc }
+      OPTIONAL { ?hp qri:pinFormat ?pf }
+      OPTIONAL { ?hp qri:pathEnv ?pe }
+      OPTIONAL { ?hp qri:handleNoun ?hn }
+      OPTIONAL { ?hp qri:taxonomyNamespace ?tn }
+      OPTIONAL { ?hp qri:refusalModule ?rm }
+      OPTIONAL { ?hp qri:requestCap ?cap }
+      OPTIONAL { ?hp qri:manifestRel ?mr }
+      OPTIONAL { ?hp qri:wasmRel ?wr }
+      OPTIONAL { ?hp qri:manifestSchema ?ms }
+      OPTIONAL { ?hp qri:okKey ?ok }
+      OPTIONAL { ?hp qri:opKey ?opk }
+      OPTIONAL { ?hp qri:probeOp ?po }
+      OPTIONAL { ?hp qri:probeExpectKey ?pek }
+      OPTIONAL { ?hp qri:telemetryRoot ?tel }
+      OPTIONAL { ?hp qri:poolStrategy ?ps }
+      OPTIONAL { ?hp qri:poolSize ?psz }
+      OPTIONAL { ?hp qri:poolSizeSource ?pss }
+      OPTIONAL { ?hp qri:engineId ?eid }
+      OPTIONAL { ?hp qri:docExampleOp ?deo }
+      BIND(COALESCE(?a, "") AS ?app)
+      BIND(COALESCE(?r, "") AS ?root)
+      BIND(COALESCE(?tr, "") AS ?task_root)
+      BIND(COALESCE(?abiv, "") AS ?abi_version)
+      BIND(COALESCE(?fs, CONCAT(?prefix, "_free")) AS ?free_symbol)
+      BIND(COALESCE(?lt, "u32") AS ?len_type)
+      BIND(COALESCE(?azp, "refuse-resource_limit") AS ?alloc_zero_policy)
+      BIND(COALESCE(?om, "packed_u64") AS ?out_mode)
+      BIND(COALESCE(?rc, true) AS ?req_consumed)
+      BIND(COALESCE(?pf, "") AS ?pin_format)
+      BIND(COALESCE(?pe, "") AS ?path_env)
+      BIND(COALESCE(?hn, "engine") AS ?handle_noun)
+      BIND(COALESCE(?tn, "") AS ?taxonomy_ns)
+      BIND(COALESCE(?rm, "") AS ?refusal_module)
+      BIND(COALESCE(?cap, 0) AS ?request_cap)
+      BIND(COALESCE(?mr, "") AS ?manifest_rel)
+      BIND(COALESCE(?wr, "") AS ?wasm_rel)
+      BIND(COALESCE(?ms, "") AS ?manifest_schema)
+      BIND(COALESCE(?ok, "ok") AS ?ok_key)
+      BIND(COALESCE(?opk, "op") AS ?op_key)
+      BIND(COALESCE(?po, "") AS ?probe_op)
+      BIND(COALESCE(?pek, "") AS ?probe_expect)
+      BIND(COALESCE(?tel, "") AS ?telemetry_root)
+      BIND(COALESCE(?ps, "single") AS ?pool_strategy)
+      BIND(COALESCE(?psz, 1) AS ?pool_size)
+      BIND(COALESCE(?pss, "") AS ?pool_size_source)
+      BIND(COALESCE(?eid, "") AS ?engine_id)
+      BIND(COALESCE(?deo, "") AS ?doc_example_op)
+    }
+    ORDER BY ?prefix
+  limits: |
+    PREFIX qri: <https://seanchatmangpt.github.io/packs/qri-qualification-profile-pack#>
+    SELECT ?prefix ?name ?default ?order ?zero_ok ?zero_meaning WHERE {
+      ?c a qri:CapabilityContract ; qri:hostProfile ?hp ; qri:abiSymbolPrefix ?prefix .
+      ?hp qri:hostLimit ?l .
+      ?l qri:limitName ?name ; qri:limitDefault ?default ; qri:limitOrder ?order .
+      OPTIONAL { ?l qri:limitZeroOk ?z }
+      OPTIONAL { ?l qri:limitZeroMeaning ?zm }
+      BIND(COALESCE(?z, false) AS ?zero_ok)
+      BIND(COALESCE(?zm, "") AS ?zero_meaning)
+    }
+    ORDER BY ?prefix ?order ?name
+force: true
+---
+{#- LOCAL DIVERGENCE from qri-qualification-profile-pack templates/beam-host: Refusal.new/3 third arg is keyword opts; upstream passes a bare map (details: wrapper added). See DIVERGENCE.md. -#}
+{%- set p = profile[0] -%}
+{%- macro g3(n) -%}{% if n < 100 %}0{% endif %}{% if n < 10 %}0{% endif %}{{ n }}{%- endmacro g3 -%}
+{%- macro us(n) -%}{% if n < 1000 %}{{ n }}{% elif n < 1000000 %}{{ (n / 1000) | int }}_{{ self::g3(n=n % 1000) }}{% elif n < 1000000000 %}{{ (n / 1000000) | int }}_{{ self::g3(n=((n % 1000000) / 1000) | int) }}_{{ self::g3(n=n % 1000) }}{% else %}{{ (n / 1000000000) | int }}_{{ self::g3(n=((n % 1000000000) / 1000000) | int) }}_{{ self::g3(n=((n % 1000000) / 1000) | int) }}_{{ self::g3(n=n % 1000) }}{% endif %}{%- endmacro us -%}
+{%- set wcfg = ["fuel_per_ms", "instantiate_fuel", "memory_limit_bytes", "recycle_bytes", "max_queue", "max_response_bytes", "table_elements", "instances", "tables", "memories", "timeout_ms"] -%}
+{%- set_global zero_ok = [] -%}
+{%- set_global zero_meaning = "" -%}
+{%- for l in limits %}{% if l.name in wcfg and l.zero_ok == true %}{% set_global zero_ok = zero_ok | concat(with=l.name) %}{% set_global zero_meaning = l.zero_meaning %}{% endif %}{% endfor -%}
+# GENERATED by qri-qualification-profile-pack (queries 50-54). Do not edit; edit the RDF contract.
+
+defmodule {{ p.root }}.WasmConfig do
+  @moduledoc """
+  Resolves where the {{ p.engine_id }} engine lives, which digest it must have, and the resource limits
+  the host runs it under. Resolution is not authority.
+  """
+
+  alias {{ p.refusal_module }}
+
+  @env "{{ p.path_env }}"
+  @manifest_rel "{{ p.manifest_rel }}"
+  @wasm_rel "{{ p.wasm_rel }}"
+
+  @defaults %{
+{%- set_global first = true -%}
+{%- for l in limits %}{% if l.name in wcfg %}{% if not first %},{% endif %}
+    {{ l.name }}: {{ self::us(n=l.default) }}{% set_global first = false %}{% endif %}{% endfor %}
+  }
+
+  @typedoc "Resource limits applied by `{{ p.root }}.Host`."
+  @type limits :: %{
+          fuel: pos_integer()
+{%- for l in limits %}{% if l.name in wcfg %},
+          {{ l.name }}: pos_integer()
+{%- endif %}{% endfor %}
+        }
+
+  @typedoc "Options accepted by the resolvers in this module (all optional)."
+  @type opts :: [
+          wasm_path: String.t(),
+          expected_sha256: String.t() | :unpinned,
+          fuel: pos_integer(),
+          timeout_ms: pos_integer()
+{%- for l in limits %}{% if l.name in wcfg and l.name != "timeout_ms" %},
+          {{ l.name }}: pos_integer()
+{%- endif %}{% endfor %}
+        ]
+
+  @typedoc "One allowed WASI import: `{name, {:fn, params, results}}` with wasm value-type atoms."
+  @type import_allow :: {String.t(), {:fn, [atom()], [atom()]} | :any}
+
+  @doc "The vendored engine path inside this application's `priv` directory."
+  @spec vendored_path() :: String.t()
+  def vendored_path, do: app_path(@wasm_rel)
+
+  @doc "Resolves the engine path; see the module doc for the order."
+  @spec wasm_path(opts()) :: String.t()
+  def wasm_path(opts \\ []) do
+    present(Keyword.get(opts, :wasm_path)) ||
+      present(System.get_env(@env)) ||
+      present(Application.get_env(:{{ p.app }}, :wasm_path)) ||
+      vendored_path()
+  end
+
+  @doc "Reads and decodes the generated `{{ p.manifest_rel }}`."
+  @spec manifest() :: {:ok, map()} | {:error, Refusal.t()}
+  def manifest do
+    path = app_path(@manifest_rel)
+
+    with {:ok, raw} <- read_manifest(path) do
+      decode_manifest(raw, path)
+    end
+  end
+
+  @doc "The pinned engine SHA-256 (`artifact.sha256`), or `nil` when the manifest is unusable."
+  @spec pinned_sha256() :: String.t() | nil
+  def pinned_sha256 do
+    with {:ok, manifest} <- manifest(),
+         sha when is_binary(sha) <- get_in(manifest, ["artifact", "sha256"]),
+         true <- sha256_hex?(sha) do
+      String.downcase(sha)
+    else
+      _ -> nil
+    end
+  end
+
+  @doc """
+  The digest a load must match: a hex string, `:unpinned`, or `nil` when the
+  pin is unavailable (fail closed).
+  """
+  @spec expected_sha256(opts()) :: String.t() | :unpinned | nil
+  def expected_sha256(opts \\ []) do
+    case Keyword.fetch(opts, :expected_sha256) do
+      {:ok, value} -> value
+      :error -> default_expected(opts)
+    end
+  end
+
+  @doc """
+  Resource limits: `opts` over `config :{{ p.app }}` over the defaults. `fuel` is
+  `opts[:fuel]` (or config) when given, else `timeout_ms * fuel_per_ms`.
+  """
+  @spec limits(opts()) :: limits()
+  def limits(opts \\ []) do
+    base = Map.new(@defaults, fn {key, default} -> {key, limit(opts, key, default)} end)
+    Map.put(base, :fuel, limit(opts, :fuel, base.timeout_ms * base.fuel_per_ms))
+  end
+
+  @doc """
+  The closed WASI import allowlist from the manifest (`host_abi.imports`), or `:unavailable`
+  when the manifest is unusable or declares none (loaders must refuse, never allow-all).
+  """
+  @spec import_allowlist() :: {:ok, [import_allow()]} | :unavailable
+  def import_allowlist do
+    with {:ok, manifest} <- manifest(),
+         [_ | _] = rows <- get_in(manifest, ["host_abi", "imports"]),
+         {:ok, allow} <- decode_imports(rows) do
+      {:ok, allow}
+    else
+      _ -> :unavailable
+    end
+  end
+
+  defp decode_imports(rows) do
+    Enum.reduce_while(rows, {:ok, []}, fn
+      %{"name" => name, "params" => params, "results" => results}, {:ok, acc}
+      when is_binary(name) and is_list(params) and is_list(results) ->
+        {:cont, {:ok, [{name, {:fn, Enum.map(params, &type_atom/1), Enum.map(results, &type_atom/1)}} | acc]}}
+
+      # ex4pm MANIFEST.json shape: "module.name" strings carry no signature, so the name alone is allowed.
+      "wasi_snapshot_preview1." <> name, {:ok, acc} when name != "" ->
+        {:cont, {:ok, [{name, :any} | acc]}}
+
+      _other, _acc ->
+        {:halt, :error}
+    end)
+    |> case do
+      {:ok, allow} -> {:ok, Enum.reverse(allow)}
+      :error -> :error
+    end
+  end
+
+  defp type_atom("i32"), do: :i32
+  defp type_atom("i64"), do: :i64
+  defp type_atom("f32"), do: :f32
+  defp type_atom("f64"), do: :f64
+  defp type_atom("v128"), do: :v128
+  defp type_atom(other), do: {:unknown_type, other}
+
+  defp default_expected(opts) do
+    case Keyword.get(opts, :wasm_path) do
+      path when is_binary(path) and path != "" ->
+        if Path.expand(path) == Path.expand(vendored_path()), do: pinned_sha256(), else: :unpinned
+
+      _ ->
+        pinned_sha256()
+    end
+  end
+
+  defp limit(opts, key, default) do
+    [Keyword.get(opts, key), Application.get_env(:{{ p.app }}, key)]
+    |> Enum.find(default, &(is_integer(&1) and &1 >= min_limit(key)))
+  end
+
+{%- if zero_ok | length > 0 %}
+
+  # Store count limits treat 0 as a real bound ({{ zero_meaning }});
+  # every other limit must be positive, so 0 there is ignored.
+  @zero_ok [{% for n in zero_ok %}:{{ n }}{% if not loop.last %}, {% endif %}{% endfor %}]
+  defp min_limit(key) when key in @zero_ok, do: 0
+  defp min_limit(_key), do: 1
+{% else %}
+
+  defp min_limit(_key), do: 1
+{% endif %}
+  defp read_manifest(path) do
+    case File.read(path) do
+      {:ok, raw} ->
+        {:ok, raw}
+
+      {:error, reason} ->
+        {:error, Refusal.new(:wasm_unreadable, "cannot read #{path}: #{:file.format_error(reason)}", details: %{path: path})}
+    end
+  end
+
+  defp decode_manifest(raw, path) do
+    case Jason.decode(raw) do
+      {:ok, %{} = manifest} -> {:ok, manifest}
+      _ -> {:error, Refusal.new(:invalid_json, "#{path} is not a JSON object", details: %{path: path})}
+    end
+  end
+
+  defp app_path(rel) do
+    Application.app_dir(:{{ p.app }}, rel)
+  rescue
+    ArgumentError -> Path.expand(Path.join(["..", "..", rel]), __DIR__)
+  end
+
+  defp present(value) when is_binary(value) and value != "", do: value
+  defp present(_value), do: nil
+
+  defp sha256_hex?(sha), do: byte_size(sha) == 64 and String.match?(sha, ~r/\A[0-9a-fA-F]{64}\z/)
+end

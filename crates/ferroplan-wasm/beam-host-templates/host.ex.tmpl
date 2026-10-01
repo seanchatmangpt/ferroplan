@@ -1,0 +1,662 @@
+---
+to: generated/beam-host/host.ex
+sparql:
+  profile: |
+    PREFIX qri: <https://seanchatmangpt.github.io/packs/qri-qualification-profile-pack#>
+    SELECT ?app ?root ?task_root ?prefix ?abi_version ?free_symbol ?len_type ?alloc_zero_policy ?out_mode
+           ?req_consumed ?pin_format ?path_env ?handle_noun ?taxonomy_ns ?refusal_module ?request_cap
+           ?manifest_rel ?wasm_rel ?manifest_schema ?ok_key ?op_key ?probe_op ?probe_expect
+           ?telemetry_root ?pool_strategy ?pool_size ?pool_size_source ?engine_id ?doc_example_op WHERE {
+      ?c a qri:CapabilityContract ; qri:hostProfile ?hp ; qri:abiSymbolPrefix ?prefix .
+      OPTIONAL { ?c qri:abiVersion ?abiv }
+      OPTIONAL { ?hp qri:otpApp ?a }
+      OPTIONAL { ?hp qri:moduleRoot ?r }
+      OPTIONAL { ?hp qri:taskModuleRoot ?tr }
+      OPTIONAL { ?hp qri:freeSymbol ?fs }
+      OPTIONAL { ?hp qri:lenType ?lt }
+      OPTIONAL { ?hp qri:allocZeroPolicy ?azp }
+      OPTIONAL { ?hp qri:outMode ?om }
+      OPTIONAL { ?hp qri:reqConsumed ?rc }
+      OPTIONAL { ?hp qri:pinFormat ?pf }
+      OPTIONAL { ?hp qri:pathEnv ?pe }
+      OPTIONAL { ?hp qri:handleNoun ?hn }
+      OPTIONAL { ?hp qri:taxonomyNamespace ?tn }
+      OPTIONAL { ?hp qri:refusalModule ?rm }
+      OPTIONAL { ?hp qri:requestCap ?cap }
+      OPTIONAL { ?hp qri:manifestRel ?mr }
+      OPTIONAL { ?hp qri:wasmRel ?wr }
+      OPTIONAL { ?hp qri:manifestSchema ?ms }
+      OPTIONAL { ?hp qri:okKey ?ok }
+      OPTIONAL { ?hp qri:opKey ?opk }
+      OPTIONAL { ?hp qri:probeOp ?po }
+      OPTIONAL { ?hp qri:probeExpectKey ?pek }
+      OPTIONAL { ?hp qri:telemetryRoot ?tel }
+      OPTIONAL { ?hp qri:poolStrategy ?ps }
+      OPTIONAL { ?hp qri:poolSize ?psz }
+      OPTIONAL { ?hp qri:poolSizeSource ?pss }
+      OPTIONAL { ?hp qri:engineId ?eid }
+      OPTIONAL { ?hp qri:docExampleOp ?deo }
+      BIND(COALESCE(?a, "") AS ?app)
+      BIND(COALESCE(?r, "") AS ?root)
+      BIND(COALESCE(?tr, "") AS ?task_root)
+      BIND(COALESCE(?abiv, "") AS ?abi_version)
+      BIND(COALESCE(?fs, CONCAT(?prefix, "_free")) AS ?free_symbol)
+      BIND(COALESCE(?lt, "u32") AS ?len_type)
+      BIND(COALESCE(?azp, "refuse-resource_limit") AS ?alloc_zero_policy)
+      BIND(COALESCE(?om, "packed_u64") AS ?out_mode)
+      BIND(COALESCE(?rc, true) AS ?req_consumed)
+      BIND(COALESCE(?pf, "") AS ?pin_format)
+      BIND(COALESCE(?pe, "") AS ?path_env)
+      BIND(COALESCE(?hn, "engine") AS ?handle_noun)
+      BIND(COALESCE(?tn, "") AS ?taxonomy_ns)
+      BIND(COALESCE(?rm, "") AS ?refusal_module)
+      BIND(COALESCE(?cap, 0) AS ?request_cap)
+      BIND(COALESCE(?mr, "") AS ?manifest_rel)
+      BIND(COALESCE(?wr, "") AS ?wasm_rel)
+      BIND(COALESCE(?ms, "") AS ?manifest_schema)
+      BIND(COALESCE(?ok, "ok") AS ?ok_key)
+      BIND(COALESCE(?opk, "op") AS ?op_key)
+      BIND(COALESCE(?po, "") AS ?probe_op)
+      BIND(COALESCE(?pek, "") AS ?probe_expect)
+      BIND(COALESCE(?tel, "") AS ?telemetry_root)
+      BIND(COALESCE(?ps, "single") AS ?pool_strategy)
+      BIND(COALESCE(?psz, 1) AS ?pool_size)
+      BIND(COALESCE(?pss, "") AS ?pool_size_source)
+      BIND(COALESCE(?eid, "") AS ?engine_id)
+      BIND(COALESCE(?deo, "") AS ?doc_example_op)
+    }
+    ORDER BY ?prefix
+  limits: |
+    PREFIX qri: <https://seanchatmangpt.github.io/packs/qri-qualification-profile-pack#>
+    SELECT ?prefix ?name ?default ?order ?zero_ok ?zero_meaning WHERE {
+      ?c a qri:CapabilityContract ; qri:hostProfile ?hp ; qri:abiSymbolPrefix ?prefix .
+      ?hp qri:hostLimit ?l .
+      ?l qri:limitName ?name ; qri:limitDefault ?default ; qri:limitOrder ?order .
+      OPTIONAL { ?l qri:limitZeroOk ?z }
+      OPTIONAL { ?l qri:limitZeroMeaning ?zm }
+      BIND(COALESCE(?z, false) AS ?zero_ok)
+      BIND(COALESCE(?zm, "") AS ?zero_meaning)
+    }
+    ORDER BY ?prefix ?order ?name
+  exports: |
+    PREFIX qri: <https://seanchatmangpt.github.io/packs/qri-qualification-profile-pack#>
+    SELECT ?prefix ?name ?kind WHERE {
+      ?c a qri:CapabilityContract ; qri:hostProfile ?hp ; qri:abiSymbolPrefix ?prefix .
+      { ?c qri:requiredExport ?name . BIND("required" AS ?kind) }
+      UNION { ?c qri:optionalExport ?name . BIND("optional" AS ?kind) }
+      UNION { ?hp qri:initExport ?name . BIND("init" AS ?kind) }
+    }
+    ORDER BY ?prefix ?kind ?name
+  recycle: |
+    PREFIX qri: <https://seanchatmangpt.github.io/packs/qri-qualification-profile-pack#>
+    SELECT ?prefix ?code ?order WHERE {
+      ?c a qri:CapabilityContract ; qri:hostProfile ?hp ; qri:abiSymbolPrefix ?prefix .
+      ?hp qri:recycleOn ?code .
+      OPTIONAL { ?hp qri:recycleRule ?r . ?r qri:recycleCode ?code ; qri:recycleOrder ?o }
+      BIND(COALESCE(?o, 1000000) AS ?order)
+    }
+    ORDER BY ?prefix ?order ?code
+force: true
+---
+{#- LOCAL DIVERGENCE from qri-qualification-profile-pack templates/beam-host: Refusal.new/3 third arg is keyword opts; upstream passes a bare map (details: wrapper added). See DIVERGENCE.md. -#}
+{%- set p = profile[0] -%}
+{%- macro g3(n) -%}{% if n < 100 %}0{% endif %}{% if n < 10 %}0{% endif %}{{ n }}{%- endmacro g3 -%}
+{%- macro us(n) -%}{% if n < 1000 %}{{ n }}{% elif n < 1000000 %}{{ (n / 1000) | int }}_{{ self::g3(n=n % 1000) }}{% elif n < 1000000000 %}{{ (n / 1000000) | int }}_{{ self::g3(n=((n % 1000000) / 1000) | int) }}_{{ self::g3(n=n % 1000) }}{% else %}{{ (n / 1000000000) | int }}_{{ self::g3(n=((n % 1000000000) / 1000000) | int) }}_{{ self::g3(n=((n % 1000000) / 1000) | int) }}_{{ self::g3(n=n % 1000) }}{% endif %}{%- endmacro us -%}
+{%- for l in limits %}{% if l.name == "abi_timeout" %}{% set_global lim_abi_timeout = l.default %}{% endif %}{% endfor -%}
+{%- for l in limits %}{% if l.name == "margin" %}{% set_global lim_margin = l.default %}{% endif %}{% endfor -%}
+{%- for l in limits %}{% if l.name == "retry_base_ms" %}{% set_global lim_retry_base_ms = l.default %}{% endif %}{% endfor -%}
+{%- for l in limits %}{% if l.name == "retry_max_ms" %}{% set_global lim_retry_max_ms = l.default %}{% endif %}{% endfor -%}
+{%- for l in limits %}{% if l.name == "initialize_timeout_mult" %}{% set_global lim_initialize_timeout_mult = l.default %}{% endif %}{% endfor -%}
+{%- for l in limits %}{% if l.name == "backoff_exp_cap" %}{% set_global lim_backoff_exp_cap = l.default %}{% endif %}{% endfor -%}
+{%- set_global init_export = "" -%}
+{%- for e in exports %}{% if e.kind == "optional" %}{% set_global init_export = e.name %}{% endif %}{% endfor -%}
+{%- if p.out_mode != "packed_u64" or p.req_consumed != true or p.len_type != "u32" -%}{{ UNSUPPORTED_host_profile_not_packed_u64_consumed_u32 }}{%- endif -%}
+# GENERATED by qri-qualification-profile-pack (queries 50-54). Do not edit; edit the RDF contract.
+
+defmodule {{ p.root }}.Host do
+  @moduledoc """
+  One supervised Wasmtime instance of the {{ p.engine_id }} engine.
+
+  A `{:ok, response}` from `request/3` is transport success, not authority and not a receipt. Every
+  transport or host failure is a typed `{:error, %{{ p.refusal_module }}{}}`; the load and recycle rules
+  are fixed by this generated file.
+  """
+
+  use GenServer
+
+  alias {{ p.root }}.ABI
+  alias {{ p.root }}.EngineLoad
+  alias {{ p.refusal_module }}
+  alias {{ p.root }}.WasmConfig
+
+  require Logger
+
+  # Bound for the small ABI helper calls ({{ p.prefix }}_alloc, {{ p.free_symbol }}{% if init_export != "" %}, {{ init_export }} probe{% endif %}).
+  @abi_timeout {{ self::us(n=lim_abi_timeout) }}
+  @margin {{ self::us(n=lim_margin) }}
+  @recycle_codes [
+{%- set_global first = true -%}
+{%- for r in recycle %}{% if not first %}, {% endif %}:{{ r.code }}{% set_global first = false %}{% endfor %}]
+  @retry_base_ms {{ self::us(n=lim_retry_base_ms) }}
+  @retry_max_ms {{ self::us(n=lim_retry_max_ms) }}
+
+  @typedoc "Server reference accepted by every function in this module."
+  @type server :: GenServer.server()
+
+  @typedoc "Options for `start_link/1`."
+  @type opts :: [
+          name: GenServer.name() | nil,
+          wasm_path: String.t(),
+          bytes: binary(),
+          expected_sha256: String.t() | :unpinned,
+          fuel: pos_integer(),
+          memory_limit_bytes: pos_integer(),
+          recycle_bytes: pos_integer(),
+          max_queue: pos_integer(),
+          max_response_bytes: pos_integer(),
+          timeout_ms: pos_integer(),
+          registry: atom(),
+          retry_base_ms: pos_integer(),
+          retry_max_ms: pos_integer()
+        ]
+
+  @typedoc "Options for `request/3`."
+  @type request_opts :: [timeout_ms: pos_integer(), max_queue: pos_integer()]
+
+  # ---------------------------------------------------------------------
+  # Public API
+  # ---------------------------------------------------------------------
+
+  @doc """
+  Starts a host.
+
+  Options: `:name` (default `#{inspect(__MODULE__)}`; `nil` for an unnamed pool
+  member), `:wasm_path`, `:bytes` (engine bytes instead of a file),
+  `:expected_sha256` (`:unpinned` opts out of the pin), `:fuel`,
+  `:memory_limit_bytes`, `:recycle_bytes`, `:max_queue`, `:timeout_ms`, and
+  `:registry` (a duplicate-key `Registry` the host joins under `:members` while
+  available and under `:unavailable` otherwise), `:max_response_bytes`,
+  `:retry_base_ms`, `:retry_max_ms`.
+  A missing or unloadable engine never fails the start; it becomes a typed
+  refusal on every call.
+  """
+  @spec start_link(opts()) :: GenServer.on_start()
+  def start_link(opts \\ []) do
+    case Keyword.pop(opts, :name, __MODULE__) do
+      {nil, rest} -> GenServer.start_link(__MODULE__, rest)
+      {name, rest} -> GenServer.start_link(__MODULE__, [{:registered_as, name} | rest], name: name)
+    end
+  end
+
+  @doc """
+  Runs one {{ p.engine_id }} request (a string-keyed map such as `%{"{{ p.op_key }}" => {% if p.doc_example_op != "" %}"{{ p.doc_example_op }}", ...{% else %}...{% endif %}}`).
+
+  Returns the decoded response map whether the engine answered `"ok" => true`
+  or `"ok" => false`; only transport and host failures are `{:error, refusal}`.
+  Options: `:timeout_ms` (native call deadline in ms; see `t:request_opts/0`). Note the arity-2 form is
+  `request(server, map)`; use `{{ p.root }}.Pool.request/2` to route by pool.
+  """
+  @spec request(server(), map(), request_opts()) :: {:ok, map()} | {:error, Refusal.t()}
+  def request(server \\ __MODULE__, request, opts \\ []) when is_map(request) and is_list(opts) do
+    limits = WasmConfig.limits(opts)
+    timeout = limits.timeout_ms
+
+    with {:ok, body} <- ABI.encode_request(request),
+         {:ok, target} <- shed(server, limits.max_queue) do
+      GenServer.call(target, {:request, body, op_of(request), timeout}, call_timeout(timeout))
+    end
+  catch
+    :exit, {:noproc, _} ->
+      {:error, Refusal.new(:host_not_started, "no host is registered as #{inspect(server)}")}
+
+    :exit, {:timeout, _} ->
+      {:error, Refusal.new(:call_timeout, "host call exceeded its outer deadline", details: %{op: op_of(request)})}
+
+    :exit, reason ->
+      {:error, Refusal.new(:call_exited, "host exited during the call", details: %{reason: inspect(reason, limit: 5)})}
+  end
+
+  @doc "Whether the host has a live, admitted engine instance."
+  @spec available?(server(), timeout()) :: boolean()
+  def available?(server \\ __MODULE__, timeout \\ 5_000) do
+    match?({:ok, :loaded}, GenServer.call(server, :status, timeout))
+  catch
+    :exit, _ -> false
+  end
+
+  @doc "`%{wasm_sha256, path, recycles}` for a loaded host, or the typed refusal."
+  @spec info(server(), timeout()) :: {:ok, map()} | {:error, Refusal.t()}
+  def info(server \\ __MODULE__, timeout \\ 5_000), do: call_simple(server, :info, timeout)
+
+  @doc "Current size in bytes of the engine's linear memory."
+  @spec memory_size(server(), timeout()) :: {:ok, non_neg_integer()} | {:error, Refusal.t()}
+  def memory_size(server \\ __MODULE__, timeout \\ 5_000), do: call_simple(server, :memory_size, timeout)
+
+  defp call_simple(server, message, timeout) do
+    GenServer.call(server, message, timeout)
+  catch
+    :exit, {:noproc, _} ->
+      {:error, Refusal.new(:host_not_started, "no host is registered as #{inspect(server)}")}
+
+    :exit, {:timeout, _} ->
+      {:error, Refusal.new(:call_timeout, "host did not answer #{message} in time")}
+  end
+
+  defp op_of(request), do: Map.get(request, "{{ p.op_key }}") || Map.get(request, :{{ p.op_key }})
+
+  defp shed(server, max_queue) do
+    with pid when is_pid(pid) <- GenServer.whereis(server),
+         {:message_queue_len, len} when len >= max_queue <- Process.info(pid, :message_queue_len) do
+      {:error, Refusal.new(:saturated, "host mailbox holds #{len} messages", details: %{queue: len, max_queue: max_queue})}
+    else
+      _ -> {:ok, server}
+    end
+  end
+
+  # The caller outlives every inner step: alloc + call + free, each with its
+  # own margin, plus the recycle window.
+  defp call_timeout(timeout), do: timeout + @margin + 2 * (@abi_timeout + @margin) + @margin
+
+  # ---------------------------------------------------------------------
+  # GenServer
+  # ---------------------------------------------------------------------
+
+  @impl GenServer
+  def init(opts) do
+    Process.flag(:trap_exit, true)
+    default? = Keyword.get(opts, :registered_as) == __MODULE__
+    context = %{default?: default?, opts: opts, registry: Keyword.get(opts, :registry), retries: 0}
+
+    case load(opts) do
+      {:ok, state} ->
+        {:ok, state |> Map.merge(context) |> announce(:available)}
+
+      {:error, %Refusal{} = refusal} ->
+        Logger.warning("{{ p.root }}.Host: engine unavailable (#{refusal.code}: #{refusal.message}).")
+        {:ok, context |> Map.put(:status, {:unavailable, refusal}) |> announce(:unavailable) |> schedule_retry()}
+    end
+  end
+
+  @impl GenServer
+  def handle_call(:status, _from, %{status: :loaded} = state), do: {:reply, {:ok, :loaded}, state}
+  def handle_call(_message, _from, %{status: {:unavailable, refusal}} = state), do: {:reply, {:error, refusal}, state}
+
+  def handle_call(:info, _from, state) do
+    {:reply, {:ok, Map.take(state, [:wasm_sha256, :path, :recycles])}, state}
+  end
+
+  def handle_call(:memory_size, _from, %{store: store, memory: memory} = state) do
+    {:reply, {:ok, Wasmex.Memory.size(store, memory)}, state}
+  end
+
+  def handle_call({:request, body, op, timeout}, from, state) do
+    case saturated(state) do
+      nil -> run_request(body, op, timeout, from, state)
+      refusal -> {:reply, {:error, refusal}, state}
+    end
+  end
+
+  # Server-side shedding with the host's own configured bound.
+  defp saturated(%{limits: %{max_queue: max_queue}}) do
+    {:message_queue_len, waiting} = Process.info(self(), :message_queue_len)
+
+    if waiting >= max_queue,
+      do:
+        Refusal.new(:saturated, "host has #{waiting} requests waiting behind this one", details: %{
+          queue: waiting,
+          max_queue: max_queue
+        })
+  end
+
+  defp run_request(body, op, timeout, from, state) do
+    started = System.monotonic_time()
+    :ok = Wasmex.StoreOrCaller.set_fuel(state.store, state.limits.fuel)
+    result = transact(state, body, timeout)
+    emit_call(started, op, result)
+    # Answer first: a recycle can take seconds{% if init_export != "" %} (`{{ init_export }}`){% endif %}, and the caller's deadline
+    # covers the transaction, not the housekeeping after it.
+    GenServer.reply(from, result)
+    {:noreply, maybe_recycle(state, result)}
+  end
+
+  @impl GenServer
+  # The instance is linked and this host traps exits: replace it, do not die.
+  def handle_info({:EXIT, pid, reason}, %{status: :loaded, pid: pid} = state) do
+    {:noreply, recycle(state, {:instance_exit, inspect(reason, limit: 5)})}
+  end
+
+  def handle_info(:retry_load, %{status: {:unavailable, _}} = state) do
+    case load(state.opts) do
+      {:ok, loaded} ->
+        Logger.info("{{ p.root }}.Host: engine available again after #{state.retries + 1} retry(ies).")
+
+        live =
+          state
+          |> Map.take([:default?, :opts, :registry])
+          |> Map.merge(loaded)
+          |> Map.put(:retries, 0)
+
+        {:noreply, announce(live, :available)}
+
+      {:error, %Refusal{} = refusal} ->
+        {:noreply, %{state | status: {:unavailable, refusal}, retries: state.retries + 1} |> schedule_retry()}
+    end
+  end
+
+  def handle_info(:retry_load, state), do: {:noreply, state}
+
+  def handle_info(_message, state), do: {:noreply, state}
+
+  # ---------------------------------------------------------------------
+  # Loading and instantiation
+  # ---------------------------------------------------------------------
+
+  # Registry membership mirrors availability: a routable host is under `:members`, an
+  # unavailable one under `:unavailable` (so the pool never routes to it while it heals).
+  defp announce(%{registry: nil} = state, _availability), do: state
+
+  defp announce(%{registry: registry} = state, availability) do
+    {join, leave} = if availability == :available, do: {:members, :unavailable}, else: {:unavailable, :members}
+    Registry.unregister(registry, leave)
+    Registry.unregister(registry, join)
+    {:ok, _} = Registry.register(registry, join, nil)
+    state
+  end
+
+  defp schedule_retry(%{opts: opts, retries: retries} = state) do
+    base = Keyword.get(opts, :retry_base_ms, @retry_base_ms)
+    cap = Keyword.get(opts, :retry_max_ms, @retry_max_ms)
+    delay = min(cap, base * Integer.pow(2, min(retries, {{ lim_backoff_exp_cap }})))
+    Process.send_after(self(), :retry_load, delay)
+    state
+  end
+
+  defp load(opts) do
+    path = WasmConfig.wasm_path(opts)
+    expected = WasmConfig.expected_sha256(opts)
+
+    with {:ok, bytes} <- read_bytes(path, opts),
+         :ok <- require_pin(expected),
+         {:ok, admitted} <- EngineLoad.admit(bytes, expected_sha256: expected, fuel?: true) do
+      state = %{
+        status: :loaded,
+        path: path,
+        opts: opts,
+        wasm_sha256: admitted.wasm_sha256,
+        engine: admitted.engine,
+        module: admitted.module,
+        initialize?: {% if init_export != "" %}Map.has_key?(admitted.exports, "{{ init_export }}"){% else %}false{% endif %},
+        limits: WasmConfig.limits(opts),
+        recycles: 0
+      }
+
+      instantiate(state)
+    end
+  end
+
+  # A nil pin means the manifest is unusable; that is a refusal, never "unpinned".
+  defp require_pin(nil),
+    do: {:error, Refusal.new(:wasm_digest_mismatch, "no engine pin is available (MANIFEST.json unusable)")}
+
+  defp require_pin(_expected), do: :ok
+
+  defp read_bytes(path, opts) do
+    case Keyword.fetch(opts, :bytes) do
+      {:ok, bytes} when is_binary(bytes) -> {:ok, bytes}
+      _ -> read_file(path)
+    end
+  end
+
+  defp read_file(path) do
+    case File.read(path) do
+      {:ok, bytes} ->
+        {:ok, bytes}
+
+      {:error, :enoent} ->
+        {:error, Refusal.new(:wasm_not_vendored, "no engine at #{path}; run `mix {{ p.app }}.vendor`", details: %{path: path})}
+
+      {:error, reason} ->
+        {:error, Refusal.new(:wasm_unreadable, "cannot read #{path}: #{:file.format_error(reason)}", details: %{path: path})}
+    end
+  end
+
+  # One fresh WASI store + instance over the cached compiled module.
+  defp instantiate(%{engine: engine, module: module, limits: limits} = state) do
+    memory_limits = %Wasmex.StoreLimits{
+      memory_size: limits.memory_limit_bytes,
+      table_elements: limits.table_elements,
+      instances: limits.instances,
+      tables: limits.tables,
+      memories: limits.memories
+    }
+
+    with {:ok, store} <- new_store(memory_limits, engine),
+         :ok <- Wasmex.StoreOrCaller.set_fuel(store, max(limits.fuel, limits.instantiate_fuel)),
+         {:ok, pid} <- start_instance(store, module),
+         {:ok, store} <- Wasmex.store(pid),
+         {:ok, memory} <- Wasmex.memory(pid),
+         live = Map.merge(state, %{pid: pid, store: store, memory: memory}),
+         :ok <- run_initialize(live) do
+      {:ok, live}
+    else
+      {:error, %Refusal{}} = refusal -> refusal
+      other -> {:error, failed_instantiation(other)}
+    end
+  end
+
+  defp new_store(memory_limits, engine) do
+    Wasmex.Store.new_wasi(%Wasmex.Wasi.WasiOptions{}, memory_limits, engine)
+  rescue
+    error -> {:error, Exception.message(error)}
+  end
+
+  defp start_instance(store, module) do
+    Wasmex.start_link(%{store: store, module: module})
+  rescue
+    error -> {:error, Exception.message(error)}
+  catch
+    :exit, reason -> {:error, reason}
+  end
+
+  defp failed_instantiation(reason) do
+    Refusal.new(:instantiation_failed, "engine instantiation failed", details: %{reason: inspect(reason, limit: 5)})
+  end
+
+{% if init_export != "" %}  # Reactor-style modules export `{{ init_export }}`; call it exactly once per instance.
+  defp run_initialize(%{initialize?: false}), do: :ok
+
+  defp run_initialize(state) do
+    case call_raw(state, "{{ init_export }}", [], @abi_timeout * {{ lim_initialize_timeout_mult }}) do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, classify(reason)}
+    end
+  end
+{% else %}  # The contract declares no optional export: there is no initializer to call.
+  defp run_initialize(_state), do: :ok
+{% endif %}
+  defp recycle(%{pid: old} = state, reason) do
+    Process.unlink(old)
+    Process.exit(old, :kill)
+    count = state.recycles + 1
+
+    :telemetry.execute([:{{ p.telemetry_root }}, :host, :recycle], %{count: count}, %{
+      reason: reason,
+      wasm_sha256: state.wasm_sha256
+    })
+
+    case instantiate(state) do
+      {:ok, fresh} ->
+        %{fresh | recycles: count}
+
+      {:error, refusal} ->
+        Logger.warning("{{ p.root }}.Host: recycle failed (#{refusal.code}); host is unavailable, retrying.")
+
+        state
+        |> Map.take([:default?, :opts, :registry])
+        |> Map.merge(%{status: {:unavailable, refusal}, retries: 0})
+        |> announce(:unavailable)
+        |> schedule_retry()
+    end
+  end
+
+  defp maybe_recycle(state, {:error, %Refusal{code: code}}) when code in @recycle_codes, do: recycle(state, code)
+
+  defp maybe_recycle(%{store: store, memory: memory, limits: limits} = state, _result) do
+    if Wasmex.Memory.size(store, memory) > limits.recycle_bytes,
+      do: recycle(state, :memory_high_water),
+      else: state
+  end
+
+  # ---------------------------------------------------------------------
+  # The ABI transaction
+  # ---------------------------------------------------------------------
+
+  defp transact(state, body, timeout) do
+    len = byte_size(body)
+
+    with {:ok, ptr} <- alloc(state, len),
+         :ok <- write_request(state, ptr, body),
+         {:ok, packed} <- call_engine(state, ptr, len, timeout) do
+      read_response(state, packed)
+    end
+  end
+
+  defp alloc(state, len) do
+    case call_raw(state, "{{ p.prefix }}_alloc", [len], @abi_timeout) do
+      {:ok, [ptr]} when is_integer(ptr) and ptr > 0 ->
+        {:ok, ptr}
+
+      {:ok, [0]} ->
+        {:error, Refusal.new(:resource_limit, "{{ p.prefix }}_alloc refused a #{len}-byte request", details: %{bytes: len})}
+
+      {:ok, other} ->
+        {:error,
+         Refusal.new(:abi_failure, "{{ p.prefix }}_alloc returned an unexpected value", details: %{step: :{{ p.prefix }}_alloc, detail: inspect(other)})}
+
+      {:error, reason} ->
+        {:error, classify(reason)}
+    end
+  end
+
+  # {{ p.prefix }}_call has not consumed the buffer yet, so a failed write must free it.
+  defp write_request(%{store: store, memory: memory} = state, ptr, body) do
+    # write_binary/4 returns :ok or raises; anything raised takes the rescue below, which frees
+    # the request buffer that {{ p.prefix }}_call has not consumed yet.
+    :ok = Wasmex.Memory.write_binary(store, memory, ptr, body)
+  rescue
+    error ->
+      _ = call_raw(state, "{{ p.free_symbol }}", [ptr, byte_size(body)], @abi_timeout)
+
+      {:error,
+       Refusal.new(:abi_failure, "writing the request failed", details: %{step: :write_binary, detail: Exception.message(error)})}
+  end
+
+  # {{ p.prefix }}_call consumes (frees) the request buffer: no {{ p.free_symbol }} for it after this.
+  defp call_engine(state, ptr, len, timeout) do
+    case call_raw(state, "{{ p.prefix }}_call", [ptr, len], timeout) do
+      {:ok, [packed]} when is_integer(packed) ->
+        {:ok, packed}
+
+      {:ok, other} ->
+        {:error,
+         Refusal.new(:abi_failure, "{{ p.prefix }}_call returned an unexpected value", details: %{step: :{{ p.prefix }}_call, detail: inspect(other)})}
+
+      {:error, reason} ->
+        {:error, classify(reason)}
+    end
+  end
+
+  defp read_response(state, packed) do
+    case ABI.unpack_result(packed) do
+      {0, 0} ->
+        {:error, Refusal.new(:abi_failure, "{{ p.prefix }}_call returned an empty result slot", details: %{step: :read_result})}
+
+      {out_ptr, out_len} ->
+        try do
+          if out_len > state.limits.max_response_bytes do
+            {:error,
+             Refusal.new(:resource_limit, "engine response of #{out_len} bytes exceeds the response cap", details: %{
+               bytes: out_len,
+               max_response_bytes: state.limits.max_response_bytes
+             })}
+          else
+            state |> read_memory(out_ptr, out_len) |> decode()
+          end
+        after
+          # Runs even when the read raises, so a failed read cannot leak memory.
+          _ = call_raw(state, "{{ p.free_symbol }}", [out_ptr, out_len], @abi_timeout)
+        end
+    end
+  end
+
+  defp read_memory(%{store: store, memory: memory}, ptr, len) do
+    {:ok, Wasmex.Memory.read_binary(store, memory, ptr, len)}
+  rescue
+    error ->
+      {:error,
+       Refusal.new(:abi_failure, "reading the response failed", details: %{step: :read_result, detail: Exception.message(error)})}
+  end
+
+  defp decode({:ok, bytes}) when is_binary(bytes) do
+    if String.valid?(bytes),
+      do: ABI.decode_response(bytes),
+      else: {:error, Refusal.new(:malformed_response, "engine response is not valid UTF-8")}
+  end
+
+  defp decode({:error, %Refusal{}} = error), do: error
+
+  # Direct call into the Wasmex GenServer so the native deadline (`timeout`)
+  # and the caller deadline (`timeout` + 1 s) differ: the native interrupt fires
+  # first and returns `{:error, _}`. Any exit is caught and typed; it must never
+  # propagate into this host's handle_call/3.
+  defp call_raw(%{pid: pid}, fun, params, timeout) do
+    GenServer.call(pid, {:call_function, fun, params, timeout}, timeout + @margin)
+  catch
+    :exit, reason -> {:error, {:exit, reason}}
+  end
+
+  # A GenServer.call deadline expiring is a timeout, not an instance exit (observed: a 20 ms
+  # native deadline on a long plan surfaces as {:exit, {:timeout, _}} from call_raw/4).
+  defp classify({:exit, {:timeout, _} = reason}) do
+    Refusal.new(:call_timeout, "engine call exceeded its deadline", details: %{reason: inspect(reason, limit: 5)})
+  end
+
+  defp classify({:exit, reason}) do
+    Refusal.new(:call_exited, "engine instance exited during the call", details: %{reason: inspect(reason, limit: 5)})
+  end
+
+  defp classify(reason) when is_binary(reason) do
+    down = String.downcase(reason)
+
+    cond do
+      String.contains?(down, "fuel") ->
+        Refusal.new(:fuel_exhausted, "engine exhausted its fuel budget", details: %{reason: reason})
+
+      String.contains?(down, ["interrupt", "timeout", "deadline", "epoch"]) ->
+        Refusal.new(:call_timeout, "engine call exceeded its deadline", details: %{reason: reason})
+
+      true ->
+        Refusal.new(:call_trapped, "engine call trapped", details: %{reason: reason})
+    end
+  end
+
+  defp classify(reason) do
+    Refusal.new(:abi_failure, "engine call failed in an unclassified way", details: %{reason: inspect(reason, limit: 5)})
+  end
+
+  defp emit_call(started, op, result) do
+    {outcome, code} =
+      case result do
+        {:ok, %{"{{ p.ok_key }}" => false}} -> {:refused, nil}
+        {:ok, %{"error" => _}} -> {:refused, nil}
+        {:ok, _} -> {:ok, nil}
+        {:error, %Refusal{code: code}} -> {:error, code}
+      end
+
+    :telemetry.execute(
+      [:{{ p.telemetry_root }}, :host, :call, :stop],
+      %{duration: System.monotonic_time() - started},
+      %{op: op, outcome: outcome, code: code}
+    )
+  end
+end

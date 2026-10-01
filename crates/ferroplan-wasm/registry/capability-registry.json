@@ -1,0 +1,231 @@
+{
+  "abi_version": 1,
+  "crate": "ferroplan-wasm",
+  "error_codes": [
+    "FP_ADAPTER",
+    "FP_UNKNOWN_OP",
+    "FP_LIMIT_INPUT",
+    "FP_INVALID_REQUEST",
+    "FP_INVALID_PROBLEM",
+    "FP_INVALID_POLICY",
+    "FP_VALIDATION",
+    "FP_INVARIANT",
+    "FP_LIMIT_SEARCH",
+    "FP_LIMIT_MEMORY",
+    "FP_LIMIT_CANDIDATES",
+    "FP_LIMIT_CANDIDATE",
+    "FP_DUPLICATE_CANDIDATE",
+    "FP_PARSE",
+    "FP_HDDL_GROUND",
+    "FP_HDDL_TRANSLATE",
+    "FP_HDDL_ROOT_MISMATCH",
+    "FP_MODEL",
+    "FP_TIMEOUT",
+    "FP_WORKER_PANICKED"
+  ],
+  "exports": [
+    "fp_abi_version",
+    "fp_alloc",
+    "fp_call",
+    "fp_free"
+  ],
+  "imports_policy": "wasi_snapshot_preview1",
+  "limits": {
+    "max_json_depth": 128,
+    "max_request_bytes": 16777216,
+    "stack_size_bytes": 16777216
+  },
+  "ops": [
+    {
+      "name": "plan",
+      "request_fields": ["op", "domain", "problem", "mode", "search", "flags"],
+      "response_fields": ["solved", "mode", "plan", "statistics", "notes"]
+    },
+    {
+      "name": "plan_production",
+      "request_fields": ["op", "domain", "problem", "mode", "search", "max_evaluated", "max_plan_steps", "max_output_bytes", "request_id"],
+      "response_fields": ["schema_version", "request_id", "capability_id", "capability_version", "build_identity", "input_fingerprint", "authority", "outcome", "validation", "elapsed_micros", "counters", "warnings", "payload", "error"]
+    },
+    {
+      "name": "htn_plan",
+      "request_fields": ["op", "problem", "limits"],
+      "response_fields": ["planning_type", "solved", "steps", "policy", "decomposition", "notes"]
+    },
+    {
+      "name": "fond_policy",
+      "request_fields": ["op", "problem", "limits"],
+      "response_fields": ["planning_type", "solved", "steps", "policy", "decomposition", "notes", "validation"]
+    },
+    {
+      "name": "fond_policy_validate",
+      "request_fields": ["op", "problem", "plan"],
+      "response_fields": ["valid", "guarantee", "reachable_states", "reachable_goals", "issues"]
+    },
+    {
+      "name": "fond_validate",
+      "request_fields": ["op", "problem", "plan"],
+      "response_fields": ["valid", "guarantee", "reachable_states", "reachable_goals", "issues"]
+    },
+    {
+      "name": "hddl_solve",
+      "request_fields": ["op", "domain", "problem", "limits"],
+      "response_fields": ["planning_type", "solved", "steps", "policy", "decomposition", "notes"]
+    },
+    {
+      "name": "readiness",
+      "request_fields": ["op"],
+      "response_fields": ["schema_version", "product_version", "manifest_fingerprint", "contract_valid", "admission_state", "admission_notice", "manifest"]
+    },
+    {
+      "name": "version",
+      "request_fields": ["op"],
+      "response_fields": ["version"]
+    },
+    {
+      "name": "explain",
+      "request_fields": ["op", "domain", "problem", "plan"],
+      "response_fields": ["kind", "causal_links", "invariant_spans", "preferences"]
+    },
+    {
+      "name": "session_new",
+      "request_fields": ["op", "domain", "problem"],
+      "response_fields": ["handle"]
+    },
+    {
+      "name": "session_fork",
+      "request_fields": ["op", "handle", "keep_plan"],
+      "response_fields": ["handle"]
+    },
+    {
+      "name": "session_free",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["freed"]
+    },
+    {
+      "name": "session_set_goal",
+      "request_fields": ["op", "handle", "goal"],
+      "response_fields": ["ok"]
+    },
+    {
+      "name": "session_restrict_prefix_claims",
+      "request_fields": ["op", "handle", "prefix", "claimed"],
+      "response_fields": ["ok"]
+    },
+    {
+      "name": "session_restrict_contains",
+      "request_fields": ["op", "handle", "filter"],
+      "response_fields": ["ok"]
+    },
+    {
+      "name": "session_think",
+      "request_fields": ["op", "handle", "evals", "mem_mb", "prefer_follow"],
+      "response_fields": ["solved", "mode", "plan", "statistics", "notes", "verdict", "capped", "spent_evals"]
+    },
+    {
+      "name": "session_replan_following",
+      "request_fields": ["op", "handle", "evals", "mem_mb"],
+      "response_fields": ["solved", "mode", "plan", "statistics", "notes"]
+    },
+    {
+      "name": "session_repair",
+      "request_fields": ["op", "handle", "evals", "mem_mb"],
+      "response_fields": ["decision", "trigger", "plan_valid", "previous_suffix", "suffix", "solution"]
+    },
+    {
+      "name": "session_probe",
+      "request_fields": ["op", "handle", "candidates", "evals", "mem_mb"],
+      "response_fields": ["parent_handle", "candidate_count", "results"]
+    },
+    {
+      "name": "session_valid",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["valid"]
+    },
+    {
+      "name": "session_step",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["index", "action", "args", "time", "duration"]
+    },
+    {
+      "name": "session_suffix",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["steps"]
+    },
+    {
+      "name": "session_advance",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["ok"]
+    },
+    {
+      "name": "session_drop_plan",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["ok"]
+    },
+    {
+      "name": "session_has_plan",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["has_plan"]
+    },
+    {
+      "name": "session_set_fact",
+      "request_fields": ["op", "handle", "name", "value"],
+      "response_fields": ["ok"]
+    },
+    {
+      "name": "session_set_timed_fact",
+      "request_fields": ["op", "handle", "name", "dt", "value"],
+      "response_fields": ["ok"]
+    },
+    {
+      "name": "session_observe",
+      "request_fields": ["op", "handle", "sight"],
+      "response_fields": ["news"]
+    },
+    {
+      "name": "session_goal_met",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["goal_met"]
+    },
+    {
+      "name": "session_fact",
+      "request_fields": ["op", "handle", "name"],
+      "response_fields": ["value"]
+    },
+    {
+      "name": "session_apply_start",
+      "request_fields": ["op", "handle", "name"],
+      "response_fields": ["ok"]
+    },
+    {
+      "name": "session_elapse",
+      "request_fields": ["op", "handle", "dt"],
+      "response_fields": ["fired"]
+    },
+    {
+      "name": "session_set_fluent",
+      "request_fields": ["op", "handle", "name", "value"],
+      "response_fields": ["ok"]
+    },
+    {
+      "name": "session_fluent",
+      "request_fields": ["op", "handle", "name"],
+      "response_fields": ["value"]
+    },
+    {
+      "name": "session_plan_valid",
+      "request_fields": ["op", "handle", "from", "plan"],
+      "response_fields": ["valid"]
+    },
+    {
+      "name": "session_world_bytes",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["bytes"]
+    },
+    {
+      "name": "session_mind_bytes",
+      "request_fields": ["op", "handle"],
+      "response_fields": ["bytes"]
+    }
+  ],
+  "schema": "wasi-json-abi.capability-registry/1"
+}

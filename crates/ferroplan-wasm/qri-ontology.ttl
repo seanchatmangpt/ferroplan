@@ -1,0 +1,185 @@
+@prefix qri:  <https://seanchatmangpt.github.io/packs/qri-qualification-profile-pack#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+
+# QRI Qualification Profile: thin waist. Public vocabularies own their nouns (see
+# ontology/alignments.ttl); QRI owns only qualification, admission and substitution.
+# Standing is DERIVED from receipts; no class or property here is a mutable status flag.
+
+<https://seanchatmangpt.github.io/packs/qri-qualification-profile-pack>
+    a owl:Ontology ;
+    owl:versionInfo "26.9.30" ;
+    rdfs:comment "QRI profile core. authorityClaim NONE: nothing here grants DO authority." .
+
+# ---- identities and contracts -------------------------------------------------------------
+qri:Capability a rdfs:Class ;
+    rdfs:label "Capability" ;
+    rdfs:comment "Externally consumable runtime capability; aligned to sosa:Procedure." .
+qri:CapabilityContract a rdfs:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Versioned, content-addressed contract for one Capability." .
+qri:Realization a rdfs:Class ;
+    rdfs:comment "An implementation that may occupy the capability slot; aligned to ssn:System." .
+qri:RuntimeContext a rdfs:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Host + authority + resource envelope under which qualification is exact." .
+qri:Invariant a rdfs:Class ; rdfs:subClassOf prov:Entity .
+qri:InvariantSet a rdfs:Class ; rdfs:subClassOf prov:Entity .
+qri:InvariantKind a rdfs:Class .
+
+# ---- evidence-producing transitions -------------------------------------------------------
+qri:Qualification a rdfs:Class ; rdfs:subClassOf prov:Activity .
+qri:QualificationReceipt a rdfs:Class ; rdfs:subClassOf prov:Entity .
+qri:Admission a rdfs:Class ; rdfs:subClassOf prov:Activity .
+qri:AdmissionReceipt a rdfs:Class ; rdfs:subClassOf prov:Entity .
+qri:Execution a rdfs:Class ; rdfs:subClassOf prov:Activity .
+qri:ExecutionReceipt a rdfs:Class ; rdfs:subClassOf prov:Entity .
+qri:Replay a rdfs:Class ; rdfs:subClassOf prov:Activity .
+qri:ReplayReceipt a rdfs:Class ; rdfs:subClassOf prov:Entity .
+qri:SubstitutionClaim a rdfs:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Reified contextual interchangeability assertion over two qualification receipts." .
+qri:SelectionPolicy a rdfs:Class ; rdfs:subClassOf prov:Plan ;
+    rdfs:comment "Utility ordering applied only over already-qualified candidates." .
+
+# ---- projection vocabulary (ABI ledger; identity stays above it) --------------------------
+qri:AbiProfile a rdfs:Class .
+qri:Operation a rdfs:Class ; rdfs:comment "One callable op of a capability, projected to WIT func and ABI call." .
+qri:Field a rdfs:Class ; rdfs:comment "A typed request/response field of an Operation." .
+qri:RefusalCode a rdfs:Class, skos:Concept .
+
+# ---- kinds (closed set) -------------------------------------------------------------------
+qri:Semantic a qri:InvariantKind ; rdfs:label "semantic" .
+qri:Refusal a qri:InvariantKind ; rdfs:label "refusal" .
+qri:Authority a qri:InvariantKind ; rdfs:label "authority" .
+qri:Resource a qri:InvariantKind ; rdfs:label "resource" .
+qri:InformationFlow a qri:InvariantKind ; rdfs:label "information-flow" .
+qri:Evidence a qri:InvariantKind ; rdfs:label "evidence" .
+qri:Determinism a qri:InvariantKind ; rdfs:label "determinism" .
+qri:HostFit a qri:InvariantKind ; rdfs:label "host-fit" .
+
+qri:Passed a qri:QualificationResult ; rdfs:label "passed" .
+qri:Failed a qri:QualificationResult ; rdfs:label "failed" .
+qri:QualificationResult a rdfs:Class .
+
+# ---- properties ---------------------------------------------------------------------------
+qri:specifiesCapability a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range qri:Capability .
+qri:contractVersion a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range xsd:string .
+qri:contractDigest a rdf:Property ; rdfs:domain qri:CapabilityContract ;
+    rdfs:comment "sha256 of RDFC-1.0 canonical N-Quads of the contract dataset (never raw JSON-LD text)." .
+qri:invariantSet a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range qri:InvariantSet .
+qri:requiresInvariant a rdf:Property ; rdfs:domain qri:InvariantSet ; rdfs:range qri:Invariant .
+qri:invariantKind a rdf:Property ; rdfs:domain qri:Invariant ; rdfs:range qri:InvariantKind .
+qri:constraintShape a rdf:Property ; rdfs:domain qri:Invariant .
+qri:limitValue a rdf:Property ; rdfs:domain qri:Invariant ;
+    rdfs:comment "qudt:QuantityValue-typed bound for resource invariants." .
+qri:refusalScheme a rdf:Property ; rdfs:domain qri:CapabilityContract .
+qri:receiptShape a rdf:Property ; rdfs:domain qri:CapabilityContract .
+qri:allowedImport a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range xsd:string .
+qri:requiredExport a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range xsd:string .
+
+qri:realization a rdf:Property ; rdfs:range qri:Realization .
+qri:artifact a rdf:Property ; rdfs:comment "Content-addressed artifact IRI (SPDX-side identity)." .
+qri:artifactDigest a rdf:Property ; rdfs:range xsd:string .
+qri:abiKind a rdf:Property ; rdfs:range xsd:string .
+qri:abiVersion a rdf:Property ; rdfs:range xsd:string .
+qri:abiDigest a rdf:Property ; rdfs:range xsd:string .
+qri:host a rdf:Property ; rdfs:domain qri:RuntimeContext .
+qri:hostShape a rdf:Property ; rdfs:domain qri:RuntimeContext .
+qri:authorityPolicy a rdf:Property ; rdfs:domain qri:RuntimeContext ;
+    rdfs:comment "ODRL Policy IRI. Separate plane: implements/qualifies never implies odrl:Permission." .
+qri:runtimeContext a rdf:Property ; rdfs:range qri:RuntimeContext .
+
+qri:qualifiesFor a rdf:Property ; rdfs:domain qri:QualificationReceipt ; rdfs:range qri:CapabilityContract .
+qri:preservesInvariant a rdf:Property ; rdfs:domain qri:QualificationReceipt ; rdfs:range qri:Invariant .
+qri:qualificationResult a rdf:Property ; rdfs:domain qri:QualificationReceipt ; rdfs:range qri:QualificationResult .
+qri:sourceQualification a rdf:Property ; rdfs:domain qri:SubstitutionClaim ; rdfs:range qri:QualificationReceipt .
+qri:targetQualification a rdf:Property ; rdfs:domain qri:SubstitutionClaim ; rdfs:range qri:QualificationReceipt .
+qri:interchangeableUnder a rdf:Property ; rdfs:domain qri:SubstitutionClaim ; rdfs:range qri:RuntimeContext .
+qri:derivedStanding a rdf:Property ;
+    rdfs:comment "Index-only materialization regenerated from receipts; never authoritative input." .
+qri:refusalCode a rdf:Property ; rdfs:range xsd:string .
+qri:selectionPolicy a rdf:Property .
+
+# ---- operation/field projection -----------------------------------------------------------
+qri:operation a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range qri:Operation .
+qri:opName a rdf:Property ; rdfs:domain qri:Operation ; rdfs:range xsd:string .
+qri:input a rdf:Property ; rdfs:domain qri:Operation ; rdfs:range qri:Field .
+qri:output a rdf:Property ; rdfs:domain qri:Operation ; rdfs:range qri:Field .
+qri:fieldName a rdf:Property ; rdfs:domain qri:Field ; rdfs:range xsd:string .
+qri:fieldType a rdf:Property ; rdfs:domain qri:Field ;
+    rdfs:comment "One of: bytes, string, bool, s32, s64, u32, u64. Anything else is UNSUPPORTED(projection)." .
+qri:fieldOrder a rdf:Property ; rdfs:domain qri:Field ; rdfs:range xsd:integer .
+qri:abiSymbolPrefix a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range xsd:string ;
+    rdfs:comment "Core-WASM export prefix: <prefix>_alloc, <prefix>_free, <prefix>_call." .
+
+# ---- realization grounding facts (observed by the qualification runner) ------------------
+qri:implementsContract a rdf:Property ; rdfs:domain qri:Realization ; rdfs:range qri:CapabilityContract .
+qri:actualImport a rdf:Property ; rdfs:domain qri:Realization ; rdfs:range xsd:string ;
+    rdfs:comment "Import extracted from the actual WASM/WIT artifact (module::name)." .
+qri:actualExport a rdf:Property ; rdfs:domain qri:Realization ; rdfs:range xsd:string .
+
+# ---- host profile: parameters of the generated BEAM wasmex host (ABI families A/B/C) -------
+# All optional. A contract with no qri:hostProfile projects exactly as before (queries 10-40).
+qri:HostProfile a rdfs:Class ; rdfs:comment "Host-layer parameters for one CapabilityContract." .
+qri:HostLimit a rdfs:Class ; rdfs:comment "One named, ordered resource limit of a HostProfile." .
+qri:WasiImport a rdfs:Class ; rdfs:comment "Typed WASI import: name plus comma-separated param/result value types." .
+
+qri:hostProfile a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range qri:HostProfile .
+qri:freeSymbol a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:freeArity a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:integer ; rdfs:comment "Default 1 (ptr) ; 2 = (ptr,len)." .
+qri:lenType a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:comment "Closed: u32 | usize. Default u32." .
+qri:allocZeroPolicy a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string ; rdfs:comment "Default refuse-resource_limit." .
+qri:outMode a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:comment "Closed: packed_u64 | out_param | len_prefix. Default packed_u64." .
+qri:outLenWidth a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:integer .
+qri:reqConsumed a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:boolean ; rdfs:comment "Guest frees the request buffer itself. Default true." .
+qri:ptrMask a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string ; rdfs:comment "Hex mask applied to returned pointers, e.g. 0xFFFFFFFF." .
+qri:initExport a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:errorEnvelope a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:errorCollapse a rdf:Property ; rdfs:domain qri:HostProfile ;
+    rdfs:comment "Closed: single_key_inspect | any_key_raw | ok_flag_refusal | flat_code | refusal_kind." .
+qri:hostLimit a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range qri:HostLimit .
+qri:limitName a rdf:Property ; rdfs:domain qri:HostLimit ; rdfs:range xsd:string .
+qri:limitDefault a rdf:Property ; rdfs:domain qri:HostLimit ; rdfs:range xsd:integer .
+qri:limitOrder a rdf:Property ; rdfs:domain qri:HostLimit ; rdfs:range xsd:integer .
+qri:limitZeroOk a rdf:Property ; rdfs:domain qri:HostLimit ; rdfs:range xsd:boolean ;
+    rdfs:comment "True: 0 is a real bound for this limit (accepted by the host resolver); default false (0 is ignored). Requires qri:limitZeroMeaning (gate 090)." .
+qri:limitZeroMeaning a rdf:Property ; rdfs:domain qri:HostLimit ; rdfs:range xsd:string ;
+    rdfs:comment "What a zero value means for a qri:limitZeroOk limit, e.g. 'none allowed, refused at instantiation'." .
+qri:RecycleRule a rdfs:Class ; rdfs:comment "Ordering row for one qri:recycleOn code of a HostProfile." .
+qri:recycleRule a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range qri:RecycleRule .
+qri:recycleCode a rdf:Property ; rdfs:domain qri:RecycleRule ; rdfs:range xsd:string ; rdfs:comment "Must equal a qri:recycleOn code of the same profile (gate 100)." .
+qri:recycleOrder a rdf:Property ; rdfs:domain qri:RecycleRule ; rdfs:range xsd:integer ; rdfs:comment "Emission position of the code in the recycle list; unranked codes follow, ordered by code." .
+qri:docExampleOp a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string ; rdfs:comment "Operation named in the Host.request/3 @doc example (default: elided)." .
+qri:pinFormat a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:pathEnv a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:manifestRel a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:wasmRel a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:manifestSchema a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:handleNoun a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:taxonomyNamespace a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:refusalModule a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:moduleRoot a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:taskModuleRoot a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:otpApp a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:telemetryRoot a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:requestCap a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:integer .
+qri:poolStrategy a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:poolSize a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:integer .
+qri:poolSizeSource a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string ; rdfs:comment "Computed pool size, e.g. schedulers_online; wins over qri:poolSize." .
+qri:probeOp a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:probeExpectKey a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:okKey a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:opKey a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:recycleOn a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string ; rdfs:comment "Refusal/trap codes after which the instance is recycled." .
+qri:optionalExport a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range xsd:string .
+qri:wasiImport a rdf:Property ; rdfs:domain qri:CapabilityContract ; rdfs:range qri:WasiImport .
+qri:importName a rdf:Property ; rdfs:domain qri:WasiImport ; rdfs:range xsd:string .
+qri:importParams a rdf:Property ; rdfs:domain qri:WasiImport ; rdfs:range xsd:string .
+qri:importResults a rdf:Property ; rdfs:domain qri:WasiImport ; rdfs:range xsd:string .
+qri:domainFn a rdf:Property ; rdfs:domain qri:Operation ; rdfs:range xsd:string .
+qri:engineId a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:string .
+qri:timeoutCheapMs a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:integer .
+qri:timeoutHeavyMs a rdf:Property ; rdfs:domain qri:HostProfile ; rdfs:range xsd:integer .

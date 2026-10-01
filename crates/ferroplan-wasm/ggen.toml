@@ -1,0 +1,12 @@
+# Beam-host projection (qri-qualification-profile-pack templates/beam-host, copied locally:
+# frontmatter-mode ggen forbids '..' paths). Run: cd crates/ferroplan-wasm && ggen sync run
+# Contract source of truth: /ontology/ferroplan-host-contract.ttl (copied to ontology/contract.ttl).
+[project]
+name = "fp-beam-host"
+
+[ontology]
+source = "qri-ontology.ttl"
+imports = ["ontology/contract.ttl"]
+
+[templates]
+dir = "beam-host-templates"

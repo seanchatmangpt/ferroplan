@@ -38,6 +38,24 @@ Paste a PDDL domain + problem, hit **Plan** — everything runs client-side.
   executes an action. `probe_json` evaluates bounded counterfactual goals/world observations over cheap forks while leaving the parent session unchanged. Probe admission refuses the whole request on duplicate candidate ids (`FP_DUPLICATE_CANDIDATE`) or an empty/oversized id (`FP_LIMIT_CANDIDATE`), and refuses a single candidate whose sight states one fact both true and false (`outcome: refused`, `stage: observe`). Both surfaces (browser `WasmSession` and WASI `session_repair`/`session_probe`) run one shared kernel, `src/dfcm_route.rs`; the browser parity tests diff the browser output against that kernel. Benchmark and regression bound: `benchmarks/dfcm-repair-v26.9.26.json`.
 - `version() -> string`.
 
+## Ontology and generated host
+
+The WASI ABI is described in RDF and projected by ggen; see `HANDWRITTEN.md`
+for the generated-vs-handwritten ledger.
+
+- `ontology/ferroplan-wasm.ttl` — the module, one `wja:Op` per dispatched op,
+  error codes and pin facts. `ontology/ferroplan-host-contract.ttl` — the host
+  contract (exports, WASI imports, limits, recycle rules).
+- `ggen sync` (run from the repo root, ggen 26.9.28) regenerates the outputs:
+  `registry/*` (capability registry, op examples, sha256 pin) and
+  `generated/beam-host/*.ex` (the Elixir/wasmex host). Do not hand-edit them.
+- `cargo test -p ferroplan-wasm --test abi_ontology_drift` fails if the ops in
+  `src/wasi_abi.rs` and the ontology diverge.
+- ex4pm consumes the generated host by vendoring `generated/beam-host/*.ex`
+  and the built `ferroplan_wasm.wasm` with its pin record, in place of its
+  hand-written `ferroplan_transport.ex`. The generated outputs carry no
+  execution authority.
+
 ## The live pages
 
 - `web/index.html` — the solver demo; **Explain this plan** renders the

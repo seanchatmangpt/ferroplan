@@ -1,0 +1,116 @@
+@prefix qri:  <https://seanchatmangpt.github.io/packs/qri-qualification-profile-pack#> .
+@prefix fp:    <urn:qri:ferroplan:> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+# Host-profile contract for ferroplan (Family B: WASI linear-memory JSON ABI).
+# Source of ABI truth: crates/ferroplan-wasm/src/wasi_abi.rs.
+# Imports: ex4pm MANIFEST host_abi (14 wasi_snapshot_preview1 imports); signatures are standard WASI p1.
+# lenType "u32": GENERATOR-CAPABILITY LEDGER. ferroplan's ABI is fp_alloc(len: usize)/fp_dealloc(ptr, len: usize);
+#   host.ex.tmpl only supports u32. On wasm32 usize == i32 on the wire, so the host-visible ABI is identical.
+#   Recorded as UNSUPPORTED(ontology-semantics: usize==u32 on wasm32).
+# Limits: memory_limit_bytes, recycle_bytes, fuel_per_ms, instantiate_fuel are ASSUMED (hand hosts enforce none).
+#   timeout_ms 30000 is the cheap-op default; heavy ops (plan, plan_production, explain, session_new, session_think)
+#   need a per-call :timeout of 120000.
+# probeOp "version" returns {"version": <crate version>}, not an ABI number; probeExpectKey "version" only
+#   passes if the manifest abi_version equals the crate version. verify_task is UNSUPPORTED otherwise.
+# Command-style cdylib: no _initialize export (verify against the built wasm).
+# fp_call CONSUMES the request buffer; the response buffer is released via fp_dealloc(out_ptr, out_len).
+
+fp:capability a qri:Capability .
+
+fp:contract a qri:CapabilityContract ;
+    qri:specifiesCapability fp:capability ;
+    qri:contractVersion "1.0.0" ;
+    qri:abiSymbolPrefix "fp" ;
+    qri:abiKind "core-wasm-json" ;
+    qri:abiVersion "1" ;
+    qri:invariantSet fp:invariants ;
+    qri:refusalScheme fp:refusals ;
+    qri:hostProfile fp:host ;
+    qri:allowedImport "wasi_snapshot_preview1::random_get" ,
+                      "wasi_snapshot_preview1::environ_get" ,
+                      "wasi_snapshot_preview1::environ_sizes_get" ,
+                      "wasi_snapshot_preview1::clock_time_get" ,
+                      "wasi_snapshot_preview1::fd_close" ,
+                      "wasi_snapshot_preview1::fd_fdstat_get" ,
+                      "wasi_snapshot_preview1::fd_filestat_get" ,
+                      "wasi_snapshot_preview1::fd_prestat_get" ,
+                      "wasi_snapshot_preview1::fd_prestat_dir_name" ,
+                      "wasi_snapshot_preview1::fd_read" ,
+                      "wasi_snapshot_preview1::fd_write" ,
+                      "wasi_snapshot_preview1::path_open" ,
+                      "wasi_snapshot_preview1::proc_exit" ,
+                      "wasi_snapshot_preview1::sched_yield" ;
+    qri:requiredExport "memory" , "fp_alloc" , "fp_call" , "fp_dealloc" ;
+    qri:wasiImport fp:impRandomGet , fp:impEnvironGet , fp:impEnvironSizesGet , fp:impClockTimeGet , fp:impFdClose , fp:impFdFdstatGet , fp:impFdFilestatGet , fp:impFdPrestatGet , fp:impFdPrestatDirName , fp:impFdRead , fp:impFdWrite , fp:impPathOpen , fp:impProcExit , fp:impSchedYield ;
+    qri:operation fp:opCall .
+
+fp:opCall a qri:Operation ; qri:opName "call" ; qri:input fp:inRequest ; qri:output fp:outResponse .
+fp:inRequest a qri:Field ; qri:fieldName "request" ; qri:fieldType "bytes" ; qri:fieldOrder 1 .
+fp:outResponse a qri:Field ; qri:fieldName "response" ; qri:fieldType "bytes" ; qri:fieldOrder 1 .
+
+fp:invariants a qri:InvariantSet ; qri:requiresInvariant fp:semanticResult , fp:refusalBoundary , fp:determinism .
+fp:semanticResult a qri:Invariant ; qri:invariantKind qri:Semantic .
+fp:refusalBoundary a qri:Invariant ; qri:invariantKind qri:Refusal .
+fp:determinism a qri:Invariant ; qri:invariantKind qri:Determinism .
+
+fp:refusals a skos:ConceptScheme .
+fp:rMalformed a qri:RefusalCode , skos:Concept ; skos:inScheme fp:refusals ; qri:refusalCode "malformed-input" .
+fp:rResource a qri:RefusalCode , skos:Concept ; skos:inScheme fp:refusals ; qri:refusalCode "resource-bound" .
+
+fp:host a qri:HostProfile ;
+    qri:freeSymbol "fp_dealloc" ; qri:freeArity 2 ; qri:lenType "u32" ;
+    qri:allocZeroPolicy "refuse-resource_limit" ; qri:reqConsumed true ;
+    qri:outMode "packed_u64" ; qri:errorCollapse "single_key_inspect" ;
+    qri:requestCap 16777216 ; qri:pathEnv "FERROPLAN_WASM_PATH" ;
+    qri:manifestRel "priv/ferroplan/MANIFEST.json" ; qri:wasmRel "priv/ferroplan/ferroplan_wasm.wasm" ;
+    qri:manifestSchema "ferroplan.wasm.manifest/v1" ; qri:pinFormat "sha256-hex" ;
+    qri:moduleRoot "Ex4pmEngine.Ferroplan" ; qri:taskModuleRoot "Ex4pm" ; qri:otpApp "ex4pm" ;
+    qri:handleNoun "engine" ; qri:taxonomyNamespace "ferroplan" ; qri:refusalModule "Ex4pm.Refusal" ;
+    qri:telemetryRoot "ex4pm_ferroplan" ; qri:okKey "ok" ; qri:opKey "op" ;
+    qri:poolStrategy "single" ; qri:poolSize 1 ;
+    qri:engineId "Ferroplan" ; qri:probeOp "version" ; qri:probeExpectKey "version" ;
+    qri:recycleOn "abi_failure" , "call_exited" , "call_trapped" , "call_timeout" , "fuel_exhausted" ;
+    qri:recycleRule fp:recycle1 , fp:recycle2 , fp:recycle3 , fp:recycle4 , fp:recycle5 ;
+    qri:docExampleOp "plan" ;
+    qri:hostLimit fp:limFuelPerMs , fp:limInstantiateFuel , fp:limMemoryLimitBytes , fp:limRecycleBytes , fp:limMaxQueue , fp:limMaxResponseBytes , fp:limTableElements , fp:limInstances , fp:limTables , fp:limMemories , fp:limTimeoutMs , fp:limAbiTimeout , fp:limMargin , fp:limRetryBaseMs , fp:limRetryMaxMs , fp:limInitializeTimeoutMult , fp:limBackoffExpCap , fp:limMaxRedirects .
+
+fp:recycle1 a qri:RecycleRule ; qri:recycleCode "abi_failure" ; qri:recycleOrder 1 .
+fp:recycle2 a qri:RecycleRule ; qri:recycleCode "call_exited" ; qri:recycleOrder 2 .
+fp:recycle3 a qri:RecycleRule ; qri:recycleCode "call_trapped" ; qri:recycleOrder 3 .
+fp:recycle4 a qri:RecycleRule ; qri:recycleCode "call_timeout" ; qri:recycleOrder 4 .
+fp:recycle5 a qri:RecycleRule ; qri:recycleCode "fuel_exhausted" ; qri:recycleOrder 5 .
+
+fp:limFuelPerMs a qri:HostLimit ; qri:limitName "fuel_per_ms" ; qri:limitDefault 1000000 ; qri:limitOrder 1 .
+fp:limInstantiateFuel a qri:HostLimit ; qri:limitName "instantiate_fuel" ; qri:limitDefault 1000000000 ; qri:limitOrder 2 .
+fp:limMemoryLimitBytes a qri:HostLimit ; qri:limitName "memory_limit_bytes" ; qri:limitDefault 3221225472 ; qri:limitOrder 3 .
+fp:limRecycleBytes a qri:HostLimit ; qri:limitName "recycle_bytes" ; qri:limitDefault 1073741824 ; qri:limitOrder 4 .
+fp:limMaxQueue a qri:HostLimit ; qri:limitName "max_queue" ; qri:limitDefault 64 ; qri:limitOrder 5 .
+fp:limMaxResponseBytes a qri:HostLimit ; qri:limitName "max_response_bytes" ; qri:limitDefault 33554432 ; qri:limitOrder 6 .
+fp:limTableElements a qri:HostLimit ; qri:limitName "table_elements" ; qri:limitDefault 100000 ; qri:limitOrder 7 ; qri:limitZeroOk true ; qri:limitZeroMeaning "\"none allowed\", refused at instantiation" .
+fp:limInstances a qri:HostLimit ; qri:limitName "instances" ; qri:limitDefault 10 ; qri:limitOrder 8 ; qri:limitZeroOk true ; qri:limitZeroMeaning "\"none allowed\", refused at instantiation" .
+fp:limTables a qri:HostLimit ; qri:limitName "tables" ; qri:limitDefault 10 ; qri:limitOrder 9 ; qri:limitZeroOk true ; qri:limitZeroMeaning "\"none allowed\", refused at instantiation" .
+fp:limMemories a qri:HostLimit ; qri:limitName "memories" ; qri:limitDefault 4 ; qri:limitOrder 10 ; qri:limitZeroOk true ; qri:limitZeroMeaning "\"none allowed\", refused at instantiation" .
+fp:limTimeoutMs a qri:HostLimit ; qri:limitName "timeout_ms" ; qri:limitDefault 30000 ; qri:limitOrder 11 .
+fp:limAbiTimeout a qri:HostLimit ; qri:limitName "abi_timeout" ; qri:limitDefault 1000 ; qri:limitOrder 12 .
+fp:limMargin a qri:HostLimit ; qri:limitName "margin" ; qri:limitDefault 1000 ; qri:limitOrder 13 .
+fp:limRetryBaseMs a qri:HostLimit ; qri:limitName "retry_base_ms" ; qri:limitDefault 500 ; qri:limitOrder 14 .
+fp:limRetryMaxMs a qri:HostLimit ; qri:limitName "retry_max_ms" ; qri:limitDefault 30000 ; qri:limitOrder 15 .
+fp:limInitializeTimeoutMult a qri:HostLimit ; qri:limitName "initialize_timeout_mult" ; qri:limitDefault 10 ; qri:limitOrder 16 .
+fp:limBackoffExpCap a qri:HostLimit ; qri:limitName "backoff_exp_cap" ; qri:limitDefault 16 ; qri:limitOrder 17 .
+fp:limMaxRedirects a qri:HostLimit ; qri:limitName "max_redirects" ; qri:limitDefault 5 ; qri:limitOrder 18 .
+fp:impRandomGet a qri:WasiImport ; qri:importName "random_get" ; qri:importParams "i32,i32" ; qri:importResults "i32" .
+fp:impEnvironGet a qri:WasiImport ; qri:importName "environ_get" ; qri:importParams "i32,i32" ; qri:importResults "i32" .
+fp:impEnvironSizesGet a qri:WasiImport ; qri:importName "environ_sizes_get" ; qri:importParams "i32,i32" ; qri:importResults "i32" .
+fp:impClockTimeGet a qri:WasiImport ; qri:importName "clock_time_get" ; qri:importParams "i32,i64,i32" ; qri:importResults "i32" .
+fp:impFdClose a qri:WasiImport ; qri:importName "fd_close" ; qri:importParams "i32" ; qri:importResults "i32" .
+fp:impFdFdstatGet a qri:WasiImport ; qri:importName "fd_fdstat_get" ; qri:importParams "i32,i32" ; qri:importResults "i32" .
+fp:impFdFilestatGet a qri:WasiImport ; qri:importName "fd_filestat_get" ; qri:importParams "i32,i32" ; qri:importResults "i32" .
+fp:impFdPrestatGet a qri:WasiImport ; qri:importName "fd_prestat_get" ; qri:importParams "i32,i32" ; qri:importResults "i32" .
+fp:impFdPrestatDirName a qri:WasiImport ; qri:importName "fd_prestat_dir_name" ; qri:importParams "i32,i32,i32" ; qri:importResults "i32" .
+fp:impFdRead a qri:WasiImport ; qri:importName "fd_read" ; qri:importParams "i32,i32,i32,i32" ; qri:importResults "i32" .
+fp:impFdWrite a qri:WasiImport ; qri:importName "fd_write" ; qri:importParams "i32,i32,i32,i32" ; qri:importResults "i32" .
+fp:impPathOpen a qri:WasiImport ; qri:importName "path_open" ; qri:importParams "i32,i32,i32,i32,i32,i64,i64,i32,i32" ; qri:importResults "i32" .
+fp:impProcExit a qri:WasiImport ; qri:importName "proc_exit" ; qri:importParams "i32" ; qri:importResults "" .
+fp:impSchedYield a qri:WasiImport ; qri:importName "sched_yield" ; qri:importParams "" ; qri:importResults "i32" .
