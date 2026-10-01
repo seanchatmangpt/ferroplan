@@ -103,9 +103,12 @@ jobs:
           python -m pip install --force-reinstall target/py-wheels/*.whl
           python - <<'PY'
           import json
+          import re, pathlib
           import ferroplan
 
-          assert ferroplan.version() == "0.21.0"
+          _ws = re.search(r'\[workspace\.package\][^\[]*?^version\s*=\s*"([^"]+)"',
+                          pathlib.Path("Cargo.toml").read_text(), re.S | re.M).group(1)
+          assert ferroplan.version() == _ws, (ferroplan.version(), _ws)
           domain = """(define (domain smoke)
             (:requirements :strips)
             (:predicates (done))

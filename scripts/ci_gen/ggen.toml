@@ -1,0 +1,17 @@
+# Frontmatter-mode ggen project for the generated CI workflows (R4 phase 1).
+# Driver: scripts/ci_gen.sh (copies ontology/ferroplan-ci.ttl -> ontology/, runs `ggen sync run`
+# here, then installs the staged .github/workflows/*.yml into the repo-root .github/workflows/).
+# Nested project because the pack's workflow template is frontmatter-mode (cannot run under the
+# root rule-mode ggen.toml) and ggen forbids '..' in to:/ontology paths: UNSUPPORTED(generator-
+# capability: frontmatter pack template cannot target a parent project root).
+[project]
+name = "ferroplan-ci"
+
+[ontology]
+source = "ontology/ferroplan-ci.ttl"
+
+[templates]
+dir = "templates"
+
+[packs]
+"github-actions-pack" = { path = "../../../ggen-marketplace/packs/github-actions-pack" }
