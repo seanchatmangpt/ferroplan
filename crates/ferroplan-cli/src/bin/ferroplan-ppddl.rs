@@ -3,12 +3,13 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use clap::{Parser, ValueEnum};
-use ferroplan::{
-    simulate_ppddl, solve_ppddl, validate_ppddl_policy, ProbabilisticObjective,
-    ProbabilisticOptions,
-};
+use clap::Parser;
+use ferroplan::{simulate_ppddl, solve_ppddl, validate_ppddl_policy, ProbabilisticOptions};
 use serde_json::json;
+
+#[path = "../generated/options.rs"]
+mod options;
+use options::ObjectiveArg;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -30,7 +31,7 @@ struct Cli {
     objective: ObjectiveArg,
 
     /// Finite planning horizon. Ignored when --infinite is set.
-    #[arg(long, default_value_t = 64)]
+    #[arg(long, default_value_t = options::PPDDL_HORIZON)]
     horizon: usize,
 
     /// Use infinite-horizon value iteration.
@@ -38,77 +39,52 @@ struct Cli {
     infinite: bool,
 
     /// Discount factor in \[0,1\]. Infinite expected reward requires < 1.
-    #[arg(long, default_value_t = 1.0)]
+    #[arg(long, default_value_t = options::PPDDL_DISCOUNT)]
     discount: f64,
 
     /// Value-iteration convergence epsilon.
-    #[arg(long, default_value_t = 1e-10)]
+    #[arg(long, default_value_t = options::PPDDL_EPSILON)]
     epsilon: f64,
 
-    #[arg(long, default_value_t = 10_000)]
+    #[arg(long, default_value_t = options::PPDDL_MAX_ITERATIONS)]
     max_iterations: usize,
 
-    #[arg(long, default_value_t = 100_000)]
+    #[arg(long, default_value_t = options::PPDDL_MAX_STATES)]
     max_states: usize,
 
-    #[arg(long, default_value_t = 2_000_000)]
+    #[arg(long, default_value_t = options::PPDDL_MAX_TRANSITIONS)]
     max_transitions: usize,
 
-    #[arg(long, default_value_t = 1_024)]
+    #[arg(long, default_value_t = options::PPDDL_MAX_OUTCOMES_PER_ACTION)]
     max_outcomes_per_action: usize,
 
-    #[arg(long, default_value_t = 200_000)]
+    #[arg(long, default_value_t = options::PPDDL_MAX_POLICY_ENTRIES)]
     max_policy_entries: usize,
 
-    #[arg(long, default_value_t = 20_000_000)]
+    #[arg(long, default_value_t = options::PPDDL_MAX_VALUE_CELLS)]
     max_value_cells: usize,
 
-    #[arg(long, default_value_t = 1_024)]
+    #[arg(long, default_value_t = options::PPDDL_MAX_INITIAL_OUTCOMES)]
     max_initial_outcomes: usize,
 
-    #[arg(long, default_value_t = 10_000)]
+    #[arg(long, default_value_t = options::PPDDL_SIMULATION_MAX_STEPS)]
     simulation_max_steps: usize,
 
     /// Grounding workers; 0 uses the engine default.
-    #[arg(long, default_value_t = 0)]
+    #[arg(long, default_value_t = options::PPDDL_THREADS)]
     threads: usize,
 
     /// Deterministic seeded replay episode count. Zero disables simulation.
-    #[arg(long, default_value_t = 1_000)]
+    #[arg(long, default_value_t = options::PPDDL_EPISODES)]
     episodes: usize,
 
     /// Seed for deterministic replay.
-    #[arg(long, default_value_t = 42)]
+    #[arg(long, default_value_t = options::PPDDL_SEED)]
     seed: u64,
 
     /// Skip independent structural policy validation.
     #[arg(long)]
     no_validate: bool,
-}
-
-#[derive(Copy, Clone, Debug, ValueEnum)]
-enum ObjectiveArg {
-    Auto,
-    MaximizeGoalProbability,
-    MinimizeGoalProbability,
-    MaximizeExpectedReward,
-    MinimizeExpectedReward,
-    MaximizeExpectedMetric,
-    MinimizeExpectedMetric,
-}
-
-impl From<ObjectiveArg> for ProbabilisticObjective {
-    fn from(value: ObjectiveArg) -> Self {
-        match value {
-            ObjectiveArg::Auto => Self::Auto,
-            ObjectiveArg::MaximizeGoalProbability => Self::MaximizeGoalProbability,
-            ObjectiveArg::MinimizeGoalProbability => Self::MinimizeGoalProbability,
-            ObjectiveArg::MaximizeExpectedReward => Self::MaximizeExpectedReward,
-            ObjectiveArg::MinimizeExpectedReward => Self::MinimizeExpectedReward,
-            ObjectiveArg::MaximizeExpectedMetric => Self::MaximizeExpectedMetric,
-            ObjectiveArg::MinimizeExpectedMetric => Self::MinimizeExpectedMetric,
-        }
-    }
 }
 
 fn main() -> Result<()> {

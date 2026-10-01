@@ -1,0 +1,70 @@
+# ferroplan-options.ttl -- CLI option vocabulary for `ff` and `ferroplan-ppddl`.
+# Source of truth for: ModeArg / SearchArg / ObjectiveArg value enums (variant order,
+# clap names, docs, engine target) and literal flag defaults.
+# Projection: crates/ferroplan-cli/src/generated/options.rs (rule `cli-options`).
+# Wire contract (flat Metric-FF flags, exit codes) is unchanged; this graph only owns
+# the enum/default table. Authority ceiling: NONE.
+
+@prefix fpo: <http://ferroplan.io/options#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+fpo:ModeArg a fpo:ValueEnum ;
+    fpo:rustName "ModeArg" ;
+    fpo:engineType "Mode" ;
+    fpo:engineImport "ferroplan::Mode" ;
+    fpo:enumOrder 1 .
+fpo:SearchArg a fpo:ValueEnum ;
+    fpo:rustName "SearchArg" ;
+    fpo:engineType "Search" ;
+    fpo:engineImport "ferroplan::Search" ;
+    fpo:enumOrder 2 .
+fpo:ObjectiveArg a fpo:ValueEnum ;
+    fpo:rustName "ObjectiveArg" ;
+    fpo:engineType "ProbabilisticObjective" ;
+    fpo:engineImport "ferroplan::ProbabilisticObjective" ;
+    fpo:enumOrder 3 .
+
+fpo:mode-auto a fpo:Variant ; fpo:ofEnum fpo:ModeArg ; fpo:variantOrder 1 ; fpo:variantName "Auto" ; fpo:engineVariant "Auto" .
+fpo:mode-ff a fpo:Variant ; fpo:ofEnum fpo:ModeArg ; fpo:variantOrder 2 ; fpo:variantName "Ff" ; fpo:engineVariant "Ff" .
+fpo:mode-partition a fpo:Variant ; fpo:ofEnum fpo:ModeArg ; fpo:variantOrder 3 ; fpo:variantName "Partition" ; fpo:engineVariant "Partition" .
+fpo:mode-pddl3 a fpo:Variant ; fpo:ofEnum fpo:ModeArg ; fpo:variantOrder 4 ; fpo:variantName "Pddl3" ; fpo:engineVariant "Pddl3" .
+fpo:mode-temporal a fpo:Variant ; fpo:ofEnum fpo:ModeArg ; fpo:variantOrder 5 ; fpo:variantName "Temporal" ; fpo:engineVariant "Temporal" .
+fpo:mode-portfolio a fpo:Variant ; fpo:ofEnum fpo:ModeArg ; fpo:variantOrder 6 ; fpo:variantName "Portfolio" ; fpo:engineVariant "Portfolio" .
+fpo:mode-optimal a fpo:Variant ; fpo:ofEnum fpo:ModeArg ; fpo:variantOrder 7 ; fpo:variantName "Optimal" ; fpo:engineVariant "Optimal" ;
+    fpo:variantDoc "Sequential-optimal: A* + admissible h^max, proof-or-nothing (0.19)." .
+fpo:mode-sat a fpo:Variant ; fpo:ofEnum fpo:ModeArg ; fpo:variantOrder 8 ; fpo:variantName "Sat" ; fpo:engineVariant "Sat" ;
+    fpo:variantDoc "Bounded-layer SAT compilation (0.24): ∃-step encoding + horizon|ramp; temporal tasks via snap events + STN-taught CEGAR. Declines|tasks outside its STRIPS/temporal slice with a named note." .
+
+fpo:search-auto a fpo:Variant ; fpo:ofEnum fpo:SearchArg ; fpo:variantOrder 1 ; fpo:variantName "Auto" ; fpo:engineVariant "Auto" .
+fpo:search-ehc a fpo:Variant ; fpo:ofEnum fpo:SearchArg ; fpo:variantOrder 2 ; fpo:variantName "Ehc" ; fpo:engineVariant "Ehc" .
+fpo:search-best-first a fpo:Variant ; fpo:ofEnum fpo:SearchArg ; fpo:variantOrder 3 ; fpo:variantName "BestFirst" ; fpo:engineVariant "BestFirst" .
+fpo:search-ehc-then-best-first a fpo:Variant ; fpo:ofEnum fpo:SearchArg ; fpo:variantOrder 4 ; fpo:variantName "EhcThenBestFirst" ; fpo:engineVariant "EhcThenBestFirst" .
+
+fpo:obj-auto a fpo:Variant ; fpo:ofEnum fpo:ObjectiveArg ; fpo:variantOrder 1 ; fpo:variantName "Auto" ; fpo:engineVariant "Auto" .
+fpo:obj-max-goal a fpo:Variant ; fpo:ofEnum fpo:ObjectiveArg ; fpo:variantOrder 2 ; fpo:variantName "MaximizeGoalProbability" ; fpo:engineVariant "MaximizeGoalProbability" .
+fpo:obj-min-goal a fpo:Variant ; fpo:ofEnum fpo:ObjectiveArg ; fpo:variantOrder 3 ; fpo:variantName "MinimizeGoalProbability" ; fpo:engineVariant "MinimizeGoalProbability" .
+fpo:obj-max-reward a fpo:Variant ; fpo:ofEnum fpo:ObjectiveArg ; fpo:variantOrder 4 ; fpo:variantName "MaximizeExpectedReward" ; fpo:engineVariant "MaximizeExpectedReward" .
+fpo:obj-min-reward a fpo:Variant ; fpo:ofEnum fpo:ObjectiveArg ; fpo:variantOrder 5 ; fpo:variantName "MinimizeExpectedReward" ; fpo:engineVariant "MinimizeExpectedReward" .
+fpo:obj-max-metric a fpo:Variant ; fpo:ofEnum fpo:ObjectiveArg ; fpo:variantOrder 6 ; fpo:variantName "MaximizeExpectedMetric" ; fpo:engineVariant "MaximizeExpectedMetric" .
+fpo:obj-min-metric a fpo:Variant ; fpo:ofEnum fpo:ObjectiveArg ; fpo:variantOrder 7 ; fpo:variantName "MinimizeExpectedMetric" ; fpo:engineVariant "MinimizeExpectedMetric" .
+
+# variantDoc: doc-comment lines joined by "|" (one rustdoc line each).
+# Literal flag defaults (Rust type + literal). Const name = SCREAMING_SNAKE of flag.
+fpo:def-ff-weight-g a fpo:Default ; fpo:defaultOrder 1 ; fpo:constName "FF_WEIGHT_G" ; fpo:rustType "f64" ; fpo:rustLiteral "1.0" .
+fpo:def-ff-weight-h a fpo:Default ; fpo:defaultOrder 2 ; fpo:constName "FF_WEIGHT_H" ; fpo:rustType "f64" ; fpo:rustLiteral "5.0" .
+fpo:def-ff-threads a fpo:Default ; fpo:defaultOrder 3 ; fpo:constName "FF_THREADS" ; fpo:rustType "usize" ; fpo:rustLiteral "0" .
+fpo:def-ppddl-horizon a fpo:Default ; fpo:defaultOrder 4 ; fpo:constName "PPDDL_HORIZON" ; fpo:rustType "usize" ; fpo:rustLiteral "64" .
+fpo:def-ppddl-discount a fpo:Default ; fpo:defaultOrder 5 ; fpo:constName "PPDDL_DISCOUNT" ; fpo:rustType "f64" ; fpo:rustLiteral "1.0" .
+fpo:def-ppddl-epsilon a fpo:Default ; fpo:defaultOrder 6 ; fpo:constName "PPDDL_EPSILON" ; fpo:rustType "f64" ; fpo:rustLiteral "1e-10" .
+fpo:def-ppddl-max-iterations a fpo:Default ; fpo:defaultOrder 7 ; fpo:constName "PPDDL_MAX_ITERATIONS" ; fpo:rustType "usize" ; fpo:rustLiteral "10_000" .
+fpo:def-ppddl-max-states a fpo:Default ; fpo:defaultOrder 8 ; fpo:constName "PPDDL_MAX_STATES" ; fpo:rustType "usize" ; fpo:rustLiteral "100_000" .
+fpo:def-ppddl-max-transitions a fpo:Default ; fpo:defaultOrder 9 ; fpo:constName "PPDDL_MAX_TRANSITIONS" ; fpo:rustType "usize" ; fpo:rustLiteral "2_000_000" .
+fpo:def-ppddl-max-outcomes a fpo:Default ; fpo:defaultOrder 10 ; fpo:constName "PPDDL_MAX_OUTCOMES_PER_ACTION" ; fpo:rustType "usize" ; fpo:rustLiteral "1_024" .
+fpo:def-ppddl-max-policy a fpo:Default ; fpo:defaultOrder 11 ; fpo:constName "PPDDL_MAX_POLICY_ENTRIES" ; fpo:rustType "usize" ; fpo:rustLiteral "200_000" .
+fpo:def-ppddl-max-value a fpo:Default ; fpo:defaultOrder 12 ; fpo:constName "PPDDL_MAX_VALUE_CELLS" ; fpo:rustType "usize" ; fpo:rustLiteral "20_000_000" .
+fpo:def-ppddl-max-init a fpo:Default ; fpo:defaultOrder 13 ; fpo:constName "PPDDL_MAX_INITIAL_OUTCOMES" ; fpo:rustType "usize" ; fpo:rustLiteral "1_024" .
+fpo:def-ppddl-sim-steps a fpo:Default ; fpo:defaultOrder 14 ; fpo:constName "PPDDL_SIMULATION_MAX_STEPS" ; fpo:rustType "usize" ; fpo:rustLiteral "10_000" .
+fpo:def-ppddl-threads a fpo:Default ; fpo:defaultOrder 15 ; fpo:constName "PPDDL_THREADS" ; fpo:rustType "usize" ; fpo:rustLiteral "0" .
+fpo:def-ppddl-episodes a fpo:Default ; fpo:defaultOrder 16 ; fpo:constName "PPDDL_EPISODES" ; fpo:rustType "usize" ; fpo:rustLiteral "1_000" .
+fpo:def-ppddl-seed a fpo:Default ; fpo:defaultOrder 17 ; fpo:constName "PPDDL_SEED" ; fpo:rustType "u64" ; fpo:rustLiteral "42" .

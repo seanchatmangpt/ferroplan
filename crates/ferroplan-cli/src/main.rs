@@ -11,9 +11,13 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use clap::{Parser, ValueEnum};
-use ferroplan::{Decomposition, Mode, Options, OutcomeClass, ProductionLimits, Search};
+use clap::Parser;
+use ferroplan::{Decomposition, Options, OutcomeClass, ProductionLimits};
 use serde::Deserialize;
+
+#[path = "generated/options.rs"]
+mod options;
+use options::{ModeArg, SearchArg};
 
 const CLI_HARD_MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
 const CLI_MAX_JOB_BYTES: usize = 16 * 1024 * 1024;
@@ -149,11 +153,11 @@ struct Cli {
     no_helpful: bool,
 
     /// Best-first's g weight — how much the path already walked counts.
-    #[arg(long, default_value_t = 1.0)]
+    #[arg(long, default_value_t = options::FF_WEIGHT_G)]
     weight_g: f64,
 
     /// Best-first's h weight — how much the heuristic's guess counts.
-    #[arg(long, default_value_t = 5.0)]
+    #[arg(long, default_value_t = options::FF_WEIGHT_H)]
     weight_h: f64,
 
     /// Ceiling on states evaluated before the search gives up. Default:
@@ -169,7 +173,7 @@ struct Cli {
 
     /// Worker threads on the line. 0 lets the engine pick its own crew
     /// (production mode resolves 0 to one worker).
-    #[arg(long, default_value_t = 0)]
+    #[arg(long, default_value_t = options::FF_THREADS)]
     threads: usize,
 
     /// IPC time-stamped plan format — classic text mode only, no JSON.
@@ -219,56 +223,6 @@ impl Cli {
             max_plan_steps: self.max_plan_steps.unwrap_or(defaults.max_plan_steps),
             max_output_bytes: self.max_output_bytes.unwrap_or(defaults.max_output_bytes),
             max_workers: self.max_workers.unwrap_or(defaults.max_workers),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, ValueEnum)]
-enum ModeArg {
-    Auto,
-    Ff,
-    Partition,
-    Pddl3,
-    Temporal,
-    Portfolio,
-    /// Sequential-optimal: A* + admissible h^max, proof-or-nothing (0.19).
-    Optimal,
-    /// Bounded-layer SAT compilation (0.24): ∃-step encoding + horizon
-    /// ramp; temporal tasks via snap events + STN-taught CEGAR. Declines
-    /// tasks outside its STRIPS/temporal slice with a named note.
-    Sat,
-}
-
-impl From<ModeArg> for Mode {
-    fn from(m: ModeArg) -> Self {
-        match m {
-            ModeArg::Auto => Mode::Auto,
-            ModeArg::Ff => Mode::Ff,
-            ModeArg::Portfolio => Mode::Portfolio,
-            ModeArg::Partition => Mode::Partition,
-            ModeArg::Pddl3 => Mode::Pddl3,
-            ModeArg::Temporal => Mode::Temporal,
-            ModeArg::Optimal => Mode::Optimal,
-            ModeArg::Sat => Mode::Sat,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, ValueEnum)]
-enum SearchArg {
-    Auto,
-    Ehc,
-    BestFirst,
-    EhcThenBestFirst,
-}
-
-impl From<SearchArg> for Search {
-    fn from(s: SearchArg) -> Self {
-        match s {
-            SearchArg::Auto => Search::Auto,
-            SearchArg::Ehc => Search::Ehc,
-            SearchArg::BestFirst => Search::BestFirst,
-            SearchArg::EhcThenBestFirst => Search::EhcThenBestFirst,
         }
     }
 }

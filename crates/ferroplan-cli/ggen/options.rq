@@ -1,0 +1,4 @@
+# One-row driver for options.rs.tmpl: the template pulls the enum/variant/default
+# tables itself via sparql(); this query only asserts the vocabulary is present.
+PREFIX fpo: <http://ferroplan.io/options#>
+SELECT ?v WHERE { ?v a fpo:Variant ; fpo:variantOrder 1 ; fpo:ofEnum fpo:ModeArg } ORDER BY ?v
