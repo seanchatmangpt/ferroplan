@@ -1,0 +1,4 @@
+| crate | what |
+|---|---|
+{% for row in results %}| [`{{ row.name }}`]({{ row.base }}/tree/main/crates/{{ row.name }}) | {{ row.role }} |
+{% endfor %}

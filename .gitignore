@@ -85,3 +85,10 @@ benchmarks/air27/
 benchmarks/cut27-sweep*.log
 benchmarks/air28/
 benchmarks/cut28-sweep*.log
+
+# ggen local signing keys and runtime telemetry — never commit
+.ggen/
+**/.ggen/
+.clap-noun-verb/
+**/.clap-noun-verb/
+**/target-lane*/

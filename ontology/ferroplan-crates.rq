@@ -1,0 +1,6 @@
+PREFIX fpc: <http://ferroplan.io/crates#>
+SELECT ?name ?kind ?publish ?role ?order ?base WHERE {
+  ?c a fpc:Crate ; fpc:crateName ?name ; fpc:kind ?kind ; fpc:publish ?publish ; fpc:role ?role ; fpc:order ?order .
+  fpc:workspace fpc:repoBase ?base .
+}
+ORDER BY ?order

@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **`ferroplan-wasm` ontology + ggen host**: RDF description of the WASI ABI
+  and host contract under `ontology/`, ggen-generated registry and Elixir
+  beam-host outputs, `HANDWRITTEN.md` ledger (fp_* shell and op bodies are
+  `UNSUPPORTED(generator-capability)`), and an op-set drift test. Authority
+  ceiling NONE.
+
 ## [0.29.0] - 2026-09-28 — Mechanism, not authority: replan ops, a runtime crate, an offline demo
 
 Cut label **v26.9.28**. Every new surface below returns *evidence* (plans,

@@ -3,7 +3,7 @@
 Three fields, three years, one ledger. ferroplan runs against
 International Planning Competitions **IPC-5 (2006)**, **IPC-6
 (2008)**, and **IPC-7 (2011)** — every deterministic satisficing
-track, swept at standard budgets (60 s classical / 30 s temporal,
+track plus the sequential optimal tracks, swept at standard budgets (60 s classical / 30 s temporal,
 three concurrent jobs), every plan checked against
 [VAL](https://github.com/KCL-Planning/VAL) before it counts. The
 tables below are GENERATED (`python3 benchmarks/standings.py`)
@@ -35,9 +35,12 @@ logged apart from engine verdicts), `engine-reject/error` (rejected on
 sight — feature gaps like the four timed modal operators show up here
 by name), `search` (died mid-flight, budget still had room).
 
-Optimal tracks stay out of scope — ferroplan is a satisficing
-planner, and the tables say so in plain text rather than leaving a
-gap. The IPC-7 sequential multi-core track runs under its own
+Optimal tracks are entered where `Mode::Optimal` (A* with admissible
+LM-cut) applies — the sequential and numeric `-opt` rows below — and
+scored as a proof rate: coverage counts certified optima, every plan
+VAL-checked, not satisficing plan quality. The optimal temporal track
+(`tempo-opt`) stays out of scope, and the tables say so in plain text
+rather than leaving a gap. The IPC-7 sequential multi-core track runs under its own
 competition rule (wall-clock, all cores; per-thread-count determinism
 holds) on the sweep box's 4 cores. The t8 row is flagged
 oversubscribed.

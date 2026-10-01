@@ -1,0 +1,8 @@
+# Workspace crates
+
+GENERATED from `ontology/ferroplan-crates.ttl` — edit the ontology, not this page.
+
+| crate | kind | published | what |
+|---|---|---|---|
+{% for row in results %}| [`{{ row.name }}`]({{ row.base }}/tree/main/crates/{{ row.name }}) | {{ row.kind }} | {{ row.publish }} | {{ row.role }} |
+{% endfor %}

@@ -9,6 +9,7 @@
 - [Non-deterministic hierarchical planning (FOND-HTN)](./fond-htn.md)
 - [Game embedding (the Session)](./session.md)
 - [Architecture](./architecture.md)
+- [Workspace crates](./crates.md)
 - [PDDL3 preferences](./pddl3.md)
 - [Metric quality & invariants](./metric-quality.md)
 - [Temporal planning](./temporal.md)
