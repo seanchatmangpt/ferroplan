@@ -1,0 +1,33 @@
+{%- set dim_list = dims | split(pat="@@") | sort -%}
+{%- set goal_list = goals | split(pat="@@") | sort -%}
+"""GENERATED from ontology/ferroplan-self-host.ttl by ggen rule self-host-tables. Do not edit."""
+
+PREDICATES = {
+{%- set_global seen = "|" %}
+{%- for d in dim_list %}
+{%- set f = d | split(pat="##") %}
+{%- if seen is not containing("|" ~ f[1] ~ "|") %}
+{%- set_global seen = seen ~ f[1] ~ "|" %}
+    "{{ f[1] }}": {
+{%- for e in dim_list %}
+{%- set g = e | split(pat="##") %}
+{%- if g[1] == f[1] %}
+        "{{ g[2] }}": "{{ g[3] }}",
+{%- endif %}
+{%- endfor %}
+    },
+{%- endif %}
+{%- endfor %}
+}
+
+GOALS = {
+{%- for gl in goal_list %}
+{%- set f = gl | split(pat="##") %}
+    "{{ f[1] }}": [
+{%- for l in f[2] | split(pat="%%") | sort %}
+{%- set lp = l | split(pat=":") %}
+        "{{ lp[1] }}",
+{%- endfor %}
+    ],
+{%- endfor %}
+}

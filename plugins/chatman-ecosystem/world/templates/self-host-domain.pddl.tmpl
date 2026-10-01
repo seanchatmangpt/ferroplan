@@ -1,0 +1,52 @@
+{%- set pred_list = preds | split(pat="@@") | sort -%}
+{%- set func_list = funcs | split(pat="@@") | sort -%}
+{%- set action_list = actions | split(pat="@@") | sort -%}
+(define (domain {{ domain_name }})
+  (:requirements {{ requirements }})
+  (:types {{ type_name }})
+
+  (:predicates
+{%- set_global prev_dim = "__start__" %}
+{%- for p in pred_list %}
+{%- set f = p | split(pat="##") %}
+{%- if prev_dim != "__start__" and f[2] != prev_dim %}
+{% endif %}
+    ({{ f[1] }} {{ param }} - {{ type_name }})
+{%- set_global prev_dim = f[2] %}
+{%- endfor %}
+  )
+
+  (:functions
+{%- for fn in func_list %}
+{%- set f = fn | split(pat="##") %}
+    ({{ f[1] }} {{ param }} - {{ type_name }})
+{%- endfor %}
+  )
+{% for a in action_list %}
+{%- set f = a | split(pat="##") %}
+{%- set pres = f[2] | split(pat="%%") | sort %}
+{%- set effs = f[3] | split(pat="%%") | sort %}
+  (:action {{ f[1] }}
+    :parameters ({{ param }} - {{ type_name }})
+    :precondition (and
+{%- for l in pres %}
+{%- set lp = l | split(pat=":") %}
+{%- set body = lp[1] %}
+{%- if body is starting_with("!") %}
+      (not ({{ body | trim_start_matches(pat="!") }} {{ param }}))
+{%- else %}
+      ({{ body }} {{ param }})
+{%- endif %}
+{%- endfor %})
+    :effect (and
+{%- for l in effs %}
+{%- set lp = l | split(pat=":") %}
+{%- set body = lp[1] %}
+{%- if body is starting_with("!") %}
+      (not ({{ body | trim_start_matches(pat="!") }} {{ param }}))
+{%- else %}
+      ({{ body }} {{ param }})
+{%- endif %}
+{%- endfor %}))
+{% endfor -%}
+)

@@ -46,14 +46,18 @@
 
   (:action inspect-configuration
     :parameters (?r - repository)
-    :precondition (and (config-unknown ?r) (not (blocked ?r)))
+    :precondition (and
+      (config-unknown ?r)
+      (not (blocked ?r)))
     :effect (and
       (config-conformant ?r)
       (not (config-unknown ?r))))
 
   (:action repair-configuration
     :parameters (?r - repository)
-    :precondition (and (config-nonconformant ?r) (not (blocked ?r)))
+    :precondition (and
+      (config-nonconformant ?r)
+      (not (blocked ?r)))
     :effect (and
       (config-conformant ?r)
       (not (config-nonconformant ?r))))
@@ -139,7 +143,8 @@
     :precondition (and
       (source-changed ?r)
       (not (blocked ?r)))
-    :effect (and (build-green ?r)))
+    :effect (and
+      (build-green ?r)))
 
   (:action run-independent-validation
     :parameters (?r - repository)
@@ -191,5 +196,6 @@
       (receipt-bound ?r)
       (validator-green ?r)
       (not (blocked ?r)))
-    :effect (and (draft-pr-open ?r)))
+    :effect (and
+      (draft-pr-open ?r)))
 )

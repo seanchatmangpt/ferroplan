@@ -1,0 +1,47 @@
+# self-host-domain.rq -- consumed by templates/self-host-domain.pddl.tmpl.
+# Single-row aggregate over the one shw:Domain. Projected columns (MUST equal the template vars):
+#   domain_name, requirements, type_name, param -- scalar domain facts.
+#   preds   - "@@" groups: <order6>##name##dimension   (dimension "" when none)
+#   funcs   - "@@" groups: <order6>##name
+#   actions - "@@" groups: <order6>##name##pres##effs
+#             pres/effs are "%%"-joined literals: <order6>:<"!" if negated>name
+# Zero-padded order prefixes make the template's lexical sort equal shw:order order.
+PREFIX shw: <urn:chatman:ferroplan-self-host:v1#>
+
+SELECT ?domain_name ?requirements ?type_name ?param ?preds ?funcs ?actions
+WHERE {
+  ?d a shw:Domain ; shw:name ?domain_name ; shw:requirements ?requirements ;
+     shw:type ?type_name ; shw:parameter ?param .
+  {
+    SELECT (GROUP_CONCAT(CONCAT(SUBSTR(CONCAT("000000", STR(?po)), STRLEN(STR(?po)) + 1), "##", ?pn, "##", COALESCE(?pd, "")); separator="@@") AS ?preds)
+    WHERE { ?p a shw:Predicate ; shw:name ?pn ; shw:order ?po . OPTIONAL { ?p shw:dimension ?pd } }
+  }
+  {
+    SELECT (GROUP_CONCAT(CONCAT(SUBSTR(CONCAT("000000", STR(?fo)), STRLEN(STR(?fo)) + 1), "##", ?fn); separator="@@") AS ?funcs)
+    WHERE { ?f a shw:Function ; shw:name ?fn ; shw:order ?fo }
+  }
+  {
+    SELECT (GROUP_CONCAT(CONCAT(SUBSTR(CONCAT("000000", STR(?ao)), STRLEN(STR(?ao)) + 1), "##", ?an, "##", ?pres, "##", ?effs); separator="@@") AS ?actions)
+    WHERE {
+      {
+        SELECT ?a ?an ?ao
+               (GROUP_CONCAT(DISTINCT CONCAT(SUBSTR(CONCAT("000000", STR(?pro)), STRLEN(STR(?pro)) + 1), ":", IF(BOUND(?prn), "!", ""), ?prname); separator="%%") AS ?pres)
+        WHERE {
+          ?a a shw:Action ; shw:name ?an ; shw:order ?ao ; shw:pre ?pr .
+          ?pr shw:pred ?pp ; shw:order ?pro . ?pp shw:name ?prname .
+          OPTIONAL { ?pr shw:neg ?prn }
+        } GROUP BY ?a ?an ?ao
+      }
+      {
+        SELECT ?a
+               (GROUP_CONCAT(DISTINCT CONCAT(SUBSTR(CONCAT("000000", STR(?eo)), STRLEN(STR(?eo)) + 1), ":", IF(BOUND(?en), "!", ""), ?ename); separator="%%") AS ?effs)
+        WHERE {
+          ?a a shw:Action ; shw:eff ?ef .
+          ?ef shw:pred ?ep ; shw:order ?eo . ?ep shw:name ?ename .
+          OPTIONAL { ?ef shw:neg ?en }
+        } GROUP BY ?a
+      }
+    }
+  }
+}
+ORDER BY ?domain_name

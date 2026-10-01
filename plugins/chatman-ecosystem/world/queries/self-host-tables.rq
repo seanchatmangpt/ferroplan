@@ -1,0 +1,27 @@
+# self-host-tables.rq -- consumed by templates/world_tables.py.tmpl.
+# Single-row aggregate. Columns:
+#   dims  - "@@" groups: <predicate order6>##dimension##key##predicate-name (dimensioned predicates)
+#   goals - "@@" groups: <goal order6>##goal##<goalpred order6>:name%%...
+PREFIX shw: <urn:chatman:ferroplan-self-host:v1#>
+
+SELECT ?dims ?goals
+WHERE {
+  {
+    SELECT (GROUP_CONCAT(CONCAT(SUBSTR(CONCAT("000000", STR(?po)), STRLEN(STR(?po)) + 1), "##", ?pd, "##", ?pk, "##", ?pn); separator="@@") AS ?dims)
+    WHERE { ?p a shw:Predicate ; shw:name ?pn ; shw:order ?po ; shw:dimension ?pd ; shw:dimensionKey ?pk }
+  }
+  {
+    SELECT (GROUP_CONCAT(CONCAT(SUBSTR(CONCAT("000000", STR(?go)), STRLEN(STR(?go)) + 1), "##", ?gn, "##", ?gps); separator="@@") AS ?goals)
+    WHERE {
+      {
+        SELECT ?g ?gn ?go
+               (GROUP_CONCAT(CONCAT(SUBSTR(CONCAT("000000", STR(?gpo)), STRLEN(STR(?gpo)) + 1), ":", ?gpn); separator="%%") AS ?gps)
+        WHERE {
+          ?g a shw:Goal ; shw:name ?gn ; shw:order ?go ; shw:goalPred ?gp .
+          ?gp shw:pred ?pp ; shw:order ?gpo . ?pp shw:name ?gpn
+        } GROUP BY ?g ?gn ?go
+      }
+    }
+  }
+}
+ORDER BY ?dims

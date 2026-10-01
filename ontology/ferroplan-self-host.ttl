@@ -1,0 +1,183 @@
+@prefix shw: <urn:chatman:ferroplan-self-host:v1#> .
+@prefix shwp: <urn:chatman:ferroplan-self-host:v1:predicate#> .
+@prefix shwa: <urn:chatman:ferroplan-self-host:v1:action#> .
+@prefix shwg: <urn:chatman:ferroplan-self-host:v1:goal#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ferroplan-self-host.ttl -- source of truth for the Chatman self-host PDDL world.
+# Projections (never hand-edit): plugins/chatman-ecosystem/world/ferroplan-self-host-domain.pddl
+# and plugins/chatman-ecosystem/scripts/world_tables.py (PREDICATES / GOALS consumed by
+# project-world.py). Render: scripts/project-world.py --check (ggen rules self-host-pddl,
+# self-host-tables). The pddl-embedded-workflow-pack wf:Action shape is the model; no pack emits
+# PDDL text, so the templates are local (UNSUPPORTED generator-capability: pddl-text).
+# Each shw:Action is a one-parameter (?r - repository) STRIPS action; shw:pre / shw:eff are
+# ordered literal nodes (shw:order, shw:neg true for a negated literal).
+
+shw:domain a shw:Domain ;
+    shw:name "ferroplan-self-host" ;
+    shw:requirements ":strips :typing :negative-preconditions :fluents" ;
+    shw:type "repository" ;
+    shw:parameter "?r" .
+
+shwp:epistemic-latent a shw:Predicate ; shw:name "epistemic-latent" ; shw:order 1 ; shw:dimension "epistemic" ; shw:dimensionKey "latent" .
+shwp:epistemic-observed a shw:Predicate ; shw:name "epistemic-observed" ; shw:order 2 ; shw:dimension "epistemic" ; shw:dimensionKey "observed" .
+shwp:epistemic-admitted a shw:Predicate ; shw:name "epistemic-admitted" ; shw:order 3 ; shw:dimension "epistemic" ; shw:dimensionKey "admitted" .
+shwp:unallocated a shw:Predicate ; shw:name "unallocated" ; shw:order 4 ; shw:dimension "allocation" ; shw:dimensionKey "unallocated" .
+shwp:allocated a shw:Predicate ; shw:name "allocated" ; shw:order 5 ; shw:dimension "allocation" ; shw:dimensionKey "allocated" .
+shwp:unplanned a shw:Predicate ; shw:name "unplanned" ; shw:order 6 ; shw:dimension "planning" ; shw:dimensionKey "unplanned" .
+shwp:candidate-plan a shw:Predicate ; shw:name "candidate-plan" ; shw:order 7 ; shw:dimension "planning" ; shw:dimensionKey "candidate" .
+shwp:validated-plan a shw:Predicate ; shw:name "validated-plan" ; shw:order 8 ; shw:dimension "planning" ; shw:dimensionKey "validated" .
+shwp:actuation-sealed a shw:Predicate ; shw:name "actuation-sealed" ; shw:order 9 ; shw:dimension "actuation" ; shw:dimensionKey "sealed" .
+shwp:manufacturing a shw:Predicate ; shw:name "manufacturing" ; shw:order 10 ; shw:dimension "actuation" ; shw:dimensionKey "manufacturing" .
+shwp:receipted a shw:Predicate ; shw:name "receipted" ; shw:order 11 ; shw:dimension "actuation" ; shw:dimensionKey "receipted" .
+shwp:publishable a shw:Predicate ; shw:name "publishable" ; shw:order 12 ; shw:dimension "actuation" ; shw:dimensionKey "publishable" .
+shwp:stable a shw:Predicate ; shw:name "stable" ; shw:order 13 ; shw:dimension "drift" ; shw:dimensionKey "stable" .
+shwp:drifted a shw:Predicate ; shw:name "drifted" ; shw:order 14 ; shw:dimension "drift" ; shw:dimensionKey "drifted" .
+shwp:refused a shw:Predicate ; shw:name "refused" ; shw:order 15 ; shw:dimension "drift" ; shw:dimensionKey "refused" .
+shwp:config-unknown a shw:Predicate ; shw:name "config-unknown" ; shw:order 16 ; shw:dimension "conformance" ; shw:dimensionKey "unknown" .
+shwp:config-nonconformant a shw:Predicate ; shw:name "config-nonconformant" ; shw:order 17 ; shw:dimension "conformance" ; shw:dimensionKey "nonconformant" .
+shwp:config-conformant a shw:Predicate ; shw:name "config-conformant" ; shw:order 18 ; shw:dimension "conformance" ; shw:dimensionKey "conformant" .
+shwp:dirty a shw:Predicate ; shw:name "dirty" ; shw:order 19 .
+shwp:source-changed a shw:Predicate ; shw:name "source-changed" ; shw:order 20 .
+shwp:build-green a shw:Predicate ; shw:name "build-green" ; shw:order 21 .
+shwp:validator-green a shw:Predicate ; shw:name "validator-green" ; shw:order 22 .
+shwp:allocation-bound a shw:Predicate ; shw:name "allocation-bound" ; shw:order 23 .
+shwp:plan-bound a shw:Predicate ; shw:name "plan-bound" ; shw:order 24 .
+shwp:receipt-bound a shw:Predicate ; shw:name "receipt-bound" ; shw:order 25 .
+shwp:draft-pr-open a shw:Predicate ; shw:name "draft-pr-open" ; shw:order 26 .
+shwp:blocked a shw:Predicate ; shw:name "blocked" ; shw:order 27 .
+
+shw:fn-pending-events a shw:Function ; shw:name "pending-events" ; shw:order 1 .
+shw:fn-risk a shw:Function ; shw:name "risk" ; shw:order 2 .
+shw:fn-available-capacity a shw:Function ; shw:name "available-capacity" ; shw:order 3 .
+
+shwa:inspect-configuration a shw:Action ; shw:name "inspect-configuration" ; shw:order 1 ;
+    shw:pre [ shw:pred shwp:config-unknown ; shw:order 1 ] ,
+        [ shw:pred shwp:blocked ; shw:order 2 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:config-conformant ; shw:order 1 ] ,
+        [ shw:pred shwp:config-unknown ; shw:order 2 ; shw:neg true ] .
+
+shwa:repair-configuration a shw:Action ; shw:name "repair-configuration" ; shw:order 2 ;
+    shw:pre [ shw:pred shwp:config-nonconformant ; shw:order 1 ] ,
+        [ shw:pred shwp:blocked ; shw:order 2 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:config-conformant ; shw:order 1 ] ,
+        [ shw:pred shwp:config-nonconformant ; shw:order 2 ; shw:neg true ] .
+
+shwa:observe-latent-repository a shw:Action ; shw:name "observe-latent-repository" ; shw:order 3 ;
+    shw:pre [ shw:pred shwp:epistemic-latent ; shw:order 1 ] ,
+        [ shw:pred shwp:dirty ; shw:order 2 ] ,
+        [ shw:pred shwp:blocked ; shw:order 3 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:epistemic-observed ; shw:order 1 ] ,
+        [ shw:pred shwp:epistemic-latent ; shw:order 2 ; shw:neg true ] .
+
+shwa:admit-rdf-projection a shw:Action ; shw:name "admit-rdf-projection" ; shw:order 4 ;
+    shw:pre [ shw:pred shwp:epistemic-observed ; shw:order 1 ] ,
+        [ shw:pred shwp:config-conformant ; shw:order 2 ] ,
+        [ shw:pred shwp:blocked ; shw:order 3 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:epistemic-admitted ; shw:order 1 ] ,
+        [ shw:pred shwp:epistemic-observed ; shw:order 2 ; shw:neg true ] .
+
+shwa:allocate-work-frontier a shw:Action ; shw:name "allocate-work-frontier" ; shw:order 5 ;
+    shw:pre [ shw:pred shwp:epistemic-admitted ; shw:order 1 ] ,
+        [ shw:pred shwp:unallocated ; shw:order 2 ] ,
+        [ shw:pred shwp:blocked ; shw:order 3 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:allocated ; shw:order 1 ] ,
+        [ shw:pred shwp:allocation-bound ; shw:order 2 ] ,
+        [ shw:pred shwp:unallocated ; shw:order 3 ; shw:neg true ] .
+
+shwa:manufacture-candidate-plan a shw:Action ; shw:name "manufacture-candidate-plan" ; shw:order 6 ;
+    shw:pre [ shw:pred shwp:allocated ; shw:order 1 ] ,
+        [ shw:pred shwp:unplanned ; shw:order 2 ] ,
+        [ shw:pred shwp:blocked ; shw:order 3 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:candidate-plan ; shw:order 1 ] ,
+        [ shw:pred shwp:plan-bound ; shw:order 2 ] ,
+        [ shw:pred shwp:unplanned ; shw:order 3 ; shw:neg true ] .
+
+shwa:begin-reversible-manufacturing a shw:Action ; shw:name "begin-reversible-manufacturing" ; shw:order 7 ;
+    shw:pre [ shw:pred shwp:candidate-plan ; shw:order 1 ] ,
+        [ shw:pred shwp:actuation-sealed ; shw:order 2 ] ,
+        [ shw:pred shwp:blocked ; shw:order 3 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:manufacturing ; shw:order 1 ] ,
+        [ shw:pred shwp:actuation-sealed ; shw:order 2 ; shw:neg true ] .
+
+shwa:implement-source-change a shw:Action ; shw:name "implement-source-change" ; shw:order 8 ;
+    shw:pre [ shw:pred shwp:manufacturing ; shw:order 1 ] ,
+        [ shw:pred shwp:candidate-plan ; shw:order 2 ] ,
+        [ shw:pred shwp:blocked ; shw:order 3 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:source-changed ; shw:order 1 ] ,
+        [ shw:pred shwp:dirty ; shw:order 2 ] ,
+        [ shw:pred shwp:epistemic-observed ; shw:order 3 ] ,
+        [ shw:pred shwp:unallocated ; shw:order 4 ] ,
+        [ shw:pred shwp:unplanned ; shw:order 5 ] ,
+        [ shw:pred shwp:actuation-sealed ; shw:order 6 ] ,
+        [ shw:pred shwp:drifted ; shw:order 7 ] ,
+        [ shw:pred shwp:config-unknown ; shw:order 8 ] ,
+        [ shw:pred shwp:epistemic-admitted ; shw:order 9 ; shw:neg true ] ,
+        [ shw:pred shwp:allocated ; shw:order 10 ; shw:neg true ] ,
+        [ shw:pred shwp:candidate-plan ; shw:order 11 ; shw:neg true ] ,
+        [ shw:pred shwp:manufacturing ; shw:order 12 ; shw:neg true ] ,
+        [ shw:pred shwp:stable ; shw:order 13 ; shw:neg true ] ,
+        [ shw:pred shwp:config-conformant ; shw:order 14 ; shw:neg true ] ,
+        [ shw:pred shwp:allocation-bound ; shw:order 15 ; shw:neg true ] ,
+        [ shw:pred shwp:plan-bound ; shw:order 16 ; shw:neg true ] .
+
+shwa:build-exact-workspace a shw:Action ; shw:name "build-exact-workspace" ; shw:order 9 ;
+    shw:pre [ shw:pred shwp:source-changed ; shw:order 1 ] ,
+        [ shw:pred shwp:blocked ; shw:order 2 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:build-green ; shw:order 1 ] .
+
+shwa:run-independent-validation a shw:Action ; shw:name "run-independent-validation" ; shw:order 10 ;
+    shw:pre [ shw:pred shwp:candidate-plan ; shw:order 1 ] ,
+        [ shw:pred shwp:build-green ; shw:order 2 ] ,
+        [ shw:pred shwp:epistemic-admitted ; shw:order 3 ] ,
+        [ shw:pred shwp:config-conformant ; shw:order 4 ] ,
+        [ shw:pred shwp:blocked ; shw:order 5 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:validated-plan ; shw:order 1 ] ,
+        [ shw:pred shwp:validator-green ; shw:order 2 ] ,
+        [ shw:pred shwp:candidate-plan ; shw:order 3 ; shw:neg true ] .
+
+shwa:bind-receipt-chain a shw:Action ; shw:name "bind-receipt-chain" ; shw:order 11 ;
+    shw:pre [ shw:pred shwp:validated-plan ; shw:order 1 ] ,
+        [ shw:pred shwp:validator-green ; shw:order 2 ] ,
+        [ shw:pred shwp:allocation-bound ; shw:order 3 ] ,
+        [ shw:pred shwp:plan-bound ; shw:order 4 ] ,
+        [ shw:pred shwp:actuation-sealed ; shw:order 5 ] ,
+        [ shw:pred shwp:blocked ; shw:order 6 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:receipted ; shw:order 1 ] ,
+        [ shw:pred shwp:receipt-bound ; shw:order 2 ] ,
+        [ shw:pred shwp:stable ; shw:order 3 ] ,
+        [ shw:pred shwp:actuation-sealed ; shw:order 4 ; shw:neg true ] ,
+        [ shw:pred shwp:drifted ; shw:order 5 ; shw:neg true ] .
+
+shwa:admit-publication-phase a shw:Action ; shw:name "admit-publication-phase" ; shw:order 12 ;
+    shw:pre [ shw:pred shwp:receipted ; shw:order 1 ] ,
+        [ shw:pred shwp:epistemic-admitted ; shw:order 2 ] ,
+        [ shw:pred shwp:allocated ; shw:order 3 ] ,
+        [ shw:pred shwp:validated-plan ; shw:order 4 ] ,
+        [ shw:pred shwp:stable ; shw:order 5 ] ,
+        [ shw:pred shwp:config-conformant ; shw:order 6 ] ,
+        [ shw:pred shwp:blocked ; shw:order 7 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:publishable ; shw:order 1 ] ,
+        [ shw:pred shwp:receipted ; shw:order 2 ; shw:neg true ] .
+
+shwa:open-draft-pull-request a shw:Action ; shw:name "open-draft-pull-request" ; shw:order 13 ;
+    shw:pre [ shw:pred shwp:publishable ; shw:order 1 ] ,
+        [ shw:pred shwp:receipt-bound ; shw:order 2 ] ,
+        [ shw:pred shwp:validator-green ; shw:order 3 ] ,
+        [ shw:pred shwp:blocked ; shw:order 4 ; shw:neg true ] ;
+    shw:eff [ shw:pred shwp:draft-pr-open ; shw:order 1 ] .
+
+shwg:plan a shw:Goal ; shw:name "plan" ; shw:order 1 ;
+    shw:goalPred [ shw:pred shwp:candidate-plan ; shw:order 1 ] .
+
+shwg:validate a shw:Goal ; shw:name "validate" ; shw:order 2 ;
+    shw:goalPred [ shw:pred shwp:validated-plan ; shw:order 1 ] ,
+        [ shw:pred shwp:validator-green ; shw:order 2 ] .
+
+shwg:receipt a shw:Goal ; shw:name "receipt" ; shw:order 3 ;
+    shw:goalPred [ shw:pred shwp:receipt-bound ; shw:order 1 ] ,
+        [ shw:pred shwp:validator-green ; shw:order 2 ] .
+
+shwg:publish a shw:Goal ; shw:name "publish" ; shw:order 4 ;
+    shw:goalPred [ shw:pred shwp:draft-pr-open ; shw:order 1 ] .
