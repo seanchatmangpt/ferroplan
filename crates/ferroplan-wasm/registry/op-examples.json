@@ -1,0 +1,158 @@
+{
+  "abi_version": 1,
+  "examples": [
+    {
+      "op": "plan",
+      "request": {"op":"plan","domain":"(define (domain d) (:requirements :strips) (:predicates (a) (b)) (:action go :parameters () :precondition (a) :effect (and (b) (not (a)))))","problem":"(define (problem p) (:domain d) (:init (a)) (:goal (b)))"}
+    },
+    {
+      "op": "plan_production",
+      "request": {"op":"plan_production","domain":"(define (domain d) (:requirements :strips) (:predicates (a) (b)) (:action go :parameters () :precondition (a) :effect (and (b) (not (a)))))","problem":"(define (problem p) (:domain d) (:init (a)) (:goal (b)))","mode":"auto","request_id":"example-1"}
+    },
+    {
+      "op": "htn_plan",
+      "request": {"op":"htn_plan","problem":"{\"tasks\":[{\"id\":\"top\"},{\"id\":\"p1\",\"primitive_action\":\"a1\"}],\"root_tasks\":[\"top\"],\"methods\":[{\"id\":\"m-top\",\"task\":\"top\",\"subtasks\":[\"p1\"]}]}","limits":{"max_wall_ms":0}}
+    },
+    {
+      "op": "fond_policy",
+      "request": {"op":"fond_policy","problem":"{\"states\":[{\"id\":\"s0\"},{\"id\":\"g\",\"facts\":[\"done\"]}],\"initial_states\":[\"s0\"],\"goal\":{\"facts\":[\"done\"]},\"transitions\":[{\"action\":\"flip\",\"from\":\"s0\",\"to\":\"g\",\"probability_ppm\":500000},{\"action\":\"flip\",\"from\":\"s0\",\"to\":\"s0\",\"probability_ppm\":500000}]}","limits":{"max_wall_ms":0}}
+    },
+    {
+      "op": "fond_policy_validate",
+      "request": {"op":"fond_policy_validate","problem":"{\"states\":[{\"id\":\"s0\"},{\"id\":\"g\",\"facts\":[\"done\"]}],\"initial_states\":[\"s0\"],\"goal\":{\"facts\":[\"done\"]},\"transitions\":[{\"action\":\"flip\",\"from\":\"s0\",\"to\":\"g\",\"probability_ppm\":500000},{\"action\":\"flip\",\"from\":\"s0\",\"to\":\"s0\",\"probability_ppm\":500000}]}","plan":{"planning_type":"fond","solved":true,"steps":[],"policy":[{"state":"s0","action":"flip","outcomes":[{"state":"g","probability_ppm":500000},{"state":"s0","probability_ppm":500000}]}],"decomposition":[],"notes":[]}}
+    },
+    {
+      "op": "fond_validate",
+      "request": {"op":"fond_validate","problem":"{\"states\":[{\"id\":\"s0\"},{\"id\":\"g\",\"facts\":[\"done\"]}],\"initial_states\":[\"s0\"],\"goal\":{\"facts\":[\"done\"]},\"transitions\":[{\"action\":\"flip\",\"from\":\"s0\",\"to\":\"g\",\"probability_ppm\":500000},{\"action\":\"flip\",\"from\":\"s0\",\"to\":\"s0\",\"probability_ppm\":500000}]}","plan":{"planning_type":"fond","solved":true,"steps":[],"policy":[{"state":"s0","action":"flip","outcomes":[{"state":"g","probability_ppm":500000},{"state":"s0","probability_ppm":500000}]}],"decomposition":[],"notes":[]}}
+    },
+    {
+      "op": "hddl_solve",
+      "request": {"op":"hddl_solve","domain":"(define (domain transport-oneof) (:types loc) (:predicates (at ?l - loc)(connected ?a - loc ?b - loc)(has-package)(delivered)) (:task deliver :parameters (?from - loc ?to - loc)) (:action pickup :parameters (?l - loc) :precondition (at ?l) :effect (has-package)) (:action drive :parameters (?a - loc ?b - loc) :precondition (and (at ?a)(connected ?a ?b)) :effect (oneof (and (not (at ?a))(at ?b)) (and))) (:action dropoff :parameters () :precondition (has-package) :effect (delivered)) (:method m-deliver :parameters (?from ?to) :task (deliver ?from ?to) :ordered-subtasks (and (t1 (pickup ?from))(t2 (drive ?from ?to))(t3 (dropoff)))))","problem":"(define (problem transport-oneof-p1)(:domain transport-oneof)(:objects l1 l2 - loc)(:htn :parameters () :ordered-subtasks (and (m1 (deliver l1 l2))))(:init (at l1)(connected l1 l2))(:goal (and (delivered))))","limits":{"max_wall_ms":0}}
+    },
+    {
+      "op": "readiness",
+      "request": {"op":"readiness"}
+    },
+    {
+      "op": "version",
+      "request": {"op":"version"}
+    },
+    {
+      "op": "explain",
+      "request": {"op":"explain","domain":"(define (domain d) (:requirements :strips) (:predicates (a) (b)) (:action go :parameters () :precondition (a) :effect (and (b) (not (a)))))","problem":"(define (problem p) (:domain d) (:init (a)) (:goal (b)))","plan":{"steps":[{"index":0,"action":"go","args":[]}],"length":1}}
+    },
+    {
+      "op": "session_new",
+      "request": {"op":"session_new","domain":"(define (domain d) (:requirements :strips) (:predicates (a) (b)) (:action go :parameters () :precondition (a) :effect (and (b) (not (a)))))","problem":"(define (problem p) (:domain d) (:init (a)) (:goal (b)))"}
+    },
+    {
+      "op": "session_fork",
+      "request": {"op":"session_fork","handle":1,"keep_plan":false}
+    },
+    {
+      "op": "session_free",
+      "request": {"op":"session_free","handle":1}
+    },
+    {
+      "op": "session_set_goal",
+      "request": {"op":"session_set_goal","handle":1,"goal":"(b)"}
+    },
+    {
+      "op": "session_restrict_prefix_claims",
+      "request": {"op":"session_restrict_prefix_claims","handle":1,"prefix":"(go","claimed":"A,B"}
+    },
+    {
+      "op": "session_restrict_contains",
+      "request": {"op":"session_restrict_contains","handle":1,"filter":"go"}
+    },
+    {
+      "op": "session_think",
+      "request": {"op":"session_think","handle":1,"evals":100000,"mem_mb":256}
+    },
+    {
+      "op": "session_replan_following",
+      "request": {"op":"session_replan_following","handle":1,"evals":100000,"mem_mb":256}
+    },
+    {
+      "op": "session_repair",
+      "request": {"op":"session_repair","handle":1,"evals":100000,"mem_mb":256}
+    },
+    {
+      "op": "session_probe",
+      "request": {"op":"session_probe","handle":1,"candidates":[{"id":"c1","goal":"(b)","sight":[["A",true]]}],"evals":100000,"mem_mb":256}
+    },
+    {
+      "op": "session_valid",
+      "request": {"op":"session_valid","handle":1}
+    },
+    {
+      "op": "session_step",
+      "request": {"op":"session_step","handle":1}
+    },
+    {
+      "op": "session_suffix",
+      "request": {"op":"session_suffix","handle":1}
+    },
+    {
+      "op": "session_advance",
+      "request": {"op":"session_advance","handle":1}
+    },
+    {
+      "op": "session_drop_plan",
+      "request": {"op":"session_drop_plan","handle":1}
+    },
+    {
+      "op": "session_has_plan",
+      "request": {"op":"session_has_plan","handle":1}
+    },
+    {
+      "op": "session_set_fact",
+      "request": {"op":"session_set_fact","handle":1,"name":"A","value":true}
+    },
+    {
+      "op": "session_set_timed_fact",
+      "request": {"op":"session_set_timed_fact","handle":1,"name":"A","dt":1.5,"value":true}
+    },
+    {
+      "op": "session_observe",
+      "request": {"op":"session_observe","handle":1,"sight":[["A",true]]}
+    },
+    {
+      "op": "session_goal_met",
+      "request": {"op":"session_goal_met","handle":1}
+    },
+    {
+      "op": "session_fact",
+      "request": {"op":"session_fact","handle":1,"name":"A"}
+    },
+    {
+      "op": "session_apply_start",
+      "request": {"op":"session_apply_start","handle":1,"name":"(go)"}
+    },
+    {
+      "op": "session_elapse",
+      "request": {"op":"session_elapse","handle":1,"dt":1.0}
+    },
+    {
+      "op": "session_set_fluent",
+      "request": {"op":"session_set_fluent","handle":1,"name":"F","value":2.0}
+    },
+    {
+      "op": "session_fluent",
+      "request": {"op":"session_fluent","handle":1,"name":"F"}
+    },
+    {
+      "op": "session_plan_valid",
+      "request": {"op":"session_plan_valid","handle":1,"from":0,"plan":{"steps":[{"index":0,"action":"go","args":[]}],"length":1}}
+    },
+    {
+      "op": "session_world_bytes",
+      "request": {"op":"session_world_bytes","handle":1}
+    },
+    {
+      "op": "session_mind_bytes",
+      "request": {"op":"session_mind_bytes","handle":1}
+    }
+  ],
+  "schema": "wasi-json-abi.op-examples/1"
+}
