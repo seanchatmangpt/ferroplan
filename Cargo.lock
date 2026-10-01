@@ -2498,6 +2498,9 @@ dependencies = [
 [[package]]
 name = "ferroplan-hddl"
 version = "0.29.0"
+dependencies = [
+ "ferroplan",
+]
 
 [[package]]
 name = "ferroplan-mcp"

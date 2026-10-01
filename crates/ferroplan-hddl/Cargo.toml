@@ -22,3 +22,6 @@ categories = ["science", "parser-implementations"]
 [dependencies]
 
 [dev-dependencies]
+# Real collaborator for tests/solve_x.rs (solve_hddl). Dev-dependency cycles are lawful in cargo;
+# path-only so it is stripped from the published manifest.
+ferroplan = { path = "../ferroplan" }
