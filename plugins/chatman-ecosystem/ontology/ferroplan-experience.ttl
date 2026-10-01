@@ -57,47 +57,47 @@ fp:Vision2030ExperiencePlane a fp:ExperiencePlane ;
   fp:integrityNotAuthentication true ;
   rdfs:comment "The 42-tool Ferroplan authority surface after adding DX, doctor, wizard, QoL, telco, and bounded combinatorial-lattice capabilities." .
 
-fp:ToolDxManifest a fp:McpTool ; rdfs:label "dx_manifest" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolDxManifest a fp:McpTool ; rdfs:label "dx_manifest" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "DX_MANIFEST_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Return the complete self-describing Ferroplan capability manifest, including authority categories, contracts, effects, reversibility, receipt behavior, and composition examples." .
 
-fp:ToolDxCompose a fp:McpTool ; rdfs:label "dx_compose" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolDxCompose a fp:McpTool ; rdfs:label "dx_compose" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "DX_COMPOSE_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Search the bounded capability graph for a minimal deterministic tool sequence from admitted starting atoms to requested outcome atoms." .
 
-fp:ToolDoctorScan a fp:McpTool ; rdfs:label "doctor_scan" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolDoctorScan a fp:McpTool ; rdfs:label "doctor_scan" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "DOCTOR_SCAN_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Diagnose global or per-session health, assign typed findings, calculate standing, and emit executable remediation hints without mutating state." .
 
-fp:ToolDoctorExplain a fp:McpTool ; rdfs:label "doctor_explain" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolDoctorExplain a fp:McpTool ; rdfs:label "doctor_explain" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "DOCTOR_EXPLAIN_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Classify a tool or protocol failure into a typed cause with bounded confidence, corrective actions, and refusal-preserving recovery guidance." .
 
-fp:ToolWizardBootstrap a fp:McpTool ; rdfs:label "wizard_bootstrap" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolWizardBootstrap a fp:McpTool ; rdfs:label "wizard_bootstrap" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "WIZARD_BOOTSTRAP_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Atomically manufacture a ready persistent planning mind from domain, problem, goal, authority scope, and bounded search settings." .
 
-fp:ToolWizardRecipe a fp:McpTool ; rdfs:label "wizard_recipe" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolWizardRecipe a fp:McpTool ; rdfs:label "wizard_recipe" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "WIZARD_RECIPE_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Compile a high-level operator intent into an ordered, inspectable Ferroplan tool recipe with preflight, rollback, and receipt checkpoints." .
 
-fp:ToolQolSnapshot a fp:McpTool ; rdfs:label "qol_snapshot" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolQolSnapshot a fp:McpTool ; rdfs:label "qol_snapshot" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "QOL_SNAPSHOT_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Read session state, selected facts and fluents, plan standing, diagnostics, memory, lineage, and recent history in one round trip." .
 
-fp:ToolQolBatch a fp:McpTool ; rdfs:label "qol_batch" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolQolBatch a fp:McpTool ; rdfs:label "qol_batch" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "QOL_BATCH_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Apply a bounded heterogeneous session transaction on a staged fork and commit exactly once, or refuse without partial mutation." .
 
-fp:ToolTelcoEnvelope a fp:McpTool ; rdfs:label "telco_envelope" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolTelcoEnvelope a fp:McpTool ; rdfs:label "telco_envelope" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "TELCO_ENVELOPE_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Manufacture a deterministic transport-neutral BLAKE3 integrity envelope with correlation, causation, idempotency, predecessor, and expiry fields; it performs no network operation." .
 
-fp:ToolTelcoVerify a fp:McpTool ; rdfs:label "telco_verify" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolTelcoVerify a fp:McpTool ; rdfs:label "telco_verify" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "TELCO_VERIFY_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Verify a transport envelope's schema, payload identity, envelope identity, routing expectations, predecessor, and expiry without treating integrity as authentication." .
 
-fp:ToolVisionLattice a fp:McpTool ; rdfs:label "vision_lattice" ; fp:providedBy fp:FerroplanMcp ;
+fp:ToolVisionLattice a fp:McpTool ; rdfs:label "vision_lattice" ; fp:providedBy fp:FerroplanMcp ; fp:rustConst "VISION_LATTICE_ONTOLOGY" ; fp:rustGroup "experience" ;
   fp:toolSourceLocation "experience.rs" ;
   rdfs:comment "Enumerate a bounded combinatorial capability lattice, minimal reachability depths, dependency edges, blocked frontiers, and theoretical composition capacity." .
 

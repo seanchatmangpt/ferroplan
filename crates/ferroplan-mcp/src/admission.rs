@@ -23,7 +23,7 @@ use crate::Ferroplan;
 const BCINR_REVISION: &str = "fb9321d27882169acc83aaca0639b319cd3b7900";
 const RECEIPT_DOMAIN: &[u8] = b"urn:chatman:claude-code-admission:v1\0";
 
-include!(concat!(env!("OUT_DIR"), "/admission_ontology.rs"));
+use crate::generated::tool_ontology::admission::*;
 
 pub(crate) const RESOURCE_TOOLS: &[&str] = &[
     "canonical_digest",

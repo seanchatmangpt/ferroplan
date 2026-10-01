@@ -1,0 +1,11 @@
+PREFIX fp: <urn:chatman:ferroplan-domain:v1#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?group ?const ?label ?comment
+WHERE {
+  ?t a fp:McpTool ;
+     rdfs:label ?label ;
+     fp:rustConst ?const ;
+     fp:rustGroup ?group ;
+     rdfs:comment ?comment .
+}
+ORDER BY ?group ?const

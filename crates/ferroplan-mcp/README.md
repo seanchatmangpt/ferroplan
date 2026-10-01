@@ -143,7 +143,7 @@ Planning, session, allocation, and admission semantics come from `plugins/chatma
 
 The operator-experience plane comes from `plugins/chatman-ecosystem/ontology/ferroplan-experience.ttl`. That graph defines the experience plane, capability contracts, composition atoms, mutation/reversibility/receipt properties, telco non-actuation law, integrity-versus-authentication distinction, all eleven experience tools, and SHACL constraints.
 
-`build.rs` extracts the tool comments into generated `OUT_DIR` constants. Runtime resource descriptions therefore cannot silently diverge from the admitted ontology source.
+`ggen sync` (rule `mcp-tool-ontology`) projects the tool comments into the committed `src/generated/tool_ontology.rs` constants. Runtime resource descriptions therefore cannot silently diverge from the admitted ontology source.
 
 ## Build and run
 

@@ -47,7 +47,7 @@ pub(crate) const RESOURCE_TOOLS: &[&str] = &[
     "vision_lattice",
 ];
 
-include!(concat!(env!("OUT_DIR"), "/experience_ontology.rs"));
+use crate::generated::tool_ontology::experience::*;
 
 pub(crate) const ONTOLOGY_SOURCE: &str =
     "plugins/chatman-ecosystem/ontology/ferroplan-experience.ttl";
