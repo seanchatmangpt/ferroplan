@@ -306,3 +306,215 @@ fn court_refuses_duplicate_code_order() {
     let err = check(&abi, &real_sources(), &ttl).expect_err("duplicate order must be refused");
     assert!(err.contains("duplicate wja:codeOrder value 1"), "{err}");
 }
+
+// ---------------------------------------------------------------------
+// Export-surface court: the set of `extern "C"` functions in wasi_abi.rs
+// must equal the registry exports (minus `memory`), the contract's
+// `qri:requiredExport` (minus `memory`) and the contract's `qri:freeSymbol`
+// ---------------------------------------------------------------------
+
+const REGISTRY_REL: &str = "registry/capability-registry.json";
+const CONTRACTS_REL: [&str; 2] = [
+    "ontology/contract.ttl",
+    "../../ontology/ferroplan-host-contract.ttl",
+];
+const FREE_SYMBOL: &str = "fp_dealloc";
+const EXPECTED_EXPORTS: [&str; 3] = ["fp_alloc", "fp_call", "fp_dealloc"];
+
+/// Names of `pub extern "C" fn` / `pub unsafe extern "C" fn` on non-comment lines.
+fn extern_c_fns(src: &str) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    for line in src.lines() {
+        let t = line.trim_start();
+        if t.starts_with("//") {
+            continue;
+        }
+        let Some(rest) = t.strip_prefix("pub ") else {
+            continue;
+        };
+        let rest = rest.strip_prefix("unsafe ").unwrap_or(rest);
+        let Some(rest) = rest.strip_prefix("extern \"C\" fn ") else {
+            continue;
+        };
+        let name: String = rest
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || *c == '_')
+            .collect();
+        if !name.is_empty() {
+            out.insert(name);
+        }
+    }
+    out
+}
+
+/// Quoted strings of the `"exports": [ ... ]` array in the registry JSON.
+fn registry_exports(json: &str) -> Result<BTreeSet<String>, String> {
+    let i = json
+        .find("\"exports\"")
+        .ok_or("registry: no \"exports\" key")?;
+    let rest = &json[i..];
+    let open = rest.find('[').ok_or("registry: exports has no `[`")?;
+    let close = rest[open..]
+        .find(']')
+        .ok_or("registry: exports has no `]`")?
+        + open;
+    Ok(rest[open + 1..close]
+        .split('"')
+        .enumerate()
+        .filter(|(n, _)| n % 2 == 1)
+        .map(|(_, s)| s.to_string())
+        .collect())
+}
+
+/// Every quoted string in the object list of each `pred` statement
+/// (`pred "a" , "b" ;`), up to the terminating `;` or `.`.
+fn ttl_strings_for(ttl: &str, pred: &str) -> BTreeSet<String> {
+    let body: String = ttl
+        .lines()
+        .filter(|l| !l.trim_start().starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut out = BTreeSet::new();
+    let mut rest = body.as_str();
+    while let Some(i) = rest.find(pred) {
+        let after = &rest[i + pred.len()..];
+        if after.starts_with(|c: char| c.is_alphanumeric() || c == '_') {
+            rest = after;
+            continue;
+        }
+        let mut in_q = false;
+        let mut cur = String::new();
+        let mut used = after.len();
+        for (k, c) in after.char_indices() {
+            if c == '"' {
+                if in_q {
+                    out.insert(std::mem::take(&mut cur));
+                }
+                in_q = !in_q;
+            } else if in_q {
+                cur.push(c);
+            } else if c == ';' || c == '.' {
+                used = k;
+                break;
+            }
+        }
+        rest = &after[used..];
+    }
+    out
+}
+
+fn without_memory(s: &BTreeSet<String>) -> BTreeSet<String> {
+    s.iter().filter(|n| *n != "memory").cloned().collect()
+}
+
+fn check_exports(abi: &str, registry: &str, contracts: &[(&str, String)]) -> Result<(), String> {
+    let mut problems = Vec::new();
+    let expected: BTreeSet<String> = EXPECTED_EXPORTS.map(String::from).into();
+    let mut sets: Vec<(String, BTreeSet<String>)> =
+        vec![("src/wasi_abi.rs extern \"C\" fns".into(), extern_c_fns(abi))];
+    match registry_exports(registry) {
+        Ok(r) => sets.push(("registry exports minus memory".into(), without_memory(&r))),
+        Err(e) => problems.push(e),
+    }
+    let abi_fns = extern_c_fns(abi);
+    let free: BTreeSet<String> = [FREE_SYMBOL.to_string()].into();
+    for (name, ttl) in contracts {
+        sets.push((
+            format!("{name} requiredExport minus memory"),
+            without_memory(&ttl_strings_for(ttl, "qri:requiredExport")),
+        ));
+        let fs = ttl_strings_for(ttl, "qri:freeSymbol");
+        if fs != free || !fs.is_subset(&abi_fns) {
+            problems.push(format!(
+                "{name} freeSymbol = {fs:?}, expected {free:?} present in wasi_abi.rs {abi_fns:?}"
+            ));
+        }
+    }
+    for (what, set) in &sets {
+        if set != &expected {
+            problems.push(format!("{what} = {set:?}, expected {expected:?}"));
+        }
+    }
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems.join("\n"))
+    }
+}
+
+fn real_contracts() -> Vec<(&'static str, String)> {
+    CONTRACTS_REL.iter().map(|r| (*r, read(r))).collect()
+}
+
+#[test]
+fn real_export_surface_agrees() {
+    if let Err(e) = check_exports(&read(WASI_ABI_REL), &read(REGISTRY_REL), &real_contracts()) {
+        panic!("export surface drift:\n{e}");
+    }
+}
+
+#[test]
+fn export_extractors_parse_known_shapes() {
+    let rs = "// pub extern \"C\" fn no()\npub extern \"C\" fn a(x: usize) {}\npub unsafe extern \"C\" fn b_2() {}\nextern \"C\" fn private() {}\n";
+    assert_eq!(extern_c_fns(rs), ["a", "b_2"].map(String::from).into());
+    assert_eq!(
+        registry_exports("{\"exports\": [\"x\", \"memory\"], \"o\": [\"z\"]}").unwrap(),
+        ["x", "memory"].map(String::from).into()
+    );
+    let ttl =
+        "c qri:requiredExport \"memory\" , \"m\" ;\n  qri:freeSymbol \"f\" ; qri:freeArity 2 .\n";
+    assert_eq!(
+        ttl_strings_for(ttl, "qri:requiredExport"),
+        ["memory", "m"].map(String::from).into()
+    );
+    assert_eq!(
+        ttl_strings_for(ttl, "qri:freeSymbol"),
+        ["f"].map(String::from).into()
+    );
+}
+
+#[test]
+fn export_court_refuses_consistent_rename_in_abi_only() {
+    let abi = read(WASI_ABI_REL).replace("fp_dealloc", "fp_release");
+    let err = check_exports(&abi, &read(REGISTRY_REL), &real_contracts())
+        .expect_err("renamed abi fn must be refused");
+    assert!(err.contains("fp_release"), "{err}");
+}
+
+#[test]
+fn export_court_refuses_consistent_rename_in_registry_only() {
+    let reg = read(REGISTRY_REL).replace("fp_dealloc", "fp_release");
+    check_exports(&read(WASI_ABI_REL), &reg, &real_contracts())
+        .expect_err("renamed registry export must be refused");
+}
+
+#[test]
+fn export_court_refuses_consistent_rename_in_contract_only() {
+    let mut contracts = real_contracts();
+    contracts[0].1 = contracts[0].1.replace("fp_dealloc", "fp_release");
+    let err = check_exports(&read(WASI_ABI_REL), &read(REGISTRY_REL), &contracts)
+        .expect_err("renamed contract symbol must be refused");
+    assert!(err.contains("fp_release"), "{err}");
+}
+
+#[test]
+fn export_court_refuses_free_symbol_divergence() {
+    let mut contracts = real_contracts();
+    contracts[1].1 = contracts[1].1.replace(
+        "qri:freeSymbol \"fp_dealloc\"",
+        "qri:freeSymbol \"fp_alloc\"",
+    );
+    check_exports(&read(WASI_ABI_REL), &read(REGISTRY_REL), &contracts)
+        .expect_err("freeSymbol divergence must be refused");
+}
+
+#[test]
+fn export_court_refuses_extra_extern_fn() {
+    let abi = format!(
+        "{}\npub extern \"C\" fn fp_extra() {{}}\n",
+        read(WASI_ABI_REL)
+    );
+    let err = check_exports(&abi, &read(REGISTRY_REL), &real_contracts())
+        .expect_err("extra export must be refused");
+    assert!(err.contains("fp_extra"), "{err}");
+}
