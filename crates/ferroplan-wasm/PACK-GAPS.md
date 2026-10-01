@@ -5,8 +5,8 @@ ex4pm/beam4pm handoff. Analysis only: ferroplan edits nothing outside its own re
 
 Subjects (observed 2026-10-01): `qri-qualification-profile-pack` 26.9.30 and
 `wasi-json-abi-pack` 26.9.29 in `/Users/sac/ggen-marketplace` (HEAD 8971f8754);
-ggen 26.9.28; ex4pm 30d5cbb (HEAD now 60a43b1, a descendant; ex4pm citations re-checked at
-60a43b1); beam4pm fee843a2; ferroplan a03b5cc. Paths below are relative to
+ggen 26.9.28; ex4pm 30d5cbb (HEAD now 21eaa45, a descendant; line citations last re-checked at
+60a43b1 and not re-verified at 21eaa45); beam4pm fee843a2; ferroplan 2fc73dd. Paths below are relative to
 `/Users/sac/ggen-marketplace/packs/qri-qualification-profile-pack` unless prefixed `wja:`
 (`wasi-json-abi-pack`).
 
