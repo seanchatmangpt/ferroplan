@@ -27,7 +27,7 @@
 //!
 //! Compatibility surfaces:
 //!
-//! - [`solve`], [`parse`], [`decompose`], [`trace`], [`solve_ppddl`], [`Session`].
+//! - [`solve`], [`parse`], [`decompose`], [`mod@trace`], [`solve_ppddl`], [`Session`].
 //! - [`route_planning_request`] and [`solve_planning_type`] for the typed universal model.
 //!
 //! Bounded production surfaces:

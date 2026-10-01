@@ -64,9 +64,20 @@ Metric-FF (EHC reaches goals in dozens of evaluations, not thousands); numeric
 trails and IPC-5 preference quality is competitive-not-winning — see
 [Benchmarks](#benchmarks).
 
-> Status: **v0.29.0** on `main` (crates.io release pending — [crates.io](https://crates.io/crates/ferroplan) still carries v0.27.1 for `ferroplan`, `ferroplan-cli`, `ferroplan-mcp`, `ferroplan-sat` until it lands). APIs may shift before 1.0.
+> Status: **v0.29.0** — release candidate on `main` (cut label v26.9.28): the standings table above is still the 0.28 sweep and has not been re-measured for this cut, and [crates.io](https://crates.io/crates/ferroplan) carries v0.27.1 (`ferroplan`, `ferroplan-cli`, `ferroplan-mcp`, `ferroplan-sat`) until it lands. APIs may shift before 1.0.
 
 <!-- WHATSNEW:BEGIN — newest first; trimmed by scripts/release-notes-roll.py -->
+
+
+> **What's new in 0.29.0 — mechanism, not authority.** A held plan can now be
+> *followed*: `Session::think_following` replays the still-applicable suffix
+> and searches only the broken tail, and the WASI ABI reports a `verdict`
+> (`solved`, `capped`, `exhausted`) so a budget cap never reads as a proof of
+> unreachability. FOND policies leave the ABI already validated by an
+> independent checker (`fond_policy_validate`). A new `ferroplan-runtime`
+> crate adds a multi-plan provider-switching control plane, and the browser
+> demo can be saved for offline use. Everything new returns evidence; nothing
+> new acts. Details in the [changelog](https://github.com/seanchatmangpt/ferroplan/blob/main/CHANGELOG.md).
 
 
 
@@ -106,20 +117,6 @@ trails and IPC-5 preference quality is competitive-not-winning — see
 > keep at once — the memory lane's first push lost two solved instances, and
 > it was the subset read, not the test suite, that found them and the three
 > holes behind them.
-
-
-
-
-> **What's new in 0.27.1 — a budget the caller can set, and withdraw.**
-> No engine change; coverage is unchanged from 0.27.0. `Options` gains
-> `wall_ms` (this call's wall in milliseconds, armed before parsing so it
-> bounds grounding too) and `should_continue` (an `Arc<AtomicBool>` you
-> flip to stop the call). Both default to `None` and are inert unless set.
-> They are the budget `max_evaluated` could not express — it caps
-> evaluated states, and grounding runs before the first state exists —
-> and the one `FF_TIME_LIMIT` could not, being armed once per process. A
-> stop returns `solved: false` with a note naming which budget bound and
-> where, never the word "unsolvable".
 
 Earlier releases are summarised in the [changelog](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG.md) and its [archive](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG-ARCHIVE.md).
 <!-- WHATSNEW:END -->
@@ -320,13 +317,7 @@ witnesses it:
   [`ferroplan-wasm`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-wasm)
   (`fond_policy_op_solves_the_retry_loop_with_a_closed_policy`,
   `htn_plan_op_preserves_the_decomposition_order_of_a_two_level_hierarchy`,
-  `hddl_solve_malformed_hddl_text_is_a_typed_error_not_a_trap`). The 0.29.0
-  replan-mechanism surface adds `fond_policy_validate` (`{problem, plan}` →
-  policy validation report), `session_fork` with `{keep_plan}`, and
-  `session_think` verdicts (`solved` | `capped` | `exhausted`) — with
-  `prefer_follow` routing through the new Rust API
-  `Session::think_following(prior, from_step, budget)` — plus an exit-0/2
-  validation CLI, `crates/ferroplan-hddl/examples/validate_files.rs`.
+  `hddl_solve_malformed_hddl_text_is_a_typed_error_not_a_trap`).
 - **Eve bridge** — `solve_hddl_from_eve` feeds the Eve `DecomposeHddl` lifecycle
   stage (a typed LLM-authored handoff) into the same HDDL pipeline
   (`solve_hddl_from_eve_solves_a_deterministic_regime_micro_domain`).

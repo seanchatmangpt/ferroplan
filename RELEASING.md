@@ -1,10 +1,13 @@
 # Releasing ferroplan
 
-The workspace publishes **four** crates to crates.io: the in-tree SAT solver
-`ferroplan-sat` (since 0.24.0), the library `ferroplan` (which depends on it),
+The workspace publishes **five** crates to crates.io: the in-tree SAT solver
+`ferroplan-sat` (since 0.24.0), the HDDL front-end `ferroplan-hddl` (a library
+dependency since 0.28.0), the library `ferroplan` (which depends on both),
 the CLI `ferroplan-cli` (the `ff` binary), and the MCP server `ferroplan-mcp`
 (the latter two depend on the library). They must be published **in that
-order** (`ferroplan-sat` first, then the library, then the CLI/MCP).
+order** (`ferroplan-sat` and `ferroplan-hddl` first, then the library, then
+the CLI/MCP). `ferroplan-runtime`, `ferroplan-wasm` and `ferroplan-bevy` are
+`publish = false`.
 
 > **TL;DR:** after `cargo login <token>`, run [`./publish.sh`](publish.sh) from a
 > machine with crates.io access — it runs the full pre-flight below, then publishes
@@ -123,6 +126,7 @@ python3 scripts/release-notes-roll.py --check   # non-zero if a roll is due
 #    has no unpublished path deps of its own, so it's the only crate here
 #    whose --dry-run is a real check against the index.
 cargo publish -p ferroplan-sat
+cargo publish -p ferroplan-hddl     # the library pins it
 
 # 2. the library (now that `ferroplan-sat` is on the index)
 cargo publish -p ferroplan

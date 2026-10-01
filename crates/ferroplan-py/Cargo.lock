@@ -92,7 +92,7 @@ dependencies = [
 
 [[package]]
 name = "ferroplan"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "blake3",
  "ferroplan-hddl",
@@ -105,11 +105,11 @@ dependencies = [
 
 [[package]]
 name = "ferroplan-hddl"
-version = "0.28.0"
+version = "0.29.0"
 
 [[package]]
 name = "ferroplan-py"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "ferroplan",
  "pyo3",
@@ -119,7 +119,7 @@ dependencies = [
 
 [[package]]
 name = "ferroplan-sat"
-version = "0.28.0"
+version = "0.29.0"
 
 [[package]]
 name = "find-msvc-tools"

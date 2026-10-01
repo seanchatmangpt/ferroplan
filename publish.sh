@@ -149,6 +149,10 @@ fi
 # ferroplan-sat is actually live.
 cargo package -p ferroplan-sat
 cargo publish -p ferroplan-sat --dry-run
+# ferroplan-hddl (a dependency of the library since 0.28.0) has no
+# unpublished path deps either, so it is a real dry-run check too.
+cargo package -p ferroplan-hddl
+cargo publish -p ferroplan-hddl --dry-run
 
 if [[ "$DRY_RUN" == 1 ]]; then
   echo "==> --dry-run: ferroplan-sat dry-run-published clean."
@@ -173,7 +177,7 @@ fi
 if [[ "$ALREADY_ON_INDEX" != 1 ]]; then
   if [[ "$ASSUME_YES" != 1 ]]; then
     echo
-    echo "About to PUBLISH ferroplan-sat, ferroplan, ferroplan-cli, and ferroplan-mcp ${VERSION} to crates.io."
+    echo "About to PUBLISH ferroplan-sat, ferroplan-hddl, ferroplan, ferroplan-cli, and ferroplan-mcp ${VERSION} to crates.io."
     echo "This is irreversible (a version can only be yanked, never deleted/reused)."
     read -r -p "Type the version (${VERSION}) to confirm: " reply
     [[ "$reply" == "$VERSION" ]] || { echo "aborted."; exit 1; }
@@ -192,6 +196,24 @@ if [[ "$ALREADY_ON_INDEX" != 1 ]]; then
     for i in $(seq 1 30); do
       if cargo search ferroplan-sat 2>/dev/null | grep -qE "^ferroplan-sat = \"${VERSION}\""; then
         echo "   ferroplan-sat is on the index."
+        break
+      fi
+      sleep 5
+      [[ "$i" == 30 ]] && echo "   (still not visible after ~150s; the library publish may need a retry)"
+    done
+  fi
+
+  # ferroplan-hddl must be live before the library: `ferroplan` pins it.
+  if cargo search ferroplan-hddl 2>/dev/null | grep -qE "^ferroplan-hddl = \"${VERSION}\""; then
+    echo "==> ferroplan-hddl ${VERSION} already on crates.io — skipping."
+  else
+    echo "==> Publishing ferroplan-hddl"
+    cargo publish -p ferroplan-hddl
+
+    echo "==> Waiting for ferroplan-hddl ${VERSION} to appear on the index"
+    for i in $(seq 1 30); do
+      if cargo search ferroplan-hddl 2>/dev/null | grep -qE "^ferroplan-hddl = \"${VERSION}\""; then
+        echo "   ferroplan-hddl is on the index."
         break
       fi
       sleep 5

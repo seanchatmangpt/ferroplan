@@ -1,0 +1,15 @@
+#[derive(Default)]
+pub struct Counters {
+    pub attempts: u64,
+    pub recoveries: u64,
+    pub successes: u64,
+}
+impl Counters {
+    pub fn success_rate(&self) -> f64 {
+        if self.attempts == 0 {
+            0.0
+        } else {
+            self.successes as f64 / self.attempts as f64
+        }
+    }
+}

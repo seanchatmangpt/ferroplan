@@ -37,7 +37,7 @@ struct Cli {
     #[arg(long)]
     infinite: bool,
 
-    /// Discount factor in [0,1]. Infinite expected reward requires < 1.
+    /// Discount factor in \[0,1\]. Infinite expected reward requires < 1.
     #[arg(long, default_value_t = 1.0)]
     discount: f64,
 
