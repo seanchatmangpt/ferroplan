@@ -1,0 +1,53 @@
+{
+  "work_order_id": "FERROPLAN-26922-04",
+  "origin_authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "provider": {
+    "name": "claude-code",
+    "transport": "local-cli"
+  },
+  "provider_execution_id": "FERROPLAN-26922-04:fer-04-bookkeeping",
+  "identity": {
+    "subject": "FERROPLAN-26922-04",
+    "repo": "/Users/sac/ferroplan",
+    "subject_sha": "fee0365cf2e83c1ec609110f21c0adea0442f581",
+    "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88"
+  },
+  "authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "consequence": {
+    "commits": [
+      "dc32a2b19c960e5dc6ccfbec8297395bea39eef5",
+      "fee0365cf2e83c1ec609110f21c0adea0442f581"
+    ],
+    "files_changed": [],
+    "remote_effects": []
+  },
+  "replay": {
+    "commands": [
+      {
+        "cmd": "gh pr close 43/44 -R seanchatmangpt/ferroplan ; git push origin --delete <5 branches> ; test \"$(gh pr list -R seanchatmangpt/ferroplan --state open --json number --jq length)\" -eq 0 && ! test -f .github/workflows/format-recovery.yml",
+        "cwd": "/Users/sac/ferroplan",
+        "exit": 0,
+        "summary": "PRs #43/#44 closed as landed (heads 5f9fc86/91e7d90 verified ancestors); origin branches agent/planning-type-constitution{,-v2}, feat/eve-genesis-lifecycle{,-v2}, agent/sync-upstream-c8d43f9 deleted (v2 trees verified identical to squash commits 282fae4/42f9af3; sync-upstream 0 unique non-merge patches; v1 tips preserved on preserve/v26922/*); format-recovery.yml dropped; docs/jira/v26.9.19 committed (12 tickets, 001-007/010/011 CLOSED, 008/009 closed by WO-08)."
+      }
+    ],
+    "durable_location": "receipts/v26.9.22/FERROPLAN-26922-04.json"
+  },
+  "standing": {
+    "value": "ALIVE",
+    "derived_from": "recorded replay command at merge fee0365cf2e83c1ec609110f21c0adea0442f581 (v1 receipt FERROPLAN-26922-04.json)"
+  },
+  "provider_ext.ferroplan": {
+    "v1_receipt": "FERROPLAN-26922-04.json",
+    "branch": "fer-04-bookkeeping",
+    "v1_merge_sha": "fee0365",
+    "v1_commit": "dc32a2b"
+  }
+}

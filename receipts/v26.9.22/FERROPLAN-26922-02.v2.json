@@ -1,0 +1,54 @@
+{
+  "work_order_id": "FERROPLAN-26922-02",
+  "origin_authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "provider": {
+    "name": "claude-code",
+    "transport": "local-cli"
+  },
+  "provider_execution_id": "FERROPLAN-26922-02:fer-02-deep-lane",
+  "identity": {
+    "subject": "FERROPLAN-26922-02",
+    "repo": "/Users/sac/ferroplan",
+    "subject_sha": "2fd5527b27bf6b95b58067fc6f7aba353c0c68c3",
+    "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88"
+  },
+  "authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "consequence": {
+    "commits": [
+      "476e7b2015eb6ece377e69117f1b3c1e3db0da47",
+      "fb71504879de50b1f966c9fcfac0b6eb1d9b5222",
+      "2fd5527b27bf6b95b58067fc6f7aba353c0c68c3"
+    ],
+    "files_changed": [],
+    "remote_effects": []
+  },
+  "replay": {
+    "commands": [
+      {
+        "cmd": "(cd plugins/chatman-ecosystem && python3.13 -m pytest -q) ; cargo test --release -p ferroplan --test {differential_fuzz,fond_flat_oracle,grounding_prune_ipc_rerun,ground_caps_ipc_addendum,memory_stress} -- --ignored",
+        "cwd": "/Users/sac/ferroplan",
+        "exit": 0,
+        "summary": "plugin pytest 293 passed; deep-lane ignored binaries all ok with loud SKIP-BY-NAME notes when the external harness/corpus is absent; memory_stress FULL run exit 0 (binding-product-8p end-to-end ~59 ms after the lifted relevance prune); full workspace suite re-run green (one doctest E0460 failure was a shared-target-dir artifact, green on clean rerun). CI-on-main acceptance deferred to the lane push: gh run list --branch main --workflow CI -L1 must say success \u2014 see the lane report for the observed value after push."
+      }
+    ],
+    "durable_location": "receipts/v26.9.22/FERROPLAN-26922-02.json"
+  },
+  "standing": {
+    "value": "ALIVE",
+    "derived_from": "recorded replay command at merge 2fd5527b27bf6b95b58067fc6f7aba353c0c68c3 (v1 receipt FERROPLAN-26922-02.json)"
+  },
+  "provider_ext.ferroplan": {
+    "v1_receipt": "FERROPLAN-26922-02.json",
+    "branch": "fer-02-deep-lane",
+    "v1_merge_sha": "2fd5527",
+    "v1_commit": "476e7b2 + fb71504"
+  }
+}

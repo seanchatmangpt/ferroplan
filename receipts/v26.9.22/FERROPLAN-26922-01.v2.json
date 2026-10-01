@@ -1,0 +1,53 @@
+{
+  "work_order_id": "FERROPLAN-26922-01",
+  "origin_authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "provider": {
+    "name": "claude-code",
+    "transport": "local-cli"
+  },
+  "provider_execution_id": "FERROPLAN-26922-01:fer-01-fmt",
+  "identity": {
+    "subject": "FERROPLAN-26922-01",
+    "repo": "/Users/sac/ferroplan",
+    "subject_sha": "dc327a3b9eb738f55bd5ac56c12636591c42bc3a",
+    "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88"
+  },
+  "authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "consequence": {
+    "commits": [
+      "ddcb7820ea10835c497b3d27e8b9fecb963a98e5",
+      "dc327a3b9eb738f55bd5ac56c12636591c42bc3a"
+    ],
+    "files_changed": [],
+    "remote_effects": []
+  },
+  "replay": {
+    "commands": [
+      {
+        "cmd": "cargo fmt --all -- --check && cargo check -p ferroplan --lib --locked",
+        "cwd": "/Users/sac/ferroplan",
+        "exit": 0,
+        "summary": "FMT-CHECK-OK; Finished `dev` profile target(s) in 17.32s \u2014 fmt reconciles the 4 ppcx hunks in crates/ferroplan/src/policy_validation.rs (56 insertions, 26 deletions)"
+      }
+    ],
+    "durable_location": "receipts/v26.9.22/FERROPLAN-26922-01.json"
+  },
+  "standing": {
+    "value": "ALIVE",
+    "derived_from": "recorded replay command at merge dc327a3b9eb738f55bd5ac56c12636591c42bc3a (v1 receipt FERROPLAN-26922-01.json)"
+  },
+  "provider_ext.ferroplan": {
+    "v1_receipt": "FERROPLAN-26922-01.json",
+    "branch": "fer-01-fmt",
+    "v1_merge_sha": "dc327a3",
+    "v1_commit": "ddcb782"
+  }
+}

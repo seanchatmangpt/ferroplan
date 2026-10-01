@@ -1,0 +1,53 @@
+{
+  "work_order_id": "FERROPLAN-26922-06",
+  "origin_authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "provider": {
+    "name": "claude-code",
+    "transport": "local-cli"
+  },
+  "provider_execution_id": "FERROPLAN-26922-06:fer-06-standing-guard",
+  "identity": {
+    "subject": "FERROPLAN-26922-06",
+    "repo": "/Users/sac/ferroplan",
+    "subject_sha": "305546927ebef3b188e79b2f497f8360f998f44b",
+    "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88"
+  },
+  "authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "consequence": {
+    "commits": [
+      "c4647953ce224311c12a2a9c97ffeb24763bc17b",
+      "305546927ebef3b188e79b2f497f8360f998f44b"
+    ],
+    "files_changed": [],
+    "remote_effects": []
+  },
+  "replay": {
+    "commands": [
+      {
+        "cmd": "python3 scripts/verify_ticket_standing.py docs/jira ; (mutated copy) python3 scripts/verify_ticket_standing.py /tmp/v26922-guard-negative",
+        "cwd": "/Users/sac/ferroplan",
+        "exit": 0,
+        "summary": "guard found exactly the WO's 49 contradictions; reconciled by setting each frontmatter standing to its ledger's last-row standing token (ledger untouched); post-fix: OK: 67 frontmatter ticket(s) agree, exit 0; mutated copy (one frontmatter set back to BLOCKED) exits 1 with a per-file report."
+      }
+    ],
+    "durable_location": "receipts/v26.9.22/FERROPLAN-26922-06.json"
+  },
+  "standing": {
+    "value": "ALIVE",
+    "derived_from": "recorded replay command at merge 305546927ebef3b188e79b2f497f8360f998f44b (v1 receipt FERROPLAN-26922-06.json)"
+  },
+  "provider_ext.ferroplan": {
+    "v1_receipt": "FERROPLAN-26922-06.json",
+    "branch": "fer-06-standing-guard",
+    "v1_merge_sha": "3055469",
+    "v1_commit": "c464795"
+  }
+}

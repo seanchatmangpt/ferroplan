@@ -1,0 +1,53 @@
+{
+  "work_order_id": "FERROPLAN-26922-08",
+  "origin_authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "provider": {
+    "name": "claude-code",
+    "transport": "local-cli"
+  },
+  "provider_execution_id": "FERROPLAN-26922-08:fer-08-integration-branch",
+  "identity": {
+    "subject": "FERROPLAN-26922-08",
+    "repo": "/Users/sac/ferroplan",
+    "subject_sha": "d7ffd78e15dd8af894b499d02f3802bc623a0ddc",
+    "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88"
+  },
+  "authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "consequence": {
+    "commits": [
+      "d8964e8d04bb8e4ebbee19733b4ee0d613f4449e",
+      "d7ffd78e15dd8af894b499d02f3802bc623a0ddc"
+    ],
+    "files_changed": [],
+    "remote_effects": []
+  },
+  "replay": {
+    "commands": [
+      {
+        "cmd": "git merge-base --is-ancestor 18dbc73 main || ! git ls-remote --exit-code origin refs/heads/integration/all-open-prs-2026-07-31 ; grep -Eq 'Standing: (CLOSED|DONE|ALIVE)' docs/jira/v26.9.19/008-*.md docs/jira/v26.9.19/009-*.md",
+        "cwd": "/Users/sac/ferroplan",
+        "exit": 0,
+        "summary": "RULING: delete with rationale. integration/all-open-prs-2026-07-31 (70 patches) and feeder feat/v26.8.1-full-planning-ggen (69 patches) deleted on origin; ls-remote exit 2 (absent). Rationale recorded in tickets 008/009 (Standing: CLOSED): two-month-stale v26.8.1 ggen full_planning graph, no consumer, seams since redesigned by fond-htn waves; tips preserved locally on preserve/v26922/integration-all-open-prs (18dbc73) and preserve/v26922/feat-v26.8.1-full-planning-ggen (f302693). CORRECTION: the wo8 merge was initially omitted from the release sequence; caught by the WO's own acceptance grep at lane close and merged directly into main."
+      }
+    ],
+    "durable_location": "receipts/v26.9.22/FERROPLAN-26922-08.json"
+  },
+  "standing": {
+    "value": "ALIVE",
+    "derived_from": "recorded replay command at merge d7ffd78e15dd8af894b499d02f3802bc623a0ddc (v1 receipt FERROPLAN-26922-08.json)"
+  },
+  "provider_ext.ferroplan": {
+    "v1_receipt": "FERROPLAN-26922-08.json",
+    "branch": "fer-08-integration-branch",
+    "v1_merge_sha": "landed directly to main via merge after d7ffd78 (omitted from the release sequence in error; correction noted here)",
+    "v1_commit": "d8964e8"
+  }
+}

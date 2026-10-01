@@ -1,0 +1,54 @@
+{
+  "work_order_id": "FERROPLAN-26922-05",
+  "origin_authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "provider": {
+    "name": "claude-code",
+    "transport": "local-cli"
+  },
+  "provider_execution_id": "FERROPLAN-26922-05:fer-05-upstream",
+  "identity": {
+    "subject": "FERROPLAN-26922-05",
+    "repo": "/Users/sac/ferroplan",
+    "subject_sha": "a4c5a330e65055b8eb605cd3cb1087487be29068",
+    "base_sha": "e90928d7b0687a959831553c4eacca3d75ca6c88"
+  },
+  "authority": {
+    "ceiling": "CONSTRUCT",
+    "grant": "NONE",
+    "actor": "claude-code"
+  },
+  "consequence": {
+    "commits": [
+      "84300312324179f19e35013960b0a9fdacaeb95d",
+      "85105d0539f6790f8620677d86876c407ba96167",
+      "a4c5a330e65055b8eb605cd3cb1087487be29068"
+    ],
+    "files_changed": [],
+    "remote_effects": []
+  },
+  "replay": {
+    "commands": [
+      {
+        "cmd": "git fetch upstream && git ls-remote upstream refs/heads/main && git merge upstream/main ; cargo fmt --all -- --check && cargo clippy --workspace --exclude ferroplan-bevy --all-targets --all-features -- -D warnings && cargo test --workspace --exclude ferroplan-bevy && (cd crucible && cargo test)",
+        "cwd": "/Users/sac/ferroplan",
+        "exit": 0,
+        "summary": "upstream main re-resolved at execution time = a05b604; merge-base --is-ancestor satisfied post-merge (a05b604 ancestor of release). Hand-resolved: ground.rs (upstream and_merge_owned), temporal.rs x2 (pub(crate) expr_subst_duration for merged tcompress.rs; Happening.zero_end), CHANGELOG union, README/book prose (fork links), ferroplan Cargo.toml kept hddl edge, py lock regenerated. Version bumped 0.28.0 -> 0.28.1 (fork tag v0.28.0 @17e38bb predates upstream's 0.28.0). Clippy 1.97 fallout fixed (NoPlan unit variant). Crucible escalation test steadied via FAKEFF_READY_FILE handshake (startup race killed the child with SIGTERM before the ignore was installed under load). All gates exit 0."
+      }
+    ],
+    "durable_location": "receipts/v26.9.22/FERROPLAN-26922-05.json"
+  },
+  "standing": {
+    "value": "ALIVE",
+    "derived_from": "recorded replay command at merge a4c5a330e65055b8eb605cd3cb1087487be29068 (v1 receipt FERROPLAN-26922-05.json)"
+  },
+  "provider_ext.ferroplan": {
+    "v1_receipt": "FERROPLAN-26922-05.json",
+    "branch": "fer-05-upstream",
+    "v1_merge_sha": "a4c5a33",
+    "v1_commit": "8430031 (upstream merge) + 85105d0 (release 0.28.1)"
+  }
+}
