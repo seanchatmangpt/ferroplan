@@ -35,3 +35,11 @@ Not changed (reported): the engine's `{"error":{code,message,retryable}}` envelo
 - `registry/ARTIFACTS.sha256` is now rendered with `artifacts.rq` (pin facts present); the earlier
   `registry.rq` binding produced the placeholder skeleton, and Create mode never replaced it.
 - Generated `.ex` files are not `mix format`-clean; format them in the consuming project.
+
+## freeArity consumed (S3, 2026-10-01)
+
+- `host.ex.tmpl`: query adds `?free_arity` (`qri:freeArity`, default 1); both free-export calls
+  pass `[ptr]` (arity 1) or `[ptr, len]` (arity 2); any other arity renders the
+  `UNSUPPORTED_host_profile_free_arity_not_1_or_2` undefined variable (generation fails).
+- `tests/free_arity_drift.rs` compares `qri:freeArity` in `ontology/contract.ttl` with the
+  `fp_dealloc` parameter count parsed from `src/wasi_abi.rs`, with mutation self-tests.
