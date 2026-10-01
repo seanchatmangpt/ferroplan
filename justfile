@@ -57,7 +57,7 @@ wasm-build-pin:
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build -p ferroplan-wasm --release --target wasm32-wasip1
-    f=target/wasm32-wasip1/release/ferroplan_wasm.wasm
+    f="${CARGO_TARGET_DIR:-target}/wasm32-wasip1/release/ferroplan_wasm.wasm"
     got_sha=$(shasum -a 256 "$f" | cut -d' ' -f1)
     got_bytes=$(wc -c < "$f" | tr -d ' ')
     want_sha=$(grep -o 'wja:wasmSha256 "[0-9a-f]*"' ontology/ferroplan-wasm.ttl | head -1 | cut -d'"' -f2)
