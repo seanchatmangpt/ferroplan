@@ -1,0 +1,69 @@
+# AIRo risk description - ferroplan FOND planner (lane W638, AIRo wiring wave)
+# Vocabulary: AIRo 1.0 (https://w3id.org/airo#), sha256
+#   6274d2d8711e046cf38f1b5b2980188094d4aa87b5af79804005a06468fd8469
+#   (W600-verified fetch; cached at /tmp/airo.ttl for check_airo.sh).
+# All cited paths are repo-relative to the ferroplan repo root and are verified
+# on disk by scripts/check_airo.sh.
+
+@prefix airo: <https://w3id.org/airo#> .
+@prefix fp-airo: <https://w3id.org/airo/examples/ferroplan#> .
+@prefix dc:   <http://purl.org/dc/elements/1.1/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+
+fp-airo: a owl:Ontology ;
+    owl:versionInfo "W638 lane draft, AIRo 1.0 vocabulary, 2026-10-06" .
+
+fp-airo:FerroplanSystem
+    a airo:AISystem ;
+    rdfs:label "ferroplan FOND planner"@en ;
+    dc:description "Fully observable non-deterministic (FOND) planner: HDDL/PDDL compilation, strong-cyclic policy synthesis, and inverse-reachability safe-set gating (dissertation Ch3 Theorem 3.1)."@en ;
+    airo:isProvidedBy fp-airo:FerroplanProvider ;
+    airo:hasRisk fp-airo:RiskUnreachableGoalPlanning , fp-airo:RiskPlanNonDeterminism ;
+    airo:hasRiskControl
+        fp-airo:ControlBackwardSafeSet ,
+        fp-airo:ControlReachabilityCourt ,
+        fp-airo:ControlForbiddenOpMask ,
+        fp-airo:ControlStrongCyclicSolver .
+
+fp-airo:FerroplanProvider
+    a airo:AIProvider ;
+    rdfs:label "ferroplan project"@en .
+
+# --- Risk sources (real documented hazards) ---------------------------------
+
+fp-airo:RiskUnreachableGoalPlanning
+    a airo:RiskSource , airo:Risk ;
+    dc:description "Unreachable-goal planning into prohibited states: without inverse-reachability compilation the planner can select actions whose outcomes inevitably descend into a prohibited state, yielding plans that are syntactically valid but land in prohibited territory (dissertation Ch3 Theorem 3.1 hazard; the exact hazard the BackwardSafeSet compilation eliminates)."@en ;
+    rdfs:comment "Documented in crates/ferroplan/src/reachability.rs (module header, BackwardSafeSet). Cross-repo receipt: xaas docs/sjira/v26.10.6/plans/w501-art9-reachability.md" .
+
+fp-airo:RiskPlanNonDeterminism
+    a airo:RiskSource , airo:Risk ;
+    dc:description "Plan non-determinism under disturbance: in FOND domains actions have multiple outcomes (oneof), so a sequential plan valid under one outcome sequence can dead-end or dead-sink under adversarial outcome resolution; a strong-cyclic policy, not a sequential plan, is required for the guarantee."@en ;
+    rdfs:comment "Documented in crates/ferroplan/src/planning_runtime.rs — fond_policy_strong_cyclic and the dead-sink reproducer tests fond_policy_strong_cyclic_rejects_the_truncation_dead_sink_reproducer / fond_policy_still_rejects_the_dead_sink_reproducer." .
+
+# --- Risk controls (real gates; cited files verified on disk) ----------------
+
+fp-airo:ControlBackwardSafeSet
+    a airo:RiskControl ;
+    dc:description "Inverse-reachability safe-set compilation: BackwardSafeSet computes S_safe = X minus the union over k of Reach-backward-k(S_prohibited) as a level-by-level predecessor BFS bounded by max_depth, with a saturation flag distinguishing full closure from bound-stopped; is_safe excludes every state that can reach a prohibited state."@en ;
+    rdfs:comment "crates/ferroplan/src/reachability.rs (BackwardSafeSet::from_successors / from_predecessors / is_safe / unsafe_count / depth_reached / saturated)" .
+
+fp-airo:ControlReachabilityCourt
+    a airo:RiskControl ;
+    dc:description "Mutant-killed test court for the safe-set compilation: 6 tests over linear chains, depth bounds, cycles, and disconnected components; the skip(1)-predecessor-edge anti-vacuity mutant was killed by 4 of the 6 tests (linear_chain_backward_reach, depth_bound_stops_before_full_closure, cycle_saturates_without_hang, disconnected_component_stays_safe), proving the court is non-vacuous."@en ;
+    rdfs:comment "crates/ferroplan/src/reachability.rs (tests module); run via: cargo test -p ferroplan --lib reachability::tests ; court receipt in xaas docs/sjira/v26.10.6/plans/w501-art9-reachability.md" .
+
+fp-airo:ControlForbiddenOpMask
+    a airo:RiskControl ;
+    dc:description "Session-level forbidden-operator mask: per-session operator mask where masked operators never fire during search or policy extraction, providing the planner-side Gamma_prohibited gating role that seeds the BackwardSafeSet prohibited-state set."@en ;
+    rdfs:comment "crates/ferroplan/src/session.rs (forbidden field, session.rs:187; masked at search.rs dispatch via session forbidden mask)" .
+
+fp-airo:ControlStrongCyclicSolver
+    a airo:RiskControl ;
+    dc:description "FOND strong-cyclic solver: fond_policy_strong_cyclic synthesizes a policy that guarantees goal reachability under every outcome resolution (strong-cyclic fairness assumption), eliminating the dead-sink / truncation reproducer hazards that plain fond_policy accepts."@en ;
+    rdfs:comment "crates/ferroplan/src/planning_runtime.rs:923 (fond_policy_strong_cyclic); also crates/ferroplan/src/hddl.rs:339 documents the fond_policy / fond_policy_strong_cyclic surface" .
+
+# Standing note: PARTIAL_ALIVE — this description maps real on-disk gates;
+# Likelihood/Severity individuals are not asserted (AIRo defines the classes,
+# no individuals; self-assessment deferred to a later lane wave).
