@@ -92,3 +92,10 @@ benchmarks/cut28-sweep*.log
 .clap-noun-verb/
 **/.clap-noun-verb/
 **/target-lane*/
+
+# lane-lease build roots (fan-out campaign)
+_build/
+node_modules/
+.DS_Store
+_build-lane*/
+target-lane*/
