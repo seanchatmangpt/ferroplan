@@ -246,7 +246,9 @@ language surface, semantics, deliberate deviations, and the external-oracle
 differential methodology are documented in
 [`docs/FOND-HTN.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/FOND-HTN.md);
 benchmark sweeps and reproducibility records in
-[`docs/BENCHMARKS.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/BENCHMARKS.md).
+[`docs/BENCHMARKS.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/BENCHMARKS.md);
+the inverse-reachability safe-set engine (dissertation Ch3, Theorem 3.1) in
+[`docs/reachability.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/reachability.md).
 
 **What's supported** — every claim pinned to the test or RESULTS file that
 witnesses it:
