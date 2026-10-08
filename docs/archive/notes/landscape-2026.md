@@ -1,7 +1,7 @@
 # The modern planning landscape, 2026 — the 0.17 frontier memo
 
 Field dispatch, filed against the 0.17 Phase 1 deliverable
-(`docs/roadmap-0.17.md`). I went back to where the competitions
+(`docs/archive/roadmaps/roadmap-0.17.md`). I went back to where the competitions
 ferroplan cut its teeth on (IPC-5/6/7, 2006–2011) left off, tracked
 what the winners are actually running now, and came back with a
 RANKED list of engine gaps — each one tagged with a mechanism

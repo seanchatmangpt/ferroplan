@@ -80,7 +80,7 @@ cut finishes on the cloud box; everything after happens on the Air.
 
 - 0.19.0 published. 0.20 phases 1–5 complete and in main; the 0.20
   cut sweeps run on the cloud box and the cut record, pre-flight,
-  and publish-ready main land there (see docs/roadmap-0.20.md,
+  and publish-ready main land there (see docs/archive/roadmaps/roadmap-0.20.md,
   Phase 6). If migration happens before the cut completes, the cut
   can equally be re-run on the Air — but then its boards are
   Air-baselined and MUST NOT be A/B'd against the 0.19 cloud

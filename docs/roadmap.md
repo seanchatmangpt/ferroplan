@@ -6,9 +6,10 @@
 > MCP server followed it out the door, crates.io publishing closed the loop. Then
 > 0.4.0 picked up the IPC-5 preference track (see the
 > [scoreboard](../benchmarks/ipc5-scoreboard.md)). This file stays on record as the
-> plan that ran. **Live work** is in the [0.5 roadmap](roadmap-0.5.md)
-> ("First Place"), which folds in the scoreboard's "Path to climb" (large-instance
-> tails; rovers completion-aware pricing) and the
+> plan that ran. Historical roadmaps (0.5–0.27) live in
+> [archive/roadmaps](archive/roadmaps/). **Live work** is the
+> [0.28 roadmap](roadmap-0.28.md), which folds in the scoreboard's "Path to
+> climb" (large-instance tails; rovers completion-aware pricing) and the
 > [ESPC spec](espc-preferences-spec.md).
 
 ferroplan v0.1 came out of the gate a mature FF-family engine, running on one bet

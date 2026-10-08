@@ -459,7 +459,7 @@ detail: [`benchmarks/results.md`](https://github.com/seanchatmangpt/ferroplan/bl
 (GPL / non-commercial licences) — reproduce per
 [`benchmarks/COMPARING.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/benchmarks/COMPARING.md).
 
-**Profiling & perf tracking:** [`PROFILING.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/PROFILING.md) — a deterministic
+**Profiling & perf tracking:** [`PROFILING.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/archive/notes/PROFILING.md) — a deterministic
 metrics harness (`benchmarks/perf.py run`/`compare` against a committed baseline,
 so improvement/regression is measurable across machines) plus the samply /
 flamegraph / criterion-baseline workflow for finding and tracking hotspots.
@@ -489,7 +489,7 @@ reproduction commands and a verdict legend — is consolidated in
   comes back — and on a problem with no hard goal it is the empty plan. The
   design record for the remaining work is in
   [`docs/espc-preferences-spec.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/espc-preferences-spec.md) and
-  [`docs/roadmap-0.5.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/roadmap-0.5.md).
+  [`docs/roadmap-0.5.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/docs/archive/roadmaps/roadmap-0.5.md).
 - **PDDL3 trajectory constraints** (`(:constraints ...)`): the six untimed
   modal operators (`always`, `sometime`, `at-most-once`, `sometime-after`,
   `sometime-before`, `at end`) are **enforced on the classical path** — compiled
