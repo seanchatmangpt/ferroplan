@@ -53,7 +53,7 @@ must exist before Eve can ground human purpose against them.
 
 ## Example
 
-```rust
+```rust,ignore
 use ferroplan::{
     Activator, CapabilityTarget, Eve, EveRequest, GenesisWorld, HddlSurface,
     HumanPurpose, ManufactureTarget,

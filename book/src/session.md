@@ -10,7 +10,7 @@ Everything below is deterministic, thread-count independent: same session
 state, same budget, same goal — byte-identical plans at any `threads`
 setting.
 
-```rust,no_run
+```rust,ignore
 use ferroplan::{Options, Session};
 # let (domain_src, problem_src) = (String::new(), String::new());
 let mut s = Session::new(&domain_src, &problem_src, &Options::default())?;

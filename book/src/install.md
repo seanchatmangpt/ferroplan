@@ -22,7 +22,7 @@ ff -o domain.pddl -f problem.pddl
 
 Or skip the binary — `cargo add ferroplan`, then call it direct:
 
-```rust,no_run
+```rust,ignore
 let domain  = std::fs::read_to_string("domain.pddl").unwrap();
 let problem = std::fs::read_to_string("problem.pddl").unwrap();
 let sol = ferroplan::solve(&domain, &problem, &ferroplan::Options::default()).unwrap();

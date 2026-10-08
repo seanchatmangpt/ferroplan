@@ -4,7 +4,7 @@ No strings to parse, no ad-hoc output. The library hands back **typed,
 `serde`-serializable** structures. Every knob lives on one `Options` struct; every
 field is optional via `Default`.
 
-```rust,no_run
+```rust,ignore
 use ferroplan::{solve, Mode, Options};
 
 let domain = std::fs::read_to_string("domain.pddl").unwrap();

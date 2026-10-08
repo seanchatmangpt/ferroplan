@@ -90,7 +90,7 @@ returned with a `NOT scored` note rather than not returned.
 Plans render in the IPC temporal format, `start: (action args) [duration]`,
 tagged with the overall **makespan**:
 
-```
+```text
 0.000: (fly plane1 city-a city-b) [3.000]
 3.000: (fly plane1 city-b city-c) [4.000]
 ```

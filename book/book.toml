@@ -5,6 +5,9 @@ description = "A fast, data-parallel PDDL planner in Rust"
 language = "en"
 src = "src"
 
+[rust]
+edition = "2021"
+
 [output.html]
 default-theme = "rust"
 git-repository-url = "https://github.com/seanchatmangpt/ferroplan"
