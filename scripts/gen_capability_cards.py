@@ -20,6 +20,8 @@ REGISTRY = REPO / "crates/ferroplan-wasm/registry/capability-registry.json"
 CARDS = REPO / "crates/ferroplan-wasm/cards"
 MANIFEST = CARDS / "MANIFEST.sha256"
 
+CRATE_VERSION = "0.29.0"
+
 LIMITS_TEXT = (
     "Limits: max request 16 MiB (16777216 bytes), max JSON depth 128, "
     "16 MiB stack. Requests exceeding these are refused with "
@@ -45,20 +47,46 @@ def sha256_file(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
+def op_tag(op_name: str) -> str:
+    """Derive the skill tag from the op family (surface's own vocabulary)."""
+    if op_name.startswith("session_"):
+        return "session"
+    if op_name.startswith(("fond_", "htn_", "hddl_", "plan")):
+        return "plan"
+    if op_name == "readiness":
+        return "qualification"
+    if op_name == "version":
+        return "metadata"
+    return "op"
+
+
 def build_card(reg: dict, op: dict) -> dict:
     name = op["name"]
     note = OP_NOTES.get(
         name, "Callable via fp_call with op='%s'." % name
     )
+    desc = (
+        "ferroplan-wasm op `%s` (ABI v%d). %s %s %s"
+        % (name, reg["abi_version"], note, LIMITS_TEXT, AUTHORITY_LAW)
+    )
     return {
         "a2a_version": "1.0",
+        "version": CRATE_VERSION,
         "id": "ferroplan.%s" % name,
         "kind": "agent-card",
         "name": "Ferroplan capability: %s" % name,
-        "description": (
-            "ferroplan-wasm op `%s` (ABI v%d). %s %s %s"
-            % (name, reg["abi_version"], note, LIMITS_TEXT, AUTHORITY_LAW)
-        ),
+        "description": desc,
+        "supportedInterfaces": [
+            {"protocolVersion": "1.0", "protocolBinding": "WASM"}
+        ],
+        "skills": [
+            {
+                "id": "ferroplan.%s" % name,
+                "name": name,
+                "description": desc,
+                "tags": [op_tag(name)],
+            }
+        ],
         "source": {
             "registry": "crates/ferroplan-wasm/registry/capability-registry.json",
             "registry_sha256": sha256_file(REGISTRY),

@@ -1,9 +1,26 @@
 {
   "a2a_version": "1.0",
+  "version": "0.29.0",
   "id": "ferroplan.session_replan_following",
   "kind": "agent-card",
   "name": "Ferroplan capability: session_replan_following",
   "description": "ferroplan-wasm op `session_replan_following` (ABI v1). Callable via fp_call with op='session_replan_following'. Limits: max request 16 MiB (16777216 bytes), max JSON depth 128, 16 MiB stack. Requests exceeding these are refused with FP_LIMIT_INPUT (bytes/depth) or FP_LIMIT_SEARCH/FP_LIMIT_MEMORY at runtime. Authority law: planner CONSTRUCT - candidate output, never actuation. Returned plans are candidates for host-side admission; the planner holds no DO authority.",
+  "supportedInterfaces": [
+    {
+      "protocolVersion": "1.0",
+      "protocolBinding": "WASM"
+    }
+  ],
+  "skills": [
+    {
+      "id": "ferroplan.session_replan_following",
+      "name": "session_replan_following",
+      "description": "ferroplan-wasm op `session_replan_following` (ABI v1). Callable via fp_call with op='session_replan_following'. Limits: max request 16 MiB (16777216 bytes), max JSON depth 128, 16 MiB stack. Requests exceeding these are refused with FP_LIMIT_INPUT (bytes/depth) or FP_LIMIT_SEARCH/FP_LIMIT_MEMORY at runtime. Authority law: planner CONSTRUCT - candidate output, never actuation. Returned plans are candidates for host-side admission; the planner holds no DO authority.",
+      "tags": [
+        "session"
+      ]
+    }
+  ],
   "source": {
     "registry": "crates/ferroplan-wasm/registry/capability-registry.json",
     "registry_sha256": "aa5da35535f9e621e5cbd81b750095bfa7dd7549b1e77a2deb6f60bbe82540f3",
