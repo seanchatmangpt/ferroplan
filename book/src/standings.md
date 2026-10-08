@@ -65,5 +65,5 @@ oversubscribed.
 - `benchmarks/ipc7-mco-t{2,4,8}.md` — the multi-core rows.
 
 Per-cycle history — what moved, why, cut by cut — lives in the
-`docs/roadmap-0.*.md` records. This chapter reads the CURRENT
+`docs/archive/roadmaps/roadmap-0.*.md` records. This chapter reads the CURRENT
 standing, nothing older.
