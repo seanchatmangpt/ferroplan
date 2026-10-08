@@ -1,0 +1,71 @@
+{
+  "a2a_version": "1.0",
+  "id": "ferroplan.session_set_timed_fact",
+  "kind": "agent-card",
+  "name": "Ferroplan capability: session_set_timed_fact",
+  "description": "ferroplan-wasm op `session_set_timed_fact` (ABI v1). Callable via fp_call with op='session_set_timed_fact'. Limits: max request 16 MiB (16777216 bytes), max JSON depth 128, 16 MiB stack. Requests exceeding these are refused with FP_LIMIT_INPUT (bytes/depth) or FP_LIMIT_SEARCH/FP_LIMIT_MEMORY at runtime. Authority law: planner CONSTRUCT - candidate output, never actuation. Returned plans are candidates for host-side admission; the planner holds no DO authority.",
+  "source": {
+    "registry": "crates/ferroplan-wasm/registry/capability-registry.json",
+    "registry_sha256": "aa5da35535f9e621e5cbd81b750095bfa7dd7549b1e77a2deb6f60bbe82540f3",
+    "abi_version": 1,
+    "crate": "ferroplan-wasm",
+    "op": "session_set_timed_fact"
+  },
+  "signature": {
+    "request_fields": [
+      "op",
+      "handle",
+      "name",
+      "dt",
+      "value"
+    ],
+    "response_fields": [
+      "ok"
+    ]
+  },
+  "refusal_vocabulary": [
+    "FP_ADAPTER",
+    "FP_UNKNOWN_OP",
+    "FP_LIMIT_INPUT",
+    "FP_INVALID_REQUEST",
+    "FP_INVALID_PROBLEM",
+    "FP_INVALID_POLICY",
+    "FP_VALIDATION",
+    "FP_INVARIANT",
+    "FP_LIMIT_SEARCH",
+    "FP_LIMIT_MEMORY",
+    "FP_LIMIT_CANDIDATES",
+    "FP_LIMIT_CANDIDATE",
+    "FP_DUPLICATE_CANDIDATE",
+    "FP_PARSE",
+    "FP_HDDL_GROUND",
+    "FP_HDDL_TRANSLATE",
+    "FP_HDDL_ROOT_MISMATCH",
+    "FP_MODEL",
+    "FP_TIMEOUT",
+    "FP_WORKER_PANICKED"
+  ],
+  "limits": {
+    "max_request_bytes": 16777216,
+    "max_json_depth": 128
+  },
+  "authority": {
+    "authority_claim": "NONE",
+    "law": "Authority law: planner CONSTRUCT - candidate output, never actuation. Returned plans are candidates for host-side admission; the planner holds no DO authority."
+  },
+  "qualification": {
+    "contract_class": "qri:CapabilityContract",
+    "digest_property": "qri:contractDigest",
+    "receipt_class": "qri:QualificationReceipt",
+    "note": "Standing is derived from receipts; cards carry none."
+  },
+  "abi": {
+    "exports": [
+      "fp_alloc",
+      "fp_call",
+      "fp_dealloc",
+      "memory"
+    ],
+    "imports_policy": "wasi_snapshot_preview1"
+  }
+}
