@@ -13,14 +13,14 @@
 
 ### crates/ferroplan-bevy/src/anim.rs
 
-| advance | function | advance(time: Res<Time>, mut plan: ResMut<Plan>) |  |  |  |  |
+| `advance` | function | advance(time: Res<Time>, mut plan: ResMut<Plan>) |  |  |  |  |
 
-| animate | function | animate(
+| `animate` | function | animate(
     plan: Res<Plan>,
     scene: Res<Scene>,
     nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
 
-| controls | function | controls(
+| `controls` | function | controls(
     keys: Res<ButtonInput<KeyCode>>,
     scene: Res<Scene>,
     editor: Res<crate::blocks::Editor>,
@@ -28,85 +28,85 @@
     mut job: ResMut<SolveJob>,
 ) |  |  |  |  |
 
-| frac | function | frac(&self) |  |  |  |  |
+| `frac` | function | frac(&self) |  |  |  |  |
 
-| poll_solve | function | poll_solve(mut job: ResMut<SolveJob>, mut plan: ResMut<Plan>) |  |  |  |  |
+| `poll_solve` | function | poll_solve(mut job: ResMut<SolveJob>, mut plan: ResMut<Plan>) |  |  |  |  |
 
-| span | function | span(&self) |  |  |  |  |
+| `span` | function | span(&self) |  |  |  |  |
 
-| start_frac | function | start_frac(&self, step: &Step, idx: usize) |  |  |  |  |
+| `start_frac` | function | start_frac(&self, step: &Step, idx: usize) |  |  |  |  |
 
-| Plan | struct |  |  |  |  |  |
+| `Plan` | struct |  |  |  |  |  |
 
-| SolveJob | struct |  |  |  |  |  |
+| `SolveJob` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/blocks.rs
 
-| Act | enum |  |  |  |  |  |
+| `Act` | enum |  |  |  |  |  |
 
-| DragKind | enum |  |  |  |  |  |
+| `DragKind` | enum |  |  |  |  |  |
 
-| Focus | enum |  |  |  |  |  |
+| `Focus` | enum |  |  |  |  |  |
 
-| LitLoc | enum |  |  |  |  |  |
+| `LitLoc` | enum |  |  |  |  |  |
 
-| Mode | enum |  |  |  |  |  |
+| `Mode` | enum |  |  |  |  |  |
 
-| Zone | enum |  |  |  |  |  |
+| `Zone` | enum |  |  |  |  |  |
 
-| editor_drag | function | editor_drag(
+| `editor_drag` | function | editor_drag(
     mouse: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     mut drag: ResMut<Drag>,
     mut editor: ResMut<Editor>,
     grips: Query<(&DragKind, &RelativeCursorPosition) |  |  |  |  |
 
-| handle_clicks | function | handle_clicks(
+| `handle_clicks` | function | handle_clicks(
     interactions: Query<(&Interaction, &Act) |  |  |  |  |
 
-| rebuild | function | rebuild(
+| `rebuild` | function | rebuild(
     mut commands: Commands,
     mut editor: ResMut<Editor>,
     roots: Query<Entity, With<EditorRoot>>,
 ) |  |  |  |  |
 
-| scroll_editor | function | scroll_editor(
+| `scroll_editor` | function | scroll_editor(
     mut wheel: MessageReader<MouseWheel>,
     keys: Res<ButtonInput<KeyCode>>,
     editor: Res<Editor>,
     mut q: Query<&mut ScrollPosition, With<EditorRoot>>,
 ) |  |  |  |  |
 
-| text_input | function | text_input(mut evr: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>) |  |  |  |  |
+| `text_input` | function | text_input(mut evr: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>) |  |  |  |  |
 
-| toggle_editor | function | toggle_editor(
+| `toggle_editor` | function | toggle_editor(
     keys: Res<ButtonInput<KeyCode>>,
     scene: Res<Scene>,
     mut editor: ResMut<Editor>,
 ) |  |  |  |  |
 
-| Drag | struct |  |  |  |  |  |
+| `Drag` | struct |  |  |  |  |  |
 
-| Editor | struct |  |  |  |  |  |
+| `Editor` | struct |  |  |  |  |  |
 
-| EditorRoot | struct |  |  |  |  |  |
+| `EditorRoot` | struct |  |  |  |  |  |
 
-| Ghost | struct |  |  |  |  |  |
+| `Ghost` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/gantt.rs
 
-| gantt_now | function | gantt_now(plan: Res<Plan>, mut now: Query<&mut Node, With<GanttNow>>) |  |  |  |  |
+| `gantt_now` | function | gantt_now(plan: Res<Plan>, mut now: Query<&mut Node, With<GanttNow>>) |  |  |  |  |
 
-| gantt_visibility | function | gantt_visibility(
+| `gantt_visibility` | function | gantt_visibility(
     plan: Res<Plan>,
     state: Res<GanttState>,
     editor: Res<crate::blocks::Editor>,
     mut panel: Query<&mut Visibility, With<GanttPanel>>,
 ) |  |  |  |  |
 
-| rebuild_gantt | function | rebuild_gantt(
+| `rebuild_gantt` | function | rebuild_gantt(
     mut commands: Commands,
     plan: Res<Plan>,
     mut state: ResMut<GanttState>,
@@ -114,85 +114,85 @@
     bars: Query<Entity, With<GanttBar>>,
 ) |  |  |  |  |
 
-| setup_gantt | function | setup_gantt(mut commands: Commands) |  |  |  |  |
+| `setup_gantt` | function | setup_gantt(mut commands: Commands) |  |  |  |  |
 
-| toggle_gantt | function | toggle_gantt(
+| `toggle_gantt` | function | toggle_gantt(
     keys: Res<ButtonInput<KeyCode>>,
     editor: Res<crate::blocks::Editor>,
     mut state: ResMut<GanttState>,
 ) |  |  |  |  |
 
-| GanttBar | struct |  |  |  |  |  |
+| `GanttBar` | struct |  |  |  |  |  |
 
-| GanttNow | struct |  |  |  |  |  |
+| `GanttNow` | struct |  |  |  |  |  |
 
-| GanttPanel | struct |  |  |  |  |  |
+| `GanttPanel` | struct |  |  |  |  |  |
 
-| GanttState | struct |  |  |  |  |  |
+| `GanttState` | struct |  |  |  |  |  |
 
-| GanttTrack | struct |  |  |  |  |  |
+| `GanttTrack` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/icons.rs
 
-| IconShape | enum |  |  |  |  |  |
+| `IconShape` | enum |  |  |  |  |  |
 
-| color_for | function | color_for(ty: &str) |  |  |  |  |
+| `color_for` | function | color_for(ty: &str) |  |  |  |  |
 
-| mat_handle | function | mat_handle(
+| `mat_handle` | function | mat_handle(
     materials: &mut Assets<ColorMaterial>,
     cache: &mut MatCache,
     color: Color,
 ) |  |  |  |  |
 
-| mesh_handle | function | mesh_handle(
+| `mesh_handle` | function | mesh_handle(
     meshes: &mut Assets<Mesh>,
     cache: &mut MeshCache,
     shape: IconShape,
     size: f32,
 ) |  |  |  |  |
 
-| shape_for | function | shape_for(ty: &str) |  |  |  |  |
+| `shape_for` | function | shape_for(ty: &str) |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/interact.rs
 
-| draw_selection | function | draw_selection(
+| `draw_selection` | function | draw_selection(
     mut gizmos: Gizmos,
     selected: Res<Selected>,
     nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
 
-| interact | function | interact(
+| `interact` | function | interact(
     mouse: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     editor: Res<crate::blocks::Editor>,
     cam_q: Query<(&Camera, &GlobalTransform) |  |  |  |  |
 
-| DragState | struct |  |  |  |  |  |
+| `DragState` | struct |  |  |  |  |  |
 
-| Selected | struct |  |  |  |  |  |
+| `Selected` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/scene.rs
 
-| camera_nav | function | camera_nav(
+| `camera_nav` | function | camera_nav(
     mouse: Res<ButtonInput<MouseButton>>,
     editor: Res<crate::blocks::Editor>,
     mut motion: MessageReader<bevy::input::mouse::MouseMotion>,
     mut wheel: MessageReader<MouseWheel>,
     mut cam: Query<(&mut Transform, &mut Projection) |  |  |  |  |
 
-| draw_edges | function | draw_edges(
+| `draw_edges` | function | draw_edges(
     mut gizmos: Gizmos,
     scene: Res<Scene>,
     plan: Res<crate::anim::Plan>,
     nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
 
-| handle_drops | function | handle_drops(mut drops: MessageReader<FileDragAndDrop>, mut scene: ResMut<Scene>) |  |  |  |  |
+| `handle_drops` | function | handle_drops(mut drops: MessageReader<FileDragAndDrop>, mut scene: ResMut<Scene>) |  |  |  |  |
 
-| load_src | function | load_src(&mut self, src: &str) |  |  |  |  |
+| `load_src` | function | load_src(&mut self, src: &str) |  |  |  |  |
 
-| respawn_graph | function | respawn_graph(
+| `respawn_graph` | function | respawn_graph(
     mut commands: Commands,
     mut scene: ResMut<Scene>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -200,24 +200,24 @@
     existing: Query<Entity, With<GraphItem>>,
 ) |  |  |  |  |
 
-| setup | function | setup(mut commands: Commands) |  |  |  |  |
+| `setup` | function | setup(mut commands: Commands) |  |  |  |  |
 
-| FanOffset | struct |  |  |  |  |  |
+| `FanOffset` | struct |  |  |  |  |  |
 
-| GraphItem | struct |  |  |  |  |  |
+| `GraphItem` | struct |  |  |  |  |  |
 
-| MainCamera | struct |  |  |  |  |  |
+| `MainCamera` | struct |  |  |  |  |  |
 
-| MobileObj | struct |  |  |  |  |  |
+| `MobileObj` | struct |  |  |  |  |  |
 
-| NodeObj | struct |  |  |  |  |  |
+| `NodeObj` | struct |  |  |  |  |  |
 
-| Scene | struct |  |  |  |  |  |
+| `Scene` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/transport.rs
 
-| rebuild_notches | function | rebuild_notches(
+| `rebuild_notches` | function | rebuild_notches(
     mut commands: Commands,
     plan: Res<Plan>,
     mut state: ResMut<Transport>,
@@ -225,67 +225,67 @@
     notches: Query<Entity, With<StepNotch>>,
 ) |  |  |  |  |
 
-| setup_transport | function | setup_transport(mut commands: Commands) |  |  |  |  |
+| `setup_transport` | function | setup_transport(mut commands: Commands) |  |  |  |  |
 
-| transport_input | function | transport_input(
+| `transport_input` | function | transport_input(
     mouse: Res<ButtonInput<MouseButton>>,
     mut transport: ResMut<Transport>,
     mut plan: ResMut<Plan>,
     play_btn: Query<&Interaction, (With<PlayButton>, Changed<Interaction>) |  |  |  |  |
 
-| transport_sync | function | transport_sync(
+| `transport_sync` | function | transport_sync(
     plan: Res<Plan>,
     mut fill: Query<&mut Node, (With<ScrubFill>, Without<Playhead>) |  |  |  |  |
 
-| transport_visibility | function | transport_visibility(plan: Res<Plan>, mut bar: Query<&mut Visibility, With<TransportBar>>) |  |  |  |  |
+| `transport_visibility` | function | transport_visibility(plan: Res<Plan>, mut bar: Query<&mut Visibility, With<TransportBar>>) |  |  |  |  |
 
-| PlayButton | struct |  |  |  |  |  |
+| `PlayButton` | struct |  |  |  |  |  |
 
-| PlayIcon | struct |  |  |  |  |  |
+| `PlayIcon` | struct |  |  |  |  |  |
 
-| Playhead | struct |  |  |  |  |  |
+| `Playhead` | struct |  |  |  |  |  |
 
-| ScrubFill | struct |  |  |  |  |  |
+| `ScrubFill` | struct |  |  |  |  |  |
 
-| ScrubTrack | struct |  |  |  |  |  |
+| `ScrubTrack` | struct |  |  |  |  |  |
 
-| StepNotch | struct |  |  |  |  |  |
+| `StepNotch` | struct |  |  |  |  |  |
 
-| Transport | struct |  |  |  |  |  |
+| `Transport` | struct |  |  |  |  |  |
 
-| TransportBar | struct |  |  |  |  |  |
+| `TransportBar` | struct |  |  |  |  |  |
 
-| TransportLabel | struct |  |  |  |  |  |
+| `TransportLabel` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/ui.rs
 
-| setup_ui | function | setup_ui(mut commands: Commands) |  |  |  |  |
+| `setup_ui` | function | setup_ui(mut commands: Commands) |  |  |  |  |
 
-| update_info | function | update_info(
+| `update_info` | function | update_info(
     scene: Res<Scene>,
     selected: Res<Selected>,
     plan: Res<Plan>,
     mut q: Query<&mut Text, With<InfoText>>,
 ) |  |  |  |  |
 
-| InfoText | struct |  |  |  |  |  |
+| `InfoText` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/generated/options.rs
 
-| ModeArg | enum |  |  |  |  |  |
+| `ModeArg` | enum |  |  |  |  |  |
 
-| ObjectiveArg | enum |  |  |  |  |  |
+| `ObjectiveArg` | enum |  |  |  |  |  |
 
-| SearchArg | enum |  |  |  |  |  |
+| `SearchArg` | enum |  |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/harvest/compile.rs
 
-| compile_pack | function | compile_pack(pack: &ObservationPack, output_dir: &Path) |  |  |  |  |
+| `compile_pack` | function | compile_pack(pack: &ObservationPack, output_dir: &Path) |  |  |  |  |
 
-| replay_pack | function | replay_pack(
+| `replay_pack` | function | replay_pack(
     pack: &ObservationPack,
     expected: &HarvestReceipt,
     output_dir: &Path,
@@ -294,12 +294,12 @@
 
 ### crates/ferroplan-cli/src/harvest/extract.rs
 
-| extract_operators | function | extract_operators(report: &AdmissionReport) |  |  |  |  |
+| `extract_operators` | function | extract_operators(report: &AdmissionReport) |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/harvest/gh.rs
 
-| collect_with_gh | function | collect_with_gh(
+| `collect_with_gh` | function | collect_with_gh(
     repositories: &[String],
     window: ObservationWindow,
     max_pages: usize,
@@ -308,192 +308,192 @@
 
 ### crates/ferroplan-cli/src/harvest/mod.rs
 
-| admit | function | admit(pack: &ObservationPack) |  |  |  |  |
+| `admit` | function | admit(pack: &ObservationPack) |  |  |  |  |
 
-| digest_bytes | function | digest_bytes(bytes: &[u8]) |  |  |  |  |
+| `digest_bytes` | function | digest_bytes(bytes: &[u8]) |  |  |  |  |
 
-| load_observation_pack | function | load_observation_pack(path: &Path) |  |  |  |  |
+| `load_observation_pack` | function | load_observation_pack(path: &Path) |  |  |  |  |
 
-| load_receipt | function | load_receipt(path: &Path) |  |  |  |  |
+| `load_receipt` | function | load_receipt(path: &Path) |  |  |  |  |
 
-| receipt_exit_code | function | receipt_exit_code(receipt: &HarvestReceipt) |  |  |  |  |
+| `receipt_exit_code` | function | receipt_exit_code(receipt: &HarvestReceipt) |  |  |  |  |
 
-| save_observation_pack | function | save_observation_pack(path: &Path, pack: &ObservationPack) |  |  |  |  |
+| `save_observation_pack` | function | save_observation_pack(path: &Path, pack: &ObservationPack) |  |  |  |  |
 
-| validate_pack | function | validate_pack(pack: &ObservationPack) |  |  |  |  |
+| `validate_pack` | function | validate_pack(pack: &ObservationPack) |  |  |  |  |
 
-| validate_window | function | validate_window(window: &ObservationWindow) |  |  |  |  |
+| `validate_window` | function | validate_window(window: &ObservationWindow) |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/harvest/model.rs
 
-| ActuationClass | enum |  |  |  |  |  |
+| `ActuationClass` | enum |  |  |  |  |  |
 
-| AdmissionLevel | enum |  |  |  |  |  |
+| `AdmissionLevel` | enum |  |  |  |  |  |
 
-| ExecutionResult | enum |  |  |  |  |  |
+| `ExecutionResult` | enum |  |  |  |  |  |
 
-| FinalState | enum |  |  |  |  |  |
+| `FinalState` | enum |  |  |  |  |  |
 
-| GallCheckpoint | enum |  |  |  |  |  |
+| `GallCheckpoint` | enum |  |  |  |  |  |
 
-| RefusalCode | enum |  |  |  |  |  |
+| `RefusalCode` | enum |  |  |  |  |  |
 
-| ReplayState | enum |  |  |  |  |  |
+| `ReplayState` | enum |  |  |  |  |  |
 
-| AdmissionReport | struct |  |  |  |  |  |
+| `AdmissionReport` | struct |  |  |  |  |  |
 
-| AdmittedWork | struct |  |  |  |  |  |
+| `AdmittedWork` | struct |  |  |  |  |  |
 
-| ArtifactEvidence | struct |  |  |  |  |  |
+| `ArtifactEvidence` | struct |  |  |  |  |  |
 
-| EvidenceRef | struct |  |  |  |  |  |
+| `EvidenceRef` | struct |  |  |  |  |  |
 
-| ExcludedWork | struct |  |  |  |  |  |
+| `ExcludedWork` | struct |  |  |  |  |  |
 
-| ExecutionEvidence | struct |  |  |  |  |  |
+| `ExecutionEvidence` | struct |  |  |  |  |  |
 
-| HarvestReceipt | struct |  |  |  |  |  |
+| `HarvestReceipt` | struct |  |  |  |  |  |
 
-| MethodCatalog | struct |  |  |  |  |  |
+| `MethodCatalog` | struct |  |  |  |  |  |
 
-| ObservationPack | struct |  |  |  |  |  |
+| `ObservationPack` | struct |  |  |  |  |  |
 
-| ObservationWindow | struct |  |  |  |  |  |
+| `ObservationWindow` | struct |  |  |  |  |  |
 
-| ObservedOutcome | struct |  |  |  |  |  |
+| `ObservedOutcome` | struct |  |  |  |  |  |
 
-| ObservedWorkItem | struct |  |  |  |  |  |
+| `ObservedWorkItem` | struct |  |  |  |  |  |
 
-| OperatorOutcome | struct |  |  |  |  |  |
+| `OperatorOutcome` | struct |  |  |  |  |  |
 
-| OutputArtifact | struct |  |  |  |  |  |
+| `OutputArtifact` | struct |  |  |  |  |  |
 
-| PlanningOperator | struct |  |  |  |  |  |
+| `PlanningOperator` | struct |  |  |  |  |  |
 
-| SourceRevision | struct |  |  |  |  |  |
+| `SourceRevision` | struct |  |  |  |  |  |
 
-| TransportFailure | struct |  |  |  |  |  |
+| `TransportFailure` | struct |  |  |  |  |  |
 
-| ValidationRecord | struct |  |  |  |  |  |
+| `ValidationRecord` | struct |  |  |  |  |  |
 
-| ValidationSummary | struct |  |  |  |  |  |
+| `ValidationSummary` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/examples/validate_files.rs
 
-| validate_pair | function | validate_pair(domain_src: &str, problem_src: &str) |  |  |  |  |
+| `validate_pair` | function | validate_pair(domain_src: &str, problem_src: &str) |  |  |  |  |
 
-| validate_paths | function | validate_paths(domain_path: &str, problem_path: &str) |  |  |  |  |
+| `validate_paths` | function | validate_paths(domain_path: &str, problem_path: &str) |  |  |  |  |
 
-| Summary | struct |  |  |  |  |  |
+| `Summary` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/ast.rs
 
-| Effect | enum |  |  |  |  |  |
+| `Effect` | enum |  |  |  |  |  |
 
-| GoalDesc | enum |  |  |  |  |  |
+| `GoalDesc` | enum |  |  |  |  |  |
 
-| Literal | enum |  |  |  |  |  |
+| `Literal` | enum |  |  |  |  |  |
 
-| NumericValue | enum |  |  |  |  |  |
+| `NumericValue` | enum |  |  |  |  |  |
 
-| Term | enum |  |  |  |  |  |
+| `Term` | enum |  |  |  |  |  |
 
-| ActionDef | struct |  |  |  |  |  |
+| `ActionDef` | struct |  |  |  |  |  |
 
-| AtomicFormula | struct |  |  |  |  |  |
+| `AtomicFormula` | struct |  |  |  |  |  |
 
-| ConstraintDef | struct |  |  |  |  |  |
+| `ConstraintDef` | struct |  |  |  |  |  |
 
-| Domain | struct |  |  |  |  |  |
+| `Domain` | struct |  |  |  |  |  |
 
-| MethodDef | struct |  |  |  |  |  |
+| `MethodDef` | struct |  |  |  |  |  |
 
-| NumericFluentDecl | struct |  |  |  |  |  |
+| `NumericFluentDecl` | struct |  |  |  |  |  |
 
-| OrderEdge | struct |  |  |  |  |  |
+| `OrderEdge` | struct |  |  |  |  |  |
 
-| PredicateDef | struct |  |  |  |  |  |
+| `PredicateDef` | struct |  |  |  |  |  |
 
-| Problem | struct |  |  |  |  |  |
+| `Problem` | struct |  |  |  |  |  |
 
-| Subtask | struct |  |  |  |  |  |
+| `Subtask` | struct |  |  |  |  |  |
 
-| TaskCall | struct |  |  |  |  |  |
+| `TaskCall` | struct |  |  |  |  |  |
 
-| TaskDef | struct |  |  |  |  |  |
+| `TaskDef` | struct |  |  |  |  |  |
 
-| TaskNetwork | struct |  |  |  |  |  |
+| `TaskNetwork` | struct |  |  |  |  |  |
 
-| TypeDef | struct |  |  |  |  |  |
+| `TypeDef` | struct |  |  |  |  |  |
 
-| TypedObject | struct |  |  |  |  |  |
+| `TypedObject` | struct |  |  |  |  |  |
 
-| TypedParam | struct |  |  |  |  |  |
+| `TypedParam` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/grounder.rs
 
-| GroundError | enum |  |  |  |  |  |
+| `GroundError` | enum |  |  |  |  |  |
 
-| GroundGoal | enum |  |  |  |  |  |
+| `GroundGoal` | enum |  |  |  |  |  |
 
-| action_applicable | function | action_applicable(
+| `action_applicable` | function | action_applicable(
     action: &GroundAction,
     facts: &BTreeSet<String>,
 ) |  |  |  |  |
 
-| build_type_closure | function | build_type_closure(
+| `build_type_closure` | function | build_type_closure(
     domain: &Domain,
 ) |  |  |  |  |
 
-| compute_reachability | function | compute_reachability(
+| `compute_reachability` | function | compute_reachability(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     initial_facts: &BTreeSet<String>,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| compute_task_relevance | function | compute_task_relevance(
+| `compute_task_relevance` | function | compute_task_relevance(
     domain: &Domain,
     problem: &Problem,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| evaluate_ground_goal | function | evaluate_ground_goal(
+| `evaluate_ground_goal` | function | evaluate_ground_goal(
     goal: &GroundGoal,
     facts: &BTreeSet<String>,
 ) |  |  |  |  |
 
-| evaluate_ground_goal_with_budget | function | evaluate_ground_goal_with_budget(
+| `evaluate_ground_goal_with_budget` | function | evaluate_ground_goal_with_budget(
     goal: &GroundGoal,
     facts: &BTreeSet<String>,
     budget: usize,
 ) |  |  |  |  |
 
-| ground | function | ground(
+| `ground` | function | ground(
     domain: &Domain,
     problem: &Problem,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| ground_actions | function | ground_actions(
+| `ground_actions` | function | ground_actions(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| ground_actions_reachable | function | ground_actions_reachable(
+| `ground_actions_reachable` | function | ground_actions_reachable(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
     reachability: &ReachabilityInfo,
 ) |  |  |  |  |
 
-| ground_actions_relevant | function | ground_actions_relevant(
+| `ground_actions_relevant` | function | ground_actions_relevant(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
@@ -501,22 +501,22 @@
     reachability: Option<&ReachabilityInfo>,
 ) |  |  |  |  |
 
-| ground_initial_facts | function | ground_initial_facts(problem: &Problem) |  |  |  |  |
+| `ground_initial_facts` | function | ground_initial_facts(problem: &Problem) |  |  |  |  |
 
-| ground_methods | function | ground_methods(
+| `ground_methods` | function | ground_methods(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| ground_methods_reachable | function | ground_methods_reachable(
+| `ground_methods_reachable` | function | ground_methods_reachable(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
     reachability: &ReachabilityInfo,
 ) |  |  |  |  |
 
-| ground_methods_relevant | function | ground_methods_relevant(
+| `ground_methods_relevant` | function | ground_methods_relevant(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
@@ -524,99 +524,99 @@
     reachability: Option<&ReachabilityInfo>,
 ) |  |  |  |  |
 
-| ground_root_network | function | ground_root_network(
+| `ground_root_network` | function | ground_root_network(
     problem: &Problem,
     objects_by_type: &BTreeMap<String, Vec<String>>,
 ) |  |  |  |  |
 
-| index_objects_by_type | function | index_objects_by_type(
+| `index_objects_by_type` | function | index_objects_by_type(
     domain: &Domain,
     problem: &Problem,
     closure: &BTreeMap<String, BTreeSet<String>>,
 ) |  |  |  |  |
 
-| GroundAction | struct |  |  |  |  |  |
+| `GroundAction` | struct |  |  |  |  |  |
 
-| GroundConditional | struct |  |  |  |  |  |
+| `GroundConditional` | struct |  |  |  |  |  |
 
-| GroundEffectBranch | struct |  |  |  |  |  |
+| `GroundEffectBranch` | struct |  |  |  |  |  |
 
-| GroundMethod | struct |  |  |  |  |  |
+| `GroundMethod` | struct |  |  |  |  |  |
 
-| GroundRootNetwork | struct |  |  |  |  |  |
+| `GroundRootNetwork` | struct |  |  |  |  |  |
 
-| GroundSubtask | struct |  |  |  |  |  |
+| `GroundSubtask` | struct |  |  |  |  |  |
 
-| GroundedIR | struct |  |  |  |  |  |
+| `GroundedIR` | struct |  |  |  |  |  |
 
-| GroundingLimits | struct |  |  |  |  |  |
+| `GroundingLimits` | struct |  |  |  |  |  |
 
-| ReachabilityInfo | struct |  |  |  |  |  |
+| `ReachabilityInfo` | struct |  |  |  |  |  |
 
-| TaskRelevanceInfo | struct |  |  |  |  |  |
+| `TaskRelevanceInfo` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/parser.rs
 
-| ParseError | enum |  |  |  |  |  |
+| `ParseError` | enum |  |  |  |  |  |
 
-| parse_domain | function | parse_domain(src: &str) |  |  |  |  |
+| `parse_domain` | function | parse_domain(src: &str) |  |  |  |  |
 
-| parse_domain_with_budget | function | parse_domain_with_budget(src: &str, max_depth: usize) |  |  |  |  |
+| `parse_domain_with_budget` | function | parse_domain_with_budget(src: &str, max_depth: usize) |  |  |  |  |
 
-| parse_problem | function | parse_problem(src: &str) |  |  |  |  |
+| `parse_problem` | function | parse_problem(src: &str) |  |  |  |  |
 
-| parse_problem_with_budget | function | parse_problem_with_budget(src: &str, max_depth: usize) |  |  |  |  |
+| `parse_problem_with_budget` | function | parse_problem_with_budget(src: &str, max_depth: usize) |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/probabilistic.rs
 
-| has_probabilistic | function | has_probabilistic(src: &str) |  |  |  |  |
+| `has_probabilistic` | function | has_probabilistic(src: &str) |  |  |  |  |
 
-| preprocess | function | preprocess(src: &str) |  |  |  |  |
+| `preprocess` | function | preprocess(src: &str) |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/translate.rs
 
-| TranslateError | enum |  |  |  |  |  |
+| `TranslateError` | enum |  |  |  |  |  |
 
-| translate | function | translate(
+| `translate` | function | translate(
     ir: &GroundedIR,
     limits: &TranslateLimits,
 ) |  |  |  |  |
 
-| Goal | struct |  |  |  |  |  |
+| `Goal` | struct |  |  |  |  |  |
 
-| Method | struct |  |  |  |  |  |
+| `Method` | struct |  |  |  |  |  |
 
-| PlanningProblem | struct |  |  |  |  |  |
+| `PlanningProblem` | struct |  |  |  |  |  |
 
-| State | struct |  |  |  |  |  |
+| `State` | struct |  |  |  |  |  |
 
-| Task | struct |  |  |  |  |  |
+| `Task` | struct |  |  |  |  |  |
 
-| Transition | struct |  |  |  |  |  |
+| `Transition` | struct |  |  |  |  |  |
 
-| TranslateLimits | struct |  |  |  |  |  |
+| `TranslateLimits` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/validate.rs
 
-| DuplicateKind | enum |  |  |  |  |  |
+| `DuplicateKind` | enum |  |  |  |  |  |
 
-| ValidationError | enum |  |  |  |  |  |
+| `ValidationError` | enum |  |  |  |  |  |
 
-| ValidationWarning | enum |  |  |  |  |  |
+| `ValidationWarning` | enum |  |  |  |  |  |
 
-| validate_domain | function | validate_domain(domain: &Domain) |  |  |  |  |
+| `validate_domain` | function | validate_domain(domain: &Domain) |  |  |  |  |
 
-| validate_domain_with_warnings | function | validate_domain_with_warnings(
+| `validate_domain_with_warnings` | function | validate_domain_with_warnings(
     domain: &Domain,
 ) |  |  |  |  |
 
-| validate_problem | function | validate_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `validate_problem` | function | validate_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| validate_problem_with_warnings | function | validate_problem_with_warnings(
+| `validate_problem_with_warnings` | function | validate_problem_with_warnings(
     domain: &Domain,
     problem: &Problem,
 ) |  |  |  |  |
@@ -624,607 +624,607 @@
 
 ### crates/ferroplan-mcp/tests/common/mod.rs
 
-| call | function | call(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `call` | function | call(&mut self, tool: &str, args: Value) |  |  |  |  |
 
-| call_json | function | call_json(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `call_json` | function | call_json(&mut self, tool: &str, args: Value) |  |  |  |  |
 
-| call_text | function | call_text(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `call_text` | function | call_text(&mut self, tool: &str, args: Value) |  |  |  |  |
 
-| finish | function | finish(mut self) |  |  |  |  |
+| `finish` | function | finish(mut self) |  |  |  |  |
 
-| notify | function | notify(&mut self, method: &str) |  |  |  |  |
+| `notify` | function | notify(&mut self, method: &str) |  |  |  |  |
 
-| request | function | request(&mut self, method: &str, params: Value) |  |  |  |  |
+| `request` | function | request(&mut self, method: &str, params: Value) |  |  |  |  |
 
-| start | function | start() |  |  |  |  |
+| `start` | function | start() |  |  |  |  |
 
-| Client | struct |  |  |  |  |  |
+| `Client` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/authority.rs
 
-| Authority | enum |  |  |  |  |  |
+| `Authority` | enum |  |  |  |  |  |
 
-| permits | function | permits(g: Authority, n: Authority) |  |  |  |  |
+| `permits` | function | permits(g: Authority, n: Authority) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/backoff.rs
 
-| exponential | function | exponential(base: u64, attempt: u32, cap: u64) |  |  |  |  |
+| `exponential` | function | exponential(base: u64, attempt: u32, cap: u64) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/budget.rs
 
-| new | function | new(n: u32) |  |  |  |  |
+| `new` | function | new(n: u32) |  |  |  |  |
 
-| remaining | function | remaining(&self) |  |  |  |  |
+| `remaining` | function | remaining(&self) |  |  |  |  |
 
-| take | function | take(&mut self) |  |  |  |  |
+| `take` | function | take(&mut self) |  |  |  |  |
 
-| Budget | struct |  |  |  |  |  |
+| `Budget` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/capability.rs
 
-| compatible | function | compatible(available: &[Capability], required: &str) |  |  |  |  |
+| `compatible` | function | compatible(available: &[Capability], required: &str) |  |  |  |  |
 
-| Capability | struct |  |  |  |  |  |
+| `Capability` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/circuit.rs
 
-| open | function | open(&self) |  |  |  |  |
+| `open` | function | open(&self) |  |  |  |  |
 
-| record_failure | function | record_failure(&mut self) |  |  |  |  |
+| `record_failure` | function | record_failure(&mut self) |  |  |  |  |
 
-| Circuit | struct |  |  |  |  |  |
+| `Circuit` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/coordinator.rs
 
-| fail | function | fail(&mut self, id: &str) |  |  |  |  |
+| `fail` | function | fail(&mut self, id: &str) |  |  |  |  |
 
-| Coordinator | struct |  |  |  |  |  |
+| `Coordinator` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/deadline.rs
 
-| after | function | after(d: Duration) |  |  |  |  |
+| `after` | function | after(d: Duration) |  |  |  |  |
 
-| expired | function | expired(&self) |  |  |  |  |
+| `expired` | function | expired(&self) |  |  |  |  |
 
-| Deadline | struct |  |  |  |  |  |
+| `Deadline` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/edge.rs
 
-| exclude | function | exclude(&mut self) |  |  |  |  |
+| `exclude` | function | exclude(&mut self) |  |  |  |  |
 
-| Edge | struct |  |  |  |  |  |
+| `Edge` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/epoch.rs
 
-| next | function | next(self) |  |  |  |  |
+| `next` | function | next(self) |  |  |  |  |
 
-| Epoch | struct |  |  |  |  |  |
+| `Epoch` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/evidence.rs
 
-| admitted | function | admitted(xs: &[Observation]) |  |  |  |  |
+| `admitted` | function | admitted(xs: &[Observation]) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/exact_subject.rs
 
-| admitted | function | admitted(&self) |  |  |  |  |
+| `admitted` | function | admitted(&self) |  |  |  |  |
 
-| ExactSubject | struct |  |  |  |  |  |
+| `ExactSubject` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/failure.rs
 
-| FailureClass | enum |  |  |  |  |  |
+| `FailureClass` | enum |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/graph.rs
 
-| exclude | function | exclude(&mut self, id: &str) |  |  |  |  |
+| `exclude` | function | exclude(&mut self, id: &str) |  |  |  |  |
 
-| lawful | function | lawful(&self) |  |  |  |  |
+| `lawful` | function | lawful(&self) |  |  |  |  |
 
-| Graph | struct |  |  |  |  |  |
+| `Graph` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/hddl.rs
 
-| Task | struct |  |  |  |  |  |
+| `Task` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/health.rs
 
-| Health | enum |  |  |  |  |  |
+| `Health` | enum |  |  |  |  |  |
 
-| eligible | function | eligible(h: Health) |  |  |  |  |
+| `eligible` | function | eligible(h: Health) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/idempotency.rs
 
-| key | function | key(subject: &str, epoch: u64, provider: &str) |  |  |  |  |
+| `key` | function | key(subject: &str, epoch: u64, provider: &str) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/lease.rs
 
-| valid_for | function | valid_for(&self, o: &str, e: u64) |  |  |  |  |
+| `valid_for` | function | valid_for(&self, o: &str, e: u64) |  |  |  |  |
 
-| Lease | struct |  |  |  |  |  |
+| `Lease` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/observation.rs
 
-| Observation | struct |  |  |  |  |  |
+| `Observation` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/ocel.rs
 
-| bound | function | bound(&self) |  |  |  |  |
+| `bound` | function | bound(&self) |  |  |  |  |
 
-| Event | struct |  |  |  |  |  |
+| `Event` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/outcome.rs
 
-| Outcome | enum |  |  |  |  |  |
+| `Outcome` | enum |  |  |  |  |  |
 
-| is_success | function | is_success(&self) |  |  |  |  |
+| `is_success` | function | is_success(&self) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/plan.rs
 
-| valid | function | valid(&self) |  |  |  |  |
+| `valid` | function | valid(&self) |  |  |  |  |
 
-| Plan | struct |  |  |  |  |  |
+| `Plan` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/poly_evidence.rs
 
-| exact | function | exact(&self) |  |  |  |  |
+| `exact` | function | exact(&self) |  |  |  |  |
 
-| EvidenceSet | struct |  |  |  |  |  |
+| `EvidenceSet` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/portfolio.rs
 
-| ranked | function | ranked(mut ps: Vec<Plan>) |  |  |  |  |
+| `ranked` | function | ranked(mut ps: Vec<Plan>) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/powl.rs
 
-| acyclic | function | acyclic(e: &[Order]) |  |  |  |  |
+| `acyclic` | function | acyclic(e: &[Order]) |  |  |  |  |
 
-| Order | struct |  |  |  |  |  |
+| `Order` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/provider.rs
 
-| Provider | trait |  |  |  |  |  |
+| `Provider` | trait |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/ptd.rs
 
-| changed | function | changed(a: &EpochArtifact, b: &EpochArtifact) |  |  |  |  |
+| `changed` | function | changed(a: &EpochArtifact, b: &EpochArtifact) |  |  |  |  |
 
-| EpochArtifact | struct |  |  |  |  |  |
+| `EpochArtifact` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/receipt.rs
 
-| exact | function | exact(&self) |  |  |  |  |
+| `exact` | function | exact(&self) |  |  |  |  |
 
-| Receipt | struct |  |  |  |  |  |
+| `Receipt` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/reconcile.rs
 
-| reconcile | function | reconcile(g: &mut Graph, s: &[(String, Health) |  |  |  |  |
+| `reconcile` | function | reconcile(g: &mut Graph, s: &[(String, Health) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/recovery.rs
 
-| exclude_failed | function | exclude_failed(g: &mut Graph, edge: &str) |  |  |  |  |
+| `exclude_failed` | function | exclude_failed(g: &mut Graph, edge: &str) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/registry.rs
 
-| contains | function | contains(&self, id: &str) |  |  |  |  |
+| `contains` | function | contains(&self, id: &str) |  |  |  |  |
 
-| register | function | register(&mut self, id: impl Into<String>) |  |  |  |  |
+| `register` | function | register(&mut self, id: impl Into<String>) |  |  |  |  |
 
-| Registry | struct |  |  |  |  |  |
+| `Registry` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/replay.rs
 
-| same_decision | function | same_decision(a: &Receipt, b: &Receipt) |  |  |  |  |
+| `same_decision` | function | same_decision(a: &Receipt, b: &Receipt) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/runtime.rs
 
-| next_edge | function | next_edge(&self) |  |  |  |  |
+| `next_edge` | function | next_edge(&self) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/scheduler.rs
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| pop_next | function | pop_next(&mut self) |  |  |  |  |
+| `pop_next` | function | pop_next(&mut self) |  |  |  |  |
 
-| push | function | push(&mut self, x: T) |  |  |  |  |
+| `push` | function | push(&mut self, x: T) |  |  |  |  |
 
-| Scheduler | struct |  |  |  |  |  |
+| `Scheduler` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/state.rs
 
-| State | enum |  |  |  |  |  |
+| `State` | enum |  |  |  |  |  |
 
-| allowed | function | allowed(a: State, b: State) |  |  |  |  |
+| `allowed` | function | allowed(a: State, b: State) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/supervision.rs
 
-| Restart | enum |  |  |  |  |  |
+| `Restart` | enum |  |  |  |  |  |
 
-| should_restart | function | should_restart(r: Restart, abnormal: bool) |  |  |  |  |
+| `should_restart` | function | should_restart(r: Restart, abnormal: bool) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/telemetry.rs
 
-| success_rate | function | success_rate(&self) |  |  |  |  |
+| `success_rate` | function | success_rate(&self) |  |  |  |  |
 
-| Counters | struct |  |  |  |  |  |
+| `Counters` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/tla_evidence.rs
 
-| actionable | function | actionable(&self) |  |  |  |  |
+| `actionable` | function | actionable(&self) |  |  |  |  |
 
-| Counterexample | struct |  |  |  |  |  |
+| `Counterexample` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/trimtab.rs
 
-| ModelRole | struct |  |  |  |  |  |
+| `ModelRole` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/analyze_conflict.rs
 
-| add | function | add(&mut self, level: usize) |  |  |  |  |
+| `add` | function | add(&mut self, level: usize) |  |  |  |  |
 
-| analyze_conflict | function | analyze_conflict(ctx: &mut Context, conflict: Conflict) |  |  |  |  |
+| `analyze_conflict` | function | analyze_conflict(ctx: &mut Context, conflict: Conflict) |  |  |  |  |
 
-| clause | function | clause(&self) |  |  |  |  |
+| `clause` | function | clause(&self) |  |  |  |  |
 
-| involved | function | involved(&self) |  |  |  |  |
+| `involved` | function | involved(&self) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| test | function | test(&self, level: usize) |  |  |  |  |
+| `test` | function | test(&self, level: usize) |  |  |  |  |
 
-| AnalyzeConflict | struct |  |  |  |  |  |
+| `AnalyzeConflict` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/assumptions.rs
 
-| EnqueueAssumption | enum |  |  |  |  |  |
+| `EnqueueAssumption` | enum |  |  |  |  |  |
 
-| assumption_levels | function | assumption_levels(&self) |  |  |  |  |
+| `assumption_levels` | function | assumption_levels(&self) |  |  |  |  |
 
-| enqueue_assumption | function | enqueue_assumption(ctx: &mut Context) |  |  |  |  |
+| `enqueue_assumption` | function | enqueue_assumption(ctx: &mut Context) |  |  |  |  |
 
-| full_restart | function | full_restart(&mut self) |  |  |  |  |
+| `full_restart` | function | full_restart(&mut self) |  |  |  |  |
 
-| set_assumptions | function | set_assumptions(ctx: &mut Context, user_assumptions: &[Lit]) |  |  |  |  |
+| `set_assumptions` | function | set_assumptions(ctx: &mut Context, user_assumptions: &[Lit]) |  |  |  |  |
 
-| user_failed_core | function | user_failed_core(&self) |  |  |  |  |
+| `user_failed_core` | function | user_failed_core(&self) |  |  |  |  |
 
-| Assumptions | struct |  |  |  |  |  |
+| `Assumptions` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/binary.rs
 
-| add_binary_clause | function | add_binary_clause(&mut self, lits: [Lit; 2]) |  |  |  |  |
+| `add_binary_clause` | function | add_binary_clause(&mut self, lits: [Lit; 2]) |  |  |  |  |
 
-| count | function | count(&self) |  |  |  |  |
+| `count` | function | count(&self) |  |  |  |  |
 
-| implied | function | implied(&self, lit: Lit) |  |  |  |  |
+| `implied` | function | implied(&self, lit: Lit) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| simplify_binary | function | simplify_binary(ctx: &mut Context) |  |  |  |  |
+| `simplify_binary` | function | simplify_binary(ctx: &mut Context) |  |  |  |  |
 
-| BinaryClauses | struct |  |  |  |  |  |
+| `BinaryClauses` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/cdcl.rs
 
-| conflict_step | function | conflict_step(ctx: &mut Context) |  |  |  |  |
+| `conflict_step` | function | conflict_step(ctx: &mut Context) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause.rs
 
-| header | function | header(&self) |  |  |  |  |
+| `header` | function | header(&self) |  |  |  |  |
 
-| header_mut | function | header_mut(&mut self) |  |  |  |  |
+| `header_mut` | function | header_mut(&mut self) |  |  |  |  |
 
-| lits | function | lits(&self) |  |  |  |  |
+| `lits` | function | lits(&self) |  |  |  |  |
 
-| lits_mut | function | lits_mut(&mut self) |  |  |  |  |
+| `lits_mut` | function | lits_mut(&mut self) |  |  |  |  |
 
-| Clause | struct |  |  |  |  |  |
+| `Clause` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/activity.rs
 
-| bump_clause_activity | function | bump_clause_activity(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `bump_clause_activity` | function | bump_clause_activity(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| decay_clause_activities | function | decay_clause_activities(ctx: &mut Context) |  |  |  |  |
+| `decay_clause_activities` | function | decay_clause_activities(ctx: &mut Context) |  |  |  |  |
 
-| ClauseActivity | struct |  |  |  |  |  |
+| `ClauseActivity` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/alloc.rs
 
-| add_clause | function | add_clause(&mut self, mut header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
+| `add_clause` | function | add_clause(&mut self, mut header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
 
-| buffer_size | function | buffer_size(&self) |  |  |  |  |
+| `buffer_size` | function | buffer_size(&self) |  |  |  |  |
 
-| check_bounds | function | check_bounds(&self, cref: ClauseRef, len: usize) |  |  |  |  |
+| `check_bounds` | function | check_bounds(&self, cref: ClauseRef, len: usize) |  |  |  |  |
 
-| clause | function | clause(&self, cref: ClauseRef) |  |  |  |  |
+| `clause` | function | clause(&self, cref: ClauseRef) |  |  |  |  |
 
-| clause_mut | function | clause_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `clause_mut` | function | clause_mut(&mut self, cref: ClauseRef) |  |  |  |  |
 
-| header | function | header(&self, cref: ClauseRef) |  |  |  |  |
+| `header` | function | header(&self, cref: ClauseRef) |  |  |  |  |
 
-| header_mut | function | header_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `header_mut` | function | header_mut(&mut self, cref: ClauseRef) |  |  |  |  |
 
-| header_unchecked_mut | function | header_unchecked_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `header_unchecked_mut` | function | header_unchecked_mut(&mut self, cref: ClauseRef) |  |  |  |  |
 
-| lits_ptr_mut_unchecked | function | lits_ptr_mut_unchecked(&mut self, cref: ClauseRef) |  |  |  |  |
+| `lits_ptr_mut_unchecked` | function | lits_ptr_mut_unchecked(&mut self, cref: ClauseRef) |  |  |  |  |
 
-| with_capacity | function | with_capacity(capacity: usize) |  |  |  |  |
+| `with_capacity` | function | with_capacity(capacity: usize) |  |  |  |  |
 
-| ClauseAlloc | struct |  |  |  |  |  |
+| `ClauseAlloc` | struct |  |  |  |  |  |
 
-| ClauseRef | struct |  |  |  |  |  |
+| `ClauseRef` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/assess.rs
 
-| assess_learned_clause | function | assess_learned_clause(ctx: &mut Context, lits: &[Lit]) |  |  |  |  |
+| `assess_learned_clause` | function | assess_learned_clause(ctx: &mut Context, lits: &[Lit]) |  |  |  |  |
 
-| bump_clause | function | bump_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `bump_clause` | function | bump_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/db.rs
 
-| Tier | enum |  |  |  |  |  |
+| `Tier` | enum |  |  |  |  |  |
 
-| add_clause | function | add_clause(ctx: &mut Context, header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
+| `add_clause` | function | add_clause(ctx: &mut Context, header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
 
-| count | function | count() |  |  |  |  |
+| `count` | function | count() |  |  |  |  |
 
-| count_by_tier | function | count_by_tier(&self, tier: Tier) |  |  |  |  |
+| `count_by_tier` | function | count_by_tier(&self, tier: Tier) |  |  |  |  |
 
-| delete_clause | function | delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `delete_clause` | function | delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| from_index | function | from_index(index: usize) |  |  |  |  |
+| `from_index` | function | from_index(index: usize) |  |  |  |  |
 
-| set_clause_tier | function | set_clause_tier(ctx: &mut Context, cref: ClauseRef, tier: Tier) |  |  |  |  |
+| `set_clause_tier` | function | set_clause_tier(ctx: &mut Context, cref: ClauseRef, tier: Tier) |  |  |  |  |
 
-| try_delete_clause | function | try_delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `try_delete_clause` | function | try_delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| ClauseDb | struct |  |  |  |  |  |
+| `ClauseDb` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/gc.rs
 
-| collect_garbage | function | collect_garbage(ctx: &mut Context) |  |  |  |  |
+| `collect_garbage` | function | collect_garbage(ctx: &mut Context) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/header.rs
 
-| active | function | active(&self) |  |  |  |  |
+| `active` | function | active(&self) |  |  |  |  |
 
-| activity | function | activity(&self) |  |  |  |  |
+| `activity` | function | activity(&self) |  |  |  |  |
 
-| deleted | function | deleted(&self) |  |  |  |  |
+| `deleted` | function | deleted(&self) |  |  |  |  |
 
-| glue | function | glue(&self) |  |  |  |  |
+| `glue` | function | glue(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| mark | function | mark(&self) |  |  |  |  |
+| `mark` | function | mark(&self) |  |  |  |  |
 
-| new | function | new() |  |  |  |  |
+| `new` | function | new() |  |  |  |  |
 
-| set_active | function | set_active(&mut self, active: bool) |  |  |  |  |
+| `set_active` | function | set_active(&mut self, active: bool) |  |  |  |  |
 
-| set_activity | function | set_activity(&mut self, activity: f32) |  |  |  |  |
+| `set_activity` | function | set_activity(&mut self, activity: f32) |  |  |  |  |
 
-| set_deleted | function | set_deleted(&mut self, deleted: bool) |  |  |  |  |
+| `set_deleted` | function | set_deleted(&mut self, deleted: bool) |  |  |  |  |
 
-| set_glue | function | set_glue(&mut self, glue: usize) |  |  |  |  |
+| `set_glue` | function | set_glue(&mut self, glue: usize) |  |  |  |  |
 
-| set_len | function | set_len(&mut self, length: usize) |  |  |  |  |
+| `set_len` | function | set_len(&mut self, length: usize) |  |  |  |  |
 
-| set_mark | function | set_mark(&mut self, mark: bool) |  |  |  |  |
+| `set_mark` | function | set_mark(&mut self, mark: bool) |  |  |  |  |
 
-| set_tier | function | set_tier(&mut self, tier: Tier) |  |  |  |  |
+| `set_tier` | function | set_tier(&mut self, tier: Tier) |  |  |  |  |
 
-| tier | function | tier(&self) |  |  |  |  |
+| `tier` | function | tier(&self) |  |  |  |  |
 
-| ClauseHeader | struct |  |  |  |  |  |
+| `ClauseHeader` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/reduce.rs
 
-| dedup_and_mark_by_tier | function | dedup_and_mark_by_tier(ctx: &mut Context, tier: Tier) |  |  |  |  |
+| `dedup_and_mark_by_tier` | function | dedup_and_mark_by_tier(ctx: &mut Context, tier: Tier) |  |  |  |  |
 
-| reduce_locals | function | reduce_locals(ctx: &mut Context) |  |  |  |  |
+| `reduce_locals` | function | reduce_locals(ctx: &mut Context) |  |  |  |  |
 
-| reduce_mids | function | reduce_mids(ctx: &mut Context) |  |  |  |  |
+| `reduce_mids` | function | reduce_mids(ctx: &mut Context) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/cnf.rs
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| iter | function | iter(&self) |  |  |  |  |
+| `iter` | function | iter(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| new | function | new() |  |  |  |  |
+| `new` | function | new() |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| var_count | function | var_count(&self) |  |  |  |  |
+| `var_count` | function | var_count(&self) |  |  |  |  |
 
-| CnfFormula | struct |  |  |  |  |  |
+| `CnfFormula` | struct |  |  |  |  |  |
 
-| ExtendFormula | trait |  |  |  |  |  |
+| `ExtendFormula` | trait |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/config.rs
 
-| SolverConfig | struct |  |  |  |  |  |
+| `SolverConfig` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/context.rs
 
-| set_var_count | function | set_var_count(ctx: &mut Context, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(ctx: &mut Context, count: usize) |  |  |  |  |
 
-| Context | struct |  |  |  |  |  |
+| `Context` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/decision.rs
 
-| make_decision | function | make_decision(ctx: &mut Context) |  |  |  |  |
+| `make_decision` | function | make_decision(ctx: &mut Context) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/decision/vsids.rs
 
-| bump | function | bump(&mut self, var: Var) |  |  |  |  |
+| `bump` | function | bump(&mut self, var: Var) |  |  |  |  |
 
-| decay | function | decay(&mut self) |  |  |  |  |
+| `decay` | function | decay(&mut self) |  |  |  |  |
 
-| make_available | function | make_available(&mut self, var: Var) |  |  |  |  |
+| `make_available` | function | make_available(&mut self, var: Var) |  |  |  |  |
 
-| make_unavailable | function | make_unavailable(&mut self, var: Var) |  |  |  |  |
+| `make_unavailable` | function | make_unavailable(&mut self, var: Var) |  |  |  |  |
 
-| reset | function | reset(&mut self, var: Var) |  |  |  |  |
+| `reset` | function | reset(&mut self, var: Var) |  |  |  |  |
 
-| seed | function | seed(&mut self, var: Var, activity: f32) |  |  |  |  |
+| `seed` | function | seed(&mut self, var: Var, activity: f32) |  |  |  |  |
 
-| set_decay | function | set_decay(&mut self, decay: f32) |  |  |  |  |
+| `set_decay` | function | set_decay(&mut self, decay: f32) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| var_count | function | var_count(&self) |  |  |  |  |
+| `var_count` | function | var_count(&self) |  |  |  |  |
 
-| Vsids | struct |  |  |  |  |  |
+| `Vsids` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/dimacs.rs
 
-| DimacsError | enum |  |  |  |  |  |
+| `DimacsError` | enum |  |  |  |  |  |
 
-| parse_dimacs | function | parse_dimacs(input: impl io::BufRead) |  |  |  |  |
+| `parse_dimacs` | function | parse_dimacs(input: impl io::BufRead) |  |  |  |  |
 
-| parse_dimacs_str | function | parse_dimacs_str(input: &str) |  |  |  |  |
+| `parse_dimacs_str` | function | parse_dimacs_str(input: &str) |  |  |  |  |
 
-| write_dimacs | function | write_dimacs(target: &mut impl io::Write, formula: &CnfFormula) |  |  |  |  |
+| `write_dimacs` | function | write_dimacs(target: &mut impl io::Write, formula: &CnfFormula) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/glue.rs
 
-| compute_glue | function | compute_glue(tmp_flags: &mut TmpFlags, impl_graph: &ImplGraph, lits: &[Lit]) |  |  |  |  |
+| `compute_glue` | function | compute_glue(tmp_flags: &mut TmpFlags, impl_graph: &ImplGraph, lits: &[Lit]) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/lit.rs
 
-| code | function | code(self) |  |  |  |  |
+| `code` | function | code(self) |  |  |  |  |
 
-| from_code | function | from_code(code: usize) |  |  |  |  |
+| `from_code` | function | from_code(code: usize) |  |  |  |  |
 
-| from_dimacs | function | from_dimacs(number: isize) |  |  |  |  |
+| `from_dimacs` | function | from_dimacs(number: isize) |  |  |  |  |
 
-| from_index | function | from_index(index: usize) |  |  |  |  |
+| `from_index` | function | from_index(index: usize) |  |  |  |  |
 
-| from_var | function | from_var(var: Var, polarity: bool) |  |  |  |  |
+| `from_var` | function | from_var(var: Var, polarity: bool) |  |  |  |  |
 
-| index | function | index(self) |  |  |  |  |
+| `index` | function | index(self) |  |  |  |  |
 
-| is_negative | function | is_negative(self) |  |  |  |  |
+| `is_negative` | function | is_negative(self) |  |  |  |  |
 
-| is_positive | function | is_positive(self) |  |  |  |  |
+| `is_positive` | function | is_positive(self) |  |  |  |  |
 
-| lit | function | lit(self, polarity: bool) |  |  |  |  |
+| `lit` | function | lit(self, polarity: bool) |  |  |  |  |
 
-| map_var | function | map_var(self, f: impl FnOnce(Var) |  |  |  |  |
+| `map_var` | function | map_var(self, f: impl FnOnce(Var) |  |  |  |  |
 
-| max_count | function | max_count() |  |  |  |  |
+| `max_count` | function | max_count() |  |  |  |  |
 
-| max_var | function | max_var() |  |  |  |  |
+| `max_var` | function | max_var() |  |  |  |  |
 
-| negative | function | negative(self) |  |  |  |  |
+| `negative` | function | negative(self) |  |  |  |  |
 
-| positive | function | positive(self) |  |  |  |  |
+| `positive` | function | positive(self) |  |  |  |  |
 
-| to_dimacs | function | to_dimacs(self) |  |  |  |  |
+| `to_dimacs` | function | to_dimacs(self) |  |  |  |  |
 
-| var | function | var(self) |  |  |  |  |
+| `var` | function | var(self) |  |  |  |  |
 
-| Lit | struct |  |  |  |  |  |
+| `Lit` | struct |  |  |  |  |  |
 
-| Var | struct |  |  |  |  |  |
+| `Var` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/load.rs
 
-| load_clause | function | load_clause(ctx: &mut Context, user_lits: &[Lit]) |  |  |  |  |
+| `load_clause` | function | load_clause(ctx: &mut Context, user_lits: &[Lit]) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/model.rs
 
-| assignment | function | assignment(&self) |  |  |  |  |
+| `assignment` | function | assignment(&self) |  |  |  |  |
 
-| reconstruct_global_model | function | reconstruct_global_model(ctx: &mut Context) |  |  |  |  |
+| `reconstruct_global_model` | function | reconstruct_global_model(ctx: &mut Context) |  |  |  |  |
 
-| Model | struct |  |  |  |  |  |
+| `Model` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop.rs
 
-| propagate | function | propagate(ctx: &mut Context) |  |  |  |  |
+| `propagate` | function | propagate(ctx: &mut Context) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/assignment.rs
 
-| assign_lit | function | assign_lit(&mut self, lit: Lit) |  |  |  |  |
+| `assign_lit` | function | assign_lit(&mut self, lit: Lit) |  |  |  |  |
 
-| assignment | function | assignment(&self) |  |  |  |  |
+| `assignment` | function | assignment(&self) |  |  |  |  |
 
-| backtrack | function | backtrack(ctx: &mut Context, level: usize) |  |  |  |  |
+| `backtrack` | function | backtrack(ctx: &mut Context, level: usize) |  |  |  |  |
 
-| clear | function | clear(&mut self) |  |  |  |  |
+| `clear` | function | clear(&mut self) |  |  |  |  |
 
-| current_level | function | current_level(&self) |  |  |  |  |
+| `current_level` | function | current_level(&self) |  |  |  |  |
 
-| enqueue_assignment | function | enqueue_assignment(
+| `enqueue_assignment` | function | enqueue_assignment(
     assignment: &mut Assignment,
     impl_graph: &mut ImplGraph,
     trail: &mut Trail,
@@ -1232,271 +1232,271 @@
     reason: Reason,
 ) |  |  |  |  |
 
-| fast_option_eq | function | fast_option_eq(a: Option<bool>, b: Option<bool>) |  |  |  |  |
+| `fast_option_eq` | function | fast_option_eq(a: Option<bool>, b: Option<bool>) |  |  |  |  |
 
-| full_restart | function | full_restart(ctx: &mut Context) |  |  |  |  |
+| `full_restart` | function | full_restart(ctx: &mut Context) |  |  |  |  |
 
-| last_var_value | function | last_var_value(&self, var: Var) |  |  |  |  |
+| `last_var_value` | function | last_var_value(&self, var: Var) |  |  |  |  |
 
-| lit_is_false | function | lit_is_false(&self, lit: Lit) |  |  |  |  |
+| `lit_is_false` | function | lit_is_false(&self, lit: Lit) |  |  |  |  |
 
-| lit_is_true | function | lit_is_true(&self, lit: Lit) |  |  |  |  |
+| `lit_is_true` | function | lit_is_true(&self, lit: Lit) |  |  |  |  |
 
-| lit_is_unk | function | lit_is_unk(&self, lit: Lit) |  |  |  |  |
+| `lit_is_unk` | function | lit_is_unk(&self, lit: Lit) |  |  |  |  |
 
-| lit_value | function | lit_value(&self, lit: Lit) |  |  |  |  |
+| `lit_value` | function | lit_value(&self, lit: Lit) |  |  |  |  |
 
-| new_decision_level | function | new_decision_level(&mut self) |  |  |  |  |
+| `new_decision_level` | function | new_decision_level(&mut self) |  |  |  |  |
 
-| pop_queue | function | pop_queue(&mut self) |  |  |  |  |
+| `pop_queue` | function | pop_queue(&mut self) |  |  |  |  |
 
-| queue_head | function | queue_head(&self) |  |  |  |  |
+| `queue_head` | function | queue_head(&self) |  |  |  |  |
 
-| restart | function | restart(ctx: &mut Context) |  |  |  |  |
+| `restart` | function | restart(ctx: &mut Context) |  |  |  |  |
 
-| set_var | function | set_var(&mut self, var: Var, assignment: Option<bool>) |  |  |  |  |
+| `set_var` | function | set_var(&mut self, var: Var, assignment: Option<bool>) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| trail | function | trail(&self) |  |  |  |  |
+| `trail` | function | trail(&self) |  |  |  |  |
 
-| unassign_var | function | unassign_var(&mut self, var: Var) |  |  |  |  |
+| `unassign_var` | function | unassign_var(&mut self, var: Var) |  |  |  |  |
 
-| var_value | function | var_value(&self, var: Var) |  |  |  |  |
+| `var_value` | function | var_value(&self, var: Var) |  |  |  |  |
 
-| Assignment | struct |  |  |  |  |  |
+| `Assignment` | struct |  |  |  |  |  |
 
-| Trail | struct |  |  |  |  |  |
+| `Trail` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/binary.rs
 
-| propagate_binary | function | propagate_binary(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `propagate_binary` | function | propagate_binary(ctx: &mut Context, lit: Lit) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/graph.rs
 
-| Conflict | enum |  |  |  |  |  |
+| `Conflict` | enum |  |  |  |  |  |
 
-| Reason | enum |  |  |  |  |  |
+| `Reason` | enum |  |  |  |  |  |
 
-| is_removed_unit | function | is_removed_unit(&self, var: Var) |  |  |  |  |
+| `is_removed_unit` | function | is_removed_unit(&self, var: Var) |  |  |  |  |
 
-| is_unit | function | is_unit(&self) |  |  |  |  |
+| `is_unit` | function | is_unit(&self) |  |  |  |  |
 
-| level | function | level(&self, var: Var) |  |  |  |  |
+| `level` | function | level(&self, var: Var) |  |  |  |  |
 
-| reason | function | reason(&self, var: Var) |  |  |  |  |
+| `reason` | function | reason(&self, var: Var) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| update_reason | function | update_reason(&mut self, var: Var, reason: Reason) |  |  |  |  |
+| `update_reason` | function | update_reason(&mut self, var: Var, reason: Reason) |  |  |  |  |
 
-| update_removed_unit | function | update_removed_unit(&mut self, var: Var) |  |  |  |  |
+| `update_removed_unit` | function | update_removed_unit(&mut self, var: Var) |  |  |  |  |
 
-| ImplGraph | struct |  |  |  |  |  |
+| `ImplGraph` | struct |  |  |  |  |  |
 
-| ImplNode | struct |  |  |  |  |  |
+| `ImplNode` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/long.rs
 
-| propagate_long | function | propagate_long(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `propagate_long` | function | propagate_long(ctx: &mut Context, lit: Lit) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/watch.rs
 
-| add_watch | function | add_watch(&mut self, lit: Lit, watch: Watch) |  |  |  |  |
+| `add_watch` | function | add_watch(&mut self, lit: Lit, watch: Watch) |  |  |  |  |
 
-| disable | function | disable(&mut self) |  |  |  |  |
+| `disable` | function | disable(&mut self) |  |  |  |  |
 
-| enable_watchlists | function | enable_watchlists(ctx: &mut Context) |  |  |  |  |
+| `enable_watchlists` | function | enable_watchlists(ctx: &mut Context) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| watch_clause | function | watch_clause(&mut self, cref: ClauseRef, lits: [Lit; 2]) |  |  |  |  |
+| `watch_clause` | function | watch_clause(&mut self, cref: ClauseRef, lits: [Lit; 2]) |  |  |  |  |
 
-| watched_by_mut | function | watched_by_mut(&mut self, lit: Lit) |  |  |  |  |
+| `watched_by_mut` | function | watched_by_mut(&mut self, lit: Lit) |  |  |  |  |
 
-| Watch | struct |  |  |  |  |  |
+| `Watch` | struct |  |  |  |  |  |
 
-| Watchlists | struct |  |  |  |  |  |
+| `Watchlists` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/schedule.rs
 
-| schedule_step | function | schedule_step(ctx: &mut Context) |  |  |  |  |
+| `schedule_step` | function | schedule_step(ctx: &mut Context) |  |  |  |  |
 
-| Schedule | struct |  |  |  |  |  |
+| `Schedule` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/schedule/luby.rs
 
-| advance | function | advance(&mut self) |  |  |  |  |
+| `advance` | function | advance(&mut self) |  |  |  |  |
 
-| LubySequence | struct |  |  |  |  |  |
+| `LubySequence` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/solver.rs
 
-| SolverError | enum |  |  |  |  |  |
+| `SolverError` | enum |  |  |  |  |  |
 
-| add_formula | function | add_formula(&mut self, formula: &CnfFormula) |  |  |  |  |
+| `add_formula` | function | add_formula(&mut self, formula: &CnfFormula) |  |  |  |  |
 
-| assume | function | assume(&mut self, assumptions: &[Lit]) |  |  |  |  |
+| `assume` | function | assume(&mut self, assumptions: &[Lit]) |  |  |  |  |
 
-| failed_core | function | failed_core(&self) |  |  |  |  |
+| `failed_core` | function | failed_core(&self) |  |  |  |  |
 
-| is_recoverable | function | is_recoverable(&self) |  |  |  |  |
+| `is_recoverable` | function | is_recoverable(&self) |  |  |  |  |
 
-| model | function | model(&self) |  |  |  |  |
+| `model` | function | model(&self) |  |  |  |  |
 
-| new | function | new() |  |  |  |  |
+| `new` | function | new() |  |  |  |  |
 
-| seed_activity | function | seed_activity(&mut self, seeds: &[(usize, f32) |  |  |  |  |
+| `seed_activity` | function | seed_activity(&mut self, seeds: &[(usize, f32) |  |  |  |  |
 
-| set_conflict_limit | function | set_conflict_limit(&mut self, limit: Option<u64>) |  |  |  |  |
+| `set_conflict_limit` | function | set_conflict_limit(&mut self, limit: Option<u64>) |  |  |  |  |
 
-| solve | function | solve(&mut self) |  |  |  |  |
+| `solve` | function | solve(&mut self) |  |  |  |  |
 
-| Solver | struct |  |  |  |  |  |
+| `Solver` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/state.rs
 
-| SatState | enum |  |  |  |  |  |
+| `SatState` | enum |  |  |  |  |  |
 
-| SolverState | struct |  |  |  |  |  |
+| `SolverState` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/tmp.rs
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| TmpData | struct |  |  |  |  |  |
+| `TmpData` | struct |  |  |  |  |  |
 
-| TmpFlags | struct |  |  |  |  |  |
+| `TmpFlags` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/unit_simplify.rs
 
-| prove_units | function | prove_units(ctx: &mut Context) |  |  |  |  |
+| `prove_units` | function | prove_units(ctx: &mut Context) |  |  |  |  |
 
-| resurrect_unit | function | resurrect_unit(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `resurrect_unit` | function | resurrect_unit(ctx: &mut Context, lit: Lit) |  |  |  |  |
 
-| unit_simplify | function | unit_simplify(ctx: &mut Context) |  |  |  |  |
+| `unit_simplify` | function | unit_simplify(ctx: &mut Context) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/variables.rs
 
-| existing_user_from_solver | function | existing_user_from_solver(&self, solver: Var) |  |  |  |  |
+| `existing_user_from_solver` | function | existing_user_from_solver(&self, solver: Var) |  |  |  |  |
 
-| global_from_solver | function | global_from_solver(&self) |  |  |  |  |
+| `global_from_solver` | function | global_from_solver(&self) |  |  |  |  |
 
-| global_from_solver_mut | function | global_from_solver_mut(&mut self) |  |  |  |  |
+| `global_from_solver_mut` | function | global_from_solver_mut(&mut self) |  |  |  |  |
 
-| global_from_user | function | global_from_user(&self) |  |  |  |  |
+| `global_from_user` | function | global_from_user(&self) |  |  |  |  |
 
-| global_from_user_mut | function | global_from_user_mut(&mut self) |  |  |  |  |
+| `global_from_user_mut` | function | global_from_user_mut(&mut self) |  |  |  |  |
 
-| global_var_iter | function | global_var_iter(&self) |  |  |  |  |
+| `global_var_iter` | function | global_var_iter(&self) |  |  |  |  |
 
-| global_watermark | function | global_watermark(&self) |  |  |  |  |
+| `global_watermark` | function | global_watermark(&self) |  |  |  |  |
 
-| initialize_solver_var | function | initialize_solver_var(ctx: &mut Context, solver: Var, global: Var) |  |  |  |  |
+| `initialize_solver_var` | function | initialize_solver_var(ctx: &mut Context, solver: Var, global: Var) |  |  |  |  |
 
-| new_user_var | function | new_user_var(ctx: &mut Context) |  |  |  |  |
+| `new_user_var` | function | new_user_var(ctx: &mut Context) |  |  |  |  |
 
-| next_unmapped_solver | function | next_unmapped_solver(&self) |  |  |  |  |
+| `next_unmapped_solver` | function | next_unmapped_solver(&self) |  |  |  |  |
 
-| next_unmapped_user | function | next_unmapped_user(&self) |  |  |  |  |
+| `next_unmapped_user` | function | next_unmapped_user(&self) |  |  |  |  |
 
-| remove_solver_var | function | remove_solver_var(ctx: &mut Context, solver: Var) |  |  |  |  |
+| `remove_solver_var` | function | remove_solver_var(ctx: &mut Context, solver: Var) |  |  |  |  |
 
-| solver_from_global | function | solver_from_global(&self) |  |  |  |  |
+| `solver_from_global` | function | solver_from_global(&self) |  |  |  |  |
 
-| solver_from_global_mut | function | solver_from_global_mut(&mut self) |  |  |  |  |
+| `solver_from_global_mut` | function | solver_from_global_mut(&mut self) |  |  |  |  |
 
-| solver_from_user | function | solver_from_user(ctx: &mut Context, user: Var) |  |  |  |  |
+| `solver_from_user` | function | solver_from_user(ctx: &mut Context, user: Var) |  |  |  |  |
 
-| solver_from_user_lits | function | solver_from_user_lits(ctx: &mut Context, solver_lits: &mut Vec<Lit>, user_lits: &[Lit]) |  |  |  |  |
+| `solver_from_user_lits` | function | solver_from_user_lits(ctx: &mut Context, solver_lits: &mut Vec<Lit>, user_lits: &[Lit]) |  |  |  |  |
 
-| solver_var_present | function | solver_var_present(&self, solver: Var) |  |  |  |  |
+| `solver_var_present` | function | solver_var_present(&self, solver: Var) |  |  |  |  |
 
-| solver_watermark | function | solver_watermark(&self) |  |  |  |  |
+| `solver_watermark` | function | solver_watermark(&self) |  |  |  |  |
 
-| user_from_global | function | user_from_global(&self) |  |  |  |  |
+| `user_from_global` | function | user_from_global(&self) |  |  |  |  |
 
-| user_var_iter | function | user_var_iter(&self) |  |  |  |  |
+| `user_var_iter` | function | user_var_iter(&self) |  |  |  |  |
 
-| user_watermark | function | user_watermark(&self) |  |  |  |  |
+| `user_watermark` | function | user_watermark(&self) |  |  |  |  |
 
-| var_data_global | function | var_data_global(&self, global: Var) |  |  |  |  |
+| `var_data_global` | function | var_data_global(&self, global: Var) |  |  |  |  |
 
-| var_data_global_mut | function | var_data_global_mut(&mut self, global: Var) |  |  |  |  |
+| `var_data_global_mut` | function | var_data_global_mut(&mut self, global: Var) |  |  |  |  |
 
-| var_data_solver_mut | function | var_data_solver_mut(&mut self, solver: Var) |  |  |  |  |
+| `var_data_solver_mut` | function | var_data_solver_mut(&mut self, solver: Var) |  |  |  |  |
 
-| Variables | struct |  |  |  |  |  |
+| `Variables` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/variables/data.rs
 
-| user_default | function | user_default() |  |  |  |  |
+| `user_default` | function | user_default() |  |  |  |  |
 
-| VarData | struct |  |  |  |  |  |
+| `VarData` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/variables/var_map.rs
 
-| bwd | function | bwd(&self) |  |  |  |  |
+| `bwd` | function | bwd(&self) |  |  |  |  |
 
-| bwd_mut | function | bwd_mut(&mut self) |  |  |  |  |
+| `bwd_mut` | function | bwd_mut(&mut self) |  |  |  |  |
 
-| fwd | function | fwd(&self) |  |  |  |  |
+| `fwd` | function | fwd(&self) |  |  |  |  |
 
-| fwd_mut | function | fwd_mut(&mut self) |  |  |  |  |
+| `fwd_mut` | function | fwd_mut(&mut self) |  |  |  |  |
 
-| get | function | get(&self, from: Var) |  |  |  |  |
+| `get` | function | get(&self, from: Var) |  |  |  |  |
 
-| insert | function | insert(&mut self, into: Var, from: Var) |  |  |  |  |
+| `insert` | function | insert(&mut self, into: Var, from: Var) |  |  |  |  |
 
-| remove | function | remove(&mut self, from: Var) |  |  |  |  |
+| `remove` | function | remove(&mut self, from: Var) |  |  |  |  |
 
-| watermark | function | watermark(&self) |  |  |  |  |
+| `watermark` | function | watermark(&self) |  |  |  |  |
 
-| VarBiMap | struct |  |  |  |  |  |
+| `VarBiMap` | struct |  |  |  |  |  |
 
-| VarBiMapMut | struct |  |  |  |  |  |
+| `VarBiMapMut` | struct |  |  |  |  |  |
 
-| VarMap | struct |  |  |  |  |  |
+| `VarMap` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-wasm/src/dfcm_route.rs
 
-| admit_candidates | function | admit_candidates(
+| `admit_candidates` | function | admit_candidates(
     candidates: &[ProbeCandidate],
     goal_limit: usize,
     surface: &str,
 ) |  |  |  |  |
 
-| corridor_problem | function | corridor_problem(n: usize) |  |  |  |  |
+| `corridor_problem` | function | corridor_problem(n: usize) |  |  |  |  |
 
-| probe_all | function | probe_all(
+| `probe_all` | function | probe_all(
     parent: &Session,
     candidates: &[ProbeCandidate],
     evals: usize,
     mem_mb: usize,
 ) |  |  |  |  |
 
-| probe_candidate | function | probe_candidate(
+| `probe_candidate` | function | probe_candidate(
     parent: &Session,
     candidate: &ProbeCandidate,
     evals: usize,
     mem_mb: usize,
 ) |  |  |  |  |
 
-| repair | function | repair(
+| `repair` | function | repair(
     inner: &Session,
     plan: &mut Option<Plan>,
     cursor: &mut usize,
@@ -1504,40 +1504,40 @@
     mem_mb: usize,
 ) |  |  |  |  |
 
-| ProbeCandidate | struct |  |  |  |  |  |
+| `ProbeCandidate` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-wasm/src/lib.rs
 
-| advance | function | advance(&mut self) |  |  |  |  |
+| `advance` | function | advance(&mut self) |  |  |  |  |
 
-| apply_start | function | apply_start(&mut self, name: &str) |  |  |  |  |
+| `apply_start` | function | apply_start(&mut self, name: &str) |  |  |  |  |
 
-| drop_plan | function | drop_plan(&mut self) |  |  |  |  |
+| `drop_plan` | function | drop_plan(&mut self) |  |  |  |  |
 
-| elapse | function | elapse(&mut self, dt: f64) |  |  |  |  |
+| `elapse` | function | elapse(&mut self, dt: f64) |  |  |  |  |
 
-| explain | function | explain(domain: &str, problem: &str, plan_json: &str) |  |  |  |  |
+| `explain` | function | explain(domain: &str, problem: &str, plan_json: &str) |  |  |  |  |
 
-| fact | function | fact(&self, name: &str) |  |  |  |  |
+| `fact` | function | fact(&self, name: &str) |  |  |  |  |
 
-| fluent | function | fluent(&self, name: &str) |  |  |  |  |
+| `fluent` | function | fluent(&self, name: &str) |  |  |  |  |
 
-| fond_validate | function | fond_validate(problem_json: &str, plan_json: &str) |  |  |  |  |
+| `fond_validate` | function | fond_validate(problem_json: &str, plan_json: &str) |  |  |  |  |
 
-| fork | function | fork(&self) |  |  |  |  |
+| `fork` | function | fork(&self) |  |  |  |  |
 
-| goal_met | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) |  |  |  |  |
 
-| has_plan | function | has_plan(&self) |  |  |  |  |
+| `has_plan` | function | has_plan(&self) |  |  |  |  |
 
-| mind_bytes | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
 
-| new | function | new(domain: &str, problem: &str) |  |  |  |  |
+| `new` | function | new(domain: &str, problem: &str) |  |  |  |  |
 
-| observe | function | observe(&mut self, sight_json: &str) |  |  |  |  |
+| `observe` | function | observe(&mut self, sight_json: &str) |  |  |  |  |
 
-| plan | function | plan(
+| `plan` | function | plan(
         domain: &str,
         problem: &str,
         mode: Option<String>,
@@ -1545,7 +1545,7 @@
         search: Option<String>,
     ) |  |  |  |  |
 
-| plan_production | function | plan_production(
+| `plan_production` | function | plan_production(
         domain: &str,
         problem: &str,
         mode: Option<String>,
@@ -1556,148 +1556,148 @@
         request_id: Option<String>,
     ) |  |  |  |  |
 
-| plan_valid_json | function | plan_valid_json(&self, plan_json: &str, from: usize) |  |  |  |  |
+| `plan_valid_json` | function | plan_valid_json(&self, plan_json: &str, from: usize) |  |  |  |  |
 
-| probe_json | function | probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) |  |  |  |  |
+| `probe_json` | function | probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) |  |  |  |  |
 
-| readiness | function | readiness() |  |  |  |  |
+| `readiness` | function | readiness() |  |  |  |  |
 
-| repair | function | repair(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `repair` | function | repair(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
 
-| replan_following | function | replan_following(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `replan_following` | function | replan_following(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
 
-| restrict_contains | function | restrict_contains(&mut self, filter: String) |  |  |  |  |
+| `restrict_contains` | function | restrict_contains(&mut self, filter: String) |  |  |  |  |
 
-| restrict_prefix_claims | function | restrict_prefix_claims(&mut self, prefix: String, claimed: String) |  |  |  |  |
+| `restrict_prefix_claims` | function | restrict_prefix_claims(&mut self, prefix: String, claimed: String) |  |  |  |  |
 
-| set_fact | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
+| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
 
-| set_fluent | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
+| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
 
-| set_goal | function | set_goal(&mut self, goal: &str) |  |  |  |  |
+| `set_goal` | function | set_goal(&mut self, goal: &str) |  |  |  |  |
 
-| set_timed_fact | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
+| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
 
-| step_json | function | step_json(&self) |  |  |  |  |
+| `step_json` | function | step_json(&self) |  |  |  |  |
 
-| suffix_json | function | suffix_json(&self) |  |  |  |  |
+| `suffix_json` | function | suffix_json(&self) |  |  |  |  |
 
-| think | function | think(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `think` | function | think(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
 
-| valid | function | valid(&self) |  |  |  |  |
+| `valid` | function | valid(&self) |  |  |  |  |
 
-| version | function | version() |  |  |  |  |
+| `version` | function | version() |  |  |  |  |
 
-| world_bytes | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
 
-| WasmSession | struct |  |  |  |  |  |
+| `WasmSession` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-wasm/src/probe_guard.rs
 
-| contradictory_fact | function | contradictory_fact(sight: &[(String, bool) |  |  |  |  |
+| `contradictory_fact` | function | contradictory_fact(sight: &[(String, bool) |  |  |  |  |
 
-| fact_key | function | fact_key(fact: &str) |  |  |  |  |
+| `fact_key` | function | fact_key(fact: &str) |  |  |  |  |
 
 
 ### crates/ferroplan/src/api.rs
 
-| Mode | enum |  |  |  |  |  |
+| `Mode` | enum |  |  |  |  |  |
 
-| Search | enum |  |  |  |  |  |
+| `Search` | enum |  |  |  |  |  |
 
-| SolveError | enum |  |  |  |  |  |
+| `SolveError` | enum |  |  |  |  |  |
 
-| decompose | function | decompose(
+| `decompose` | function | decompose(
     domain_src: &str,
     problem_src: &str,
     opts: &Options,
 ) |  |  |  |  |
 
-| parse | function | parse(src: &str) |  |  |  |  |
+| `parse` | function | parse(src: &str) |  |  |  |  |
 
-| solve | function | solve(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
+| `solve` | function | solve(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
 
-| Contract | struct |  |  |  |  |  |
+| `Contract` | struct |  |  |  |  |  |
 
-| Decomposition | struct |  |  |  |  |  |
+| `Decomposition` | struct |  |  |  |  |  |
 
-| DomainSummary | struct |  |  |  |  |  |
+| `DomainSummary` | struct |  |  |  |  |  |
 
-| Options | struct |  |  |  |  |  |
+| `Options` | struct |  |  |  |  |  |
 
-| ParseReport | struct |  |  |  |  |  |
+| `ParseReport` | struct |  |  |  |  |  |
 
-| Plan | struct |  |  |  |  |  |
+| `Plan` | struct |  |  |  |  |  |
 
-| ProblemSummary | struct |  |  |  |  |  |
+| `ProblemSummary` | struct |  |  |  |  |  |
 
-| Solution | struct |  |  |  |  |  |
+| `Solution` | struct |  |  |  |  |  |
 
-| Statistics | struct |  |  |  |  |  |
+| `Statistics` | struct |  |  |  |  |  |
 
-| Step | struct |  |  |  |  |  |
+| `Step` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/bitset.rs
 
-| clear | function | clear(w: &mut [u64], i: usize) |  |  |  |  |
+| `clear` | function | clear(w: &mut [u64], i: usize) |  |  |  |  |
 
-| count | function | count(w: &[u64]) |  |  |  |  |
+| `count` | function | count(w: &[u64]) |  |  |  |  |
 
-| set | function | set(w: &mut [u64], i: usize) |  |  |  |  |
+| `set` | function | set(w: &mut [u64], i: usize) |  |  |  |  |
 
-| test | function | test(w: &[u64], i: usize) |  |  |  |  |
+| `test` | function | test(w: &[u64], i: usize) |  |  |  |  |
 
-| words_for | function | words_for(n_bits: usize) |  |  |  |  |
+| `words_for` | function | words_for(n_bits: usize) |  |  |  |  |
 
 
 ### crates/ferroplan/src/clock.rs
 
-| elapsed_ms | function | elapsed_ms(&self) |  |  |  |  |
+| `elapsed_ms` | function | elapsed_ms(&self) |  |  |  |  |
 
-| elapsed_secs | function | elapsed_secs(&self) |  |  |  |  |
+| `elapsed_secs` | function | elapsed_secs(&self) |  |  |  |  |
 
-| elapsed_us | function | elapsed_us(&self) |  |  |  |  |
+| `elapsed_us` | function | elapsed_us(&self) |  |  |  |  |
 
-| now | function | now() |  |  |  |  |
+| `now` | function | now() |  |  |  |  |
 
-| Clock | struct |  |  |  |  |  |
+| `Clock` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/constraints.rs
 
-| Traj | enum |  |  |  |  |  |
+| `Traj` | enum |  |  |  |  |  |
 
-| accepted | function | accepted(&self) |  |  |  |  |
+| `accepted` | function | accepted(&self) |  |  |  |  |
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| expand | function | expand(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `expand` | function | expand(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| gate | function | gate(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `gate` | function | gate(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| hard_only_gated | function | hard_only_gated(
+| `hard_only_gated` | function | hard_only_gated(
     domain: &Domain,
     problem: &Problem,
 ) |  |  |  |  |
 
-| new | function | new(traj: &'a Traj) |  |  |  |  |
+| `new` | function | new(traj: &'a Traj) |  |  |  |  |
 
-| op_name | function | op_name(&self) |  |  |  |  |
+| `op_name` | function | op_name(&self) |  |  |  |  |
 
-| step | function | step(&mut self, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
+| `step` | function | step(&mut self, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
 
-| step_at | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
+| `step_at` | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
 
-| Expanded | struct |  |  |  |  |  |
+| `Expanded` | struct |  |  |  |  |  |
 
-| Fold | struct |  |  |  |  |  |
+| `Fold` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/costs.rs
 
-| improve | function | improve(
+| `improve` | function | improve(
     task: &PackedTask,
     cf: usize,
     ops: Vec<usize>,
@@ -1711,7 +1711,7 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| improve_length | function | improve_length(
+| `improve_length` | function | improve_length(
     task: &PackedTask,
     ops: Vec<usize>,
     threads: usize,
@@ -1719,9 +1719,9 @@
     spent: usize,
 ) |  |  |  |  |
 
-| metric_fluent | function | metric_fluent(problem: &Problem) |  |  |  |  |
+| `metric_fluent` | function | metric_fluent(problem: &Problem) |  |  |  |  |
 
-| optimize_text | function | optimize_text(
+| `optimize_text` | function | optimize_text(
     problem: &Problem,
     task: &PackedTask,
     optimize: bool,
@@ -1731,138 +1731,138 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| plan_cost | function | plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) |  |  |  |  |
+| `plan_cost` | function | plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) |  |  |  |  |
 
-| CostOutcome | struct |  |  |  |  |  |
+| `CostOutcome` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/derived.rs
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
 
 ### crates/ferroplan/src/espc.rs
 
-| espc_optimize | function | espc_optimize(
+| `espc_optimize` | function | espc_optimize(
     task: &PackedTask,
     cost_fluent: usize,
     sat: &mut SatGuidance,
     seed: Option<(Vec<usize>, f64) |  |  |  |  |
 
-| EspcPartition | struct |  |  |  |  |  |
+| `EspcPartition` | struct |  |  |  |  |  |
 
-| EspcResult | struct |  |  |  |  |  |
+| `EspcResult` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/eve.rs
 
-| EveError | enum |  |  |  |  |  |
+| `EveError` | enum |  |  |  |  |  |
 
-| EveStage | enum |  |  |  |  |  |
+| `EveStage` | enum |  |  |  |  |  |
 
-| PlanningRegime | enum |  |  |  |  |  |
+| `PlanningRegime` | enum |  |  |  |  |  |
 
-| enter | function | enter(request: EveRequest) |  |  |  |  |
+| `enter` | function | enter(request: EveRequest) |  |  |  |  |
 
-| Activator | struct |  |  |  |  |  |
+| `Activator` | struct |  |  |  |  |  |
 
-| CapabilityTarget | struct |  |  |  |  |  |
+| `CapabilityTarget` | struct |  |  |  |  |  |
 
-| Eve | struct |  |  |  |  |  |
+| `Eve` | struct |  |  |  |  |  |
 
-| EveHandoff | struct |  |  |  |  |  |
+| `EveHandoff` | struct |  |  |  |  |  |
 
-| EveRequest | struct |  |  |  |  |  |
+| `EveRequest` | struct |  |  |  |  |  |
 
-| GenesisProjection | struct |  |  |  |  |  |
+| `GenesisProjection` | struct |  |  |  |  |  |
 
-| GenesisWorld | struct |  |  |  |  |  |
+| `GenesisWorld` | struct |  |  |  |  |  |
 
-| GgenManufacturingRequest | struct |  |  |  |  |  |
+| `GgenManufacturingRequest` | struct |  |  |  |  |  |
 
-| GroundedGoal | struct |  |  |  |  |  |
+| `GroundedGoal` | struct |  |  |  |  |  |
 
-| HddlDecompositionRequest | struct |  |  |  |  |  |
+| `HddlDecompositionRequest` | struct |  |  |  |  |  |
 
-| HddlSurface | struct |  |  |  |  |  |
+| `HddlSurface` | struct |  |  |  |  |  |
 
-| HumanPurpose | struct |  |  |  |  |  |
+| `HumanPurpose` | struct |  |  |  |  |  |
 
-| ManufactureTarget | struct |  |  |  |  |  |
+| `ManufactureTarget` | struct |  |  |  |  |  |
 
-| McpPlusHandoff | struct |  |  |  |  |  |
+| `McpPlusHandoff` | struct |  |  |  |  |  |
 
-| PpddlPolicyRequest | struct |  |  |  |  |  |
+| `PpddlPolicyRequest` | struct |  |  |  |  |  |
 
-| PpddlSurface | struct |  |  |  |  |  |
+| `PpddlSurface` | struct |  |  |  |  |  |
 
-| SplitDirective | struct |  |  |  |  |  |
+| `SplitDirective` | struct |  |  |  |  |  |
 
-| TruexContinuation | struct |  |  |  |  |  |
+| `TruexContinuation` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/features.rs
 
-| DemandMode | enum |  |  |  |  |  |
+| `DemandMode` | enum |  |  |  |  |  |
 
-| clear_overrides | function | clear_overrides() |  |  |  |  |
+| `clear_overrides` | function | clear_overrides() |  |  |  |  |
 
-| demand_mode | function | demand_mode() |  |  |  |  |
+| `demand_mode` | function | demand_mode() |  |  |  |  |
 
-| escalate | function | escalate() |  |  |  |  |
+| `escalate` | function | escalate() |  |  |  |  |
 
-| espc | function | espc() |  |  |  |  |
+| `espc` | function | espc() |  |  |  |  |
 
-| set_escalate_override | function | set_escalate_override(on: bool) |  |  |  |  |
+| `set_escalate_override` | function | set_escalate_override(on: bool) |  |  |  |  |
 
-| set_espc_override | function | set_espc_override(on: bool) |  |  |  |  |
+| `set_espc_override` | function | set_espc_override(on: bool) |  |  |  |  |
 
-| set_overrides | function | set_overrides(tdemand: bool, tdecomp: bool, tconc: bool) |  |  |  |  |
+| `set_overrides` | function | set_overrides(tdemand: bool, tdecomp: bool, tconc: bool) |  |  |  |  |
 
-| tconc | function | tconc() |  |  |  |  |
+| `tconc` | function | tconc() |  |  |  |  |
 
-| tdecomp | function | tdecomp() |  |  |  |  |
+| `tdecomp` | function | tdecomp() |  |  |  |  |
 
-| tdemand | function | tdemand() |  |  |  |  |
+| `tdemand` | function | tdemand() |  |  |  |  |
 
 
 ### crates/ferroplan/src/ground.rs
 
-| Outcome | enum |  |  |  |  |  |
+| `Outcome` | enum |  |  |  |  |  |
 
-| ground | function | ground(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground` | function | ground(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| ground_fixpoint | function | ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_fixpoint` | function | ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| ground_stratified | function | ground_stratified(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_stratified` | function | ground_stratified(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| ground_stratified_walled | function | ground_stratified_walled(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_stratified_walled` | function | ground_stratified_walled(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| ground_task | function | ground_task(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_task` | function | ground_task(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| initial_state | function | initial_state(t: &PackedTask) |  |  |  |  |
+| `initial_state` | function | initial_state(t: &PackedTask) |  |  |  |  |
 
-| objects_by_type | function | objects_by_type(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `objects_by_type` | function | objects_by_type(domain: &Domain, problem: &Problem) |  |  |  |  |
 
 
 ### crates/ferroplan/src/hash.rs
 
-| FxHasher | struct |  |  |  |  |  |
+| `FxHasher` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/hddl.rs
 
-| HddlError | enum |  |  |  |  |  |
+| `HddlError` | enum |  |  |  |  |  |
 
-| adapt_problem | function | adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) |  |  |  |  |
+| `adapt_problem` | function | adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) |  |  |  |  |
 
-| solve_hddl | function | solve_hddl(
+| `solve_hddl` | function | solve_hddl(
     domain_src: &str,
     problem_src: &str,
     limits: &PlannerLimits,
 ) |  |  |  |  |
 
-| solve_hddl_from_eve | function | solve_hddl_from_eve(
+| `solve_hddl_from_eve` | function | solve_hddl_from_eve(
     handoff: &EveHandoff,
     limits: &PlannerLimits,
 ) |  |  |  |  |
@@ -1870,9 +1870,9 @@
 
 ### crates/ferroplan/src/heuristic.rs
 
-| extraction_need_facts | function | extraction_need_facts(sc: &Scratch) |  |  |  |  |
+| `extraction_need_facts` | function | extraction_need_facts(sc: &Scratch) |  |  |  |  |
 
-| helpful_needed_adders | function | helpful_needed_adders(
+| `helpful_needed_adders` | function | helpful_needed_adders(
     task: &PackedTask,
     sc: &Scratch,
     bits: &[u64],
@@ -1880,9 +1880,9 @@
     def: &[bool],
 ) |  |  |  |  |
 
-| new | function | new(task: &PackedTask) |  |  |  |  |
+| `new` | function | new(task: &PackedTask) |  |  |  |  |
 
-| reachability_layers | function | reachability_layers(
+| `reachability_layers` | function | reachability_layers(
     task: &PackedTask,
     sc: &mut Scratch,
     bits: &[u64],
@@ -1890,7 +1890,7 @@
     def: &[bool],
 ) |  |  |  |  |
 
-| relaxed | function | relaxed(
+| `relaxed` | function | relaxed(
     task: &PackedTask,
     sc: &mut Scratch,
     bits: &[u64],
@@ -1898,28 +1898,7 @@
     def: &[bool],
 ) |  |  |  |  |
 
-| relaxed_costed | function | relaxed_costed(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-) |  |  |  |  |
-
-| relaxed_helpful | function | relaxed_helpful(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-) |  |  |  |  |
-
-| relaxed_plan_cost | function | relaxed_plan_cost(
+| `relaxed_costed` | function | relaxed_costed(
     task: &PackedTask,
     sc: &mut Scratch,
     bits: &[u64],
@@ -1930,7 +1909,7 @@
     cost_fluent: usize,
 ) |  |  |  |  |
 
-| relaxed_to | function | relaxed_to(
+| `relaxed_helpful` | function | relaxed_helpful(
     task: &PackedTask,
     sc: &mut Scratch,
     bits: &[u64],
@@ -1940,41 +1919,62 @@
     goal_num: &[NumPre],
 ) |  |  |  |  |
 
-| Scratch | struct |  |  |  |  |  |
+| `relaxed_plan_cost` | function | relaxed_plan_cost(
+    task: &PackedTask,
+    sc: &mut Scratch,
+    bits: &[u64],
+    fv: &[f64],
+    def: &[bool],
+    goal_pos: &[u32],
+    goal_num: &[NumPre],
+    cost_fluent: usize,
+) |  |  |  |  |
 
-| TrpgInfo | struct |  |  |  |  |  |
+| `relaxed_to` | function | relaxed_to(
+    task: &PackedTask,
+    sc: &mut Scratch,
+    bits: &[u64],
+    fv: &[f64],
+    def: &[bool],
+    goal_pos: &[u32],
+    goal_num: &[NumPre],
+) |  |  |  |  |
 
-| TrpgWindow | struct |  |  |  |  |  |
+| `Scratch` | struct |  |  |  |  |  |
+
+| `TrpgInfo` | struct |  |  |  |  |  |
+
+| `TrpgWindow` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/introspect.rs
 
-| explain | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) |  |  |  |  |
+| `explain` | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) |  |  |  |  |
 
-| CausalLink | struct |  |  |  |  |  |
+| `CausalLink` | struct |  |  |  |  |  |
 
-| Explanation | struct |  |  |  |  |  |
+| `Explanation` | struct |  |  |  |  |  |
 
-| InvariantSpan | struct |  |  |  |  |  |
+| `InvariantSpan` | struct |  |  |  |  |  |
 
-| PrefReport | struct |  |  |  |  |  |
+| `PrefReport` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/invariants.rs
 
-| synthesize | function | synthesize(domain: &Domain, task: &PackedTask) |  |  |  |  |
+| `synthesize` | function | synthesize(domain: &Domain, task: &PackedTask) |  |  |  |  |
 
 
 ### crates/ferroplan/src/lama.rs
 
-| search | function | search(
+| `search` | function | search(
     task: &PackedTask,
     threads: usize,
     max_eval: usize,
     forbidden: &[bool],
     slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
 
-| search_subgoal | function | search_subgoal(
+| `search_subgoal` | function | search_subgoal(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -1988,9 +1988,9 @@
 
 ### crates/ferroplan/src/landmarks.rs
 
-| goal_landmarks | function | goal_landmarks(task: &PackedTask) |  |  |  |  |
+| `goal_landmarks` | function | goal_landmarks(task: &PackedTask) |  |  |  |  |
 
-| landmarks_for | function | landmarks_for(
+| `landmarks_for` | function | landmarks_for(
     task: &PackedTask,
     start: &crate::packed::State,
     goal_pos: &[u32],
@@ -1999,39 +1999,39 @@
 
 ### crates/ferroplan/src/lexer.rs
 
-| Tok | enum |  |  |  |  |  |
+| `Tok` | enum |  |  |  |  |  |
 
-| lex | function | lex(input: &str) |  |  |  |  |
+| `lex` | function | lex(input: &str) |  |  |  |  |
 
 
 ### crates/ferroplan/src/mem.rs
 
-| arm | function | arm() |  |  |  |  |
+| `arm` | function | arm() |  |  |  |  |
 
-| armed | function | armed(&self) |  |  |  |  |
+| `armed` | function | armed(&self) |  |  |  |  |
 
-| declared_budget_bytes | function | declared_budget_bytes() |  |  |  |  |
+| `declared_budget_bytes` | function | declared_budget_bytes() |  |  |  |  |
 
-| hit | function | hit(&self) |  |  |  |  |
+| `hit` | function | hit(&self) |  |  |  |  |
 
-| latch | function | latch() |  |  |  |  |
+| `latch` | function | latch() |  |  |  |  |
 
-| latched | function | latched() |  |  |  |  |
+| `latched` | function | latched() |  |  |  |  |
 
-| peak_resident_bytes | function | peak_resident_bytes() |  |  |  |  |
+| `peak_resident_bytes` | function | peak_resident_bytes() |  |  |  |  |
 
-| resident_bytes | function | resident_bytes() |  |  |  |  |
+| `resident_bytes` | function | resident_bytes() |  |  |  |  |
 
-| unarmed | function | unarmed() |  |  |  |  |
+| `unarmed` | function | unarmed() |  |  |  |  |
 
-| MemWall | struct |  |  |  |  |  |
+| `MemWall` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/novelty.rs
 
-| from_env | function | from_env() |  |  |  |  |
+| `from_env` | function | from_env() |  |  |  |  |
 
-| r_partition_facts | function | r_partition_facts(
+| `r_partition_facts` | function | r_partition_facts(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -2039,26 +2039,26 @@
     r_cap: usize,
 ) |  |  |  |  |
 
-| search | function | search(
+| `search` | function | search(
     task: &PackedTask,
     threads: usize,
     max_eval: usize,
     forbidden: &[bool],
     slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
 
-| search_driver | function | search_driver(
+| `search_driver` | function | search_driver(
     task: &PackedTask,
     max_eval: usize,
     forbidden: &[bool],
     slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
 
-| search_light | function | search_light(
+| `search_light` | function | search_light(
     task: &PackedTask,
     max_eval: usize,
     forbidden: &[bool],
 ) |  |  |  |  |
 
-| search_subgoal | function | search_subgoal(
+| `search_subgoal` | function | search_subgoal(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -2068,78 +2068,78 @@
     forbidden: &[bool],
     slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
 
-| DriverCfg | struct |  |  |  |  |  |
+| `DriverCfg` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/operator_compiler.rs
 
-| OperatorCompileError | enum |  |  |  |  |  |
+| `OperatorCompileError` | enum |  |  |  |  |  |
 
-| compile_operator | function | compile_operator(
+| `compile_operator` | function | compile_operator(
     spec: &OperatorSpec,
     states: &[State],
 ) |  |  |  |  |
 
-| CompiledOperator | struct |  |  |  |  |  |
+| `CompiledOperator` | struct |  |  |  |  |  |
 
-| OperatorEffects | struct |  |  |  |  |  |
+| `OperatorEffects` | struct |  |  |  |  |  |
 
-| OperatorSpec | struct |  |  |  |  |  |
+| `OperatorSpec` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/optimal.rs
 
-| solve | function | solve(
+| `solve` | function | solve(
     task: &PackedTask,
     cf: Option<usize>,
     max_nodes: usize,
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| OptOutcome | struct |  |  |  |  |  |
+| `OptOutcome` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/orbits.rs
 
-| canonical_key | function | canonical_key(
+| `canonical_key` | function | canonical_key(
         &self,
         task: &PackedTask,
         state: &State,
         agenda: &[(i64, usize) |  |  |  |  |
 
-| canonical_skey | function | canonical_skey(
+| `canonical_skey` | function | canonical_skey(
         &self,
         task: &PackedTask,
         state: &State,
         cost_fluent: Option<usize>,
     ) |  |  |  |  |
 
-| canonical_skey_hash | function | canonical_skey_hash(
+| `canonical_skey_hash` | function | canonical_skey_hash(
         &self,
         task: &PackedTask,
         state: &State,
         cost_fluent: Option<usize>,
     ) |  |  |  |  |
 
-| detect | function | detect(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect` | function | detect(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
 
-| detect_classical | function | detect_classical(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect_classical` | function | detect_classical(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
 
-| detect_classical_iso | function | detect_classical_iso(
+| `detect_classical_iso` | function | detect_classical_iso(
     domain: &Domain,
     problem: &Problem,
     task: &PackedTask,
 ) |  |  |  |  |
 
-| detect_iso | function | detect_iso(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect_iso` | function | detect_iso(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
 
-| gen_key | function | gen_key(&self, op: usize, classes: &[Vec<u16>]) |  |  |  |  |
+| `gen_key` | function | gen_key(&self, op: usize, classes: &[Vec<u16>]) |  |  |  |  |
 
-| goal_free_view | function | goal_free_view(&self) |  |  |  |  |
+| `goal_free_view` | function | goal_free_view(&self) |  |  |  |  |
 
-| iso_active | function | iso_active(&self) |  |  |  |  |
+| `iso_active` | function | iso_active(&self) |  |  |  |  |
 
-| iso_goal_witness | function | iso_goal_witness(
+| `iso_goal_witness` | function | iso_goal_witness(
         &self,
         task: &PackedTask,
         state: &State,
@@ -2147,134 +2147,134 @@
         goal_num: &[NumPre],
     ) |  |  |  |  |
 
-| iso_remap_op | function | iso_remap_op(&self, sigma: &[Vec<u16>], op: usize) |  |  |  |  |
+| `iso_remap_op` | function | iso_remap_op(&self, sigma: &[Vec<u16>], op: usize) |  |  |  |  |
 
-| iso_untouched_goal | function | iso_untouched_goal(&self) |  |  |  |  |
+| `iso_untouched_goal` | function | iso_untouched_goal(&self) |  |  |  |  |
 
-| stabilizer_classes | function | stabilizer_classes(&self, state: &State, agenda: &[(f64, usize) |  |  |  |  |
+| `stabilizer_classes` | function | stabilizer_classes(&self, state: &State, agenda: &[(f64, usize) |  |  |  |  |
 
-| IsoGoal | struct |  |  |  |  |  |
+| `IsoGoal` | struct |  |  |  |  |  |
 
-| Orbit | struct |  |  |  |  |  |
+| `Orbit` | struct |  |  |  |  |  |
 
-| OrbitMap | struct |  |  |  |  |  |
+| `OrbitMap` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/output.rs
 
-| preamble | function | preamble(threads: usize) |  |  |  |  |
+| `preamble` | function | preamble(threads: usize) |  |  |  |  |
 
-| render | function | render(task: &PackedTask, result: &PlanResult, threads: usize) |  |  |  |  |
+| `render` | function | render(task: &PackedTask, result: &PlanResult, threads: usize) |  |  |  |  |
 
 
 ### crates/ferroplan/src/packed.rs
 
-| applicable_ops | function | applicable_ops(&self, s: &State, out: &mut Vec<u32>) |  |  |  |  |
+| `applicable_ops` | function | applicable_ops(&self, s: &State, out: &mut Vec<u32>) |  |  |  |  |
 
-| apply | function | apply(&self, oi: usize, s: &State) |  |  |  |  |
+| `apply` | function | apply(&self, oi: usize, s: &State) |  |  |  |  |
 
-| build_succ | function | build_succ(pre_pos: &Csr<u32>, n_facts: usize, n_ops: usize) |  |  |  |  |
+| `build_succ` | function | build_succ(pre_pos: &Csr<u32>, n_facts: usize, n_ops: usize) |  |  |  |  |
 
-| cond_effs | function | cond_effs(&self, oi: usize) |  |  |  |  |
+| `cond_effs` | function | cond_effs(&self, oi: usize) |  |  |  |  |
 
-| fact_id | function | fact_id(&self, disp: &str) |  |  |  |  |
+| `fact_id` | function | fact_id(&self, disp: &str) |  |  |  |  |
 
-| finish | function | finish(self) |  |  |  |  |
+| `finish` | function | finish(self) |  |  |  |  |
 
-| fluent_id | function | fluent_id(&self, disp: &str) |  |  |  |  |
+| `fluent_id` | function | fluent_id(&self, disp: &str) |  |  |  |  |
 
-| goal_met | function | goal_met(&self, s: &State) |  |  |  |  |
+| `goal_met` | function | goal_met(&self, s: &State) |  |  |  |  |
 
-| goal_met_with | function | goal_met_with(&self, s: &State, goal_pos: &[u32], goal_num: &[NumPre]) |  |  |  |  |
+| `goal_met_with` | function | goal_met_with(&self, s: &State, goal_pos: &[u32], goal_num: &[NumPre]) |  |  |  |  |
 
-| initial | function | initial(&self) |  |  |  |  |
+| `initial` | function | initial(&self) |  |  |  |  |
 
-| n_cond_effs | function | n_cond_effs(&self, oi: usize) |  |  |  |  |
+| `n_cond_effs` | function | n_cond_effs(&self, oi: usize) |  |  |  |  |
 
-| new | function | new() |  |  |  |  |
+| `new` | function | new() |  |  |  |  |
 
-| op_applicable | function | op_applicable(&self, oi: usize, s: &State) |  |  |  |  |
+| `op_applicable` | function | op_applicable(&self, oi: usize, s: &State) |  |  |  |  |
 
-| push_row | function | push_row(&mut self, items: impl IntoIterator<Item = T>) |  |  |  |  |
+| `push_row` | function | push_row(&mut self, items: impl IntoIterator<Item = T>) |  |  |  |  |
 
-| slice | function | slice(&self, i: usize) |  |  |  |  |
+| `slice` | function | slice(&self, i: usize) |  |  |  |  |
 
-| state_key | function | state_key(&self, s: &State) |  |  |  |  |
+| `state_key` | function | state_key(&self, s: &State) |  |  |  |  |
 
-| state_key_eq | function | state_key_eq(&self, a: &State, b: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_eq` | function | state_key_eq(&self, a: &State, b: &State, cost_fluent: Option<usize>) |  |  |  |  |
 
-| state_key_hash | function | state_key_hash(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_hash` | function | state_key_hash(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
 
-| state_key_with_cost | function | state_key_with_cost(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_with_cost` | function | state_key_with_cost(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
 
-| static_fluent | function | static_fluent(&self, disp: &str) |  |  |  |  |
+| `static_fluent` | function | static_fluent(&self, disp: &str) |  |  |  |  |
 
-| CondEff | struct |  |  |  |  |  |
+| `CondEff` | struct |  |  |  |  |  |
 
-| Csr | struct |  |  |  |  |  |
+| `Csr` | struct |  |  |  |  |  |
 
-| CsrBuilder | struct |  |  |  |  |  |
+| `CsrBuilder` | struct |  |  |  |  |  |
 
-| PackedTask | struct |  |  |  |  |  |
+| `PackedTask` | struct |  |  |  |  |  |
 
-| State | struct |  |  |  |  |  |
+| `State` | struct |  |  |  |  |  |
 
-| StateKey | struct |  |  |  |  |  |
+| `StateKey` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/par.rs
 
-| num_threads | function | num_threads() |  |  |  |  |
+| `num_threads` | function | num_threads() |  |  |  |  |
 
 
 ### crates/ferroplan/src/parser.rs
 
-| parse_domain | function | parse_domain(src: &str) |  |  |  |  |
+| `parse_domain` | function | parse_domain(src: &str) |  |  |  |  |
 
-| parse_problem | function | parse_problem(src: &str) |  |  |  |  |
+| `parse_problem` | function | parse_problem(src: &str) |  |  |  |  |
 
 
 ### crates/ferroplan/src/partition.rs
 
-| interaction_partition | function | interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) |  |  |  |  |
+| `interaction_partition` | function | interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) |  |  |  |  |
 
-| interaction_partition_of | function | interaction_partition_of(
+| `interaction_partition_of` | function | interaction_partition_of(
     task: &PackedTask,
     groups: &[Vec<u32>],
     goals: &[u32],
     excluded_vars: &FxHashSet<usize>,
 ) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| merge_at | function | merge_at(groups: &mut Vec<Subgoal>, i: usize, j: usize) |  |  |  |  |
+| `merge_at` | function | merge_at(groups: &mut Vec<Subgoal>, i: usize, j: usize) |  |  |  |  |
 
-| merge_with_neighbor | function | merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) |  |  |  |  |
+| `merge_with_neighbor` | function | merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) |  |  |  |  |
 
-| partition | function | partition(task: &PackedTask) |  |  |  |  |
+| `partition` | function | partition(task: &PackedTask) |  |  |  |  |
 
-| Subgoal | struct |  |  |  |  |  |
+| `Subgoal` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/pddl3.rs
 
-| close_seed | function | close_seed(
+| `close_seed` | function | close_seed(
     task: &PackedTask,
     cost_fluent: usize,
     forgos: &[(usize, f64) |  |  |  |  |
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| display_metric | function | display_metric(&self, optimized: f64) |  |  |  |  |
+| `display_metric` | function | display_metric(&self, optimized: f64) |  |  |  |  |
 
-| hard_goal_plan | function | hard_goal_plan(
+| `hard_goal_plan` | function | hard_goal_plan(
     domain: &Domain,
     problem: &Problem,
     threads: usize,
     cfg: SearchCfg,
 ) |  |  |  |  |
 
-| hard_goal_seed | function | hard_goal_seed(
+| `hard_goal_seed` | function | hard_goal_seed(
     domain: &Domain,
     problem: &Problem,
     compiled: &PackedTask,
@@ -2282,44 +2282,44 @@
     cfg: SearchCfg,
 ) |  |  |  |  |
 
-| has_preferences | function | has_preferences(problem: &Problem) |  |  |  |  |
+| `has_preferences` | function | has_preferences(problem: &Problem) |  |  |  |  |
 
-| is_pddl3 | function | is_pddl3(problem: &Problem) |  |  |  |  |
+| `is_pddl3` | function | is_pddl3(problem: &Problem) |  |  |  |  |
 
-| lift_seed | function | lift_seed(compiled: &PackedTask, names: &[String]) |  |  |  |  |
+| `lift_seed` | function | lift_seed(compiled: &PackedTask, names: &[String]) |  |  |  |  |
 
-| metric_optimize | function | metric_optimize(
+| `metric_optimize` | function | metric_optimize(
     task: &PackedTask,
     cost_fluent: usize,
     forgos: &[(usize, f64) |  |  |  |  |
 
-| metric_optimize_seeded | function | metric_optimize_seeded(
+| `metric_optimize_seeded` | function | metric_optimize_seeded(
     task: &PackedTask,
     cost_fluent: usize,
     forgos: &[(usize, f64) |  |  |  |  |
 
-| pref_weights | function | pref_weights(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `pref_weights` | function | pref_weights(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| preferences | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) |  |  |  |  |
+| `preferences` | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) |  |  |  |  |
 
-| Compiled | struct |  |  |  |  |  |
+| `Compiled` | struct |  |  |  |  |  |
 
-| MetricResult | struct |  |  |  |  |  |
+| `MetricResult` | struct |  |  |  |  |  |
 
-| PhaseTail | struct |  |  |  |  |  |
+| `PhaseTail` | struct |  |  |  |  |  |
 
-| SeededResult | struct |  |  |  |  |  |
+| `SeededResult` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/plan.rs
 
-| Validity | enum |  |  |  |  |  |
+| `Validity` | enum |  |  |  |  |  |
 
-| parse_classical | function | parse_classical(src: &str) |  |  |  |  |
+| `parse_classical` | function | parse_classical(src: &str) |  |  |  |  |
 
-| parse_timed | function | parse_timed(src: &str) |  |  |  |  |
+| `parse_timed` | function | parse_timed(src: &str) |  |  |  |  |
 
-| validate_plan | function | validate_plan(
+| `validate_plan` | function | validate_plan(
     domain_src: &str,
     problem_src: &str,
     plan_src: &str,
@@ -2328,9 +2328,9 @@
 
 ### crates/ferroplan/src/planner.rs
 
-| run_ff | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) |  |  |  |  |
+| `run_ff` | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) |  |  |  |  |
 
-| run_planner | function | run_planner(
+| `run_planner` | function | run_planner(
     domain_src: &str,
     problem_src: &str,
     opts: &crate::Options,
@@ -2340,128 +2340,128 @@
 
 ### crates/ferroplan/src/planning_runtime.rs
 
-| PlannerError | enum |  |  |  |  |  |
+| `PlannerError` | enum |  |  |  |  |  |
 
-| solve_planning_type | function | solve_planning_type(
+| `solve_planning_type` | function | solve_planning_type(
     request: &UniversalPlanningRequest,
 ) |  |  |  |  |
 
-| Agent | struct |  |  |  |  |  |
+| `Agent` | struct |  |  |  |  |  |
 
-| Goal | struct |  |  |  |  |  |
+| `Goal` | struct |  |  |  |  |  |
 
-| Method | struct |  |  |  |  |  |
+| `Method` | struct |  |  |  |  |  |
 
-| PlanStep | struct |  |  |  |  |  |
+| `PlanStep` | struct |  |  |  |  |  |
 
-| PlannerLimits | struct |  |  |  |  |  |
+| `PlannerLimits` | struct |  |  |  |  |  |
 
-| PlanningProblem | struct |  |  |  |  |  |
+| `PlanningProblem` | struct |  |  |  |  |  |
 
-| PolicyEntry | struct |  |  |  |  |  |
+| `PolicyEntry` | struct |  |  |  |  |  |
 
-| PolicyOutcome | struct |  |  |  |  |  |
+| `PolicyOutcome` | struct |  |  |  |  |  |
 
-| QueueState | struct |  |  |  |  |  |
+| `QueueState` | struct |  |  |  |  |  |
 
-| RdfTriple | struct |  |  |  |  |  |
+| `RdfTriple` | struct |  |  |  |  |  |
 
-| State | struct |  |  |  |  |  |
+| `State` | struct |  |  |  |  |  |
 
-| Task | struct |  |  |  |  |  |
+| `Task` | struct |  |  |  |  |  |
 
-| Tool | struct |  |  |  |  |  |
+| `Tool` | struct |  |  |  |  |  |
 
-| Transition | struct |  |  |  |  |  |
+| `Transition` | struct |  |  |  |  |  |
 
-| UniversalPlan | struct |  |  |  |  |  |
+| `UniversalPlan` | struct |  |  |  |  |  |
 
-| UniversalPlanningRequest | struct |  |  |  |  |  |
+| `UniversalPlanningRequest` | struct |  |  |  |  |  |
 
-| WorkflowEdge | struct |  |  |  |  |  |
+| `WorkflowEdge` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/planning_types.rs
 
-| PlanningCapability | enum |  |  |  |  |  |
+| `PlanningCapability` | enum |  |  |  |  |  |
 
-| PlanningRail | enum |  |  |  |  |  |
+| `PlanningRail` | enum |  |  |  |  |  |
 
-| PlanningRouteError | enum |  |  |  |  |  |
+| `PlanningRouteError` | enum |  |  |  |  |  |
 
-| PlanningType | enum |  |  |  |  |  |
+| `PlanningType` | enum |  |  |  |  |  |
 
-| rail | function | rail(self) |  |  |  |  |
+| `rail` | function | rail(self) |  |  |  |  |
 
-| required_capabilities | function | required_capabilities(self) |  |  |  |  |
+| `required_capabilities` | function | required_capabilities(self) |  |  |  |  |
 
-| route_planning_request | function | route_planning_request(
+| `route_planning_request` | function | route_planning_request(
     request: &PlanningRequest,
 ) |  |  |  |  |
 
-| token | function | token(self) |  |  |  |  |
+| `token` | function | token(self) |  |  |  |  |
 
-| PlanningRequest | struct |  |  |  |  |  |
+| `PlanningRequest` | struct |  |  |  |  |  |
 
-| PlanningRoute | struct |  |  |  |  |  |
+| `PlanningRoute` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/policy_validation.rs
 
-| PolicyGuarantee | enum |  |  |  |  |  |
+| `PolicyGuarantee` | enum |  |  |  |  |  |
 
-| PolicyIssue | enum |  |  |  |  |  |
+| `PolicyIssue` | enum |  |  |  |  |  |
 
-| validate_fond_policy | function | validate_fond_policy(
+| `validate_fond_policy` | function | validate_fond_policy(
     problem: &PlanningProblem,
     plan: &UniversalPlan,
 ) |  |  |  |  |
 
-| PolicyValidationReport | struct |  |  |  |  |  |
+| `PolicyValidationReport` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/portfolio.rs
 
-| solve | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
+| `solve` | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
 
-| Outcome | struct |  |  |  |  |  |
+| `Outcome` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/ppddl.rs
 
-| PpddlError | enum |  |  |  |  |  |
+| `PpddlError` | enum |  |  |  |  |  |
 
-| ProbabilisticObjective | enum |  |  |  |  |  |
+| `ProbabilisticObjective` | enum |  |  |  |  |  |
 
-| InitialStateProbability | struct |  |  |  |  |  |
+| `InitialStateProbability` | struct |  |  |  |  |  |
 
-| PolicyDecision | struct |  |  |  |  |  |
+| `PolicyDecision` | struct |  |  |  |  |  |
 
-| PolicyOutcome | struct |  |  |  |  |  |
+| `PolicyOutcome` | struct |  |  |  |  |  |
 
-| PolicyValidation | struct |  |  |  |  |  |
+| `PolicyValidation` | struct |  |  |  |  |  |
 
-| PpddlParseReport | struct |  |  |  |  |  |
+| `PpddlParseReport` | struct |  |  |  |  |  |
 
-| ProbabilisticOptions | struct |  |  |  |  |  |
+| `ProbabilisticOptions` | struct |  |  |  |  |  |
 
-| ProbabilisticSolution | struct |  |  |  |  |  |
+| `ProbabilisticSolution` | struct |  |  |  |  |  |
 
-| ProbabilisticState | struct |  |  |  |  |  |
+| `ProbabilisticState` | struct |  |  |  |  |  |
 
-| ProbabilisticStatistics | struct |  |  |  |  |  |
+| `ProbabilisticStatistics` | struct |  |  |  |  |  |
 
-| SimulationReport | struct |  |  |  |  |  |
+| `SimulationReport` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/ppddl/compile/part07.rs
 
-| parse_ppddl | function | parse_ppddl(domain_src: &str, problem_src: &str) |  |  |  |  |
+| `parse_ppddl` | function | parse_ppddl(domain_src: &str, problem_src: &str) |  |  |  |  |
 
 
 ### crates/ferroplan/src/ppddl/solver/part03.rs
 
-| solve_ppddl | function | solve_ppddl(
+| `solve_ppddl` | function | solve_ppddl(
     domain_src: &str,
     problem_src: &str,
     options: &ProbabilisticOptions,
@@ -2470,7 +2470,7 @@
 
 ### crates/ferroplan/src/ppddl/solver/part04.rs
 
-| validate_ppddl_policy | function | validate_ppddl_policy(
+| `validate_ppddl_policy` | function | validate_ppddl_policy(
     domain_src: &str,
     problem_src: &str,
     options: &ProbabilisticOptions,
@@ -2480,7 +2480,7 @@
 
 ### crates/ferroplan/src/ppddl/solver/part05.rs
 
-| simulate_ppddl | function | simulate_ppddl(
+| `simulate_ppddl` | function | simulate_ppddl(
     domain_src: &str,
     problem_src: &str,
     options: &ProbabilisticOptions,
@@ -2491,7 +2491,7 @@
 
 ### crates/ferroplan/src/production.rs
 
-| decompose_production | function | decompose_production(
+| `decompose_production` | function | decompose_production(
     domain: &str,
     problem: &str,
     options: &Options,
@@ -2499,31 +2499,31 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| goal_met | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) |  |  |  |  |
 
-| mind_bytes | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
 
-| new | function | new(
+| `new` | function | new(
         domain: &str,
         problem: &str,
         options: &Options,
         limits: ProductionLimits,
     ) |  |  |  |  |
 
-| parse_production | function | parse_production(
+| `parse_production` | function | parse_production(
     source: &str,
     max_input_bytes: usize,
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| replan | function | replan(
+| `replan` | function | replan(
         &self,
         max_evaluated: usize,
         memory_mb: Option<usize>,
         request_id: Option<&str>,
     ) |  |  |  |  |
 
-| solve_ppddl_production | function | solve_ppddl_production(
+| `solve_ppddl_production` | function | solve_ppddl_production(
     domain: &str,
     problem: &str,
     options: &ProbabilisticOptions,
@@ -2532,12 +2532,12 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| trace_production | function | trace_production(
+| `trace_production` | function | trace_production(
     domain: &str,
     problem: &str,
     plan: &[(String, Vec<String>) |  |  |  |  |
 
-| validate_plan_production | function | validate_plan_production(
+| `validate_plan_production` | function | validate_plan_production(
     domain: &str,
     problem: &str,
     plan: &str,
@@ -2546,16 +2546,16 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| world_bytes | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
 
-| PlanValidationEvidence | struct |  |  |  |  |  |
+| `PlanValidationEvidence` | struct |  |  |  |  |  |
 
-| ProductionSession | struct |  |  |  |  |  |
+| `ProductionSession` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/production_explain.rs
 
-| decompose_production | function | decompose_production(
+| `decompose_production` | function | decompose_production(
     domain: &str,
     problem: &str,
     options: &Options,
@@ -2563,7 +2563,7 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| explain_production | function | explain_production(
+| `explain_production` | function | explain_production(
     domain: &str,
     problem: &str,
     plan: &Plan,
@@ -2574,60 +2574,60 @@
 
 ### crates/ferroplan/src/reachability.rs
 
-| depth_reached | function | depth_reached(&self) |  |  |  |  |
+| `depth_reached` | function | depth_reached(&self) |  |  |  |  |
 
-| from_predecessors | function | from_predecessors(
+| `from_predecessors` | function | from_predecessors(
         predecessors: &[Vec<u32>],
         prohibited: &[u32],
         max_depth: u32,
     ) |  |  |  |  |
 
-| from_successors | function | from_successors(
+| `from_successors` | function | from_successors(
         successors: &[Vec<u32>],
         prohibited: &[u32],
         max_depth: u32,
     ) |  |  |  |  |
 
-| is_safe | function | is_safe(&self, state: u32) |  |  |  |  |
+| `is_safe` | function | is_safe(&self, state: u32) |  |  |  |  |
 
-| saturated | function | saturated(&self) |  |  |  |  |
+| `saturated` | function | saturated(&self) |  |  |  |  |
 
-| unsafe_count | function | unsafe_count(&self) |  |  |  |  |
+| `unsafe_count` | function | unsafe_count(&self) |  |  |  |  |
 
-| BackwardSafeSet | struct |  |  |  |  |  |
+| `BackwardSafeSet` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/readiness.rs
 
-| AuthorityClass | enum |  |  |  |  |  |
+| `AuthorityClass` | enum |  |  |  |  |  |
 
-| CompatibilityClass | enum |  |  |  |  |  |
+| `CompatibilityClass` | enum |  |  |  |  |  |
 
-| DeterminismClass | enum |  |  |  |  |  |
+| `DeterminismClass` | enum |  |  |  |  |  |
 
-| InterfaceKind | enum |  |  |  |  |  |
+| `InterfaceKind` | enum |  |  |  |  |  |
 
-| ManifestError | enum |  |  |  |  |  |
+| `ManifestError` | enum |  |  |  |  |  |
 
-| OutcomeClass | enum |  |  |  |  |  |
+| `OutcomeClass` | enum |  |  |  |  |  |
 
-| ReadinessState | enum |  |  |  |  |  |
+| `ReadinessState` | enum |  |  |  |  |  |
 
-| ReplayClass | enum |  |  |  |  |  |
+| `ReplayClass` | enum |  |  |  |  |  |
 
-| SecurityClass | enum |  |  |  |  |  |
+| `SecurityClass` | enum |  |  |  |  |  |
 
-| ValidationStatus | enum |  |  |  |  |  |
+| `ValidationStatus` | enum |  |  |  |  |  |
 
-| capability_manifest | function | capability_manifest() |  |  |  |  |
+| `capability_manifest` | function | capability_manifest() |  |  |  |  |
 
-| fingerprint | function | fingerprint(&self) |  |  |  |  |
+| `fingerprint` | function | fingerprint(&self) |  |  |  |  |
 
-| new | function | new(code: impl Into<String>, message: impl Into<String>, retryable: bool) |  |  |  |  |
+| `new` | function | new(code: impl Into<String>, message: impl Into<String>, retryable: bool) |  |  |  |  |
 
-| production_input_fingerprint | function | production_input_fingerprint(domain: &str, problem: &str, options: &Options) |  |  |  |  |
+| `production_input_fingerprint` | function | production_input_fingerprint(domain: &str, problem: &str, options: &Options) |  |  |  |  |
 
-| solve_production | function | solve_production(
+| `solve_production` | function | solve_production(
     domain: &str,
     problem: &str,
     options: &Options,
@@ -2635,32 +2635,32 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| validate | function | validate(&self) |  |  |  |  |
+| `validate` | function | validate(&self) |  |  |  |  |
 
-| BuildIdentity | struct |  |  |  |  |  |
+| `BuildIdentity` | struct |  |  |  |  |  |
 
-| CapabilityContract | struct |  |  |  |  |  |
+| `CapabilityContract` | struct |  |  |  |  |  |
 
-| CapabilityEvaluation | struct |  |  |  |  |  |
+| `CapabilityEvaluation` | struct |  |  |  |  |  |
 
-| CapabilityManifest | struct |  |  |  |  |  |
+| `CapabilityManifest` | struct |  |  |  |  |  |
 
-| OperationEnvelope | struct |  |  |  |  |  |
+| `OperationEnvelope` | struct |  |  |  |  |  |
 
-| ProductionLimits | struct |  |  |  |  |  |
+| `ProductionLimits` | struct |  |  |  |  |  |
 
-| PublicError | struct |  |  |  |  |  |
+| `PublicError` | struct |  |  |  |  |  |
 
-| ReadinessReport | struct |  |  |  |  |  |
+| `ReadinessReport` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/report.rs
 
-| ff_plan | function | ff_plan(task: &PackedTask, ops: &[usize]) |  |  |  |  |
+| `ff_plan` | function | ff_plan(task: &PackedTask, ops: &[usize]) |  |  |  |  |
 
-| ipc_plan | function | ipc_plan(task: &PackedTask, ops: &[usize], metric: Option<f64>) |  |  |  |  |
+| `ipc_plan` | function | ipc_plan(task: &PackedTask, ops: &[usize], metric: Option<f64>) |  |  |  |  |
 
-| metric_footer | function | metric_footer(
+| `metric_footer` | function | metric_footer(
     cost: f64,
     iterations: usize,
     n_prefs: usize,
@@ -2668,16 +2668,16 @@
     warn_other: bool,
 ) |  |  |  |  |
 
-| preamble | function | preamble(threads: usize) |  |  |  |  |
+| `preamble` | function | preamble(threads: usize) |  |  |  |  |
 
-| timing | function | timing(stats: &Stats, threads: usize) |  |  |  |  |
+| `timing` | function | timing(stats: &Stats, threads: usize) |  |  |  |  |
 
 
 ### crates/ferroplan/src/resolve.rs
 
-| Solved | enum |  |  |  |  |  |
+| `Solved` | enum |  |  |  |  |  |
 
-| solve | function | solve(
+| `solve` | function | solve(
     task: &PackedTask,
     threads: usize,
     cfg: crate::search::SearchCfg,
@@ -2690,44 +2690,44 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| Stats | struct |  |  |  |  |  |
+| `Stats` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/resource.rs
 
-| detect_resources | function | detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
+| `detect_resources` | function | detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
 
-| occupancy | function | occupancy(&self, bits: &[u64]) |  |  |  |  |
+| `occupancy` | function | occupancy(&self, bits: &[u64]) |  |  |  |  |
 
-| trip_bound | function | trip_bound(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
+| `trip_bound` | function | trip_bound(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
 
-| trips | function | trips(&self, bits: &[u64]) |  |  |  |  |
+| `trips` | function | trips(&self, bits: &[u64]) |  |  |  |  |
 
-| ResourceVar | struct |  |  |  |  |  |
+| `ResourceVar` | struct |  |  |  |  |  |
 
-| TripBound | struct |  |  |  |  |  |
+| `TripBound` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/sat.rs
 
-| from_env | function | from_env() |  |  |  |  |
+| `from_env` | function | from_env() |  |  |  |  |
 
-| requires_concurrency | function | requires_concurrency(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `requires_concurrency` | function | requires_concurrency(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| solve_classical | function | solve_classical(
+| `solve_classical` | function | solve_classical(
     task: &PackedTask,
     groups: &[Vec<u32>],
     cfg: &SatCfg,
 ) |  |  |  |  |
 
-| solve_temporal | function | solve_temporal(
+| `solve_temporal` | function | solve_temporal(
     domain: &Domain,
     problem: &Problem,
     threads: usize,
     cfg: &SatCfg,
 ) |  |  |  |  |
 
-| solve_temporal_within | function | solve_temporal_within(
+| `solve_temporal_within` | function | solve_temporal_within(
     domain: &Domain,
     problem: &Problem,
     threads: usize,
@@ -2735,26 +2735,26 @@
     budget_secs: Option<f64>,
 ) |  |  |  |  |
 
-| SatCfg | struct |  |  |  |  |  |
+| `SatCfg` | struct |  |  |  |  |  |
 
-| SatOutcome | struct |  |  |  |  |  |
+| `SatOutcome` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/search.rs
 
-| PlanResult | enum |  |  |  |  |  |
+| `PlanResult` | enum |  |  |  |  |  |
 
-| arm_wall_limit | function | arm_wall_limit() |  |  |  |  |
+| `arm_wall_limit` | function | arm_wall_limit() |  |  |  |  |
 
-| cancelled | function | cancelled(&self) |  |  |  |  |
+| `cancelled` | function | cancelled(&self) |  |  |  |  |
 
-| cost | function | cost(&self, s: &State) |  |  |  |  |
+| `cost` | function | cost(&self, s: &State) |  |  |  |  |
 
-| from_weights | function | from_weights(weight_g: f64, weight_h: f64, max_eval: Option<usize>) |  |  |  |  |
+| `from_weights` | function | from_weights(weight_g: f64, weight_h: f64, max_eval: Option<usize>) |  |  |  |  |
 
-| holds | function | holds(&self, s: &State) |  |  |  |  |
+| `holds` | function | holds(&self, s: &State) |  |  |  |  |
 
-| plan | function | plan(
+| `plan` | function | plan(
     task: &PackedTask,
     threads: usize,
     cfg: SearchCfg,
@@ -2762,7 +2762,7 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| plan_avoiding | function | plan_avoiding(
+| `plan_avoiding` | function | plan_avoiding(
     task: &PackedTask,
     threads: usize,
     cfg: SearchCfg,
@@ -2771,9 +2771,9 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| search | function | search(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
+| `search` | function | search(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
 
-| search_from | function | search_from(
+| `search_from` | function | search_from(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -2788,7 +2788,7 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| solve_closure_bounded | function | solve_closure_bounded(
+| `solve_closure_bounded` | function | solve_closure_bounded(
     task: &PackedTask,
     goal_pos: &[u32],
     goal_num: &[NumPre],
@@ -2801,7 +2801,7 @@
     sat: Option<&SatGuidance>,
 ) |  |  |  |  |
 
-| solve_subgoal | function | solve_subgoal(
+| `solve_subgoal` | function | solve_subgoal(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -2811,7 +2811,7 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| solve_subgoal_avoiding | function | solve_subgoal_avoiding(
+| `solve_subgoal_avoiding` | function | solve_subgoal_avoiding(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -2821,7 +2821,7 @@
     cfg: SearchCfg,
 ) |  |  |  |  |
 
-| solve_subgoal_bounded | function | solve_subgoal_bounded(
+| `solve_subgoal_bounded` | function | solve_subgoal_bounded(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -2833,7 +2833,7 @@
     sat: Option<&SatGuidance>,
 ) |  |  |  |  |
 
-| solve_subgoal_guided | function | solve_subgoal_guided(
+| `solve_subgoal_guided` | function | solve_subgoal_guided(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -2844,24 +2844,24 @@
     sat: Option<&SatGuidance>,
 ) |  |  |  |  |
 
-| with_cost_h | function | with_cost_h(mut self, cost_fluent: usize) |  |  |  |  |
+| `with_cost_h` | function | with_cost_h(mut self, cost_fluent: usize) |  |  |  |  |
 
-| with_cost_weight | function | with_cost_weight(mut self, w_c: f64) |  |  |  |  |
+| `with_cost_weight` | function | with_cost_weight(mut self, w_c: f64) |  |  |  |  |
 
-| ClosureCost | struct |  |  |  |  |  |
+| `ClosureCost` | struct |  |  |  |  |  |
 
-| PlanOutcome | struct |  |  |  |  |  |
+| `PlanOutcome` | struct |  |  |  |  |  |
 
-| PrefPhi | struct |  |  |  |  |  |
+| `PrefPhi` | struct |  |  |  |  |  |
 
-| SatGuidance | struct |  |  |  |  |  |
+| `SatGuidance` | struct |  |  |  |  |  |
 
-| SearchCfg | struct |  |  |  |  |  |
+| `SearchCfg` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/selection.rs
 
-| select | function | select(
+| `select` | function | select(
     task: &PackedTask,
     groups: &[Vec<u32>],
     weights: &[f64],
@@ -2869,38 +2869,38 @@
     banned: &crate::hash::FxHashSet<u32>,
 ) |  |  |  |  |
 
-| Selection | struct |  |  |  |  |  |
+| `Selection` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/session.rs
 
-| ThinkVerdict | enum |  |  |  |  |  |
+| `ThinkVerdict` | enum |  |  |  |  |  |
 
-| apply_start | function | apply_start(&mut self, name: &str) |  |  |  |  |
+| `apply_start` | function | apply_start(&mut self, name: &str) |  |  |  |  |
 
-| elapse | function | elapse(&mut self, dt: f64) |  |  |  |  |
+| `elapse` | function | elapse(&mut self, dt: f64) |  |  |  |  |
 
-| fact | function | fact(&self, name: &str) |  |  |  |  |
+| `fact` | function | fact(&self, name: &str) |  |  |  |  |
 
-| fluent | function | fluent(&self, name: &str) |  |  |  |  |
+| `fluent` | function | fluent(&self, name: &str) |  |  |  |  |
 
-| fork | function | fork(&self) |  |  |  |  |
+| `fork` | function | fork(&self) |  |  |  |  |
 
-| goal_met | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) |  |  |  |  |
 
-| mind_bytes | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
 
-| new | function | new(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
+| `new` | function | new(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
 
-| observe | function | observe(&mut self, sight: &[(&str, bool) |  |  |  |  |
+| `observe` | function | observe(&mut self, sight: &[(&str, bool) |  |  |  |  |
 
-| plan_still_valid | function | plan_still_valid(&self, plan: &Plan, from_step: usize) |  |  |  |  |
+| `plan_still_valid` | function | plan_still_valid(&self, plan: &Plan, from_step: usize) |  |  |  |  |
 
-| replan | function | replan(&self) |  |  |  |  |
+| `replan` | function | replan(&self) |  |  |  |  |
 
-| replan_budgeted | function | replan_budgeted(&self, max_evaluated: usize, memory_mb: Option<usize>) |  |  |  |  |
+| `replan_budgeted` | function | replan_budgeted(&self, max_evaluated: usize, memory_mb: Option<usize>) |  |  |  |  |
 
-| replan_following | function | replan_following(
+| `replan_following` | function | replan_following(
         &self,
         prior: &Plan,
         from_step: usize,
@@ -2908,447 +2908,447 @@
         memory_mb: Option<usize>,
     ) |  |  |  |  |
 
-| restrict_ops | function | restrict_ops(&mut self, mut keep: impl FnMut(&str) |  |  |  |  |
+| `restrict_ops` | function | restrict_ops(&mut self, mut keep: impl FnMut(&str) |  |  |  |  |
 
-| set_fact | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
+| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
 
-| set_fluent | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
+| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
 
-| set_goal | function | set_goal(&mut self, goal: &str) |  |  |  |  |
+| `set_goal` | function | set_goal(&mut self, goal: &str) |  |  |  |  |
 
-| set_timed_fact | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
+| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
 
-| state_fingerprint | function | state_fingerprint(&self) |  |  |  |  |
+| `state_fingerprint` | function | state_fingerprint(&self) |  |  |  |  |
 
-| think | function | think(&self, budget: &ThinkBudget) |  |  |  |  |
+| `think` | function | think(&self, budget: &ThinkBudget) |  |  |  |  |
 
-| think_following | function | think_following(&self, prior: &Plan, from_step: usize, budget: &ThinkBudget) |  |  |  |  |
+| `think_following` | function | think_following(&self, prior: &Plan, from_step: usize, budget: &ThinkBudget) |  |  |  |  |
 
-| world_bytes | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
 
-| Session | struct |  |  |  |  |  |
+| `Session` | struct |  |  |  |  |  |
 
-| Think | struct |  |  |  |  |  |
+| `Think` | struct |  |  |  |  |  |
 
-| ThinkBudget | struct |  |  |  |  |  |
+| `ThinkBudget` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/tcompress.rs
 
-| Bet | enum |  |  |  |  |  |
+| `Bet` | enum |  |  |  |  |  |
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| declines | function | declines(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `declines` | function | declines(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| lay_out | function | lay_out(
+| `lay_out` | function | lay_out(
     domain: &Domain,
     task: &PackedTask,
     ops: &[usize],
     shift: bool,
 ) |  |  |  |  |
 
-| solve | function | solve(domain: &Domain, problem: &Problem, threads: usize, bet: Bet) |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize, bet: Bet) |  |  |  |  |
 
 
 ### crates/ferroplan/src/temporal.rs
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| is_temporal | function | is_temporal(domain: &Domain) |  |  |  |  |
+| `is_temporal` | function | is_temporal(domain: &Domain) |  |  |  |  |
 
-| prepare | function | prepare(domain: &'a Domain, problem: &'a Problem) |  |  |  |  |
+| `prepare` | function | prepare(domain: &'a Domain, problem: &'a Problem) |  |  |  |  |
 
-| score | function | score(&self, plan: &TimedPlan) |  |  |  |  |
+| `score` | function | score(&self, plan: &TimedPlan) |  |  |  |  |
 
-| score_soft | function | score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `score_soft` | function | score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
 
-| solve | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| solve_scored | function | solve_scored(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve_scored` | function | solve_scored(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| to_ipc | function | to_ipc(&self) |  |  |  |  |
+| `to_ipc` | function | to_ipc(&self) |  |  |  |  |
 
-| validate | function | validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `validate` | function | validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
 
-| ScoredPlan | struct |  |  |  |  |  |
+| `ScoredPlan` | struct |  |  |  |  |  |
 
-| SnapInfo | struct |  |  |  |  |  |
+| `SnapInfo` | struct |  |  |  |  |  |
 
-| SoftScore | struct |  |  |  |  |  |
+| `SoftScore` | struct |  |  |  |  |  |
 
-| SoftScorer | struct |  |  |  |  |  |
+| `SoftScorer` | struct |  |  |  |  |  |
 
-| TemporalCompiled | struct |  |  |  |  |  |
+| `TemporalCompiled` | struct |  |  |  |  |  |
 
-| TimedPlan | struct |  |  |  |  |  |
+| `TimedPlan` | struct |  |  |  |  |  |
 
-| TimedStep | struct |  |  |  |  |  |
+| `TimedStep` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/trace.rs
 
-| trace | function | trace(
+| `trace` | function | trace(
     domain_src: &str,
     problem_src: &str,
     plan: &[(String, Vec<String>) |  |  |  |  |
 
-| StateSnapshot | struct |  |  |  |  |  |
+| `StateSnapshot` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/tresolve.rs
 
-| solve | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
 
 ### crates/ferroplan/src/tsched.rs
 
-| n_actors | function | n_actors(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `n_actors` | function | n_actors(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| reschedule | function | reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `reschedule` | function | reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
 
-| single_actor_problem | function | single_actor_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `single_actor_problem` | function | single_actor_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
 
 
 ### crates/ferroplan/src/types.rs
 
-| AssignOp | enum |  |  |  |  |  |
+| `AssignOp` | enum |  |  |  |  |  |
 
-| CompOp | enum |  |  |  |  |  |
+| `CompOp` | enum |  |  |  |  |  |
 
-| Constraint | enum |  |  |  |  |  |
+| `Constraint` | enum |  |  |  |  |  |
 
-| Effect | enum |  |  |  |  |  |
+| `Effect` | enum |  |  |  |  |  |
 
-| Expr | enum |  |  |  |  |  |
+| `Expr` | enum |  |  |  |  |  |
 
-| Formula | enum |  |  |  |  |  |
+| `Formula` | enum |  |  |  |  |  |
 
-| MetricDir | enum |  |  |  |  |  |
+| `MetricDir` | enum |  |  |  |  |  |
 
-| NExpr | enum |  |  |  |  |  |
+| `NExpr` | enum |  |  |  |  |  |
 
-| Term | enum |  |  |  |  |  |
+| `Term` | enum |  |  |  |  |  |
 
-| TimeSpec | enum |  |  |  |  |  |
+| `TimeSpec` | enum |  |  |  |  |  |
 
-| chosen | function | chosen(&self) |  |  |  |  |
+| `chosen` | function | chosen(&self) |  |  |  |  |
 
-| collect_fluents | function | collect_fluents(&self, out: &mut Vec<u32>) |  |  |  |  |
+| `collect_fluents` | function | collect_fluents(&self, out: &mut Vec<u32>) |  |  |  |  |
 
-| eval | function | eval(&self, fv: &[f64], def: &[bool]) |  |  |  |  |
+| `eval` | function | eval(&self, fv: &[f64], def: &[bool]) |  |  |  |  |
 
-| eval_numpre | function | eval_numpre(np: &NumPre, fv: &[f64], def: &[bool]) |  |  |  |  |
+| `eval_numpre` | function | eval_numpre(np: &NumPre, fv: &[f64], def: &[bool]) |  |  |  |  |
 
-| fixed | function | fixed(e: Expr) |  |  |  |  |
+| `fixed` | function | fixed(e: Expr) |  |  |  |  |
 
-| new | function | new(line: u32, message: impl Into<String>) |  |  |  |  |
+| `new` | function | new(line: u32, message: impl Into<String>) |  |  |  |  |
 
-| Action | struct |  |  |  |  |  |
+| `Action` | struct |  |  |  |  |  |
 
-| DerivedRule | struct |  |  |  |  |  |
+| `DerivedRule` | struct |  |  |  |  |  |
 
-| Domain | struct |  |  |  |  |  |
+| `Domain` | struct |  |  |  |  |  |
 
-| Duration | struct |  |  |  |  |  |
+| `Duration` | struct |  |  |  |  |  |
 
-| DurativeAction | struct |  |  |  |  |  |
+| `DurativeAction` | struct |  |  |  |  |  |
 
-| NumEff | struct |  |  |  |  |  |
+| `NumEff` | struct |  |  |  |  |  |
 
-| NumPre | struct |  |  |  |  |  |
+| `NumPre` | struct |  |  |  |  |  |
 
-| ParseError | struct |  |  |  |  |  |
+| `ParseError` | struct |  |  |  |  |  |
 
-| Problem | struct |  |  |  |  |  |
+| `Problem` | struct |  |  |  |  |  |
 
-| TimedLiteral | struct |  |  |  |  |  |
+| `TimedLiteral` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/verify.rs
 
-| verify | function | verify(
+| `verify` | function | verify(
     domain_src: &str,
     problem_src: &str,
     plan: &[(String, Vec<String>) |  |  |  |  |
 
-| Verified | struct |  |  |  |  |  |
+| `Verified` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/src/viz.rs
 
-| PredKind | enum |  |  |  |  |  |
+| `PredKind` | enum |  |  |  |  |  |
 
-| build | function | build(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `build` | function | build(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| domain_to_pddl | function | domain_to_pddl(
+| `domain_to_pddl` | function | domain_to_pddl(
     name: &str,
     requirements: &str,
     types: &[(String, String) |  |  |  |  |
 
-| dynamic_predicates | function | dynamic_predicates(domain: &Domain) |  |  |  |  |
+| `dynamic_predicates` | function | dynamic_predicates(domain: &Domain) |  |  |  |  |
 
-| goal_facts | function | goal_facts(problem: &Problem) |  |  |  |  |
+| `goal_facts` | function | goal_facts(problem: &Problem) |  |  |  |  |
 
-| positions_at | function | positions_at(&self, facts: &[String]) |  |  |  |  |
+| `positions_at` | function | positions_at(&self, facts: &[String]) |  |  |  |  |
 
-| to_pddl | function | to_pddl(
+| `to_pddl` | function | to_pddl(
     name: &str,
     domain_name: &str,
     objects: &[(String, String) |  |  |  |  |
 
-| VizEdge | struct |  |  |  |  |  |
+| `VizEdge` | struct |  |  |  |  |  |
 
-| VizGraph | struct |  |  |  |  |  |
+| `VizGraph` | struct |  |  |  |  |  |
 
-| VizMobile | struct |  |  |  |  |  |
+| `VizMobile` | struct |  |  |  |  |  |
 
-| VizNode | struct |  |  |  |  |  |
+| `VizNode` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan/tests/common/external.rs
 
-| corpus_dir | function | corpus_dir() |  |  |  |  |
+| `corpus_dir` | function | corpus_dir() |  |  |  |  |
 
-| corpus_ipc_dir | function | corpus_ipc_dir() |  |  |  |  |
+| `corpus_ipc_dir` | function | corpus_ipc_dir() |  |  |  |  |
 
-| differential_run_dir | function | differential_run_dir() |  |  |  |  |
+| `differential_run_dir` | function | differential_run_dir() |  |  |  |  |
 
-| harness_present | function | harness_present(what: &str, path: &Path) |  |  |  |  |
+| `harness_present` | function | harness_present(what: &str, path: &Path) |  |  |  |  |
 
-| oracle_dir | function | oracle_dir() |  |  |  |  |
+| `oracle_dir` | function | oracle_dir() |  |  |  |  |
 
-| oracle_runner | function | oracle_runner() |  |  |  |  |
+| `oracle_runner` | function | oracle_runner() |  |  |  |  |
 
 
 ### crates/ferroplan/tests/common/mod.rs
 
-| base_sizes | function | base_sizes(rng: &mut Rng) |  |  |  |  |
+| `base_sizes` | function | base_sizes(rng: &mut Rng) |  |  |  |  |
 
-| below | function | below(&mut self, n: u64) |  |  |  |  |
+| `below` | function | below(&mut self, n: u64) |  |  |  |  |
 
-| chance | function | chance(&mut self, percent: u64) |  |  |  |  |
+| `chance` | function | chance(&mut self, percent: u64) |  |  |  |  |
 
-| draw_for | function | draw_for(seed: u64, sizes: Sizes) |  |  |  |  |
+| `draw_for` | function | draw_for(seed: u64, sizes: Sizes) |  |  |  |  |
 
-| draw_valid | function | draw_valid(seed: u64, sizes: Sizes) |  |  |  |  |
+| `draw_valid` | function | draw_valid(seed: u64, sizes: Sizes) |  |  |  |  |
 
-| generate | function | generate(seed: u64, sizes: Sizes) |  |  |  |  |
+| `generate` | function | generate(seed: u64, sizes: Sizes) |  |  |  |  |
 
-| generate_valid | function | generate_valid(seed: u64, sizes: Sizes) |  |  |  |  |
+| `generate_valid` | function | generate_valid(seed: u64, sizes: Sizes) |  |  |  |  |
 
-| halve_sizes | function | halve_sizes(s: Sizes) |  |  |  |  |
+| `halve_sizes` | function | halve_sizes(s: Sizes) |  |  |  |  |
 
-| mutation_of | function | mutation_of(seed: u64) |  |  |  |  |
+| `mutation_of` | function | mutation_of(seed: u64) |  |  |  |  |
 
-| new | function | new(seed: u64) |  |  |  |  |
+| `new` | function | new(seed: u64) |  |  |  |  |
 
-| next_u64 | function | next_u64(&mut self) |  |  |  |  |
+| `next_u64` | function | next_u64(&mut self) |  |  |  |  |
 
-| pick_idx | function | pick_idx(&mut self, len: usize) |  |  |  |  |
+| `pick_idx` | function | pick_idx(&mut self, len: usize) |  |  |  |  |
 
-| range | function | range(&mut self, lo: u64, hi: u64) |  |  |  |  |
+| `range` | function | range(&mut self, lo: u64, hi: u64) |  |  |  |  |
 
-| range_usize | function | range_usize(&mut self, lo: usize, hi: usize) |  |  |  |  |
+| `range_usize` | function | range_usize(&mut self, lo: usize, hi: usize) |  |  |  |  |
 
-| render | function | render(model: &Model, problem_name: &str) |  |  |  |  |
+| `render` | function | render(model: &Model, problem_name: &str) |  |  |  |  |
 
-| render_with_provenance | function | render_with_provenance(
+| `render_with_provenance` | function | render_with_provenance(
     model: &Model,
     problem_name: &str,
     header: &[&str],
 ) |  |  |  |  |
 
-| sizes_for | function | sizes_for(seed: u64) |  |  |  |  |
+| `sizes_for` | function | sizes_for(seed: u64) |  |  |  |  |
 
-| Model | struct |  |  |  |  |  |
+| `Model` | struct |  |  |  |  |  |
 
-| Rng | struct |  |  |  |  |  |
+| `Rng` | struct |  |  |  |  |  |
 
-| Sizes | struct |  |  |  |  |  |
+| `Sizes` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/artifact/board_md.rs
 
-| from_rows | function | from_rows(rows: &[RawRow]) |  |  |  |  |
+| `from_rows` | function | from_rows(rows: &[RawRow]) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| render | function | render(
+| `render` | function | render(
     header: &BoardHeader,
     summary: &[VariantSummary],
     score_against: Option<&str>,
 ) |  |  |  |  |
 
-| summarize_variants | function | summarize_variants(rows: &[RawRow], reference: Option<&Reference>) |  |  |  |  |
+| `summarize_variants` | function | summarize_variants(rows: &[RawRow], reference: Option<&Reference>) |  |  |  |  |
 
-| BoardHeader | struct |  |  |  |  |  |
+| `BoardHeader` | struct |  |  |  |  |  |
 
-| Reference | struct |  |  |  |  |  |
+| `Reference` | struct |  |  |  |  |  |
 
-| VariantSummary | struct |  |  |  |  |  |
+| `VariantSummary` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/artifact/conditions.rs
 
-| ConditionsError | enum |  |  |  |  |  |
+| `ConditionsError` | enum |  |  |  |  |  |
 
-| Slot | enum |  |  |  |  |  |
+| `Slot` | enum |  |  |  |  |  |
 
-| as_option | function | as_option(&self) |  |  |  |  |
+| `as_option` | function | as_option(&self) |  |  |  |  |
 
-| at | function | at(&self) |  |  |  |  |
+| `at` | function | at(&self) |  |  |  |  |
 
-| competitors_total | function | competitors_total(&self) |  |  |  |  |
+| `competitors_total` | function | competitors_total(&self) |  |  |  |  |
 
-| idle_pct | function | idle_pct(&self) |  |  |  |  |
+| `idle_pct` | function | idle_pct(&self) |  |  |  |  |
 
-| is_present | function | is_present(&self) |  |  |  |  |
+| `is_present` | function | is_present(&self) |  |  |  |  |
 
-| new | function | new(
+| `new` | function | new(
         at: Option<Number>,
         idle_pct: Option<Number>,
         competitors_total: Option<Number>,
     ) |  |  |  |  |
 
-| observe | function | observe(&mut self, r: &Reading<'_>) |  |  |  |  |
+| `observe` | function | observe(&mut self, r: &Reading<'_>) |  |  |  |  |
 
-| of | function | of(self_exclusion: Vec<String>) |  |  |  |  |
+| `of` | function | of(self_exclusion: Vec<String>) |  |  |  |  |
 
-| parse | function | parse(text: &str, path: &str) |  |  |  |  |
+| `parse` | function | parse(text: &str, path: &str) |  |  |  |  |
 
-| percentile | function | percentile(v: &[f64], p: f64) |  |  |  |  |
+| `percentile` | function | percentile(v: &[f64], p: f64) |  |  |  |  |
 
-| rollup_from_timeline | function | rollup_from_timeline(timeline: &[TimelineEntry]) |  |  |  |  |
+| `rollup_from_timeline` | function | rollup_from_timeline(timeline: &[TimelineEntry]) |  |  |  |  |
 
-| statistics_median | function | statistics_median(v: &[f64]) |  |  |  |  |
+| `statistics_median` | function | statistics_median(v: &[f64]) |  |  |  |  |
 
-| summarize | function | summarize(r: &Rollup, ended: &str, provenance: Option<&Provenance>) |  |  |  |  |
+| `summarize` | function | summarize(r: &Rollup, ended: &str, provenance: Option<&Provenance>) |  |  |  |  |
 
-| to_json | function | to_json(&self) |  |  |  |  |
+| `to_json` | function | to_json(&self) |  |  |  |  |
 
-| Competitors | struct |  |  |  |  |  |
+| `Competitors` | struct |  |  |  |  |  |
 
-| Conditions | struct |  |  |  |  |  |
+| `Conditions` | struct |  |  |  |  |  |
 
-| CpuSpeedLimit | struct |  |  |  |  |  |
+| `CpuSpeedLimit` | struct |  |  |  |  |  |
 
-| IdlePct | struct |  |  |  |  |  |
+| `IdlePct` | struct |  |  |  |  |  |
 
-| LoadAvg | struct |  |  |  |  |  |
+| `LoadAvg` | struct |  |  |  |  |  |
 
-| Provenance | struct |  |  |  |  |  |
+| `Provenance` | struct |  |  |  |  |  |
 
-| Reading | struct |  |  |  |  |  |
+| `Reading` | struct |  |  |  |  |  |
 
-| Rollup | struct |  |  |  |  |  |
+| `Rollup` | struct |  |  |  |  |  |
 
-| SwapMb | struct |  |  |  |  |  |
+| `SwapMb` | struct |  |  |  |  |  |
 
-| TimelineEntry | struct |  |  |  |  |  |
+| `TimelineEntry` | struct |  |  |  |  |  |
 
-| TimelineRollup | struct |  |  |  |  |  |
+| `TimelineRollup` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/corpus.rs
 
-| instances | function | instances(v: &Variant, max: usize, warnings: &mut Vec<String>) |  |  |  |  |
+| `instances` | function | instances(v: &Variant, max: usize, warnings: &mut Vec<String>) |  |  |  |  |
 
-| variants | function | variants(corpus: &Path, ipcs: &[String], selects: &dyn Fn(&str) |  |  |  |  |
+| `variants` | function | variants(corpus: &Path, ipcs: &[String], selects: &dyn Fn(&str) |  |  |  |  |
 
-| Instance | struct |  |  |  |  |  |
+| `Instance` | struct |  |  |  |  |  |
 
-| Variant | struct |  |  |  |  |  |
+| `Variant` | struct |  |  |  |  |  |
 
-| Walk | struct |  |  |  |  |  |
+| `Walk` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/db/lock.rs
 
-| LockError | enum |  |  |  |  |  |
+| `LockError` | enum |  |  |  |  |  |
 
-| acquire | function | acquire(dir: &Path) |  |  |  |  |
+| `acquire` | function | acquire(dir: &Path) |  |  |  |  |
 
-| path | function | path(&self) |  |  |  |  |
+| `path` | function | path(&self) |  |  |  |  |
 
-| DirLock | struct |  |  |  |  |  |
+| `DirLock` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/db/mod.rs
 
-| DbError | enum |  |  |  |  |  |
+| `DbError` | enum |  |  |  |  |  |
 
-| open | function | open(dir: &Path) |  |  |  |  |
+| `open` | function | open(dir: &Path) |  |  |  |  |
 
-| path | function | path(&self) |  |  |  |  |
+| `path` | function | path(&self) |  |  |  |  |
 
-| reader | function | reader(&self) |  |  |  |  |
+| `reader` | function | reader(&self) |  |  |  |  |
 
-| writer | function | writer(&self) |  |  |  |  |
+| `writer` | function | writer(&self) |  |  |  |  |
 
-| Db | struct |  |  |  |  |  |
+| `Db` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/db/model.rs
 
-| Cleanliness | enum |  |  |  |  |  |
+| `Cleanliness` | enum |  |  |  |  |  |
 
-| PassVerdict | enum |  |  |  |  |  |
+| `PassVerdict` | enum |  |  |  |  |  |
 
-| RunState | enum |  |  |  |  |  |
+| `RunState` | enum |  |  |  |  |  |
 
-| TimingQuality | enum |  |  |  |  |  |
+| `TimingQuality` | enum |  |  |  |  |  |
 
-| ValReason | enum |  |  |  |  |  |
+| `ValReason` | enum |  |  |  |  |  |
 
-| as_str | function | as_str(self) |  |  |  |  |
+| `as_str` | function | as_str(self) |  |  |  |  |
 
-| identity | function | identity(&self) |  |  |  |  |
+| `identity` | function | identity(&self) |  |  |  |  |
 
-| of | function | of(i: &Instance) |  |  |  |  |
+| `of` | function | of(i: &Instance) |  |  |  |  |
 
-| parse | function | parse(s: &str) |  |  |  |  |
+| `parse` | function | parse(s: &str) |  |  |  |  |
 
-| sort_key | function | sort_key(label: &str) |  |  |  |  |
+| `sort_key` | function | sort_key(label: &str) |  |  |  |  |
 
-| to_instance | function | to_instance(&self) |  |  |  |  |
+| `to_instance` | function | to_instance(&self) |  |  |  |  |
 
-| AttemptRec | struct |  |  |  |  |  |
+| `AttemptRec` | struct |  |  |  |  |  |
 
-| BoardFacts | struct |  |  |  |  |  |
+| `BoardFacts` | struct |  |  |  |  |  |
 
-| BoardKey | struct |  |  |  |  |  |
+| `BoardKey` | struct |  |  |  |  |  |
 
-| BoardPassRec | struct |  |  |  |  |  |
+| `BoardPassRec` | struct |  |  |  |  |  |
 
-| EngineFacts | struct |  |  |  |  |  |
+| `EngineFacts` | struct |  |  |  |  |  |
 
-| EngineKey | struct |  |  |  |  |  |
+| `EngineKey` | struct |  |  |  |  |  |
 
-| EventRec | struct |  |  |  |  |  |
+| `EventRec` | struct |  |  |  |  |  |
 
-| InstanceKey | struct |  |  |  |  |  |
+| `InstanceKey` | struct |  |  |  |  |  |
 
-| LiveChild | struct |  |  |  |  |  |
+| `LiveChild` | struct |  |  |  |  |  |
 
-| Measured | struct |  |  |  |  |  |
+| `Measured` | struct |  |  |  |  |  |
 
-| RunRecord | struct |  |  |  |  |  |
+| `RunRecord` | struct |  |  |  |  |  |
 
-| SamplePoint | struct |  |  |  |  |  |
+| `SamplePoint` | struct |  |  |  |  |  |
 
-| SampleRec | struct |  |  |  |  |  |
+| `SampleRec` | struct |  |  |  |  |  |
 
-| ThrottleWindowRec | struct |  |  |  |  |  |
+| `ThrottleWindowRec` | struct |  |  |  |  |  |
 
-| VariantKey | struct |  |  |  |  |  |
+| `VariantKey` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/db/read.rs
 
-| attempts_for | function | attempts_for(
+| `attempts_for` | function | attempts_for(
         &self,
         board_id: i64,
         engine_id: i64,
@@ -3356,48 +3356,48 @@
         label: &str,
     ) |  |  |  |  |
 
-| banked_instances | function | banked_instances(
+| `banked_instances` | function | banked_instances(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| boards_named | function | boards_named(&self, name: &str) |  |  |  |  |
+| `boards_named` | function | boards_named(&self, name: &str) |  |  |  |  |
 
-| canary_baseline | function | canary_baseline(
+| `canary_baseline` | function | canary_baseline(
         &self,
         label: &str,
         window: usize,
         pct: f64,
     ) |  |  |  |  |
 
-| canary_max_between | function | canary_max_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
+| `canary_max_between` | function | canary_max_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
 
-| clean_instances | function | clean_instances(
+| `clean_instances` | function | clean_instances(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| competitors_between | function | competitors_between(
+| `competitors_between` | function | competitors_between(
         &self,
         start_ts: f64,
         end_ts: f64,
     ) |  |  |  |  |
 
-| conn | function | conn(&self) |  |  |  |  |
+| `conn` | function | conn(&self) |  |  |  |  |
 
-| engine_by_hash | function | engine_by_hash(&self, blake3: &str) |  |  |  |  |
+| `engine_by_hash` | function | engine_by_hash(&self, blake3: &str) |  |  |  |  |
 
-| engines_for_board | function | engines_for_board(&self, board_id: i64) |  |  |  |  |
+| `engines_for_board` | function | engines_for_board(&self, board_id: i64) |  |  |  |  |
 
-| engines_matching | function | engines_matching(&self, needle: &str) |  |  |  |  |
+| `engines_matching` | function | engines_matching(&self, needle: &str) |  |  |  |  |
 
-| export_rows | function | export_rows(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `export_rows` | function | export_rows(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| live_children | function | live_children(&self) |  |  |  |  |
+| `live_children` | function | live_children(&self) |  |  |  |  |
 
-| next_attempt | function | next_attempt(
+| `next_attempt` | function | next_attempt(
         &self,
         board_id: i64,
         engine_id: i64,
@@ -3406,30 +3406,30 @@
         label: &str,
     ) |  |  |  |  |
 
-| open | function | open(path: &Path) |  |  |  |  |
+| `open` | function | open(path: &Path) |  |  |  |  |
 
-| pass_verdict | function | pass_verdict(
+| `pass_verdict` | function | pass_verdict(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| prior_peak_rss | function | prior_peak_rss(&self, variant: &str, label: &str) |  |  |  |  |
+| `prior_peak_rss` | function | prior_peak_rss(&self, variant: &str, label: &str) |  |  |  |  |
 
-| run_census | function | run_census(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `run_census` | function | run_census(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| runs_between | function | runs_between(
+| `runs_between` | function | runs_between(
         &self,
         engine_id: i64,
         start_ts: f64,
         end_ts: f64,
     ) |  |  |  |  |
 
-| sample_count | function | sample_count(&self, pass: Option<i64>) |  |  |  |  |
+| `sample_count` | function | sample_count(&self, pass: Option<i64>) |  |  |  |  |
 
-| samples_between | function | samples_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
+| `samples_between` | function | samples_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
 
-| solo_attempts | function | solo_attempts(
+| `solo_attempts` | function | solo_attempts(
         &self,
         board_id: i64,
         engine_id: i64,
@@ -3437,33 +3437,33 @@
         label: &str,
     ) |  |  |  |  |
 
-| swap_growth_between | function | swap_growth_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
+| `swap_growth_between` | function | swap_growth_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
 
-| throttle_windows_between | function | throttle_windows_between(
+| `throttle_windows_between` | function | throttle_windows_between(
         &self,
         start_ts: f64,
         end_ts: f64,
     ) |  |  |  |  |
 
-| timing_census | function | timing_census(
+| `timing_census` | function | timing_census(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| val_ok | function | val_ok(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `val_ok` | function | val_ok(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| val_rejected | function | val_rejected(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `val_rejected` | function | val_rejected(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| val_unavailable | function | val_unavailable(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `val_unavailable` | function | val_unavailable(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| verdicts_for | function | verdicts_for(
+| `verdicts_for` | function | verdicts_for(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| window_gate | function | window_gate(
+| `window_gate` | function | window_gate(
         &self,
         start_ts: f64,
         end_ts: f64,
@@ -3471,60 +3471,60 @@
         pass: Option<i64>,
     ) |  |  |  |  |
 
-| Reader | struct |  |  |  |  |  |
+| `Reader` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/db/rebuild.rs
 
-| board_facts | function | board_facts(spec: &BoardSpec, m: &Manifest, first: Option<&RawRow>) |  |  |  |  |
+| `board_facts` | function | board_facts(spec: &BoardSpec, m: &Manifest, first: Option<&RawRow>) |  |  |  |  |
 
-| board_key_from_manifest | function | board_key_from_manifest(m: &Manifest, spec: &BoardSpec) |  |  |  |  |
+| `board_key_from_manifest` | function | board_key_from_manifest(m: &Manifest, spec: &BoardSpec) |  |  |  |  |
 
-| export | function | export(reader: &Reader, board_id: i64, engine_id: i64) |  |  |  |  |
+| `export` | function | export(reader: &Reader, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| export_to | function | export_to(
+| `export_to` | function | export_to(
     reader: &Reader,
     board_id: i64,
     engine_id: i64,
     path: &Path,
 ) |  |  |  |  |
 
-| rebuild_from_artifacts | function | rebuild_from_artifacts(
+| `rebuild_from_artifacts` | function | rebuild_from_artifacts(
     writer: &WriterHandle,
     manifest: &Manifest,
     dir: &Path,
     val_unavailable: Option<&ValUnavailable>,
 ) |  |  |  |  |
 
-| RebuiltBoard | struct |  |  |  |  |  |
+| `RebuiltBoard` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/db/schema.rs
 
-| MigrateError | enum |  |  |  |  |  |
+| `MigrateError` | enum |  |  |  |  |  |
 
-| migrate | function | migrate(conn: &Connection) |  |  |  |  |
+| `migrate` | function | migrate(conn: &Connection) |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/db/writer.rs
 
-| board_pass | function | board_pass(&self, p: BoardPassRec) |  |  |  |  |
+| `board_pass` | function | board_pass(&self, p: BoardPassRec) |  |  |  |  |
 
-| canary | function | canary(&self, at: f64, label: String, secs: f64, solo: bool) |  |  |  |  |
+| `canary` | function | canary(&self, at: f64, label: String, secs: f64, solo: bool) |  |  |  |  |
 
-| child_gone | function | child_gone(&self, pid: i32) |  |  |  |  |
+| `child_gone` | function | child_gone(&self, pid: i32) |  |  |  |  |
 
-| child_spawned | function | child_spawned(&self, c: LiveChild) |  |  |  |  |
+| `child_spawned` | function | child_spawned(&self, c: LiveChild) |  |  |  |  |
 
-| child_stopped | function | child_stopped(&self, pid: i32, stopped: bool) |  |  |  |  |
+| `child_stopped` | function | child_stopped(&self, pid: i32, stopped: bool) |  |  |  |  |
 
-| event | function | event(&self, e: EventRec) |  |  |  |  |
+| `event` | function | event(&self, e: EventRec) |  |  |  |  |
 
-| flush | function | flush(&self) |  |  |  |  |
+| `flush` | function | flush(&self) |  |  |  |  |
 
-| handle | function | handle(&self) |  |  |  |  |
+| `handle` | function | handle(&self) |  |  |  |  |
 
-| resolve | function | resolve(
+| `resolve` | function | resolve(
         &self,
         board: BoardKey,
         board_facts: BoardFacts,
@@ -3532,32 +3532,32 @@
         engine_facts: EngineFacts,
     ) |  |  |  |  |
 
-| run | function | run(&self, rec: RunRecord) |  |  |  |  |
+| `run` | function | run(&self, rec: RunRecord) |  |  |  |  |
 
-| sample | function | sample(&self, s: SampleRec) |  |  |  |  |
+| `sample` | function | sample(&self, s: SampleRec) |  |  |  |  |
 
-| start | function | start(conn: Connection) |  |  |  |  |
+| `start` | function | start(conn: Connection) |  |  |  |  |
 
-| take_error | function | take_error(&self) |  |  |  |  |
+| `take_error` | function | take_error(&self) |  |  |  |  |
 
-| throttle_close | function | throttle_close(&self, id: i64, ended_at: f64) |  |  |  |  |
+| `throttle_close` | function | throttle_close(&self, id: i64, ended_at: f64) |  |  |  |  |
 
-| throttle_open | function | throttle_open(&self, w: ThrottleWindowRec) |  |  |  |  |
+| `throttle_open` | function | throttle_open(&self, w: ThrottleWindowRec) |  |  |  |  |
 
-| Writer | struct |  |  |  |  |  |
+| `Writer` | struct |  |  |  |  |  |
 
-| WriterHandle | struct |  |  |  |  |  |
+| `WriterHandle` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/exec/env.rs
 
-| build | function | build(
+| `build` | function | build(
     timeout_secs: u64,
     mem_gb: f64,
     board_env: &BTreeMap<String, String>,
 ) |  |  |  |  |
 
-| validate | function | validate(
+| `validate` | function | validate(
     timeout_secs: u64,
     mem_gb: f64,
     board_env: &BTreeMap<String, String>,
@@ -3566,347 +3566,347 @@
 
 ### crucible/crates/crucible-core/src/exec/mod.rs
 
-| Ctl | enum |  |  |  |  |  |
+| `Ctl` | enum |  |  |  |  |  |
 
-| ExecError | enum |  |  |  |  |  |
+| `ExecError` | enum |  |  |  |  |  |
 
-| Killed | enum |  |  |  |  |  |
+| `Killed` | enum |  |  |  |  |  |
 
-| install_interrupt_handler | function | install_interrupt_handler() |  |  |  |  |
+| `install_interrupt_handler` | function | install_interrupt_handler() |  |  |  |  |
 
-| interrupted | function | interrupted() |  |  |  |  |
+| `interrupted` | function | interrupted() |  |  |  |  |
 
-| set_interrupted | function | set_interrupted(on: bool) |  |  |  |  |
+| `set_interrupted` | function | set_interrupted(on: bool) |  |  |  |  |
 
-| RunOutcome | struct |  |  |  |  |  |
+| `RunOutcome` | struct |  |  |  |  |  |
 
-| RunRequest | struct |  |  |  |  |  |
+| `RunRequest` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/exec/orphan.rs
 
-| Reaped | enum |  |  |  |  |  |
+| `Reaped` | enum |  |  |  |  |  |
 
-| armed | function | armed(&self) |  |  |  |  |
+| `armed` | function | armed(&self) |  |  |  |  |
 
-| disarm | function | disarm(&mut self) |  |  |  |  |
+| `disarm` | function | disarm(&mut self) |  |  |  |  |
 
-| install_panic_reaper | function | install_panic_reaper() |  |  |  |  |
+| `install_panic_reaper` | function | install_panic_reaper() |  |  |  |  |
 
-| new | function | new(pgid: Pid) |  |  |  |  |
+| `new` | function | new(pgid: Pid) |  |  |  |  |
 
-| pgid | function | pgid(&self) |  |  |  |  |
+| `pgid` | function | pgid(&self) |  |  |  |  |
 
-| pid | function | pid(&self) |  |  |  |  |
+| `pid` | function | pid(&self) |  |  |  |  |
 
-| reap_registered | function | reap_registered() |  |  |  |  |
+| `reap_registered` | function | reap_registered() |  |  |  |  |
 
-| record | function | record(pid: Pid, run_id: Option<i64>, id: &ProcIdentity, spawned_at: f64) |  |  |  |  |
+| `record` | function | record(pid: Pid, run_id: Option<i64>, id: &ProcIdentity, spawned_at: f64) |  |  |  |  |
 
-| signalled | function | signalled(&self) |  |  |  |  |
+| `signalled` | function | signalled(&self) |  |  |  |  |
 
-| GroupGuard | struct |  |  |  |  |  |
+| `GroupGuard` | struct |  |  |  |  |  |
 
-| LiveChild | struct |  |  |  |  |  |
+| `LiveChild` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/monitor/games.rs
 
-| busiest | function | busiest(&self, procs: &[Proc]) |  |  |  |  |
+| `busiest` | function | busiest(&self, procs: &[Proc]) |  |  |  |  |
 
-| game_pids | function | game_pids(&self, procs: &[Proc]) |  |  |  |  |
+| `game_pids` | function | game_pids(&self, procs: &[Proc]) |  |  |  |  |
 
-| GameRules | struct |  |  |  |  |  |
+| `GameRules` | struct |  |  |  |  |  |
 
-| Proc | struct |  |  |  |  |  |
+| `Proc` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/monitor/sample.rs
 
-| attribute | function | attribute(ps_output: &str, exclude: &dyn Fn(&str) |  |  |  |  |
+| `attribute` | function | attribute(ps_output: &str, exclude: &dyn Fn(&str) |  |  |  |  |
 
-| is_clean | function | is_clean(&self) |  |  |  |  |
+| `is_clean` | function | is_clean(&self) |  |  |  |  |
 
-| Sample | struct |  |  |  |  |  |
+| `Sample` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/monitor/throttle.rs
 
-| Level | enum |  |  |  |  |  |
+| `Level` | enum |  |  |  |  |  |
 
-| Reason | enum |  |  |  |  |  |
+| `Reason` | enum |  |  |  |  |  |
 
-| level | function | level(&self) |  |  |  |  |
+| `level` | function | level(&self) |  |  |  |  |
 
-| new | function | new(cfg: Config) |  |  |  |  |
+| `new` | function | new(cfg: Config) |  |  |  |  |
 
-| on_sample | function | on_sample(&mut self, s: &Sample, g: &GameState, now: Instant) |  |  |  |  |
+| `on_sample` | function | on_sample(&mut self, s: &Sample, g: &GameState, now: Instant) |  |  |  |  |
 
-| set_manual_hold | function | set_manual_hold(&mut self, on: bool) |  |  |  |  |
+| `set_manual_hold` | function | set_manual_hold(&mut self, on: bool) |  |  |  |  |
 
-| Config | struct |  |  |  |  |  |
+| `Config` | struct |  |  |  |  |  |
 
-| GameState | struct |  |  |  |  |  |
+| `GameState` | struct |  |  |  |  |  |
 
-| Throttle | struct |  |  |  |  |  |
+| `Throttle` | struct |  |  |  |  |  |
 
-| Transition | struct |  |  |  |  |  |
+| `Transition` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/platform/generic.rs
 
-| Generic | struct |  |  |  |  |  |
+| `Generic` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/platform/macos.rs
 
-| mach_ticks_to_ns | function | mach_ticks_to_ns(ticks: u64) |  |  |  |  |
+| `mach_ticks_to_ns` | function | mach_ticks_to_ns(ticks: u64) |  |  |  |  |
 
-| MacOs | struct |  |  |  |  |  |
+| `MacOs` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/platform/mod.rs
 
-| MemCap | enum |  |  |  |  |  |
+| `MemCap` | enum |  |  |  |  |  |
 
-| bytes | function | bytes(self) |  |  |  |  |
+| `bytes` | function | bytes(self) |  |  |  |  |
 
-| host | function | host() |  |  |  |  |
+| `host` | function | host() |  |  |  |  |
 
-| instrument | function | instrument(self) |  |  |  |  |
+| `instrument` | function | instrument(self) |  |  |  |  |
 
-| ProcIdentity | struct |  |  |  |  |  |
+| `ProcIdentity` | struct |  |  |  |  |  |
 
-| Topology | struct |  |  |  |  |  |
+| `Topology` | struct |  |  |  |  |  |
 
-| KeepAwake | trait |  |  |  |  |  |
+| `KeepAwake` | trait |  |  |  |  |  |
 
-| Platform | trait |  |  |  |  |  |
+| `Platform` | trait |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/sched/budget.rs
 
-| Admission | enum |  |  |  |  |  |
+| `Admission` | enum |  |  |  |  |  |
 
-| Denial | enum |  |  |  |  |  |
+| `Denial` | enum |  |  |  |  |  |
 
-| admit | function | admit(&self, level: Level, demand: Demand, declared: bool) |  |  |  |  |
+| `admit` | function | admit(&self, level: Level, demand: Demand, declared: bool) |  |  |  |  |
 
-| capacity | function | capacity(&self, level: Level) |  |  |  |  |
+| `capacity` | function | capacity(&self, level: Level) |  |  |  |  |
 
-| contains | function | contains(&self, board_id: &str) |  |  |  |  |
+| `contains` | function | contains(&self, board_id: &str) |  |  |  |  |
 
-| cores | function | cores(self) |  |  |  |  |
+| `cores` | function | cores(self) |  |  |  |  |
 
-| errors | function | errors(lines: &[String]) |  |  |  |  |
+| `errors` | function | errors(lines: &[String]) |  |  |  |  |
 
-| ids | function | ids(&self) |  |  |  |  |
+| `ids` | function | ids(&self) |  |  |  |  |
 
-| is_admitted | function | is_admitted(&self) |  |  |  |  |
+| `is_admitted` | function | is_admitted(&self) |  |  |  |  |
 
-| new | function | new(jobs: u32, threads: u32) |  |  |  |  |
+| `new` | function | new(jobs: u32, threads: u32) |  |  |  |  |
 
-| none | function | none() |  |  |  |  |
+| `none` | function | none() |  |  |  |  |
 
-| of | function | of(b: &BoardSpec, d: &Defaults) |  |  |  |  |
+| `of` | function | of(b: &BoardSpec, d: &Defaults) |  |  |  |  |
 
-| validate | function | validate(&self, m: &Manifest, declared: &Oversubscribed) |  |  |  |  |
+| `validate` | function | validate(&self, m: &Manifest, declared: &Oversubscribed) |  |  |  |  |
 
-| with_reserve | function | with_reserve(topology: Topology, reserve_p_cores: u32) |  |  |  |  |
+| `with_reserve` | function | with_reserve(topology: Topology, reserve_p_cores: u32) |  |  |  |  |
 
-| Accountant | struct |  |  |  |  |  |
+| `Accountant` | struct |  |  |  |  |  |
 
-| Demand | struct |  |  |  |  |  |
+| `Demand` | struct |  |  |  |  |  |
 
-| Oversubscribed | struct |  |  |  |  |  |
+| `Oversubscribed` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/sched/mod.rs
 
-| Event | enum |  |  |  |  |  |
+| `Event` | enum |  |  |  |  |  |
 
-| Next | enum |  |  |  |  |  |
+| `Next` | enum |  |  |  |  |  |
 
-| backoff | function | backoff(&self, consecutive: u32) |  |  |  |  |
+| `backoff` | function | backoff(&self, consecutive: u32) |  |  |  |  |
 
-| order_boards | function | order_boards(boards: &[BoardState], pass: u32) |  |  |  |  |
+| `order_boards` | function | order_boards(boards: &[BoardState], pass: u32) |  |  |  |  |
 
-| run | function | run(r: &mut dyn Runner, cfg: &LoopConfig) |  |  |  |  |
+| `run` | function | run(r: &mut dyn Runner, cfg: &LoopConfig) |  |  |  |  |
 
-| Attempt | struct |  |  |  |  |  |
+| `Attempt` | struct |  |  |  |  |  |
 
-| BoardState | struct |  |  |  |  |  |
+| `BoardState` | struct |  |  |  |  |  |
 
-| LoopConfig | struct |  |  |  |  |  |
+| `LoopConfig` | struct |  |  |  |  |  |
 
-| Outcome | struct |  |  |  |  |  |
+| `Outcome` | struct |  |  |  |  |  |
 
-| Runner | trait |  |  |  |  |  |
+| `Runner` | trait |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/sched/quiet.rs
 
-| Admission | enum |  |  |  |  |  |
+| `Admission` | enum |  |  |  |  |  |
 
-| Denied | enum |  |  |  |  |  |
+| `Denied` | enum |  |  |  |  |  |
 
-| Rule | enum |  |  |  |  |  |
+| `Rule` | enum |  |  |  |  |  |
 
-| config | function | config(&self) |  |  |  |  |
+| `config` | function | config(&self) |  |  |  |  |
 
-| is_admitted | function | is_admitted(&self) |  |  |  |  |
+| `is_admitted` | function | is_admitted(&self) |  |  |  |  |
 
-| new | function | new(cfg: Config) |  |  |  |  |
+| `new` | function | new(cfg: Config) |  |  |  |  |
 
-| poll | function | poll(&mut self, level: Level, sample: &Sample, now: Instant) |  |  |  |  |
+| `poll` | function | poll(&mut self, level: Level, sample: &Sample, now: Instant) |  |  |  |  |
 
-| reset | function | reset(&mut self) |  |  |  |  |
+| `reset` | function | reset(&mut self) |  |  |  |  |
 
-| Config | struct |  |  |  |  |  |
+| `Config` | struct |  |  |  |  |  |
 
-| Gate | struct |  |  |  |  |  |
+| `Gate` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/sched/referee.rs
 
-| Bank | enum |  |  |  |  |  |
+| `Bank` | enum |  |  |  |  |  |
 
-| Owe | enum |  |  |  |  |  |
+| `Owe` | enum |  |  |  |  |  |
 
-| Verdict | enum |  |  |  |  |  |
+| `Verdict` | enum |  |  |  |  |  |
 
-| as_str | function | as_str(self) |  |  |  |  |
+| `as_str` | function | as_str(self) |  |  |  |  |
 
-| banked | function | banked(self) |  |  |  |  |
+| `banked` | function | banked(self) |  |  |  |  |
 
-| box_fault | function | box_fault(self) |  |  |  |  |
+| `box_fault` | function | box_fault(self) |  |  |  |  |
 
-| judge | function | judge(rule: &Rule, f: &Facts) |  |  |  |  |
+| `judge` | function | judge(rule: &Rule, f: &Facts) |  |  |  |  |
 
-| rho | function | rho(&self) |  |  |  |  |
+| `rho` | function | rho(&self) |  |  |  |  |
 
-| rho_floor_ms | function | rho_floor_ms(&self) |  |  |  |  |
+| `rho_floor_ms` | function | rho_floor_ms(&self) |  |  |  |  |
 
-| timing | function | timing(f: &Facts) |  |  |  |  |
+| `timing` | function | timing(f: &Facts) |  |  |  |  |
 
-| Facts | struct |  |  |  |  |  |
+| `Facts` | struct |  |  |  |  |  |
 
-| Rule | struct |  |  |  |  |  |
+| `Rule` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/sched/resume.rs
 
-| Disabled | enum |  |  |  |  |  |
+| `Disabled` | enum |  |  |  |  |  |
 
-| InstanceKey | enum |  |  |  |  |  |
+| `InstanceKey` | enum |  |  |  |  |  |
 
-| Reject | enum |  |  |  |  |  |
+| `Reject` | enum |  |  |  |  |  |
 
-| disabled | function | disabled(&self) |  |  |  |  |
+| `disabled` | function | disabled(&self) |  |  |  |  |
 
-| from_document | function | from_document(doc: &crate::artifact::conditions::Conditions) |  |  |  |  |
+| `from_document` | function | from_document(doc: &crate::artifact::conditions::Conditions) |  |  |  |  |
 
-| get | function | get(&self, key: &RowKey) |  |  |  |  |
+| `get` | function | get(&self, key: &RowKey) |  |  |  |  |
 
-| has_timeline | function | has_timeline(&self) |  |  |  |  |
+| `has_timeline` | function | has_timeline(&self) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| judge | function | judge(row: &RawRow, cond: &Conditions, want: &RunParams) |  |  |  |  |
+| `judge` | function | judge(row: &RawRow, cond: &Conditions, want: &RunParams) |  |  |  |  |
 
-| judge_lines | function | judge_lines(text: &str, cond: &Conditions, want: &RunParams) |  |  |  |  |
+| `judge_lines` | function | judge_lines(text: &str, cond: &Conditions, want: &RunParams) |  |  |  |  |
 
-| kind | function | kind(&self) |  |  |  |  |
+| `kind` | function | kind(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| load | function | load(path: &Path) |  |  |  |  |
+| `load` | function | load(path: &Path) |  |  |  |  |
 
-| mode_str | function | mode_str(&self) |  |  |  |  |
+| `mode_str` | function | mode_str(&self) |  |  |  |  |
 
-| none | function | none() |  |  |  |  |
+| `none` | function | none() |  |  |  |  |
 
-| of | function | of(r: &RawRow) |  |  |  |  |
+| `of` | function | of(r: &RawRow) |  |  |  |  |
 
-| parse | function | parse(text: &str) |  |  |  |  |
+| `parse` | function | parse(text: &str) |  |  |  |  |
 
-| reject_counts | function | reject_counts(&self) |  |  |  |  |
+| `reject_counts` | function | reject_counts(&self) |  |  |  |  |
 
-| rejected | function | rejected(&self) |  |  |  |  |
+| `rejected` | function | rejected(&self) |  |  |  |  |
 
-| Conditions | struct |  |  |  |  |  |
+| `Conditions` | struct |  |  |  |  |  |
 
-| Rejected | struct |  |  |  |  |  |
+| `Rejected` | struct |  |  |  |  |  |
 
-| Resume | struct |  |  |  |  |  |
+| `Resume` | struct |  |  |  |  |  |
 
-| RowKey | struct |  |  |  |  |  |
+| `RowKey` | struct |  |  |  |  |  |
 
-| RunParams | struct |  |  |  |  |  |
+| `RunParams` | struct |  |  |  |  |  |
 
-| TimelineSample | struct |  |  |  |  |  |
+| `TimelineSample` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/sched/tier.rs
 
-| Tier | enum |  |  |  |  |  |
+| `Tier` | enum |  |  |  |  |  |
 
-| census | function | census(plan: &[Scheduled]) |  |  |  |  |
+| `census` | function | census(plan: &[Scheduled]) |  |  |  |  |
 
-| classify | function | classify(prior: Option<Prior>, t: &Thresholds) |  |  |  |  |
+| `classify` | function | classify(prior: Option<Prior>, t: &Thresholds) |  |  |  |  |
 
-| eta | function | eta(plan: &[Scheduled], jobs: u32) |  |  |  |  |
+| `eta` | function | eta(plan: &[Scheduled], jobs: u32) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| order | function | order(
+| `order` | function | order(
     instances: &[RowKey],
     h: &dyn History,
     t: &Thresholds,
     budget_secs: f64,
 ) |  |  |  |  |
 
-| NoHistory | struct |  |  |  |  |  |
+| `NoHistory` | struct |  |  |  |  |  |
 
-| Prior | struct |  |  |  |  |  |
+| `Prior` | struct |  |  |  |  |  |
 
-| Scheduled | struct |  |  |  |  |  |
+| `Scheduled` | struct |  |  |  |  |  |
 
-| Thresholds | struct |  |  |  |  |  |
+| `Thresholds` | struct |  |  |  |  |  |
 
-| History | trait |  |  |  |  |  |
+| `History` | trait |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/sweep.rs
 
-| argv | function | argv(cfg: &BoardCfg, domain: &Path, problem: &Path) |  |  |  |  |
+| `argv` | function | argv(cfg: &BoardCfg, domain: &Path, problem: &Path) |  |  |  |  |
 
-| BoardCfg | struct |  |  |  |  |  |
+| `BoardCfg` | struct |  |  |  |  |  |
 
-| Engine | struct |  |  |  |  |  |
+| `Engine` | struct |  |  |  |  |  |
 
-| Measured | struct |  |  |  |  |  |
+| `Measured` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-core/src/validate/mod.rs
 
-| Unavailable | enum |  |  |  |  |  |
+| `Unavailable` | enum |  |  |  |  |  |
 
-| Verdict | enum |  |  |  |  |  |
+| `Verdict` | enum |  |  |  |  |  |
 
-| as_json | function | as_json(self) |  |  |  |  |
+| `as_json` | function | as_json(self) |  |  |  |  |
 
-| find | function | find(repo: &Path, configured: Option<&Path>) |  |  |  |  |
+| `find` | function | find(repo: &Path, configured: Option<&Path>) |  |  |  |  |
 
-| judge | function | judge(rc: Option<i32>, signal: Option<i32>, stdout: &str, stderr: &str) |  |  |  |  |
+| `judge` | function | judge(rc: Option<i32>, signal: Option<i32>, stdout: &str, stderr: &str) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| reason | function | reason(self) |  |  |  |  |
+| `reason` | function | reason(self) |  |  |  |  |
 
-| render_plan | function | render_plan(steps: &[Step], temporal: bool) |  |  |  |  |
+| `render_plan` | function | render_plan(steps: &[Step], temporal: bool) |  |  |  |  |
 
-| validate | function | validate(
+| `validate` | function | validate(
     val: Option<&Path>,
     domain: &Path,
     problem: &Path,
@@ -3915,225 +3915,225 @@
     plan_path: &Path,
 ) |  |  |  |  |
 
-| Step | struct |  |  |  |  |  |
+| `Step` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/archive.rs
 
-| ArchiveError | enum |  |  |  |  |  |
+| `ArchiveError` | enum |  |  |  |  |  |
 
-| arch_key | function | arch_key(variant: &str, instance: u64) |  |  |  |  |
+| `arch_key` | function | arch_key(variant: &str, instance: u64) |  |  |  |  |
 
-| arch_track | function | arch_track(variant: &str) |  |  |  |  |
+| `arch_track` | function | arch_track(variant: &str) |  |  |  |  |
 
-| best_length | function | best_length(&self, k: &ArchKey) |  |  |  |  |
+| `best_length` | function | best_length(&self, k: &ArchKey) |  |  |  |  |
 
-| best_makespan | function | best_makespan(&self, k: &ArchKey) |  |  |  |  |
+| `best_makespan` | function | best_makespan(&self, k: &ArchKey) |  |  |  |  |
 
-| count_action_lines | function | count_action_lines(body: &str) |  |  |  |  |
+| `count_action_lines` | function | count_action_lines(body: &str) |  |  |  |  |
 
-| has_lengths | function | has_lengths(&self) |  |  |  |  |
+| `has_lengths` | function | has_lengths(&self) |  |  |  |  |
 
-| has_makespans | function | has_makespans(&self) |  |  |  |  |
+| `has_makespans` | function | has_makespans(&self) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| iter | function | iter(&self) |  |  |  |  |
+| `iter` | function | iter(&self) |  |  |  |  |
 
-| lengths | function | lengths(&self, k: &ArchKey) |  |  |  |  |
+| `lengths` | function | lengths(&self, k: &ArchKey) |  |  |  |  |
 
-| lengths_map | function | lengths_map(&self) |  |  |  |  |
+| `lengths_map` | function | lengths_map(&self) |  |  |  |  |
 
-| makespan_of | function | makespan_of(body: &str) |  |  |  |  |
+| `makespan_of` | function | makespan_of(body: &str) |  |  |  |  |
 
-| makespans | function | makespans(&self, k: &ArchKey) |  |  |  |  |
+| `makespans` | function | makespans(&self, k: &ArchKey) |  |  |  |  |
 
-| makespans_map | function | makespans_map(&self) |  |  |  |  |
+| `makespans_map` | function | makespans_map(&self) |  |  |  |  |
 
-| open | function | open(path: &Path) |  |  |  |  |
+| `open` | function | open(path: &Path) |  |  |  |  |
 
-| warnings | function | warnings(&self) |  |  |  |  |
+| `warnings` | function | warnings(&self) |  |  |  |  |
 
-| ArchiveWarnings | struct |  |  |  |  |  |
+| `ArchiveWarnings` | struct |  |  |  |  |  |
 
-| Ipc5Archive | struct |  |  |  |  |  |
+| `Ipc5Archive` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/bounds.rs
 
-| best | function | best(&self, year_key: &str, domain: &str, instance: u64) |  |  |  |  |
+| `best` | function | best(&self, year_key: &str, domain: &str, instance: u64) |  |  |  |  |
 
-| from_sources | function | from_sources(bounds_2023: Option<&str>, cost_bounds_2018: Option<&str>) |  |  |  |  |
+| `from_sources` | function | from_sources(bounds_2023: Option<&str>, cost_bounds_2018: Option<&str>) |  |  |  |  |
 
-| get | function | get(&self, k: &BoundKey) |  |  |  |  |
+| `get` | function | get(&self, k: &BoundKey) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| load | function | load(corpus_root: &Path) |  |  |  |  |
+| `load` | function | load(corpus_root: &Path) |  |  |  |  |
 
-| problems | function | problems(&self) |  |  |  |  |
+| `problems` | function | problems(&self) |  |  |  |  |
 
-| BestKnownBounds | struct |  |  |  |  |  |
+| `BestKnownBounds` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/class.rs
 
-| Class | enum |  |  |  |  |  |
+| `Class` | enum |  |  |  |  |  |
 
-| failure_classes | function | failure_classes(&self) |  |  |  |  |
+| `failure_classes` | function | failure_classes(&self) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| Coverage | struct |  |  |  |  |  |
+| `Coverage` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/compare.rs
 
-| Cleanliness | enum |  |  |  |  |  |
+| `Cleanliness` | enum |  |  |  |  |  |
 
-| Clock | enum |  |  |  |  |  |
+| `Clock` | enum |  |  |  |  |  |
 
-| Cost | enum |  |  |  |  |  |
+| `Cost` | enum |  |  |  |  |  |
 
-| Mode | enum |  |  |  |  |  |
+| `Mode` | enum |  |  |  |  |  |
 
-| a | function | a(&self) |  |  |  |  |
+| `a` | function | a(&self) |  |  |  |  |
 
-| a_solved | function | a_solved(&self) |  |  |  |  |
+| `a_solved` | function | a_solved(&self) |  |  |  |  |
 
-| b | function | b(&self) |  |  |  |  |
+| `b` | function | b(&self) |  |  |  |  |
 
-| b_solved | function | b_solved(&self) |  |  |  |  |
+| `b_solved` | function | b_solved(&self) |  |  |  |  |
 
-| cheaper_a | function | cheaper_a(&self) |  |  |  |  |
+| `cheaper_a` | function | cheaper_a(&self) |  |  |  |  |
 
-| cheaper_b | function | cheaper_b(&self) |  |  |  |  |
+| `cheaper_b` | function | cheaper_b(&self) |  |  |  |  |
 
-| clean | function | clean(&self) |  |  |  |  |
+| `clean` | function | clean(&self) |  |  |  |  |
 
-| cleanliness | function | cleanliness(&self, r: &RawRow) |  |  |  |  |
+| `cleanliness` | function | cleanliness(&self, r: &RawRow) |  |  |  |  |
 
-| clock | function | clock(&self) |  |  |  |  |
+| `clock` | function | clock(&self) |  |  |  |  |
 
-| common | function | common(&self) |  |  |  |  |
+| `common` | function | common(&self) |  |  |  |  |
 
-| coverage | function | coverage(&self) |  |  |  |  |
+| `coverage` | function | coverage(&self) |  |  |  |  |
 
-| delta | function | delta(&self) |  |  |  |  |
+| `delta` | function | delta(&self) |  |  |  |  |
 
-| dirty | function | dirty(&self) |  |  |  |  |
+| `dirty` | function | dirty(&self) |  |  |  |  |
 
-| equal | function | equal(&self) |  |  |  |  |
+| `equal` | function | equal(&self) |  |  |  |  |
 
-| from_json | function | from_json(src: &str) |  |  |  |  |
+| `from_json` | function | from_json(src: &str) |  |  |  |  |
 
-| from_jsonl | function | from_jsonl(
+| `from_jsonl` | function | from_jsonl(
         name: impl Into<String>,
         budget: f64,
         src: &str,
         path: &str,
     ) |  |  |  |  |
 
-| from_rows | function | from_rows(name: impl Into<String>, budget: f64, rows: Vec<RawRow>) |  |  |  |  |
+| `from_rows` | function | from_rows(name: impl Into<String>, budget: f64, rows: Vec<RawRow>) |  |  |  |  |
 
-| gained | function | gained(&self) |  |  |  |  |
+| `gained` | function | gained(&self) |  |  |  |  |
 
-| get | function | get(&self, k: &InstanceKey) |  |  |  |  |
+| `get` | function | get(&self, k: &InstanceKey) |  |  |  |  |
 
-| has_timeline | function | has_timeline(&self) |  |  |  |  |
+| `has_timeline` | function | has_timeline(&self) |  |  |  |  |
 
-| interval | function | interval(&self) |  |  |  |  |
+| `interval` | function | interval(&self) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| is_regression | function | is_regression(&self) |  |  |  |  |
+| `is_regression` | function | is_regression(&self) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| load | function | load(path: &Path) |  |  |  |  |
+| `load` | function | load(path: &Path) |  |  |  |  |
 
-| lost | function | lost(&self) |  |  |  |  |
+| `lost` | function | lost(&self) |  |  |  |  |
 
-| mean_a | function | mean_a(&self) |  |  |  |  |
+| `mean_a` | function | mean_a(&self) |  |  |  |  |
 
-| mean_b | function | mean_b(&self) |  |  |  |  |
+| `mean_b` | function | mean_b(&self) |  |  |  |  |
 
-| name | function | name(self) |  |  |  |  |
+| `name` | function | name(self) |  |  |  |  |
 
-| new | function | new(referee: &'r Referee, a: &'r RunRef, b: &'r RunRef) |  |  |  |  |
+| `new` | function | new(referee: &'r Referee, a: &'r RunRef, b: &'r RunRef) |  |  |  |  |
 
-| none | function | none() |  |  |  |  |
+| `none` | function | none() |  |  |  |  |
 
-| of | function | of(r: &RawRow) |  |  |  |  |
+| `of` | function | of(r: &RawRow) |  |  |  |  |
 
-| percentiles | function | percentiles(&self) |  |  |  |  |
+| `percentiles` | function | percentiles(&self) |  |  |  |  |
 
-| qualified | function | qualified(&self) |  |  |  |  |
+| `qualified` | function | qualified(&self) |  |  |  |  |
 
-| quality | function | quality(&self) |  |  |  |  |
+| `quality` | function | quality(&self) |  |  |  |  |
 
-| referee | function | referee(&self) |  |  |  |  |
+| `referee` | function | referee(&self) |  |  |  |  |
 
-| render | function | render(&self, mode: Mode) |  |  |  |  |
+| `render` | function | render(&self, mode: Mode) |  |  |  |  |
 
-| render_trend | function | render_trend(t: &Trend) |  |  |  |  |
+| `render_trend` | function | render_trend(t: &Trend) |  |  |  |  |
 
-| scored | function | scored(&self) |  |  |  |  |
+| `scored` | function | scored(&self) |  |  |  |  |
 
-| solved | function | solved(&self, referee: &Referee) |  |  |  |  |
+| `solved` | function | solved(&self, referee: &Referee) |  |  |  |  |
 
-| table | function | table(&self) |  |  |  |  |
+| `table` | function | table(&self) |  |  |  |  |
 
-| timing | function | timing(&self, cond_a: &Conditions, cond_b: &Conditions) |  |  |  |  |
+| `timing` | function | timing(&self, cond_a: &Conditions, cond_b: &Conditions) |  |  |  |  |
 
-| to_json | function | to_json(&self) |  |  |  |  |
+| `to_json` | function | to_json(&self) |  |  |  |  |
 
-| total_a | function | total_a(&self) |  |  |  |  |
+| `total_a` | function | total_a(&self) |  |  |  |  |
 
-| total_b | function | total_b(&self) |  |  |  |  |
+| `total_b` | function | total_b(&self) |  |  |  |  |
 
-| unstamped | function | unstamped(&self) |  |  |  |  |
+| `unstamped` | function | unstamped(&self) |  |  |  |  |
 
-| value | function | value(self) |  |  |  |  |
+| `value` | function | value(self) |  |  |  |  |
 
-| variants | function | variants(&self) |  |  |  |  |
+| `variants` | function | variants(&self) |  |  |  |  |
 
-| with_trend | function | with_trend(mut self, t: Trend) |  |  |  |  |
+| `with_trend` | function | with_trend(mut self, t: Trend) |  |  |  |  |
 
-| worse | function | worse(self, other: Cleanliness) |  |  |  |  |
+| `worse` | function | worse(self, other: Cleanliness) |  |  |  |  |
 
-| Conditions | struct |  |  |  |  |  |
+| `Conditions` | struct |  |  |  |  |  |
 
-| CoverageDiff | struct |  |  |  |  |  |
+| `CoverageDiff` | struct |  |  |  |  |  |
 
-| Diff | struct |  |  |  |  |  |
+| `Diff` | struct |  |  |  |  |  |
 
-| Gained | struct |  |  |  |  |  |
+| `Gained` | struct |  |  |  |  |  |
 
-| InstanceKey | struct |  |  |  |  |  |
+| `InstanceKey` | struct |  |  |  |  |  |
 
-| Loaded | struct |  |  |  |  |  |
+| `Loaded` | struct |  |  |  |  |  |
 
-| Lost | struct |  |  |  |  |  |
+| `Lost` | struct |  |  |  |  |  |
 
-| Percentiles | struct |  |  |  |  |  |
+| `Percentiles` | struct |  |  |  |  |  |
 
-| QualityDiff | struct |  |  |  |  |  |
+| `QualityDiff` | struct |  |  |  |  |  |
 
-| RunRef | struct |  |  |  |  |  |
+| `RunRef` | struct |  |  |  |  |  |
 
-| TimingDiff | struct |  |  |  |  |  |
+| `TimingDiff` | struct |  |  |  |  |  |
 
-| VariantRow | struct |  |  |  |  |  |
+| `VariantRow` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/field.rs
 
-| cell | function | cell(
+| `cell` | function | cell(
         &self,
         label: &str,
         rows: &[RawRow],
@@ -4142,266 +4142,266 @@
         total: usize,
     ) |  |  |  |  |
 
-| cohort | function | cohort(&self, label: &str) |  |  |  |  |
+| `cohort` | function | cohort(&self, label: &str) |  |  |  |  |
 
-| load | function | load(benchmarks_dir: &Path) |  |  |  |  |
+| `load` | function | load(benchmarks_dir: &Path) |  |  |  |  |
 
-| placement | function | placement(&self, s: usize, n: usize) |  |  |  |  |
+| `placement` | function | placement(&self, s: usize, n: usize) |  |  |  |  |
 
-| unmatched_splits | function | unmatched_splits(&self, label: &str, rows: &[RawRow]) |  |  |  |  |
+| `unmatched_splits` | function | unmatched_splits(&self, label: &str, rows: &[RawRow]) |  |  |  |  |
 
-| warnings | function | warnings(&self) |  |  |  |  |
+| `warnings` | function | warnings(&self) |  |  |  |  |
 
-| Cohort | struct |  |  |  |  |  |
+| `Cohort` | struct |  |  |  |  |  |
 
-| Entrant | struct |  |  |  |  |  |
+| `Entrant` | struct |  |  |  |  |  |
 
-| FieldBook | struct |  |  |  |  |  |
+| `FieldBook` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/fmt.rs
 
-| bar | function | bar(pct: f64, width: usize) |  |  |  |  |
+| `bar` | function | bar(pct: f64, width: usize) |  |  |  |  |
 
-| fmt_f | function | fmt_f(x: f64, places: usize) |  |  |  |  |
+| `fmt_f` | function | fmt_f(x: f64, places: usize) |  |  |  |  |
 
-| ordinal | function | ordinal(n: usize) |  |  |  |  |
+| `ordinal` | function | ordinal(n: usize) |  |  |  |  |
 
-| ordinal_suffix | function | ordinal_suffix(n: usize) |  |  |  |  |
+| `ordinal_suffix` | function | ordinal_suffix(n: usize) |  |  |  |  |
 
-| pct | function | pct(solved: usize, total: usize) |  |  |  |  |
+| `pct` | function | pct(solved: usize, total: usize) |  |  |  |  |
 
-| py_round | function | py_round(x: f64, ndigits: i32) |  |  |  |  |
+| `py_round` | function | py_round(x: f64, ndigits: i32) |  |  |  |  |
 
-| py_round_i | function | py_round_i(x: f64) |  |  |  |  |
+| `py_round_i` | function | py_round_i(x: f64) |  |  |  |  |
 
-| thousands | function | thousands(n: u64) |  |  |  |  |
+| `thousands` | function | thousands(n: u64) |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/history.rs
 
-| HistoryError | enum |  |  |  |  |  |
+| `HistoryError` | enum |  |  |  |  |  |
 
-| as_str | function | as_str(&self) |  |  |  |  |
+| `as_str` | function | as_str(&self) |  |  |  |  |
 
-| comparable_predecessor | function | comparable_predecessor(
+| `comparable_predecessor` | function | comparable_predecessor(
         &self,
         box_: &BoxId,
         cur: &VersionKey,
     ) |  |  |  |  |
 
-| current_version | function | current_version(root: &Path) |  |  |  |  |
+| `current_version` | function | current_version(root: &Path) |  |  |  |  |
 
-| delta | function | delta(&self, label: &str, solved: usize, total: usize) |  |  |  |  |
+| `delta` | function | delta(&self, label: &str, solved: usize, total: usize) |  |  |  |  |
 
-| delta_cell | function | delta_cell(
+| `delta_cell` | function | delta_cell(
     prev: Option<&ComparablePredecessor<'_>>,
     label: &str,
     solved: usize,
     total: usize,
 ) |  |  |  |  |
 
-| from_json | function | from_json(src: &str) |  |  |  |  |
+| `from_json` | function | from_json(src: &str) |  |  |  |  |
 
-| load | function | load(path: &Path) |  |  |  |  |
+| `load` | function | load(path: &Path) |  |  |  |  |
 
-| new | function | new(s: impl Into<String>) |  |  |  |  |
+| `new` | function | new(s: impl Into<String>) |  |  |  |  |
 
-| parse | function | parse(s: &str) |  |  |  |  |
+| `parse` | function | parse(s: &str) |  |  |  |  |
 
-| parts | function | parts(&self) |  |  |  |  |
+| `parts` | function | parts(&self) |  |  |  |  |
 
-| snapshots | function | snapshots(&self) |  |  |  |  |
+| `snapshots` | function | snapshots(&self) |  |  |  |  |
 
-| to_json | function | to_json(&self) |  |  |  |  |
+| `to_json` | function | to_json(&self) |  |  |  |  |
 
-| track | function | track(&self, label: &str) |  |  |  |  |
+| `track` | function | track(&self, label: &str) |  |  |  |  |
 
-| trend | function | trend(&self, label: &str, box_: &BoxId) |  |  |  |  |
+| `trend` | function | trend(&self, label: &str, box_: &BoxId) |  |  |  |  |
 
-| try_load | function | try_load(path: &Path) |  |  |  |  |
+| `try_load` | function | try_load(path: &Path) |  |  |  |  |
 
-| upsert | function | upsert(&mut self, s: Snapshot) |  |  |  |  |
+| `upsert` | function | upsert(&mut self, s: Snapshot) |  |  |  |  |
 
-| version | function | version(&self) |  |  |  |  |
+| `version` | function | version(&self) |  |  |  |  |
 
-| version_key | function | version_key(&self) |  |  |  |  |
+| `version_key` | function | version_key(&self) |  |  |  |  |
 
-| BoxId | struct |  |  |  |  |  |
+| `BoxId` | struct |  |  |  |  |  |
 
-| ComparablePredecessor | struct |  |  |  |  |  |
+| `ComparablePredecessor` | struct |  |  |  |  |  |
 
-| History | struct |  |  |  |  |  |
+| `History` | struct |  |  |  |  |  |
 
-| MeasuredAt | struct |  |  |  |  |  |
+| `MeasuredAt` | struct |  |  |  |  |  |
 
-| Snapshot | struct |  |  |  |  |  |
+| `Snapshot` | struct |  |  |  |  |  |
 
-| Trend | struct |  |  |  |  |  |
+| `Trend` | struct |  |  |  |  |  |
 
-| VersionKey | struct |  |  |  |  |  |
+| `VersionKey` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/lib.rs
 
-| parse_rows | function | parse_rows(src: &str, path: &str) |  |  |  |  |
+| `parse_rows` | function | parse_rows(src: &str, path: &str) |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/manifest.rs
 
-| ManifestError | enum |  |  |  |  |  |
+| `ManifestError` | enum |  |  |  |  |  |
 
-| PatternError | enum |  |  |  |  |  |
+| `PatternError` | enum |  |  |  |  |  |
 
-| board | function | board(&self, id: &str) |  |  |  |  |
+| `board` | function | board(&self, id: &str) |  |  |  |  |
 
-| board_by_label | function | board_by_label(&self, label: &str) |  |  |  |  |
+| `board_by_label` | function | board_by_label(&self, label: &str) |  |  |  |  |
 
-| board_by_raw | function | board_by_raw(&self, raw: &str) |  |  |  |  |
+| `board_by_raw` | function | board_by_raw(&self, raw: &str) |  |  |  |  |
 
-| errors | function | errors(&self) |  |  |  |  |
+| `errors` | function | errors(&self) |  |  |  |  |
 
-| is_match | function | is_match(&self, variant: &str) |  |  |  |  |
+| `is_match` | function | is_match(&self, variant: &str) |  |  |  |  |
 
-| is_proof_track | function | is_proof_track(&self, label: &str) |  |  |  |  |
+| `is_proof_track` | function | is_proof_track(&self, label: &str) |  |  |  |  |
 
-| load | function | load(path: &Path) |  |  |  |  |
+| `load` | function | load(path: &Path) |  |  |  |  |
 
-| parse | function | parse(src: &str) |  |  |  |  |
+| `parse` | function | parse(src: &str) |  |  |  |  |
 
-| rebaselined_on | function | rebaselined_on(&self, label: &str, box_: &str) |  |  |  |  |
+| `rebaselined_on` | function | rebaselined_on(&self, label: &str, box_: &str) |  |  |  |  |
 
-| search | function | search(&self, hay: &str) |  |  |  |  |
+| `search` | function | search(&self, hay: &str) |  |  |  |  |
 
-| selector | function | selector(&self) |  |  |  |  |
+| `selector` | function | selector(&self) |  |  |  |  |
 
-| selects | function | selects(&self, variant: &str) |  |  |  |  |
+| `selects` | function | selects(&self, variant: &str) |  |  |  |  |
 
-| set | function | set(&self, name: &str) |  |  |  |  |
+| `set` | function | set(&self, name: &str) |  |  |  |  |
 
-| track | function | track(&self, name: &str) |  |  |  |  |
+| `track` | function | track(&self, name: &str) |  |  |  |  |
 
-| validate | function | validate(&self) |  |  |  |  |
+| `validate` | function | validate(&self) |  |  |  |  |
 
-| warnings | function | warnings(&self) |  |  |  |  |
+| `warnings` | function | warnings(&self) |  |  |  |  |
 
-| BoardSpec | struct |  |  |  |  |  |
+| `BoardSpec` | struct |  |  |  |  |  |
 
-| CorpusSpec | struct |  |  |  |  |  |
+| `CorpusSpec` | struct |  |  |  |  |  |
 
-| Defaults | struct |  |  |  |  |  |
+| `Defaults` | struct |  |  |  |  |  |
 
-| Manifest | struct |  |  |  |  |  |
+| `Manifest` | struct |  |  |  |  |  |
 
-| Pattern | struct |  |  |  |  |  |
+| `Pattern` | struct |  |  |  |  |  |
 
-| Selector | struct |  |  |  |  |  |
+| `Selector` | struct |  |  |  |  |  |
 
-| SetSpec | struct |  |  |  |  |  |
+| `SetSpec` | struct |  |  |  |  |  |
 
-| TrackSpec | struct |  |  |  |  |  |
+| `TrackSpec` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/promote.rs
 
-| Gate | enum |  |  |  |  |  |
+| `Gate` | enum |  |  |  |  |  |
 
-| PromoteError | enum |  |  |  |  |  |
+| `PromoteError` | enum |  |  |  |  |  |
 
-| TierMovePolicy | enum |  |  |  |  |  |
+| `TierMovePolicy` | enum |  |  |  |  |  |
 
-| accepts | function | accepts(&self, board: &str) |  |  |  |  |
+| `accepts` | function | accepts(&self, board: &str) |  |  |  |  |
 
-| against | function | against(&self) |  |  |  |  |
+| `against` | function | against(&self) |  |  |  |  |
 
-| apply | function | apply(&self) |  |  |  |  |
+| `apply` | function | apply(&self) |  |  |  |  |
 
-| board | function | board(&self) |  |  |  |  |
+| `board` | function | board(&self) |  |  |  |  |
 
-| boards | function | boards(&self) |  |  |  |  |
+| `boards` | function | boards(&self) |  |  |  |  |
 
-| bytes | function | bytes(&self) |  |  |  |  |
+| `bytes` | function | bytes(&self) |  |  |  |  |
 
-| changes | function | changes(&self) |  |  |  |  |
+| `changes` | function | changes(&self) |  |  |  |  |
 
-| compute | function | compute(
+| `compute` | function | compute(
         box_: &str,
         prev: Option<&ComparablePredecessor<'_>>,
         live: &[LiveBoard],
     ) |  |  |  |  |
 
-| denominator_grew | function | denominator_grew(&self) |  |  |  |  |
+| `denominator_grew` | function | denominator_grew(&self) |  |  |  |  |
 
-| dst | function | dst(&self) |  |  |  |  |
+| `dst` | function | dst(&self) |  |  |  |  |
 
-| entries | function | entries(&self) |  |  |  |  |
+| `entries` | function | entries(&self) |  |  |  |  |
 
-| failures | function | failures(&self) |  |  |  |  |
+| `failures` | function | failures(&self) |  |  |  |  |
 
-| full_table | function | full_table(&self) |  |  |  |  |
+| `full_table` | function | full_table(&self) |  |  |  |  |
 
-| like_for_like | function | like_for_like(&self) |  |  |  |  |
+| `like_for_like` | function | like_for_like(&self) |  |  |  |  |
 
-| pct | function | pct(&self) |  |  |  |  |
+| `pct` | function | pct(&self) |  |  |  |  |
 
-| pct_dropped_on_entry_day | function | pct_dropped_on_entry_day(&self) |  |  |  |  |
+| `pct_dropped_on_entry_day` | function | pct_dropped_on_entry_day(&self) |  |  |  |  |
 
-| placements | function | placements(&self) |  |  |  |  |
+| `placements` | function | placements(&self) |  |  |  |  |
 
-| plan | function | plan(
+| `plan` | function | plan(
     root: &Path,
     manifest: &Manifest,
     sets: &[&str],
     policy: &TierMovePolicy,
 ) |  |  |  |  |
 
-| promoted_lines | function | promoted_lines(&self) |  |  |  |  |
+| `promoted_lines` | function | promoted_lines(&self) |  |  |  |  |
 
-| refusal | function | refusal(&self) |  |  |  |  |
+| `refusal` | function | refusal(&self) |  |  |  |  |
 
-| sentence | function | sentence(&self, box_: &str) |  |  |  |  |
+| `sentence` | function | sentence(&self, box_: &str) |  |  |  |  |
 
-| solved | function | solved(&self) |  |  |  |  |
+| `solved` | function | solved(&self) |  |  |  |  |
 
-| src | function | src(&self) |  |  |  |  |
+| `src` | function | src(&self) |  |  |  |  |
 
-| tier_moves | function | tier_moves(&self) |  |  |  |  |
+| `tier_moves` | function | tier_moves(&self) |  |  |  |  |
 
-| total | function | total(&self) |  |  |  |  |
+| `total` | function | total(&self) |  |  |  |  |
 
-| Change | struct |  |  |  |  |  |
+| `Change` | struct |  |  |  |  |  |
 
-| GateReport | struct |  |  |  |  |  |
+| `GateReport` | struct |  |  |  |  |  |
 
-| Headline | struct |  |  |  |  |  |
+| `Headline` | struct |  |  |  |  |  |
 
-| LiveBoard | struct |  |  |  |  |  |
+| `LiveBoard` | struct |  |  |  |  |  |
 
-| Placement | struct |  |  |  |  |  |
+| `Placement` | struct |  |  |  |  |  |
 
-| Promotion | struct |  |  |  |  |  |
+| `Promotion` | struct |  |  |  |  |  |
 
-| TierMove | struct |  |  |  |  |  |
+| `TierMove` | struct |  |  |  |  |  |
 
-| TwoHeadlines | struct |  |  |  |  |  |
+| `TwoHeadlines` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/pyjson.rs
 
-| write_indent1 | function | write_indent1(v: &serde_json::Value, out: &mut String) |  |  |  |  |
+| `write_indent1` | function | write_indent1(v: &serde_json::Value, out: &mut String) |  |  |  |  |
 
-| write_str | function | write_str(s: &str, out: &mut String) |  |  |  |  |
+| `write_str` | function | write_str(s: &str, out: &mut String) |  |  |  |  |
 
-| write_value | function | write_value(v: &serde_json::Value, out: &mut String) |  |  |  |  |
+| `write_value` | function | write_value(v: &serde_json::Value, out: &mut String) |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/quality.rs
 
-| Currency | enum |  |  |  |  |  |
+| `Currency` | enum |  |  |  |  |  |
 
-| QualityNote | enum |  |  |  |  |  |
+| `QualityNote` | enum |  |  |  |  |  |
 
-| bounds_wtl | function | bounds_wtl(
+| `bounds_wtl` | function | bounds_wtl(
     rows: &[RawRow],
     referee: &Referee,
     bounds: &BestKnownBounds,
@@ -4409,99 +4409,99 @@
     variant_suffix: &str,
 ) |  |  |  |  |
 
-| currency | function | currency(&self) |  |  |  |  |
+| `currency` | function | currency(&self) |  |  |  |  |
 
-| l | function | l(&self) |  |  |  |  |
+| `l` | function | l(&self) |  |  |  |  |
 
-| length_wtl | function | length_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
+| `length_wtl` | function | length_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
 
-| makespan_wtl | function | makespan_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
+| `makespan_wtl` | function | makespan_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
 
-| mean | function | mean(&self) |  |  |  |  |
+| `mean` | function | mean(&self) |  |  |  |  |
 
-| n | function | n(&self) |  |  |  |  |
+| `n` | function | n(&self) |  |  |  |  |
 
-| new | function | new(scored: Option<Wtl>, fallback: impl Into<String>) |  |  |  |  |
+| `new` | function | new(scored: Option<Wtl>, fallback: impl Into<String>) |  |  |  |  |
 
-| prefix | function | prefix(self) |  |  |  |  |
+| `prefix` | function | prefix(self) |  |  |  |  |
 
-| render | function | render(&self) |  |  |  |  |
+| `render` | function | render(&self) |  |  |  |  |
 
-| t | function | t(&self) |  |  |  |  |
+| `t` | function | t(&self) |  |  |  |  |
 
-| w | function | w(&self) |  |  |  |  |
+| `w` | function | w(&self) |  |  |  |  |
 
-| Wtl | struct |  |  |  |  |  |
+| `Wtl` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/raw.rs
 
-| Instance | enum |  |  |  |  |  |
+| `Instance` | enum |  |  |  |  |  |
 
-| Notes | enum |  |  |  |  |  |
+| `Notes` | enum |  |  |  |  |  |
 
-| as_num | function | as_num(&self) |  |  |  |  |
+| `as_num` | function | as_num(&self) |  |  |  |  |
 
-| current | function | current(solved: bool) |  |  |  |  |
+| `current` | function | current(solved: bool) |  |  |  |  |
 
-| domain_key | function | domain_key(&self) |  |  |  |  |
+| `domain_key` | function | domain_key(&self) |  |  |  |  |
 
-| note_text | function | note_text(&self) |  |  |  |  |
+| `note_text` | function | note_text(&self) |  |  |  |  |
 
-| of | function | of(o: &serde_json::Map<String, serde_json::Value>) |  |  |  |  |
+| `of` | function | of(o: &serde_json::Map<String, serde_json::Value>) |  |  |  |  |
 
-| text | function | text(&self) |  |  |  |  |
+| `text` | function | text(&self) |  |  |  |  |
 
-| time_secs | function | time_secs(&self) |  |  |  |  |
+| `time_secs` | function | time_secs(&self) |  |  |  |  |
 
-| write_row | function | write_row(r: &RawRow, out: &mut String) |  |  |  |  |
+| `write_row` | function | write_row(r: &RawRow, out: &mut String) |  |  |  |  |
 
-| Present | struct |  |  |  |  |  |
+| `Present` | struct |  |  |  |  |  |
 
-| RawRow | struct |  |  |  |  |  |
+| `RawRow` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/referee.rs
 
-| budget_for | function | budget_for(&self, r: &RawRow, registry: f64) |  |  |  |  |
+| `budget_for` | function | budget_for(&self, r: &RawRow, registry: f64) |  |  |  |  |
 
-| classify | function | classify(&self, r: &RawRow, registry_budget: f64) |  |  |  |  |
+| `classify` | function | classify(&self, r: &RawRow, registry_budget: f64) |  |  |  |  |
 
-| contains | function | contains(&self, r: &RawRow) |  |  |  |  |
+| `contains` | function | contains(&self, r: &RawRow) |  |  |  |  |
 
-| coverage | function | coverage(&self, rows: &[RawRow], registry_budget: f64) |  |  |  |  |
+| `coverage` | function | coverage(&self, rows: &[RawRow], registry_budget: f64) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| is_solved | function | is_solved(&self, r: &RawRow) |  |  |  |  |
+| `is_solved` | function | is_solved(&self, r: &RawRow) |  |  |  |  |
 
-| new | function | new(val_unavailable: ValUnavailable) |  |  |  |  |
+| `new` | function | new(val_unavailable: ValUnavailable) |  |  |  |  |
 
-| Referee | struct |  |  |  |  |  |
+| `Referee` | struct |  |  |  |  |  |
 
-| ValUnavailable | struct |  |  |  |  |  |
+| `ValUnavailable` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/render/detail.rs
 
-| render | function | render(ctx: &RenderCtx) |  |  |  |  |
+| `render` | function | render(ctx: &RenderCtx) |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/render/mod.rs
 
-| CtxError | enum |  |  |  |  |  |
+| `CtxError` | enum |  |  |  |  |  |
 
-| absent_cell | function | absent_cell(&self, label: &str) |  |  |  |  |
+| `absent_cell` | function | absent_cell(&self, label: &str) |  |  |  |  |
 
-| board | function | board(&self, label: &str) |  |  |  |  |
+| `board` | function | board(&self, label: &str) |  |  |  |  |
 
-| coverage_of | function | coverage_of(&self, rows: &[RawRow], budget: f64) |  |  |  |  |
+| `coverage_of` | function | coverage_of(&self, rows: &[RawRow], budget: f64) |  |  |  |  |
 
-| data | function | data(&self, label: &str) |  |  |  |  |
+| `data` | function | data(&self, label: &str) |  |  |  |  |
 
-| load | function | load(root: &Path, box_id: BoxId) |  |  |  |  |
+| `load` | function | load(root: &Path, box_id: BoxId) |  |  |  |  |
 
-| new | function | new(
+| `new` | function | new(
         manifest: Manifest,
         boards: Vec<BoardRows>,
         referee: Referee,
@@ -4513,110 +4513,110 @@
         box_id: BoxId,
     ) |  |  |  |  |
 
-| predecessor | function | predecessor(&self) |  |  |  |  |
+| `predecessor` | function | predecessor(&self) |  |  |  |  |
 
-| proof_mark | function | proof_mark(&self, label: &str) |  |  |  |  |
+| `proof_mark` | function | proof_mark(&self, label: &str) |  |  |  |  |
 
-| split | function | split(&self, label: &str, ipc: &str) |  |  |  |  |
+| `split` | function | split(&self, label: &str, ipc: &str) |  |  |  |  |
 
-| standings | function | standings(&self) |  |  |  |  |
+| `standings` | function | standings(&self) |  |  |  |  |
 
-| BoardRows | struct |  |  |  |  |  |
+| `BoardRows` | struct |  |  |  |  |  |
 
-| LiveBoard | struct |  |  |  |  |  |
+| `LiveBoard` | struct |  |  |  |  |  |
 
-| RenderCtx | struct |  |  |  |  |  |
+| `RenderCtx` | struct |  |  |  |  |  |
 
-| Standings | struct |  |  |  |  |  |
+| `Standings` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/render/readme.rs
 
-| block | function | block(ctx: &RenderCtx) |  |  |  |  |
+| `block` | function | block(ctx: &RenderCtx) |  |  |  |  |
 
-| patch | function | patch(readme_text: &str, block: &str) |  |  |  |  |
+| `patch` | function | patch(readme_text: &str, block: &str) |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/render/summary.rs
 
-| render | function | render(ctx: &RenderCtx) |  |  |  |  |
+| `render` | function | render(ctx: &RenderCtx) |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/src/snapshot.rs
 
-| SnapshotError | enum |  |  |  |  |  |
+| `SnapshotError` | enum |  |  |  |  |  |
 
-| Source | enum |  |  |  |  |  |
+| `Source` | enum |  |  |  |  |  |
 
-| bank | function | bank(
+| `bank` | function | bank(
     root: &Path,
     manifest: &Manifest,
     referee: &Referee,
     args: &Args,
 ) |  |  |  |  |
 
-| parse_args | function | parse_args(argv: &[String], env_box: Option<&str>) |  |  |  |  |
+| `parse_args` | function | parse_args(argv: &[String], env_box: Option<&str>) |  |  |  |  |
 
-| tracks | function | tracks(
+| `tracks` | function | tracks(
     root: &Path,
     manifest: &Manifest,
     referee: &Referee,
     source: &Source,
 ) |  |  |  |  |
 
-| write | function | write(&self) |  |  |  |  |
+| `write` | function | write(&self) |  |  |  |  |
 
-| Args | struct |  |  |  |  |  |
+| `Args` | struct |  |  |  |  |  |
 
-| Banked | struct |  |  |  |  |  |
+| `Banked` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible-publish/tests/common/mod.rs
 
-| incident | function | incident(name: &str) |  |  |  |  |
+| `incident` | function | incident(name: &str) |  |  |  |  |
 
-| real_val_map | function | real_val_map() |  |  |  |  |
+| `real_val_map` | function | real_val_map() |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/backfill.rs
 
-| run | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
+| `run` | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
 
-| stage_for | function | stage_for(ver: &str) |  |  |  |  |
+| `stage_for` | function | stage_for(ver: &str) |  |  |  |  |
 
-| Opts | struct |  |  |  |  |  |
+| `Opts` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/config.rs
 
-| in_quiet_hours | function | in_quiet_hours(&self, minutes_past_midnight: u32) |  |  |  |  |
+| `in_quiet_hours` | function | in_quiet_hours(&self, minutes_past_midnight: u32) |  |  |  |  |
 
-| load | function | load(path: &std::path::Path) |  |  |  |  |
+| `load` | function | load(path: &std::path::Path) |  |  |  |  |
 
-| path | function | path() |  |  |  |  |
+| `path` | function | path() |  |  |  |  |
 
-| Config | struct |  |  |  |  |  |
+| `Config` | struct |  |  |  |  |  |
 
-| Contention | struct |  |  |  |  |  |
+| `Contention` | struct |  |  |  |  |  |
 
-| Db | struct |  |  |  |  |  |
+| `Db` | struct |  |  |  |  |  |
 
-| QuietHours | struct |  |  |  |  |  |
+| `QuietHours` | struct |  |  |  |  |  |
 
-| Referee | struct |  |  |  |  |  |
+| `Referee` | struct |  |  |  |  |  |
 
-| Repo | struct |  |  |  |  |  |
+| `Repo` | struct |  |  |  |  |  |
 
-| Scheduler | struct |  |  |  |  |  |
+| `Scheduler` | struct |  |  |  |  |  |
 
-| Sweep | struct |  |  |  |  |  |
+| `Sweep` | struct |  |  |  |  |  |
 
-| Ui | struct |  |  |  |  |  |
+| `Ui` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/monitor.rs
 
-| compare | function | compare(
+| `compare` | function | compare(
     repo: &Path,
     cfg: &crate::config::Config,
     set_name: &str,
@@ -4626,11 +4626,11 @@
     lost: Option<&Path>,
 ) |  |  |  |  |
 
-| frame | function | frame(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
+| `frame` | function | frame(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
 
-| run | function | run(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
+| `run` | function | run(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
 
-| status | function | status(
+| `status` | function | status(
     repo: &Path,
     cfg: &crate::config::Config,
     set_name: &str,
@@ -4640,112 +4640,112 @@
 
 ### crucible/crates/crucible/src/out.rs
 
-| flush_to_stdout | function | flush_to_stdout() |  |  |  |  |
+| `flush_to_stdout` | function | flush_to_stdout() |  |  |  |  |
 
-| is_quiet | function | is_quiet() |  |  |  |  |
+| `is_quiet` | function | is_quiet() |  |  |  |  |
 
-| quiet | function | quiet(on: bool) |  |  |  |  |
+| `quiet` | function | quiet(on: bool) |  |  |  |  |
 
-| recent | function | recent(n: usize) |  |  |  |  |
+| `recent` | function | recent(n: usize) |  |  |  |  |
 
-| say | function | say(line: String) |  |  |  |  |
+| `say` | function | say(line: String) |  |  |  |  |
 
-| tz_offset_secs | function | tz_offset_secs() |  |  |  |  |
+| `tz_offset_secs` | function | tz_offset_secs() |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/repo.rs
 
-| RepoError | enum |  |  |  |  |  |
+| `RepoError` | enum |  |  |  |  |  |
 
-| build_planner | function | build_planner(dir: &Path) |  |  |  |  |
+| `build_planner` | function | build_planner(dir: &Path) |  |  |  |  |
 
-| candidate_path | function | candidate_path(repo: &Path) |  |  |  |  |
+| `candidate_path` | function | candidate_path(repo: &Path) |  |  |  |  |
 
-| probe | function | probe(path: &Path) |  |  |  |  |
+| `probe` | function | probe(path: &Path) |  |  |  |  |
 
-| require_version | function | require_version(&self, want: &str) |  |  |  |  |
+| `require_version` | function | require_version(&self, want: &str) |  |  |  |  |
 
-| short_hash | function | short_hash(&self) |  |  |  |  |
+| `short_hash` | function | short_hash(&self) |  |  |  |  |
 
-| supports_mode | function | supports_mode(&self, mode: &str) |  |  |  |  |
+| `supports_mode` | function | supports_mode(&self, mode: &str) |  |  |  |  |
 
-| worktree_for | function | worktree_for(worktree_dir: &Path, tag: &str) |  |  |  |  |
+| `worktree_for` | function | worktree_for(worktree_dir: &Path, tag: &str) |  |  |  |  |
 
-| Engine | struct |  |  |  |  |  |
+| `Engine` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/resident.rs
 
-| run | function | run(repo: &Path, cfg: &Config, o: Opts<'_>) |  |  |  |  |
+| `run` | function | run(repo: &Path, cfg: &Config, o: Opts<'_>) |  |  |  |  |
 
-| tags | function | tags(repo: &Path) |  |  |  |  |
+| `tags` | function | tags(repo: &Path) |  |  |  |  |
 
-| Opts | struct |  |  |  |  |  |
+| `Opts` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/select.rs
 
-| Prior | enum |  |  |  |  |  |
+| `Prior` | enum |  |  |  |  |  |
 
-| admits | function | admits(
+| `admits` | function | admits(
         &self,
         variant: &str,
         label: &str,
         prior: &BTreeMap<String, (bool, Option<f64>) |  |  |  |  |
 
-| describe | function | describe(&self) |  |  |  |  |
+| `describe` | function | describe(&self) |  |  |  |  |
 
-| from_args | function | from_args(a: &SelectArgs) |  |  |  |  |
+| `from_args` | function | from_args(a: &SelectArgs) |  |  |  |  |
 
-| is_subset | function | is_subset(&self) |  |  |  |  |
+| `is_subset` | function | is_subset(&self) |  |  |  |  |
 
-| needs_prior | function | needs_prior(&self) |  |  |  |  |
+| `needs_prior` | function | needs_prior(&self) |  |  |  |  |
 
-| parse_rows | function | parse_rows(src: &str) |  |  |  |  |
+| `parse_rows` | function | parse_rows(src: &str) |  |  |  |  |
 
-| stage | function | stage(&self, repo: &Path, set: &str, engine_ver: &str, engine_hash: &str) |  |  |  |  |
+| `stage` | function | stage(&self, repo: &Path, set: &str, engine_ver: &str, engine_hash: &str) |  |  |  |  |
 
-| wants_board | function | wants_board(&self, id: &str) |  |  |  |  |
+| `wants_board` | function | wants_board(&self, id: &str) |  |  |  |  |
 
-| Select | struct |  |  |  |  |  |
+| `Select` | struct |  |  |  |  |  |
 
-| SelectArgs | struct |  |  |  |  |  |
+| `SelectArgs` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/sweep.rs
 
-| attach | function | attach(&self, tx: mpsc::Sender<Ctl>) |  |  |  |  |
+| `attach` | function | attach(&self, tx: mpsc::Sender<Ctl>) |  |  |  |  |
 
-| attached | function | attached(&self) |  |  |  |  |
+| `attached` | function | attached(&self) |  |  |  |  |
 
-| calibrate | function | calibrate(
+| `calibrate` | function | calibrate(
         &mut self,
         prior: Option<f64>,
         record: &dyn Fn(f64) |  |  |  |  |
 
-| canary | function | canary(&self) |  |  |  |  |
+| `canary` | function | canary(&self) |  |  |  |  |
 
-| ctl_for | function | ctl_for(from: Level, to: Level, demote_ok: bool) |  |  |  |  |
+| `ctl_for` | function | ctl_for(from: Level, to: Level, demote_ok: bool) |  |  |  |  |
 
-| demote_ok | function | demote_ok(&self) |  |  |  |  |
+| `demote_ok` | function | demote_ok(&self) |  |  |  |  |
 
-| detach | function | detach(&self, id: u64) |  |  |  |  |
+| `detach` | function | detach(&self, id: u64) |  |  |  |  |
 
-| from_config | function | from_config(c: &crate::config::Scheduler) |  |  |  |  |
+| `from_config` | function | from_config(c: &crate::config::Scheduler) |  |  |  |  |
 
-| held | function | held(&self) |  |  |  |  |
+| `held` | function | held(&self) |  |  |  |  |
 
-| hold | function | hold(&self, on: bool) |  |  |  |  |
+| `hold` | function | hold(&self, on: bool) |  |  |  |  |
 
-| label | function | label(&self) |  |  |  |  |
+| `label` | function | label(&self) |  |  |  |  |
 
-| level | function | level(&self) |  |  |  |  |
+| `level` | function | level(&self) |  |  |  |  |
 
-| new | function | new(manifest: &'a Manifest, setup: Setup<'_>) |  |  |  |  |
+| `new` | function | new(manifest: &'a Manifest, setup: Setup<'_>) |  |  |  |  |
 
-| policy_mem_budget | function | policy_mem_budget(mem_bytes: u64, at_the_box: bool, pack: &Pack) |  |  |  |  |
+| `policy_mem_budget` | function | policy_mem_budget(mem_bytes: u64, at_the_box: bool, pack: &Pack) |  |  |  |  |
 
-| policy_width | function | policy_width(
+| `policy_width` | function | policy_width(
     level: Level,
     quiet_hours: bool,
     user_idle_secs: Option<f64>,
@@ -4753,20 +4753,20 @@
     pack: &Pack,
 ) |  |  |  |  |
 
-| read | function | read(&mut self, on_spawn: Option<&dyn Fn(Pid, f64) |  |  |  |  |
+| `read` | function | read(&mut self, on_spawn: Option<&dyn Fn(Pid, f64) |  |  |  |  |
 
-| reason | function | reason(&self) |  |  |  |  |
+| `reason` | function | reason(&self) |  |  |  |  |
 
-| resolve | function | resolve(
+| `resolve` | function | resolve(
         repo: &Path,
         engine: &Path,
         engine_hash: &str,
         r: &crate::config::Referee,
     ) |  |  |  |  |
 
-| run | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
+| `run` | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
 
-| run_engine | function | run_engine(
+| `run_engine` | function | run_engine(
     repo: &Path,
     cfg: &crate::config::Config,
     o: Opts<'_>,
@@ -4775,217 +4775,217 @@
     stage: Option<PathBuf>,
 ) |  |  |  |  |
 
-| send | function | send(&self, c: Ctl) |  |  |  |  |
+| `send` | function | send(&self, c: Ctl) |  |  |  |  |
 
-| set_canary | function | set_canary(&self, factor: f64) |  |  |  |  |
+| `set_canary` | function | set_canary(&self, factor: f64) |  |  |  |  |
 
-| set_demote_ok | function | set_demote_ok(&self, on: bool) |  |  |  |  |
+| `set_demote_ok` | function | set_demote_ok(&self, on: bool) |  |  |  |  |
 
-| set_level | function | set_level(&self, level: Level, reason: Option<String>) |  |  |  |  |
+| `set_level` | function | set_level(&self, level: Level, reason: Option<String>) |  |  |  |  |
 
-| set_width | function | set_width(&self, w: usize) |  |  |  |  |
+| `set_width` | function | set_width(&self, w: usize) |  |  |  |  |
 
-| solo | function | solo() |  |  |  |  |
+| `solo` | function | solo() |  |  |  |  |
 
-| throttle_config | function | throttle_config(c: &crate::config::Contention) |  |  |  |  |
+| `throttle_config` | function | throttle_config(c: &crate::config::Contention) |  |  |  |  |
 
-| total_instances | function | total_instances(&self) |  |  |  |  |
+| `total_instances` | function | total_instances(&self) |  |  |  |  |
 
-| width | function | width(&self) |  |  |  |  |
+| `width` | function | width(&self) |  |  |  |  |
 
-| Canary | struct |  |  |  |  |  |
+| `Canary` | struct |  |  |  |  |  |
 
-| DbCtx | struct |  |  |  |  |  |
+| `DbCtx` | struct |  |  |  |  |  |
 
-| Opts | struct |  |  |  |  |  |
+| `Opts` | struct |  |  |  |  |  |
 
-| Pack | struct |  |  |  |  |  |
+| `Pack` | struct |  |  |  |  |  |
 
-| Progress | struct |  |  |  |  |  |
+| `Progress` | struct |  |  |  |  |  |
 
-| Running | struct |  |  |  |  |  |
+| `Running` | struct |  |  |  |  |  |
 
-| Setup | struct |  |  |  |  |  |
+| `Setup` | struct |  |  |  |  |  |
 
-| Shared | struct |  |  |  |  |  |
+| `Shared` | struct |  |  |  |  |  |
 
-| SweepRunner | struct |  |  |  |  |  |
+| `SweepRunner` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/tui/app.rs
 
-| Cell | enum |  |  |  |  |  |
+| `Cell` | enum |  |  |  |  |  |
 
-| Level | enum |  |  |  |  |  |
+| `Level` | enum |  |  |  |  |  |
 
-| LogKind | enum |  |  |  |  |  |
+| `LogKind` | enum |  |  |  |  |  |
 
-| Sort | enum |  |  |  |  |  |
+| `Sort` | enum |  |  |  |  |  |
 
-| View | enum |  |  |  |  |  |
+| `View` | enum |  |  |  |  |  |
 
-| back | function | back(&mut self) |  |  |  |  |
+| `back` | function | back(&mut self) |  |  |  |  |
 
-| banked | function | banked(self) |  |  |  |  |
+| `banked` | function | banked(self) |  |  |  |  |
 
-| board | function | board(&self) |  |  |  |  |
+| `board` | function | board(&self) |  |  |  |  |
 
-| cycle_sort | function | cycle_sort(&mut self) |  |  |  |  |
+| `cycle_sort` | function | cycle_sort(&mut self) |  |  |  |  |
 
-| delta_secs | function | delta_secs(&self) |  |  |  |  |
+| `delta_secs` | function | delta_secs(&self) |  |  |  |  |
 
-| dismiss_toasts | function | dismiss_toasts(&mut self) |  |  |  |  |
+| `dismiss_toasts` | function | dismiss_toasts(&mut self) |  |  |  |  |
 
-| done | function | done(&self) |  |  |  |  |
+| `done` | function | done(&self) |  |  |  |  |
 
-| enter | function | enter(&mut self) |  |  |  |  |
+| `enter` | function | enter(&mut self) |  |  |  |  |
 
-| expire_toasts | function | expire_toasts(&mut self, dwell: Duration) |  |  |  |  |
+| `expire_toasts` | function | expire_toasts(&mut self, dwell: Duration) |  |  |  |  |
 
-| frac | function | frac(&self) |  |  |  |  |
+| `frac` | function | frac(&self) |  |  |  |  |
 
-| gain | function | gain(&self) |  |  |  |  |
+| `gain` | function | gain(&self) |  |  |  |  |
 
-| gains | function | gains(&self) |  |  |  |  |
+| `gains` | function | gains(&self) |  |  |  |  |
 
-| jump | function | jump(&mut self, to_end: bool) |  |  |  |  |
+| `jump` | function | jump(&mut self, to_end: bool) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| move_selection | function | move_selection(&mut self, delta: isize) |  |  |  |  |
+| `move_selection` | function | move_selection(&mut self, delta: isize) |  |  |  |  |
 
-| near_wall | function | near_wall(&self) |  |  |  |  |
+| `near_wall` | function | near_wall(&self) |  |  |  |  |
 
-| next | function | next(self) |  |  |  |  |
+| `next` | function | next(self) |  |  |  |  |
 
-| owed | function | owed(&self) |  |  |  |  |
+| `owed` | function | owed(&self) |  |  |  |  |
 
-| prev_solved | function | prev_solved(&self) |  |  |  |  |
+| `prev_solved` | function | prev_solved(&self) |  |  |  |  |
 
-| rank | function | rank(self) |  |  |  |  |
+| `rank` | function | rank(self) |  |  |  |  |
 
-| regression | function | regression(&self) |  |  |  |  |
+| `regression` | function | regression(&self) |  |  |  |  |
 
-| regressions | function | regressions(&self) |  |  |  |  |
+| `regressions` | function | regressions(&self) |  |  |  |  |
 
-| rho | function | rho(&self) |  |  |  |  |
+| `rho` | function | rho(&self) |  |  |  |  |
 
-| running | function | running(&self) |  |  |  |  |
+| `running` | function | running(&self) |  |  |  |  |
 
-| selected_instance | function | selected_instance(&self) |  |  |  |  |
+| `selected_instance` | function | selected_instance(&self) |  |  |  |  |
 
-| solve_secs | function | solve_secs(&self) |  |  |  |  |
+| `solve_secs` | function | solve_secs(&self) |  |  |  |  |
 
-| solved | function | solved(&self) |  |  |  |  |
+| `solved` | function | solved(&self) |  |  |  |  |
 
-| sorted_instances | function | sorted_instances(&self) |  |  |  |  |
+| `sorted_instances` | function | sorted_instances(&self) |  |  |  |  |
 
-| strip | function | strip(cells: &[InstanceCell], width: usize) |  |  |  |  |
+| `strip` | function | strip(cells: &[InstanceCell], width: usize) |  |  |  |  |
 
-| tally | function | tally(&mut self) |  |  |  |  |
+| `tally` | function | tally(&mut self) |  |  |  |  |
 
-| toggle_timeline | function | toggle_timeline(&mut self) |  |  |  |  |
+| `toggle_timeline` | function | toggle_timeline(&mut self) |  |  |  |  |
 
-| total | function | total(&self) |  |  |  |  |
+| `total` | function | total(&self) |  |  |  |  |
 
-| AttemptRow | struct |  |  |  |  |  |
+| `AttemptRow` | struct |  |  |  |  |  |
 
-| BoardRow | struct |  |  |  |  |  |
+| `BoardRow` | struct |  |  |  |  |  |
 
-| InstanceCell | struct |  |  |  |  |  |
+| `InstanceCell` | struct |  |  |  |  |  |
 
-| InstanceDetail | struct |  |  |  |  |  |
+| `InstanceDetail` | struct |  |  |  |  |  |
 
-| LevelState | struct |  |  |  |  |  |
+| `LevelState` | struct |  |  |  |  |  |
 
-| LogLine | struct |  |  |  |  |  |
+| `LogLine` | struct |  |  |  |  |  |
 
-| Slot | struct |  |  |  |  |  |
+| `Slot` | struct |  |  |  |  |  |
 
-| SlotRun | struct |  |  |  |  |  |
+| `SlotRun` | struct |  |  |  |  |  |
 
-| Snapshot | struct |  |  |  |  |  |
+| `Snapshot` | struct |  |  |  |  |  |
 
-| StripCol | struct |  |  |  |  |  |
+| `StripCol` | struct |  |  |  |  |  |
 
-| SweepProgress | struct |  |  |  |  |  |
+| `SweepProgress` | struct |  |  |  |  |  |
 
-| Timeline | struct |  |  |  |  |  |
+| `Timeline` | struct |  |  |  |  |  |
 
-| TimelinePoint | struct |  |  |  |  |  |
+| `TimelinePoint` | struct |  |  |  |  |  |
 
-| Toast | struct |  |  |  |  |  |
+| `Toast` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/tui/banner.rs
 
-| compact | function | compact(text: &str) |  |  |  |  |
+| `compact` | function | compact(text: &str) |  |  |  |  |
 
-| render | function | render(text: &str, max_width: usize) |  |  |  |  |
+| `render` | function | render(text: &str, max_width: usize) |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/tui/demo.rs
 
-| detail | function | detail() |  |  |  |  |
+| `detail` | function | detail() |  |  |  |  |
 
-| snapshot | function | snapshot(t: f64) |  |  |  |  |
+| `snapshot` | function | snapshot(t: f64) |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/tui/draw.rs
 
-| draw | function | draw(f: &mut Frame, s: &Snapshot, th: &Theme, banner_text: &str) |  |  |  |  |
+| `draw` | function | draw(f: &mut Frame, s: &Snapshot, th: &Theme, banner_text: &str) |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/tui/feed.rs
 
-| new | function | new(progress: Arc<Mutex<Progress>>, shared: Arc<Shared>) |  |  |  |  |
+| `new` | function | new(progress: Arc<Mutex<Progress>>, shared: Arc<Shared>) |  |  |  |  |
 
-| next | function | next(&mut self, prev: &Snapshot) |  |  |  |  |
+| `next` | function | next(&mut self, prev: &Snapshot) |  |  |  |  |
 
-| Feed | struct |  |  |  |  |  |
+| `Feed` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/tui/run.rs
 
-| Action | enum |  |  |  |  |  |
+| `Action` | enum |  |  |  |  |  |
 
-| action_for | function | action_for(k: KeyEvent, s: &mut Snapshot) |  |  |  |  |
+| `action_for` | function | action_for(k: KeyEvent, s: &mut Snapshot) |  |  |  |  |
 
-| enter | function | enter() |  |  |  |  |
+| `enter` | function | enter() |  |  |  |  |
 
-| TerminalGuard | struct |  |  |  |  |  |
+| `TerminalGuard` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/tui/theme.rs
 
-| Depth | enum |  |  |  |  |  |
+| `Depth` | enum |  |  |  |  |  |
 
-| bar_cells | function | bar_cells(&self) |  |  |  |  |
+| `bar_cells` | function | bar_cells(&self) |  |  |  |  |
 
-| detect | function | detect() |  |  |  |  |
+| `detect` | function | detect() |  |  |  |  |
 
-| forge | function | forge() |  |  |  |  |
+| `forge` | function | forge() |  |  |  |  |
 
-| glyph | function | glyph(&self, unicode: &'static str, ascii: &'static str) |  |  |  |  |
+| `glyph` | function | glyph(&self, unicode: &'static str, ascii: &'static str) |  |  |  |  |
 
-| spark_cells | function | spark_cells(&self) |  |  |  |  |
+| `spark_cells` | function | spark_cells(&self) |  |  |  |  |
 
-| unicode_ok | function | unicode_ok() |  |  |  |  |
+| `unicode_ok` | function | unicode_ok() |  |  |  |  |
 
-| Theme | struct |  |  |  |  |  |
+| `Theme` | struct |  |  |  |  |  |
 
 
 ### crucible/crates/crucible/src/tui/widget.rs
 
-| bar | function | bar(theme: &Theme, frac: f64, width: usize) |  |  |  |  |
+| `bar` | function | bar(theme: &Theme, frac: f64, width: usize) |  |  |  |  |
 
-| duration | function | duration(secs: u64) |  |  |  |  |
+| `duration` | function | duration(secs: u64) |  |  |  |  |
 
-| ellipsize | function | ellipsize(s: &str, width: usize) |  |  |  |  |
+| `ellipsize` | function | ellipsize(s: &str, width: usize) |  |  |  |  |
 
-| spark | function | spark(theme: &Theme, values: &[f64], width: usize) |  |  |  |  |
+| `spark` | function | spark(theme: &Theme, values: &[f64], width: usize) |  |  |  |  |
 
-| until | function | until(secs: u64) |  |  |  |  |
+| `until` | function | until(secs: u64) |  |  |  |  |
 
 
 
@@ -4998,14 +4998,14 @@
 | Item | Type | Signature | Params | Defaults | Errors | Invariants |
 |------|------|-----------|--------|----------|--------|------------|
 
-| advance | function | advance(time: Res<Time>, mut plan: ResMut<Plan>) |  |  |  |  |
+| `advance` | function | advance(time: Res<Time>, mut plan: ResMut<Plan>) |  |  |  |  |
 
-| animate | function | animate(
+| `animate` | function | animate(
     plan: Res<Plan>,
     scene: Res<Scene>,
     nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
 
-| controls | function | controls(
+| `controls` | function | controls(
     keys: Res<ButtonInput<KeyCode>>,
     scene: Res<Scene>,
     editor: Res<crate::blocks::Editor>,
@@ -5013,79 +5013,79 @@
     mut job: ResMut<SolveJob>,
 ) |  |  |  |  |
 
-| frac | function | frac(&self) |  |  |  |  |
+| `frac` | function | frac(&self) |  |  |  |  |
 
-| poll_solve | function | poll_solve(mut job: ResMut<SolveJob>, mut plan: ResMut<Plan>) |  |  |  |  |
+| `poll_solve` | function | poll_solve(mut job: ResMut<SolveJob>, mut plan: ResMut<Plan>) |  |  |  |  |
 
-| span | function | span(&self) |  |  |  |  |
+| `span` | function | span(&self) |  |  |  |  |
 
-| start_frac | function | start_frac(&self, step: &Step, idx: usize) |  |  |  |  |
+| `start_frac` | function | start_frac(&self, step: &Step, idx: usize) |  |  |  |  |
 
-| Plan | struct |  |  |  |  |  |
+| `Plan` | struct |  |  |  |  |  |
 
-| SolveJob | struct |  |  |  |  |  |
+| `SolveJob` | struct |  |  |  |  |  |
 
-| Act | enum |  |  |  |  |  |
+| `Act` | enum |  |  |  |  |  |
 
-| DragKind | enum |  |  |  |  |  |
+| `DragKind` | enum |  |  |  |  |  |
 
-| Focus | enum |  |  |  |  |  |
+| `Focus` | enum |  |  |  |  |  |
 
-| LitLoc | enum |  |  |  |  |  |
+| `LitLoc` | enum |  |  |  |  |  |
 
-| Mode | enum |  |  |  |  |  |
+| `Mode` | enum |  |  |  |  |  |
 
-| Zone | enum |  |  |  |  |  |
+| `Zone` | enum |  |  |  |  |  |
 
-| editor_drag | function | editor_drag(
+| `editor_drag` | function | editor_drag(
     mouse: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     mut drag: ResMut<Drag>,
     mut editor: ResMut<Editor>,
     grips: Query<(&DragKind, &RelativeCursorPosition) |  |  |  |  |
 
-| handle_clicks | function | handle_clicks(
+| `handle_clicks` | function | handle_clicks(
     interactions: Query<(&Interaction, &Act) |  |  |  |  |
 
-| rebuild | function | rebuild(
+| `rebuild` | function | rebuild(
     mut commands: Commands,
     mut editor: ResMut<Editor>,
     roots: Query<Entity, With<EditorRoot>>,
 ) |  |  |  |  |
 
-| scroll_editor | function | scroll_editor(
+| `scroll_editor` | function | scroll_editor(
     mut wheel: MessageReader<MouseWheel>,
     keys: Res<ButtonInput<KeyCode>>,
     editor: Res<Editor>,
     mut q: Query<&mut ScrollPosition, With<EditorRoot>>,
 ) |  |  |  |  |
 
-| text_input | function | text_input(mut evr: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>) |  |  |  |  |
+| `text_input` | function | text_input(mut evr: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>) |  |  |  |  |
 
-| toggle_editor | function | toggle_editor(
+| `toggle_editor` | function | toggle_editor(
     keys: Res<ButtonInput<KeyCode>>,
     scene: Res<Scene>,
     mut editor: ResMut<Editor>,
 ) |  |  |  |  |
 
-| Drag | struct |  |  |  |  |  |
+| `Drag` | struct |  |  |  |  |  |
 
-| Editor | struct |  |  |  |  |  |
+| `Editor` | struct |  |  |  |  |  |
 
-| EditorRoot | struct |  |  |  |  |  |
+| `EditorRoot` | struct |  |  |  |  |  |
 
-| Ghost | struct |  |  |  |  |  |
+| `Ghost` | struct |  |  |  |  |  |
 
-| gantt_now | function | gantt_now(plan: Res<Plan>, mut now: Query<&mut Node, With<GanttNow>>) |  |  |  |  |
+| `gantt_now` | function | gantt_now(plan: Res<Plan>, mut now: Query<&mut Node, With<GanttNow>>) |  |  |  |  |
 
-| gantt_visibility | function | gantt_visibility(
+| `gantt_visibility` | function | gantt_visibility(
     plan: Res<Plan>,
     state: Res<GanttState>,
     editor: Res<crate::blocks::Editor>,
     mut panel: Query<&mut Visibility, With<GanttPanel>>,
 ) |  |  |  |  |
 
-| rebuild_gantt | function | rebuild_gantt(
+| `rebuild_gantt` | function | rebuild_gantt(
     mut commands: Commands,
     plan: Res<Plan>,
     mut state: ResMut<GanttState>,
@@ -5093,76 +5093,76 @@
     bars: Query<Entity, With<GanttBar>>,
 ) |  |  |  |  |
 
-| setup_gantt | function | setup_gantt(mut commands: Commands) |  |  |  |  |
+| `setup_gantt` | function | setup_gantt(mut commands: Commands) |  |  |  |  |
 
-| toggle_gantt | function | toggle_gantt(
+| `toggle_gantt` | function | toggle_gantt(
     keys: Res<ButtonInput<KeyCode>>,
     editor: Res<crate::blocks::Editor>,
     mut state: ResMut<GanttState>,
 ) |  |  |  |  |
 
-| GanttBar | struct |  |  |  |  |  |
+| `GanttBar` | struct |  |  |  |  |  |
 
-| GanttNow | struct |  |  |  |  |  |
+| `GanttNow` | struct |  |  |  |  |  |
 
-| GanttPanel | struct |  |  |  |  |  |
+| `GanttPanel` | struct |  |  |  |  |  |
 
-| GanttState | struct |  |  |  |  |  |
+| `GanttState` | struct |  |  |  |  |  |
 
-| GanttTrack | struct |  |  |  |  |  |
+| `GanttTrack` | struct |  |  |  |  |  |
 
-| IconShape | enum |  |  |  |  |  |
+| `IconShape` | enum |  |  |  |  |  |
 
-| color_for | function | color_for(ty: &str) |  |  |  |  |
+| `color_for` | function | color_for(ty: &str) |  |  |  |  |
 
-| mat_handle | function | mat_handle(
+| `mat_handle` | function | mat_handle(
     materials: &mut Assets<ColorMaterial>,
     cache: &mut MatCache,
     color: Color,
 ) |  |  |  |  |
 
-| mesh_handle | function | mesh_handle(
+| `mesh_handle` | function | mesh_handle(
     meshes: &mut Assets<Mesh>,
     cache: &mut MeshCache,
     shape: IconShape,
     size: f32,
 ) |  |  |  |  |
 
-| shape_for | function | shape_for(ty: &str) |  |  |  |  |
+| `shape_for` | function | shape_for(ty: &str) |  |  |  |  |
 
-| draw_selection | function | draw_selection(
+| `draw_selection` | function | draw_selection(
     mut gizmos: Gizmos,
     selected: Res<Selected>,
     nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
 
-| interact | function | interact(
+| `interact` | function | interact(
     mouse: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     editor: Res<crate::blocks::Editor>,
     cam_q: Query<(&Camera, &GlobalTransform) |  |  |  |  |
 
-| DragState | struct |  |  |  |  |  |
+| `DragState` | struct |  |  |  |  |  |
 
-| Selected | struct |  |  |  |  |  |
+| `Selected` | struct |  |  |  |  |  |
 
-| camera_nav | function | camera_nav(
+| `camera_nav` | function | camera_nav(
     mouse: Res<ButtonInput<MouseButton>>,
     editor: Res<crate::blocks::Editor>,
     mut motion: MessageReader<bevy::input::mouse::MouseMotion>,
     mut wheel: MessageReader<MouseWheel>,
     mut cam: Query<(&mut Transform, &mut Projection) |  |  |  |  |
 
-| draw_edges | function | draw_edges(
+| `draw_edges` | function | draw_edges(
     mut gizmos: Gizmos,
     scene: Res<Scene>,
     plan: Res<crate::anim::Plan>,
     nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
 
-| handle_drops | function | handle_drops(mut drops: MessageReader<FileDragAndDrop>, mut scene: ResMut<Scene>) |  |  |  |  |
+| `handle_drops` | function | handle_drops(mut drops: MessageReader<FileDragAndDrop>, mut scene: ResMut<Scene>) |  |  |  |  |
 
-| load_src | function | load_src(&mut self, src: &str) |  |  |  |  |
+| `load_src` | function | load_src(&mut self, src: &str) |  |  |  |  |
 
-| respawn_graph | function | respawn_graph(
+| `respawn_graph` | function | respawn_graph(
     mut commands: Commands,
     mut scene: ResMut<Scene>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -5170,21 +5170,21 @@
     existing: Query<Entity, With<GraphItem>>,
 ) |  |  |  |  |
 
-| setup | function | setup(mut commands: Commands) |  |  |  |  |
+| `setup` | function | setup(mut commands: Commands) |  |  |  |  |
 
-| FanOffset | struct |  |  |  |  |  |
+| `FanOffset` | struct |  |  |  |  |  |
 
-| GraphItem | struct |  |  |  |  |  |
+| `GraphItem` | struct |  |  |  |  |  |
 
-| MainCamera | struct |  |  |  |  |  |
+| `MainCamera` | struct |  |  |  |  |  |
 
-| MobileObj | struct |  |  |  |  |  |
+| `MobileObj` | struct |  |  |  |  |  |
 
-| NodeObj | struct |  |  |  |  |  |
+| `NodeObj` | struct |  |  |  |  |  |
 
-| Scene | struct |  |  |  |  |  |
+| `Scene` | struct |  |  |  |  |  |
 
-| rebuild_notches | function | rebuild_notches(
+| `rebuild_notches` | function | rebuild_notches(
     mut commands: Commands,
     plan: Res<Plan>,
     mut state: ResMut<Transport>,
@@ -5192,245 +5192,245 @@
     notches: Query<Entity, With<StepNotch>>,
 ) |  |  |  |  |
 
-| setup_transport | function | setup_transport(mut commands: Commands) |  |  |  |  |
+| `setup_transport` | function | setup_transport(mut commands: Commands) |  |  |  |  |
 
-| transport_input | function | transport_input(
+| `transport_input` | function | transport_input(
     mouse: Res<ButtonInput<MouseButton>>,
     mut transport: ResMut<Transport>,
     mut plan: ResMut<Plan>,
     play_btn: Query<&Interaction, (With<PlayButton>, Changed<Interaction>) |  |  |  |  |
 
-| transport_sync | function | transport_sync(
+| `transport_sync` | function | transport_sync(
     plan: Res<Plan>,
     mut fill: Query<&mut Node, (With<ScrubFill>, Without<Playhead>) |  |  |  |  |
 
-| transport_visibility | function | transport_visibility(plan: Res<Plan>, mut bar: Query<&mut Visibility, With<TransportBar>>) |  |  |  |  |
+| `transport_visibility` | function | transport_visibility(plan: Res<Plan>, mut bar: Query<&mut Visibility, With<TransportBar>>) |  |  |  |  |
 
-| PlayButton | struct |  |  |  |  |  |
+| `PlayButton` | struct |  |  |  |  |  |
 
-| PlayIcon | struct |  |  |  |  |  |
+| `PlayIcon` | struct |  |  |  |  |  |
 
-| Playhead | struct |  |  |  |  |  |
+| `Playhead` | struct |  |  |  |  |  |
 
-| ScrubFill | struct |  |  |  |  |  |
+| `ScrubFill` | struct |  |  |  |  |  |
 
-| ScrubTrack | struct |  |  |  |  |  |
+| `ScrubTrack` | struct |  |  |  |  |  |
 
-| StepNotch | struct |  |  |  |  |  |
+| `StepNotch` | struct |  |  |  |  |  |
 
-| Transport | struct |  |  |  |  |  |
+| `Transport` | struct |  |  |  |  |  |
 
-| TransportBar | struct |  |  |  |  |  |
+| `TransportBar` | struct |  |  |  |  |  |
 
-| TransportLabel | struct |  |  |  |  |  |
+| `TransportLabel` | struct |  |  |  |  |  |
 
-| setup_ui | function | setup_ui(mut commands: Commands) |  |  |  |  |
+| `setup_ui` | function | setup_ui(mut commands: Commands) |  |  |  |  |
 
-| update_info | function | update_info(
+| `update_info` | function | update_info(
     scene: Res<Scene>,
     selected: Res<Selected>,
     plan: Res<Plan>,
     mut q: Query<&mut Text, With<InfoText>>,
 ) |  |  |  |  |
 
-| InfoText | struct |  |  |  |  |  |
+| `InfoText` | struct |  |  |  |  |  |
 
-| ModeArg | enum |  |  |  |  |  |
+| `ModeArg` | enum |  |  |  |  |  |
 
-| ObjectiveArg | enum |  |  |  |  |  |
+| `ObjectiveArg` | enum |  |  |  |  |  |
 
-| SearchArg | enum |  |  |  |  |  |
+| `SearchArg` | enum |  |  |  |  |  |
 
-| compile_pack | function | compile_pack(pack: &ObservationPack, output_dir: &Path) |  |  |  |  |
+| `compile_pack` | function | compile_pack(pack: &ObservationPack, output_dir: &Path) |  |  |  |  |
 
-| replay_pack | function | replay_pack(
+| `replay_pack` | function | replay_pack(
     pack: &ObservationPack,
     expected: &HarvestReceipt,
     output_dir: &Path,
 ) |  |  |  |  |
 
-| extract_operators | function | extract_operators(report: &AdmissionReport) |  |  |  |  |
+| `extract_operators` | function | extract_operators(report: &AdmissionReport) |  |  |  |  |
 
-| collect_with_gh | function | collect_with_gh(
+| `collect_with_gh` | function | collect_with_gh(
     repositories: &[String],
     window: ObservationWindow,
     max_pages: usize,
 ) |  |  |  |  |
 
-| admit | function | admit(pack: &ObservationPack) |  |  |  |  |
+| `admit` | function | admit(pack: &ObservationPack) |  |  |  |  |
 
-| digest_bytes | function | digest_bytes(bytes: &[u8]) |  |  |  |  |
+| `digest_bytes` | function | digest_bytes(bytes: &[u8]) |  |  |  |  |
 
-| load_observation_pack | function | load_observation_pack(path: &Path) |  |  |  |  |
+| `load_observation_pack` | function | load_observation_pack(path: &Path) |  |  |  |  |
 
-| load_receipt | function | load_receipt(path: &Path) |  |  |  |  |
+| `load_receipt` | function | load_receipt(path: &Path) |  |  |  |  |
 
-| receipt_exit_code | function | receipt_exit_code(receipt: &HarvestReceipt) |  |  |  |  |
+| `receipt_exit_code` | function | receipt_exit_code(receipt: &HarvestReceipt) |  |  |  |  |
 
-| save_observation_pack | function | save_observation_pack(path: &Path, pack: &ObservationPack) |  |  |  |  |
+| `save_observation_pack` | function | save_observation_pack(path: &Path, pack: &ObservationPack) |  |  |  |  |
 
-| validate_pack | function | validate_pack(pack: &ObservationPack) |  |  |  |  |
+| `validate_pack` | function | validate_pack(pack: &ObservationPack) |  |  |  |  |
 
-| validate_window | function | validate_window(window: &ObservationWindow) |  |  |  |  |
+| `validate_window` | function | validate_window(window: &ObservationWindow) |  |  |  |  |
 
-| ActuationClass | enum |  |  |  |  |  |
+| `ActuationClass` | enum |  |  |  |  |  |
 
-| AdmissionLevel | enum |  |  |  |  |  |
+| `AdmissionLevel` | enum |  |  |  |  |  |
 
-| ExecutionResult | enum |  |  |  |  |  |
+| `ExecutionResult` | enum |  |  |  |  |  |
 
-| FinalState | enum |  |  |  |  |  |
+| `FinalState` | enum |  |  |  |  |  |
 
-| GallCheckpoint | enum |  |  |  |  |  |
+| `GallCheckpoint` | enum |  |  |  |  |  |
 
-| RefusalCode | enum |  |  |  |  |  |
+| `RefusalCode` | enum |  |  |  |  |  |
 
-| ReplayState | enum |  |  |  |  |  |
+| `ReplayState` | enum |  |  |  |  |  |
 
-| AdmissionReport | struct |  |  |  |  |  |
+| `AdmissionReport` | struct |  |  |  |  |  |
 
-| AdmittedWork | struct |  |  |  |  |  |
+| `AdmittedWork` | struct |  |  |  |  |  |
 
-| ArtifactEvidence | struct |  |  |  |  |  |
+| `ArtifactEvidence` | struct |  |  |  |  |  |
 
-| EvidenceRef | struct |  |  |  |  |  |
+| `EvidenceRef` | struct |  |  |  |  |  |
 
-| ExcludedWork | struct |  |  |  |  |  |
+| `ExcludedWork` | struct |  |  |  |  |  |
 
-| ExecutionEvidence | struct |  |  |  |  |  |
+| `ExecutionEvidence` | struct |  |  |  |  |  |
 
-| HarvestReceipt | struct |  |  |  |  |  |
+| `HarvestReceipt` | struct |  |  |  |  |  |
 
-| MethodCatalog | struct |  |  |  |  |  |
+| `MethodCatalog` | struct |  |  |  |  |  |
 
-| ObservationPack | struct |  |  |  |  |  |
+| `ObservationPack` | struct |  |  |  |  |  |
 
-| ObservationWindow | struct |  |  |  |  |  |
+| `ObservationWindow` | struct |  |  |  |  |  |
 
-| ObservedOutcome | struct |  |  |  |  |  |
+| `ObservedOutcome` | struct |  |  |  |  |  |
 
-| ObservedWorkItem | struct |  |  |  |  |  |
+| `ObservedWorkItem` | struct |  |  |  |  |  |
 
-| OperatorOutcome | struct |  |  |  |  |  |
+| `OperatorOutcome` | struct |  |  |  |  |  |
 
-| OutputArtifact | struct |  |  |  |  |  |
+| `OutputArtifact` | struct |  |  |  |  |  |
 
-| PlanningOperator | struct |  |  |  |  |  |
+| `PlanningOperator` | struct |  |  |  |  |  |
 
-| SourceRevision | struct |  |  |  |  |  |
+| `SourceRevision` | struct |  |  |  |  |  |
 
-| TransportFailure | struct |  |  |  |  |  |
+| `TransportFailure` | struct |  |  |  |  |  |
 
-| ValidationRecord | struct |  |  |  |  |  |
+| `ValidationRecord` | struct |  |  |  |  |  |
 
-| ValidationSummary | struct |  |  |  |  |  |
+| `ValidationSummary` | struct |  |  |  |  |  |
 
-| validate_pair | function | validate_pair(domain_src: &str, problem_src: &str) |  |  |  |  |
+| `validate_pair` | function | validate_pair(domain_src: &str, problem_src: &str) |  |  |  |  |
 
-| validate_paths | function | validate_paths(domain_path: &str, problem_path: &str) |  |  |  |  |
+| `validate_paths` | function | validate_paths(domain_path: &str, problem_path: &str) |  |  |  |  |
 
-| Summary | struct |  |  |  |  |  |
+| `Summary` | struct |  |  |  |  |  |
 
-| Effect | enum |  |  |  |  |  |
+| `Effect` | enum |  |  |  |  |  |
 
-| GoalDesc | enum |  |  |  |  |  |
+| `GoalDesc` | enum |  |  |  |  |  |
 
-| Literal | enum |  |  |  |  |  |
+| `Literal` | enum |  |  |  |  |  |
 
-| NumericValue | enum |  |  |  |  |  |
+| `NumericValue` | enum |  |  |  |  |  |
 
-| Term | enum |  |  |  |  |  |
+| `Term` | enum |  |  |  |  |  |
 
-| ActionDef | struct |  |  |  |  |  |
+| `ActionDef` | struct |  |  |  |  |  |
 
-| AtomicFormula | struct |  |  |  |  |  |
+| `AtomicFormula` | struct |  |  |  |  |  |
 
-| ConstraintDef | struct |  |  |  |  |  |
+| `ConstraintDef` | struct |  |  |  |  |  |
 
-| Domain | struct |  |  |  |  |  |
+| `Domain` | struct |  |  |  |  |  |
 
-| MethodDef | struct |  |  |  |  |  |
+| `MethodDef` | struct |  |  |  |  |  |
 
-| NumericFluentDecl | struct |  |  |  |  |  |
+| `NumericFluentDecl` | struct |  |  |  |  |  |
 
-| OrderEdge | struct |  |  |  |  |  |
+| `OrderEdge` | struct |  |  |  |  |  |
 
-| PredicateDef | struct |  |  |  |  |  |
+| `PredicateDef` | struct |  |  |  |  |  |
 
-| Problem | struct |  |  |  |  |  |
+| `Problem` | struct |  |  |  |  |  |
 
-| Subtask | struct |  |  |  |  |  |
+| `Subtask` | struct |  |  |  |  |  |
 
-| TaskCall | struct |  |  |  |  |  |
+| `TaskCall` | struct |  |  |  |  |  |
 
-| TaskDef | struct |  |  |  |  |  |
+| `TaskDef` | struct |  |  |  |  |  |
 
-| TaskNetwork | struct |  |  |  |  |  |
+| `TaskNetwork` | struct |  |  |  |  |  |
 
-| TypeDef | struct |  |  |  |  |  |
+| `TypeDef` | struct |  |  |  |  |  |
 
-| TypedObject | struct |  |  |  |  |  |
+| `TypedObject` | struct |  |  |  |  |  |
 
-| TypedParam | struct |  |  |  |  |  |
+| `TypedParam` | struct |  |  |  |  |  |
 
-| GroundError | enum |  |  |  |  |  |
+| `GroundError` | enum |  |  |  |  |  |
 
-| GroundGoal | enum |  |  |  |  |  |
+| `GroundGoal` | enum |  |  |  |  |  |
 
-| action_applicable | function | action_applicable(
+| `action_applicable` | function | action_applicable(
     action: &GroundAction,
     facts: &BTreeSet<String>,
 ) |  |  |  |  |
 
-| build_type_closure | function | build_type_closure(
+| `build_type_closure` | function | build_type_closure(
     domain: &Domain,
 ) |  |  |  |  |
 
-| compute_reachability | function | compute_reachability(
+| `compute_reachability` | function | compute_reachability(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     initial_facts: &BTreeSet<String>,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| compute_task_relevance | function | compute_task_relevance(
+| `compute_task_relevance` | function | compute_task_relevance(
     domain: &Domain,
     problem: &Problem,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| evaluate_ground_goal | function | evaluate_ground_goal(
+| `evaluate_ground_goal` | function | evaluate_ground_goal(
     goal: &GroundGoal,
     facts: &BTreeSet<String>,
 ) |  |  |  |  |
 
-| evaluate_ground_goal_with_budget | function | evaluate_ground_goal_with_budget(
+| `evaluate_ground_goal_with_budget` | function | evaluate_ground_goal_with_budget(
     goal: &GroundGoal,
     facts: &BTreeSet<String>,
     budget: usize,
 ) |  |  |  |  |
 
-| ground | function | ground(
+| `ground` | function | ground(
     domain: &Domain,
     problem: &Problem,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| ground_actions | function | ground_actions(
+| `ground_actions` | function | ground_actions(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| ground_actions_reachable | function | ground_actions_reachable(
+| `ground_actions_reachable` | function | ground_actions_reachable(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
     reachability: &ReachabilityInfo,
 ) |  |  |  |  |
 
-| ground_actions_relevant | function | ground_actions_relevant(
+| `ground_actions_relevant` | function | ground_actions_relevant(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
@@ -5438,22 +5438,22 @@
     reachability: Option<&ReachabilityInfo>,
 ) |  |  |  |  |
 
-| ground_initial_facts | function | ground_initial_facts(problem: &Problem) |  |  |  |  |
+| `ground_initial_facts` | function | ground_initial_facts(problem: &Problem) |  |  |  |  |
 
-| ground_methods | function | ground_methods(
+| `ground_methods` | function | ground_methods(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
 ) |  |  |  |  |
 
-| ground_methods_reachable | function | ground_methods_reachable(
+| `ground_methods_reachable` | function | ground_methods_reachable(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
     reachability: &ReachabilityInfo,
 ) |  |  |  |  |
 
-| ground_methods_relevant | function | ground_methods_relevant(
+| `ground_methods_relevant` | function | ground_methods_relevant(
     domain: &Domain,
     objects_by_type: &BTreeMap<String, Vec<String>>,
     limits: &GroundingLimits,
@@ -5461,506 +5461,506 @@
     reachability: Option<&ReachabilityInfo>,
 ) |  |  |  |  |
 
-| ground_root_network | function | ground_root_network(
+| `ground_root_network` | function | ground_root_network(
     problem: &Problem,
     objects_by_type: &BTreeMap<String, Vec<String>>,
 ) |  |  |  |  |
 
-| index_objects_by_type | function | index_objects_by_type(
+| `index_objects_by_type` | function | index_objects_by_type(
     domain: &Domain,
     problem: &Problem,
     closure: &BTreeMap<String, BTreeSet<String>>,
 ) |  |  |  |  |
 
-| GroundAction | struct |  |  |  |  |  |
+| `GroundAction` | struct |  |  |  |  |  |
 
-| GroundConditional | struct |  |  |  |  |  |
+| `GroundConditional` | struct |  |  |  |  |  |
 
-| GroundEffectBranch | struct |  |  |  |  |  |
+| `GroundEffectBranch` | struct |  |  |  |  |  |
 
-| GroundMethod | struct |  |  |  |  |  |
+| `GroundMethod` | struct |  |  |  |  |  |
 
-| GroundRootNetwork | struct |  |  |  |  |  |
+| `GroundRootNetwork` | struct |  |  |  |  |  |
 
-| GroundSubtask | struct |  |  |  |  |  |
+| `GroundSubtask` | struct |  |  |  |  |  |
 
-| GroundedIR | struct |  |  |  |  |  |
+| `GroundedIR` | struct |  |  |  |  |  |
 
-| GroundingLimits | struct |  |  |  |  |  |
+| `GroundingLimits` | struct |  |  |  |  |  |
 
-| ReachabilityInfo | struct |  |  |  |  |  |
+| `ReachabilityInfo` | struct |  |  |  |  |  |
 
-| TaskRelevanceInfo | struct |  |  |  |  |  |
+| `TaskRelevanceInfo` | struct |  |  |  |  |  |
 
-| ParseError | enum |  |  |  |  |  |
+| `ParseError` | enum |  |  |  |  |  |
 
-| parse_domain | function | parse_domain(src: &str) |  |  |  |  |
+| `parse_domain` | function | parse_domain(src: &str) |  |  |  |  |
 
-| parse_domain_with_budget | function | parse_domain_with_budget(src: &str, max_depth: usize) |  |  |  |  |
+| `parse_domain_with_budget` | function | parse_domain_with_budget(src: &str, max_depth: usize) |  |  |  |  |
 
-| parse_problem | function | parse_problem(src: &str) |  |  |  |  |
+| `parse_problem` | function | parse_problem(src: &str) |  |  |  |  |
 
-| parse_problem_with_budget | function | parse_problem_with_budget(src: &str, max_depth: usize) |  |  |  |  |
+| `parse_problem_with_budget` | function | parse_problem_with_budget(src: &str, max_depth: usize) |  |  |  |  |
 
-| has_probabilistic | function | has_probabilistic(src: &str) |  |  |  |  |
+| `has_probabilistic` | function | has_probabilistic(src: &str) |  |  |  |  |
 
-| preprocess | function | preprocess(src: &str) |  |  |  |  |
+| `preprocess` | function | preprocess(src: &str) |  |  |  |  |
 
-| TranslateError | enum |  |  |  |  |  |
+| `TranslateError` | enum |  |  |  |  |  |
 
-| translate | function | translate(
+| `translate` | function | translate(
     ir: &GroundedIR,
     limits: &TranslateLimits,
 ) |  |  |  |  |
 
-| Goal | struct |  |  |  |  |  |
+| `Goal` | struct |  |  |  |  |  |
 
-| Method | struct |  |  |  |  |  |
+| `Method` | struct |  |  |  |  |  |
 
-| PlanningProblem | struct |  |  |  |  |  |
+| `PlanningProblem` | struct |  |  |  |  |  |
 
-| State | struct |  |  |  |  |  |
+| `State` | struct |  |  |  |  |  |
 
-| Task | struct |  |  |  |  |  |
+| `Task` | struct |  |  |  |  |  |
 
-| Transition | struct |  |  |  |  |  |
+| `Transition` | struct |  |  |  |  |  |
 
-| TranslateLimits | struct |  |  |  |  |  |
+| `TranslateLimits` | struct |  |  |  |  |  |
 
-| DuplicateKind | enum |  |  |  |  |  |
+| `DuplicateKind` | enum |  |  |  |  |  |
 
-| ValidationError | enum |  |  |  |  |  |
+| `ValidationError` | enum |  |  |  |  |  |
 
-| ValidationWarning | enum |  |  |  |  |  |
+| `ValidationWarning` | enum |  |  |  |  |  |
 
-| validate_domain | function | validate_domain(domain: &Domain) |  |  |  |  |
+| `validate_domain` | function | validate_domain(domain: &Domain) |  |  |  |  |
 
-| validate_domain_with_warnings | function | validate_domain_with_warnings(
+| `validate_domain_with_warnings` | function | validate_domain_with_warnings(
     domain: &Domain,
 ) |  |  |  |  |
 
-| validate_problem | function | validate_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `validate_problem` | function | validate_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| validate_problem_with_warnings | function | validate_problem_with_warnings(
+| `validate_problem_with_warnings` | function | validate_problem_with_warnings(
     domain: &Domain,
     problem: &Problem,
 ) |  |  |  |  |
 
-| call | function | call(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `call` | function | call(&mut self, tool: &str, args: Value) |  |  |  |  |
 
-| call_json | function | call_json(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `call_json` | function | call_json(&mut self, tool: &str, args: Value) |  |  |  |  |
 
-| call_text | function | call_text(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `call_text` | function | call_text(&mut self, tool: &str, args: Value) |  |  |  |  |
 
-| finish | function | finish(mut self) |  |  |  |  |
+| `finish` | function | finish(mut self) |  |  |  |  |
 
-| notify | function | notify(&mut self, method: &str) |  |  |  |  |
+| `notify` | function | notify(&mut self, method: &str) |  |  |  |  |
 
-| request | function | request(&mut self, method: &str, params: Value) |  |  |  |  |
+| `request` | function | request(&mut self, method: &str, params: Value) |  |  |  |  |
 
-| start | function | start() |  |  |  |  |
+| `start` | function | start() |  |  |  |  |
 
-| Client | struct |  |  |  |  |  |
+| `Client` | struct |  |  |  |  |  |
 
-| Authority | enum |  |  |  |  |  |
+| `Authority` | enum |  |  |  |  |  |
 
-| permits | function | permits(g: Authority, n: Authority) |  |  |  |  |
+| `permits` | function | permits(g: Authority, n: Authority) |  |  |  |  |
 
-| exponential | function | exponential(base: u64, attempt: u32, cap: u64) |  |  |  |  |
+| `exponential` | function | exponential(base: u64, attempt: u32, cap: u64) |  |  |  |  |
 
-| new | function | new(n: u32) |  |  |  |  |
+| `new` | function | new(n: u32) |  |  |  |  |
 
-| remaining | function | remaining(&self) |  |  |  |  |
+| `remaining` | function | remaining(&self) |  |  |  |  |
 
-| take | function | take(&mut self) |  |  |  |  |
+| `take` | function | take(&mut self) |  |  |  |  |
 
-| Budget | struct |  |  |  |  |  |
+| `Budget` | struct |  |  |  |  |  |
 
-| compatible | function | compatible(available: &[Capability], required: &str) |  |  |  |  |
+| `compatible` | function | compatible(available: &[Capability], required: &str) |  |  |  |  |
 
-| Capability | struct |  |  |  |  |  |
+| `Capability` | struct |  |  |  |  |  |
 
-| open | function | open(&self) |  |  |  |  |
+| `open` | function | open(&self) |  |  |  |  |
 
-| record_failure | function | record_failure(&mut self) |  |  |  |  |
+| `record_failure` | function | record_failure(&mut self) |  |  |  |  |
 
-| Circuit | struct |  |  |  |  |  |
+| `Circuit` | struct |  |  |  |  |  |
 
-| fail | function | fail(&mut self, id: &str) |  |  |  |  |
+| `fail` | function | fail(&mut self, id: &str) |  |  |  |  |
 
-| Coordinator | struct |  |  |  |  |  |
+| `Coordinator` | struct |  |  |  |  |  |
 
-| after | function | after(d: Duration) |  |  |  |  |
+| `after` | function | after(d: Duration) |  |  |  |  |
 
-| expired | function | expired(&self) |  |  |  |  |
+| `expired` | function | expired(&self) |  |  |  |  |
 
-| Deadline | struct |  |  |  |  |  |
+| `Deadline` | struct |  |  |  |  |  |
 
-| exclude | function | exclude(&mut self) |  |  |  |  |
+| `exclude` | function | exclude(&mut self) |  |  |  |  |
 
-| Edge | struct |  |  |  |  |  |
+| `Edge` | struct |  |  |  |  |  |
 
-| next | function | next(self) |  |  |  |  |
+| `next` | function | next(self) |  |  |  |  |
 
-| Epoch | struct |  |  |  |  |  |
+| `Epoch` | struct |  |  |  |  |  |
 
-| admitted | function | admitted(xs: &[Observation]) |  |  |  |  |
+| `admitted` | function | admitted(xs: &[Observation]) |  |  |  |  |
 
-| admitted | function | admitted(&self) |  |  |  |  |
+| `admitted` | function | admitted(&self) |  |  |  |  |
 
-| ExactSubject | struct |  |  |  |  |  |
+| `ExactSubject` | struct |  |  |  |  |  |
 
-| FailureClass | enum |  |  |  |  |  |
+| `FailureClass` | enum |  |  |  |  |  |
 
-| exclude | function | exclude(&mut self, id: &str) |  |  |  |  |
+| `exclude` | function | exclude(&mut self, id: &str) |  |  |  |  |
 
-| lawful | function | lawful(&self) |  |  |  |  |
+| `lawful` | function | lawful(&self) |  |  |  |  |
 
-| Graph | struct |  |  |  |  |  |
+| `Graph` | struct |  |  |  |  |  |
 
-| Task | struct |  |  |  |  |  |
+| `Task` | struct |  |  |  |  |  |
 
-| Health | enum |  |  |  |  |  |
+| `Health` | enum |  |  |  |  |  |
 
-| eligible | function | eligible(h: Health) |  |  |  |  |
+| `eligible` | function | eligible(h: Health) |  |  |  |  |
 
-| key | function | key(subject: &str, epoch: u64, provider: &str) |  |  |  |  |
+| `key` | function | key(subject: &str, epoch: u64, provider: &str) |  |  |  |  |
 
-| valid_for | function | valid_for(&self, o: &str, e: u64) |  |  |  |  |
+| `valid_for` | function | valid_for(&self, o: &str, e: u64) |  |  |  |  |
 
-| Lease | struct |  |  |  |  |  |
+| `Lease` | struct |  |  |  |  |  |
 
-| Observation | struct |  |  |  |  |  |
+| `Observation` | struct |  |  |  |  |  |
 
-| bound | function | bound(&self) |  |  |  |  |
+| `bound` | function | bound(&self) |  |  |  |  |
 
-| Event | struct |  |  |  |  |  |
+| `Event` | struct |  |  |  |  |  |
 
-| Outcome | enum |  |  |  |  |  |
+| `Outcome` | enum |  |  |  |  |  |
 
-| is_success | function | is_success(&self) |  |  |  |  |
+| `is_success` | function | is_success(&self) |  |  |  |  |
 
-| valid | function | valid(&self) |  |  |  |  |
+| `valid` | function | valid(&self) |  |  |  |  |
 
-| Plan | struct |  |  |  |  |  |
+| `Plan` | struct |  |  |  |  |  |
 
-| exact | function | exact(&self) |  |  |  |  |
+| `exact` | function | exact(&self) |  |  |  |  |
 
-| EvidenceSet | struct |  |  |  |  |  |
+| `EvidenceSet` | struct |  |  |  |  |  |
 
-| ranked | function | ranked(mut ps: Vec<Plan>) |  |  |  |  |
+| `ranked` | function | ranked(mut ps: Vec<Plan>) |  |  |  |  |
 
-| acyclic | function | acyclic(e: &[Order]) |  |  |  |  |
+| `acyclic` | function | acyclic(e: &[Order]) |  |  |  |  |
 
-| Order | struct |  |  |  |  |  |
+| `Order` | struct |  |  |  |  |  |
 
-| Provider | trait |  |  |  |  |  |
+| `Provider` | trait |  |  |  |  |  |
 
-| changed | function | changed(a: &EpochArtifact, b: &EpochArtifact) |  |  |  |  |
+| `changed` | function | changed(a: &EpochArtifact, b: &EpochArtifact) |  |  |  |  |
 
-| EpochArtifact | struct |  |  |  |  |  |
+| `EpochArtifact` | struct |  |  |  |  |  |
 
-| exact | function | exact(&self) |  |  |  |  |
+| `exact` | function | exact(&self) |  |  |  |  |
 
-| Receipt | struct |  |  |  |  |  |
+| `Receipt` | struct |  |  |  |  |  |
 
-| reconcile | function | reconcile(g: &mut Graph, s: &[(String, Health) |  |  |  |  |
+| `reconcile` | function | reconcile(g: &mut Graph, s: &[(String, Health) |  |  |  |  |
 
-| exclude_failed | function | exclude_failed(g: &mut Graph, edge: &str) |  |  |  |  |
+| `exclude_failed` | function | exclude_failed(g: &mut Graph, edge: &str) |  |  |  |  |
 
-| contains | function | contains(&self, id: &str) |  |  |  |  |
+| `contains` | function | contains(&self, id: &str) |  |  |  |  |
 
-| register | function | register(&mut self, id: impl Into<String>) |  |  |  |  |
+| `register` | function | register(&mut self, id: impl Into<String>) |  |  |  |  |
 
-| Registry | struct |  |  |  |  |  |
+| `Registry` | struct |  |  |  |  |  |
 
-| same_decision | function | same_decision(a: &Receipt, b: &Receipt) |  |  |  |  |
+| `same_decision` | function | same_decision(a: &Receipt, b: &Receipt) |  |  |  |  |
 
-| next_edge | function | next_edge(&self) |  |  |  |  |
+| `next_edge` | function | next_edge(&self) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| pop_next | function | pop_next(&mut self) |  |  |  |  |
+| `pop_next` | function | pop_next(&mut self) |  |  |  |  |
 
-| push | function | push(&mut self, x: T) |  |  |  |  |
+| `push` | function | push(&mut self, x: T) |  |  |  |  |
 
-| Scheduler | struct |  |  |  |  |  |
+| `Scheduler` | struct |  |  |  |  |  |
 
-| State | enum |  |  |  |  |  |
+| `State` | enum |  |  |  |  |  |
 
-| allowed | function | allowed(a: State, b: State) |  |  |  |  |
+| `allowed` | function | allowed(a: State, b: State) |  |  |  |  |
 
-| Restart | enum |  |  |  |  |  |
+| `Restart` | enum |  |  |  |  |  |
 
-| should_restart | function | should_restart(r: Restart, abnormal: bool) |  |  |  |  |
+| `should_restart` | function | should_restart(r: Restart, abnormal: bool) |  |  |  |  |
 
-| success_rate | function | success_rate(&self) |  |  |  |  |
+| `success_rate` | function | success_rate(&self) |  |  |  |  |
 
-| Counters | struct |  |  |  |  |  |
+| `Counters` | struct |  |  |  |  |  |
 
-| actionable | function | actionable(&self) |  |  |  |  |
+| `actionable` | function | actionable(&self) |  |  |  |  |
 
-| Counterexample | struct |  |  |  |  |  |
+| `Counterexample` | struct |  |  |  |  |  |
 
-| ModelRole | struct |  |  |  |  |  |
+| `ModelRole` | struct |  |  |  |  |  |
 
-| add | function | add(&mut self, level: usize) |  |  |  |  |
+| `add` | function | add(&mut self, level: usize) |  |  |  |  |
 
-| analyze_conflict | function | analyze_conflict(ctx: &mut Context, conflict: Conflict) |  |  |  |  |
+| `analyze_conflict` | function | analyze_conflict(ctx: &mut Context, conflict: Conflict) |  |  |  |  |
 
-| clause | function | clause(&self) |  |  |  |  |
+| `clause` | function | clause(&self) |  |  |  |  |
 
-| involved | function | involved(&self) |  |  |  |  |
+| `involved` | function | involved(&self) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| test | function | test(&self, level: usize) |  |  |  |  |
+| `test` | function | test(&self, level: usize) |  |  |  |  |
 
-| AnalyzeConflict | struct |  |  |  |  |  |
+| `AnalyzeConflict` | struct |  |  |  |  |  |
 
-| EnqueueAssumption | enum |  |  |  |  |  |
+| `EnqueueAssumption` | enum |  |  |  |  |  |
 
-| assumption_levels | function | assumption_levels(&self) |  |  |  |  |
+| `assumption_levels` | function | assumption_levels(&self) |  |  |  |  |
 
-| enqueue_assumption | function | enqueue_assumption(ctx: &mut Context) |  |  |  |  |
+| `enqueue_assumption` | function | enqueue_assumption(ctx: &mut Context) |  |  |  |  |
 
-| full_restart | function | full_restart(&mut self) |  |  |  |  |
+| `full_restart` | function | full_restart(&mut self) |  |  |  |  |
 
-| set_assumptions | function | set_assumptions(ctx: &mut Context, user_assumptions: &[Lit]) |  |  |  |  |
+| `set_assumptions` | function | set_assumptions(ctx: &mut Context, user_assumptions: &[Lit]) |  |  |  |  |
 
-| user_failed_core | function | user_failed_core(&self) |  |  |  |  |
+| `user_failed_core` | function | user_failed_core(&self) |  |  |  |  |
 
-| Assumptions | struct |  |  |  |  |  |
+| `Assumptions` | struct |  |  |  |  |  |
 
-| add_binary_clause | function | add_binary_clause(&mut self, lits: [Lit; 2]) |  |  |  |  |
+| `add_binary_clause` | function | add_binary_clause(&mut self, lits: [Lit; 2]) |  |  |  |  |
 
-| count | function | count(&self) |  |  |  |  |
+| `count` | function | count(&self) |  |  |  |  |
 
-| implied | function | implied(&self, lit: Lit) |  |  |  |  |
+| `implied` | function | implied(&self, lit: Lit) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| simplify_binary | function | simplify_binary(ctx: &mut Context) |  |  |  |  |
+| `simplify_binary` | function | simplify_binary(ctx: &mut Context) |  |  |  |  |
 
-| BinaryClauses | struct |  |  |  |  |  |
+| `BinaryClauses` | struct |  |  |  |  |  |
 
-| conflict_step | function | conflict_step(ctx: &mut Context) |  |  |  |  |
+| `conflict_step` | function | conflict_step(ctx: &mut Context) |  |  |  |  |
 
-| header | function | header(&self) |  |  |  |  |
+| `header` | function | header(&self) |  |  |  |  |
 
-| header_mut | function | header_mut(&mut self) |  |  |  |  |
+| `header_mut` | function | header_mut(&mut self) |  |  |  |  |
 
-| lits | function | lits(&self) |  |  |  |  |
+| `lits` | function | lits(&self) |  |  |  |  |
 
-| lits_mut | function | lits_mut(&mut self) |  |  |  |  |
+| `lits_mut` | function | lits_mut(&mut self) |  |  |  |  |
 
-| Clause | struct |  |  |  |  |  |
+| `Clause` | struct |  |  |  |  |  |
 
-| bump_clause_activity | function | bump_clause_activity(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `bump_clause_activity` | function | bump_clause_activity(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| decay_clause_activities | function | decay_clause_activities(ctx: &mut Context) |  |  |  |  |
+| `decay_clause_activities` | function | decay_clause_activities(ctx: &mut Context) |  |  |  |  |
 
-| ClauseActivity | struct |  |  |  |  |  |
+| `ClauseActivity` | struct |  |  |  |  |  |
 
-| add_clause | function | add_clause(&mut self, mut header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
+| `add_clause` | function | add_clause(&mut self, mut header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
 
-| buffer_size | function | buffer_size(&self) |  |  |  |  |
+| `buffer_size` | function | buffer_size(&self) |  |  |  |  |
 
-| check_bounds | function | check_bounds(&self, cref: ClauseRef, len: usize) |  |  |  |  |
+| `check_bounds` | function | check_bounds(&self, cref: ClauseRef, len: usize) |  |  |  |  |
 
-| clause | function | clause(&self, cref: ClauseRef) |  |  |  |  |
+| `clause` | function | clause(&self, cref: ClauseRef) |  |  |  |  |
 
-| clause_mut | function | clause_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `clause_mut` | function | clause_mut(&mut self, cref: ClauseRef) |  |  |  |  |
 
-| header | function | header(&self, cref: ClauseRef) |  |  |  |  |
+| `header` | function | header(&self, cref: ClauseRef) |  |  |  |  |
 
-| header_mut | function | header_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `header_mut` | function | header_mut(&mut self, cref: ClauseRef) |  |  |  |  |
 
-| header_unchecked_mut | function | header_unchecked_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `header_unchecked_mut` | function | header_unchecked_mut(&mut self, cref: ClauseRef) |  |  |  |  |
 
-| lits_ptr_mut_unchecked | function | lits_ptr_mut_unchecked(&mut self, cref: ClauseRef) |  |  |  |  |
+| `lits_ptr_mut_unchecked` | function | lits_ptr_mut_unchecked(&mut self, cref: ClauseRef) |  |  |  |  |
 
-| with_capacity | function | with_capacity(capacity: usize) |  |  |  |  |
+| `with_capacity` | function | with_capacity(capacity: usize) |  |  |  |  |
 
-| ClauseAlloc | struct |  |  |  |  |  |
+| `ClauseAlloc` | struct |  |  |  |  |  |
 
-| ClauseRef | struct |  |  |  |  |  |
+| `ClauseRef` | struct |  |  |  |  |  |
 
-| assess_learned_clause | function | assess_learned_clause(ctx: &mut Context, lits: &[Lit]) |  |  |  |  |
+| `assess_learned_clause` | function | assess_learned_clause(ctx: &mut Context, lits: &[Lit]) |  |  |  |  |
 
-| bump_clause | function | bump_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `bump_clause` | function | bump_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| Tier | enum |  |  |  |  |  |
+| `Tier` | enum |  |  |  |  |  |
 
-| add_clause | function | add_clause(ctx: &mut Context, header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
+| `add_clause` | function | add_clause(ctx: &mut Context, header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
 
-| count | function | count() |  |  |  |  |
+| `count` | function | count() |  |  |  |  |
 
-| count_by_tier | function | count_by_tier(&self, tier: Tier) |  |  |  |  |
+| `count_by_tier` | function | count_by_tier(&self, tier: Tier) |  |  |  |  |
 
-| delete_clause | function | delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `delete_clause` | function | delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| from_index | function | from_index(index: usize) |  |  |  |  |
+| `from_index` | function | from_index(index: usize) |  |  |  |  |
 
-| set_clause_tier | function | set_clause_tier(ctx: &mut Context, cref: ClauseRef, tier: Tier) |  |  |  |  |
+| `set_clause_tier` | function | set_clause_tier(ctx: &mut Context, cref: ClauseRef, tier: Tier) |  |  |  |  |
 
-| try_delete_clause | function | try_delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `try_delete_clause` | function | try_delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| ClauseDb | struct |  |  |  |  |  |
+| `ClauseDb` | struct |  |  |  |  |  |
 
-| collect_garbage | function | collect_garbage(ctx: &mut Context) |  |  |  |  |
+| `collect_garbage` | function | collect_garbage(ctx: &mut Context) |  |  |  |  |
 
-| active | function | active(&self) |  |  |  |  |
+| `active` | function | active(&self) |  |  |  |  |
 
-| activity | function | activity(&self) |  |  |  |  |
+| `activity` | function | activity(&self) |  |  |  |  |
 
-| deleted | function | deleted(&self) |  |  |  |  |
+| `deleted` | function | deleted(&self) |  |  |  |  |
 
-| glue | function | glue(&self) |  |  |  |  |
+| `glue` | function | glue(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| mark | function | mark(&self) |  |  |  |  |
+| `mark` | function | mark(&self) |  |  |  |  |
 
-| new | function | new() |  |  |  |  |
+| `new` | function | new() |  |  |  |  |
 
-| set_active | function | set_active(&mut self, active: bool) |  |  |  |  |
+| `set_active` | function | set_active(&mut self, active: bool) |  |  |  |  |
 
-| set_activity | function | set_activity(&mut self, activity: f32) |  |  |  |  |
+| `set_activity` | function | set_activity(&mut self, activity: f32) |  |  |  |  |
 
-| set_deleted | function | set_deleted(&mut self, deleted: bool) |  |  |  |  |
+| `set_deleted` | function | set_deleted(&mut self, deleted: bool) |  |  |  |  |
 
-| set_glue | function | set_glue(&mut self, glue: usize) |  |  |  |  |
+| `set_glue` | function | set_glue(&mut self, glue: usize) |  |  |  |  |
 
-| set_len | function | set_len(&mut self, length: usize) |  |  |  |  |
+| `set_len` | function | set_len(&mut self, length: usize) |  |  |  |  |
 
-| set_mark | function | set_mark(&mut self, mark: bool) |  |  |  |  |
+| `set_mark` | function | set_mark(&mut self, mark: bool) |  |  |  |  |
 
-| set_tier | function | set_tier(&mut self, tier: Tier) |  |  |  |  |
+| `set_tier` | function | set_tier(&mut self, tier: Tier) |  |  |  |  |
 
-| tier | function | tier(&self) |  |  |  |  |
+| `tier` | function | tier(&self) |  |  |  |  |
 
-| ClauseHeader | struct |  |  |  |  |  |
+| `ClauseHeader` | struct |  |  |  |  |  |
 
-| dedup_and_mark_by_tier | function | dedup_and_mark_by_tier(ctx: &mut Context, tier: Tier) |  |  |  |  |
+| `dedup_and_mark_by_tier` | function | dedup_and_mark_by_tier(ctx: &mut Context, tier: Tier) |  |  |  |  |
 
-| reduce_locals | function | reduce_locals(ctx: &mut Context) |  |  |  |  |
+| `reduce_locals` | function | reduce_locals(ctx: &mut Context) |  |  |  |  |
 
-| reduce_mids | function | reduce_mids(ctx: &mut Context) |  |  |  |  |
+| `reduce_mids` | function | reduce_mids(ctx: &mut Context) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| iter | function | iter(&self) |  |  |  |  |
+| `iter` | function | iter(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| new | function | new() |  |  |  |  |
+| `new` | function | new() |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| var_count | function | var_count(&self) |  |  |  |  |
+| `var_count` | function | var_count(&self) |  |  |  |  |
 
-| CnfFormula | struct |  |  |  |  |  |
+| `CnfFormula` | struct |  |  |  |  |  |
 
-| ExtendFormula | trait |  |  |  |  |  |
+| `ExtendFormula` | trait |  |  |  |  |  |
 
-| SolverConfig | struct |  |  |  |  |  |
+| `SolverConfig` | struct |  |  |  |  |  |
 
-| set_var_count | function | set_var_count(ctx: &mut Context, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(ctx: &mut Context, count: usize) |  |  |  |  |
 
-| Context | struct |  |  |  |  |  |
+| `Context` | struct |  |  |  |  |  |
 
-| make_decision | function | make_decision(ctx: &mut Context) |  |  |  |  |
+| `make_decision` | function | make_decision(ctx: &mut Context) |  |  |  |  |
 
-| bump | function | bump(&mut self, var: Var) |  |  |  |  |
+| `bump` | function | bump(&mut self, var: Var) |  |  |  |  |
 
-| decay | function | decay(&mut self) |  |  |  |  |
+| `decay` | function | decay(&mut self) |  |  |  |  |
 
-| make_available | function | make_available(&mut self, var: Var) |  |  |  |  |
+| `make_available` | function | make_available(&mut self, var: Var) |  |  |  |  |
 
-| make_unavailable | function | make_unavailable(&mut self, var: Var) |  |  |  |  |
+| `make_unavailable` | function | make_unavailable(&mut self, var: Var) |  |  |  |  |
 
-| reset | function | reset(&mut self, var: Var) |  |  |  |  |
+| `reset` | function | reset(&mut self, var: Var) |  |  |  |  |
 
-| seed | function | seed(&mut self, var: Var, activity: f32) |  |  |  |  |
+| `seed` | function | seed(&mut self, var: Var, activity: f32) |  |  |  |  |
 
-| set_decay | function | set_decay(&mut self, decay: f32) |  |  |  |  |
+| `set_decay` | function | set_decay(&mut self, decay: f32) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| var_count | function | var_count(&self) |  |  |  |  |
+| `var_count` | function | var_count(&self) |  |  |  |  |
 
-| Vsids | struct |  |  |  |  |  |
+| `Vsids` | struct |  |  |  |  |  |
 
-| DimacsError | enum |  |  |  |  |  |
+| `DimacsError` | enum |  |  |  |  |  |
 
-| parse_dimacs | function | parse_dimacs(input: impl io::BufRead) |  |  |  |  |
+| `parse_dimacs` | function | parse_dimacs(input: impl io::BufRead) |  |  |  |  |
 
-| parse_dimacs_str | function | parse_dimacs_str(input: &str) |  |  |  |  |
+| `parse_dimacs_str` | function | parse_dimacs_str(input: &str) |  |  |  |  |
 
-| write_dimacs | function | write_dimacs(target: &mut impl io::Write, formula: &CnfFormula) |  |  |  |  |
+| `write_dimacs` | function | write_dimacs(target: &mut impl io::Write, formula: &CnfFormula) |  |  |  |  |
 
-| compute_glue | function | compute_glue(tmp_flags: &mut TmpFlags, impl_graph: &ImplGraph, lits: &[Lit]) |  |  |  |  |
+| `compute_glue` | function | compute_glue(tmp_flags: &mut TmpFlags, impl_graph: &ImplGraph, lits: &[Lit]) |  |  |  |  |
 
-| code | function | code(self) |  |  |  |  |
+| `code` | function | code(self) |  |  |  |  |
 
-| from_code | function | from_code(code: usize) |  |  |  |  |
+| `from_code` | function | from_code(code: usize) |  |  |  |  |
 
-| from_dimacs | function | from_dimacs(number: isize) |  |  |  |  |
+| `from_dimacs` | function | from_dimacs(number: isize) |  |  |  |  |
 
-| from_index | function | from_index(index: usize) |  |  |  |  |
+| `from_index` | function | from_index(index: usize) |  |  |  |  |
 
-| from_var | function | from_var(var: Var, polarity: bool) |  |  |  |  |
+| `from_var` | function | from_var(var: Var, polarity: bool) |  |  |  |  |
 
-| index | function | index(self) |  |  |  |  |
+| `index` | function | index(self) |  |  |  |  |
 
-| is_negative | function | is_negative(self) |  |  |  |  |
+| `is_negative` | function | is_negative(self) |  |  |  |  |
 
-| is_positive | function | is_positive(self) |  |  |  |  |
+| `is_positive` | function | is_positive(self) |  |  |  |  |
 
-| lit | function | lit(self, polarity: bool) |  |  |  |  |
+| `lit` | function | lit(self, polarity: bool) |  |  |  |  |
 
-| map_var | function | map_var(self, f: impl FnOnce(Var) |  |  |  |  |
+| `map_var` | function | map_var(self, f: impl FnOnce(Var) |  |  |  |  |
 
-| max_count | function | max_count() |  |  |  |  |
+| `max_count` | function | max_count() |  |  |  |  |
 
-| max_var | function | max_var() |  |  |  |  |
+| `max_var` | function | max_var() |  |  |  |  |
 
-| negative | function | negative(self) |  |  |  |  |
+| `negative` | function | negative(self) |  |  |  |  |
 
-| positive | function | positive(self) |  |  |  |  |
+| `positive` | function | positive(self) |  |  |  |  |
 
-| to_dimacs | function | to_dimacs(self) |  |  |  |  |
+| `to_dimacs` | function | to_dimacs(self) |  |  |  |  |
 
-| var | function | var(self) |  |  |  |  |
+| `var` | function | var(self) |  |  |  |  |
 
-| Lit | struct |  |  |  |  |  |
+| `Lit` | struct |  |  |  |  |  |
 
-| Var | struct |  |  |  |  |  |
+| `Var` | struct |  |  |  |  |  |
 
-| load_clause | function | load_clause(ctx: &mut Context, user_lits: &[Lit]) |  |  |  |  |
+| `load_clause` | function | load_clause(ctx: &mut Context, user_lits: &[Lit]) |  |  |  |  |
 
-| assignment | function | assignment(&self) |  |  |  |  |
+| `assignment` | function | assignment(&self) |  |  |  |  |
 
-| reconstruct_global_model | function | reconstruct_global_model(ctx: &mut Context) |  |  |  |  |
+| `reconstruct_global_model` | function | reconstruct_global_model(ctx: &mut Context) |  |  |  |  |
 
-| Model | struct |  |  |  |  |  |
+| `Model` | struct |  |  |  |  |  |
 
-| propagate | function | propagate(ctx: &mut Context) |  |  |  |  |
+| `propagate` | function | propagate(ctx: &mut Context) |  |  |  |  |
 
-| assign_lit | function | assign_lit(&mut self, lit: Lit) |  |  |  |  |
+| `assign_lit` | function | assign_lit(&mut self, lit: Lit) |  |  |  |  |
 
-| assignment | function | assignment(&self) |  |  |  |  |
+| `assignment` | function | assignment(&self) |  |  |  |  |
 
-| backtrack | function | backtrack(ctx: &mut Context, level: usize) |  |  |  |  |
+| `backtrack` | function | backtrack(ctx: &mut Context, level: usize) |  |  |  |  |
 
-| clear | function | clear(&mut self) |  |  |  |  |
+| `clear` | function | clear(&mut self) |  |  |  |  |
 
-| current_level | function | current_level(&self) |  |  |  |  |
+| `current_level` | function | current_level(&self) |  |  |  |  |
 
-| enqueue_assignment | function | enqueue_assignment(
+| `enqueue_assignment` | function | enqueue_assignment(
     assignment: &mut Assignment,
     impl_graph: &mut ImplGraph,
     trail: &mut Trail,
@@ -5968,229 +5968,229 @@
     reason: Reason,
 ) |  |  |  |  |
 
-| fast_option_eq | function | fast_option_eq(a: Option<bool>, b: Option<bool>) |  |  |  |  |
+| `fast_option_eq` | function | fast_option_eq(a: Option<bool>, b: Option<bool>) |  |  |  |  |
 
-| full_restart | function | full_restart(ctx: &mut Context) |  |  |  |  |
+| `full_restart` | function | full_restart(ctx: &mut Context) |  |  |  |  |
 
-| last_var_value | function | last_var_value(&self, var: Var) |  |  |  |  |
+| `last_var_value` | function | last_var_value(&self, var: Var) |  |  |  |  |
 
-| lit_is_false | function | lit_is_false(&self, lit: Lit) |  |  |  |  |
+| `lit_is_false` | function | lit_is_false(&self, lit: Lit) |  |  |  |  |
 
-| lit_is_true | function | lit_is_true(&self, lit: Lit) |  |  |  |  |
+| `lit_is_true` | function | lit_is_true(&self, lit: Lit) |  |  |  |  |
 
-| lit_is_unk | function | lit_is_unk(&self, lit: Lit) |  |  |  |  |
+| `lit_is_unk` | function | lit_is_unk(&self, lit: Lit) |  |  |  |  |
 
-| lit_value | function | lit_value(&self, lit: Lit) |  |  |  |  |
+| `lit_value` | function | lit_value(&self, lit: Lit) |  |  |  |  |
 
-| new_decision_level | function | new_decision_level(&mut self) |  |  |  |  |
+| `new_decision_level` | function | new_decision_level(&mut self) |  |  |  |  |
 
-| pop_queue | function | pop_queue(&mut self) |  |  |  |  |
+| `pop_queue` | function | pop_queue(&mut self) |  |  |  |  |
 
-| queue_head | function | queue_head(&self) |  |  |  |  |
+| `queue_head` | function | queue_head(&self) |  |  |  |  |
 
-| restart | function | restart(ctx: &mut Context) |  |  |  |  |
+| `restart` | function | restart(ctx: &mut Context) |  |  |  |  |
 
-| set_var | function | set_var(&mut self, var: Var, assignment: Option<bool>) |  |  |  |  |
+| `set_var` | function | set_var(&mut self, var: Var, assignment: Option<bool>) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| trail | function | trail(&self) |  |  |  |  |
+| `trail` | function | trail(&self) |  |  |  |  |
 
-| unassign_var | function | unassign_var(&mut self, var: Var) |  |  |  |  |
+| `unassign_var` | function | unassign_var(&mut self, var: Var) |  |  |  |  |
 
-| var_value | function | var_value(&self, var: Var) |  |  |  |  |
+| `var_value` | function | var_value(&self, var: Var) |  |  |  |  |
 
-| Assignment | struct |  |  |  |  |  |
+| `Assignment` | struct |  |  |  |  |  |
 
-| Trail | struct |  |  |  |  |  |
+| `Trail` | struct |  |  |  |  |  |
 
-| propagate_binary | function | propagate_binary(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `propagate_binary` | function | propagate_binary(ctx: &mut Context, lit: Lit) |  |  |  |  |
 
-| Conflict | enum |  |  |  |  |  |
+| `Conflict` | enum |  |  |  |  |  |
 
-| Reason | enum |  |  |  |  |  |
+| `Reason` | enum |  |  |  |  |  |
 
-| is_removed_unit | function | is_removed_unit(&self, var: Var) |  |  |  |  |
+| `is_removed_unit` | function | is_removed_unit(&self, var: Var) |  |  |  |  |
 
-| is_unit | function | is_unit(&self) |  |  |  |  |
+| `is_unit` | function | is_unit(&self) |  |  |  |  |
 
-| level | function | level(&self, var: Var) |  |  |  |  |
+| `level` | function | level(&self, var: Var) |  |  |  |  |
 
-| reason | function | reason(&self, var: Var) |  |  |  |  |
+| `reason` | function | reason(&self, var: Var) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| update_reason | function | update_reason(&mut self, var: Var, reason: Reason) |  |  |  |  |
+| `update_reason` | function | update_reason(&mut self, var: Var, reason: Reason) |  |  |  |  |
 
-| update_removed_unit | function | update_removed_unit(&mut self, var: Var) |  |  |  |  |
+| `update_removed_unit` | function | update_removed_unit(&mut self, var: Var) |  |  |  |  |
 
-| ImplGraph | struct |  |  |  |  |  |
+| `ImplGraph` | struct |  |  |  |  |  |
 
-| ImplNode | struct |  |  |  |  |  |
+| `ImplNode` | struct |  |  |  |  |  |
 
-| propagate_long | function | propagate_long(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `propagate_long` | function | propagate_long(ctx: &mut Context, lit: Lit) |  |  |  |  |
 
-| add_watch | function | add_watch(&mut self, lit: Lit, watch: Watch) |  |  |  |  |
+| `add_watch` | function | add_watch(&mut self, lit: Lit, watch: Watch) |  |  |  |  |
 
-| disable | function | disable(&mut self) |  |  |  |  |
+| `disable` | function | disable(&mut self) |  |  |  |  |
 
-| enable_watchlists | function | enable_watchlists(ctx: &mut Context) |  |  |  |  |
+| `enable_watchlists` | function | enable_watchlists(ctx: &mut Context) |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| watch_clause | function | watch_clause(&mut self, cref: ClauseRef, lits: [Lit; 2]) |  |  |  |  |
+| `watch_clause` | function | watch_clause(&mut self, cref: ClauseRef, lits: [Lit; 2]) |  |  |  |  |
 
-| watched_by_mut | function | watched_by_mut(&mut self, lit: Lit) |  |  |  |  |
+| `watched_by_mut` | function | watched_by_mut(&mut self, lit: Lit) |  |  |  |  |
 
-| Watch | struct |  |  |  |  |  |
+| `Watch` | struct |  |  |  |  |  |
 
-| Watchlists | struct |  |  |  |  |  |
+| `Watchlists` | struct |  |  |  |  |  |
 
-| schedule_step | function | schedule_step(ctx: &mut Context) |  |  |  |  |
+| `schedule_step` | function | schedule_step(ctx: &mut Context) |  |  |  |  |
 
-| Schedule | struct |  |  |  |  |  |
+| `Schedule` | struct |  |  |  |  |  |
 
-| advance | function | advance(&mut self) |  |  |  |  |
+| `advance` | function | advance(&mut self) |  |  |  |  |
 
-| LubySequence | struct |  |  |  |  |  |
+| `LubySequence` | struct |  |  |  |  |  |
 
-| SolverError | enum |  |  |  |  |  |
+| `SolverError` | enum |  |  |  |  |  |
 
-| add_formula | function | add_formula(&mut self, formula: &CnfFormula) |  |  |  |  |
+| `add_formula` | function | add_formula(&mut self, formula: &CnfFormula) |  |  |  |  |
 
-| assume | function | assume(&mut self, assumptions: &[Lit]) |  |  |  |  |
+| `assume` | function | assume(&mut self, assumptions: &[Lit]) |  |  |  |  |
 
-| failed_core | function | failed_core(&self) |  |  |  |  |
+| `failed_core` | function | failed_core(&self) |  |  |  |  |
 
-| is_recoverable | function | is_recoverable(&self) |  |  |  |  |
+| `is_recoverable` | function | is_recoverable(&self) |  |  |  |  |
 
-| model | function | model(&self) |  |  |  |  |
+| `model` | function | model(&self) |  |  |  |  |
 
-| new | function | new() |  |  |  |  |
+| `new` | function | new() |  |  |  |  |
 
-| seed_activity | function | seed_activity(&mut self, seeds: &[(usize, f32) |  |  |  |  |
+| `seed_activity` | function | seed_activity(&mut self, seeds: &[(usize, f32) |  |  |  |  |
 
-| set_conflict_limit | function | set_conflict_limit(&mut self, limit: Option<u64>) |  |  |  |  |
+| `set_conflict_limit` | function | set_conflict_limit(&mut self, limit: Option<u64>) |  |  |  |  |
 
-| solve | function | solve(&mut self) |  |  |  |  |
+| `solve` | function | solve(&mut self) |  |  |  |  |
 
-| Solver | struct |  |  |  |  |  |
+| `Solver` | struct |  |  |  |  |  |
 
-| SatState | enum |  |  |  |  |  |
+| `SatState` | enum |  |  |  |  |  |
 
-| SolverState | struct |  |  |  |  |  |
+| `SolverState` | struct |  |  |  |  |  |
 
-| set_var_count | function | set_var_count(&mut self, count: usize) |  |  |  |  |
+| `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| TmpData | struct |  |  |  |  |  |
+| `TmpData` | struct |  |  |  |  |  |
 
-| TmpFlags | struct |  |  |  |  |  |
+| `TmpFlags` | struct |  |  |  |  |  |
 
-| prove_units | function | prove_units(ctx: &mut Context) |  |  |  |  |
+| `prove_units` | function | prove_units(ctx: &mut Context) |  |  |  |  |
 
-| resurrect_unit | function | resurrect_unit(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `resurrect_unit` | function | resurrect_unit(ctx: &mut Context, lit: Lit) |  |  |  |  |
 
-| unit_simplify | function | unit_simplify(ctx: &mut Context) |  |  |  |  |
+| `unit_simplify` | function | unit_simplify(ctx: &mut Context) |  |  |  |  |
 
-| existing_user_from_solver | function | existing_user_from_solver(&self, solver: Var) |  |  |  |  |
+| `existing_user_from_solver` | function | existing_user_from_solver(&self, solver: Var) |  |  |  |  |
 
-| global_from_solver | function | global_from_solver(&self) |  |  |  |  |
+| `global_from_solver` | function | global_from_solver(&self) |  |  |  |  |
 
-| global_from_solver_mut | function | global_from_solver_mut(&mut self) |  |  |  |  |
+| `global_from_solver_mut` | function | global_from_solver_mut(&mut self) |  |  |  |  |
 
-| global_from_user | function | global_from_user(&self) |  |  |  |  |
+| `global_from_user` | function | global_from_user(&self) |  |  |  |  |
 
-| global_from_user_mut | function | global_from_user_mut(&mut self) |  |  |  |  |
+| `global_from_user_mut` | function | global_from_user_mut(&mut self) |  |  |  |  |
 
-| global_var_iter | function | global_var_iter(&self) |  |  |  |  |
+| `global_var_iter` | function | global_var_iter(&self) |  |  |  |  |
 
-| global_watermark | function | global_watermark(&self) |  |  |  |  |
+| `global_watermark` | function | global_watermark(&self) |  |  |  |  |
 
-| initialize_solver_var | function | initialize_solver_var(ctx: &mut Context, solver: Var, global: Var) |  |  |  |  |
+| `initialize_solver_var` | function | initialize_solver_var(ctx: &mut Context, solver: Var, global: Var) |  |  |  |  |
 
-| new_user_var | function | new_user_var(ctx: &mut Context) |  |  |  |  |
+| `new_user_var` | function | new_user_var(ctx: &mut Context) |  |  |  |  |
 
-| next_unmapped_solver | function | next_unmapped_solver(&self) |  |  |  |  |
+| `next_unmapped_solver` | function | next_unmapped_solver(&self) |  |  |  |  |
 
-| next_unmapped_user | function | next_unmapped_user(&self) |  |  |  |  |
+| `next_unmapped_user` | function | next_unmapped_user(&self) |  |  |  |  |
 
-| remove_solver_var | function | remove_solver_var(ctx: &mut Context, solver: Var) |  |  |  |  |
+| `remove_solver_var` | function | remove_solver_var(ctx: &mut Context, solver: Var) |  |  |  |  |
 
-| solver_from_global | function | solver_from_global(&self) |  |  |  |  |
+| `solver_from_global` | function | solver_from_global(&self) |  |  |  |  |
 
-| solver_from_global_mut | function | solver_from_global_mut(&mut self) |  |  |  |  |
+| `solver_from_global_mut` | function | solver_from_global_mut(&mut self) |  |  |  |  |
 
-| solver_from_user | function | solver_from_user(ctx: &mut Context, user: Var) |  |  |  |  |
+| `solver_from_user` | function | solver_from_user(ctx: &mut Context, user: Var) |  |  |  |  |
 
-| solver_from_user_lits | function | solver_from_user_lits(ctx: &mut Context, solver_lits: &mut Vec<Lit>, user_lits: &[Lit]) |  |  |  |  |
+| `solver_from_user_lits` | function | solver_from_user_lits(ctx: &mut Context, solver_lits: &mut Vec<Lit>, user_lits: &[Lit]) |  |  |  |  |
 
-| solver_var_present | function | solver_var_present(&self, solver: Var) |  |  |  |  |
+| `solver_var_present` | function | solver_var_present(&self, solver: Var) |  |  |  |  |
 
-| solver_watermark | function | solver_watermark(&self) |  |  |  |  |
+| `solver_watermark` | function | solver_watermark(&self) |  |  |  |  |
 
-| user_from_global | function | user_from_global(&self) |  |  |  |  |
+| `user_from_global` | function | user_from_global(&self) |  |  |  |  |
 
-| user_var_iter | function | user_var_iter(&self) |  |  |  |  |
+| `user_var_iter` | function | user_var_iter(&self) |  |  |  |  |
 
-| user_watermark | function | user_watermark(&self) |  |  |  |  |
+| `user_watermark` | function | user_watermark(&self) |  |  |  |  |
 
-| var_data_global | function | var_data_global(&self, global: Var) |  |  |  |  |
+| `var_data_global` | function | var_data_global(&self, global: Var) |  |  |  |  |
 
-| var_data_global_mut | function | var_data_global_mut(&mut self, global: Var) |  |  |  |  |
+| `var_data_global_mut` | function | var_data_global_mut(&mut self, global: Var) |  |  |  |  |
 
-| var_data_solver_mut | function | var_data_solver_mut(&mut self, solver: Var) |  |  |  |  |
+| `var_data_solver_mut` | function | var_data_solver_mut(&mut self, solver: Var) |  |  |  |  |
 
-| Variables | struct |  |  |  |  |  |
+| `Variables` | struct |  |  |  |  |  |
 
-| user_default | function | user_default() |  |  |  |  |
+| `user_default` | function | user_default() |  |  |  |  |
 
-| VarData | struct |  |  |  |  |  |
+| `VarData` | struct |  |  |  |  |  |
 
-| bwd | function | bwd(&self) |  |  |  |  |
+| `bwd` | function | bwd(&self) |  |  |  |  |
 
-| bwd_mut | function | bwd_mut(&mut self) |  |  |  |  |
+| `bwd_mut` | function | bwd_mut(&mut self) |  |  |  |  |
 
-| fwd | function | fwd(&self) |  |  |  |  |
+| `fwd` | function | fwd(&self) |  |  |  |  |
 
-| fwd_mut | function | fwd_mut(&mut self) |  |  |  |  |
+| `fwd_mut` | function | fwd_mut(&mut self) |  |  |  |  |
 
-| get | function | get(&self, from: Var) |  |  |  |  |
+| `get` | function | get(&self, from: Var) |  |  |  |  |
 
-| insert | function | insert(&mut self, into: Var, from: Var) |  |  |  |  |
+| `insert` | function | insert(&mut self, into: Var, from: Var) |  |  |  |  |
 
-| remove | function | remove(&mut self, from: Var) |  |  |  |  |
+| `remove` | function | remove(&mut self, from: Var) |  |  |  |  |
 
-| watermark | function | watermark(&self) |  |  |  |  |
+| `watermark` | function | watermark(&self) |  |  |  |  |
 
-| VarBiMap | struct |  |  |  |  |  |
+| `VarBiMap` | struct |  |  |  |  |  |
 
-| VarBiMapMut | struct |  |  |  |  |  |
+| `VarBiMapMut` | struct |  |  |  |  |  |
 
-| VarMap | struct |  |  |  |  |  |
+| `VarMap` | struct |  |  |  |  |  |
 
-| admit_candidates | function | admit_candidates(
+| `admit_candidates` | function | admit_candidates(
     candidates: &[ProbeCandidate],
     goal_limit: usize,
     surface: &str,
 ) |  |  |  |  |
 
-| corridor_problem | function | corridor_problem(n: usize) |  |  |  |  |
+| `corridor_problem` | function | corridor_problem(n: usize) |  |  |  |  |
 
-| probe_all | function | probe_all(
+| `probe_all` | function | probe_all(
     parent: &Session,
     candidates: &[ProbeCandidate],
     evals: usize,
     mem_mb: usize,
 ) |  |  |  |  |
 
-| probe_candidate | function | probe_candidate(
+| `probe_candidate` | function | probe_candidate(
     parent: &Session,
     candidate: &ProbeCandidate,
     evals: usize,
     mem_mb: usize,
 ) |  |  |  |  |
 
-| repair | function | repair(
+| `repair` | function | repair(
     inner: &Session,
     plan: &mut Option<Plan>,
     cursor: &mut usize,
@@ -6198,37 +6198,37 @@
     mem_mb: usize,
 ) |  |  |  |  |
 
-| ProbeCandidate | struct |  |  |  |  |  |
+| `ProbeCandidate` | struct |  |  |  |  |  |
 
-| advance | function | advance(&mut self) |  |  |  |  |
+| `advance` | function | advance(&mut self) |  |  |  |  |
 
-| apply_start | function | apply_start(&mut self, name: &str) |  |  |  |  |
+| `apply_start` | function | apply_start(&mut self, name: &str) |  |  |  |  |
 
-| drop_plan | function | drop_plan(&mut self) |  |  |  |  |
+| `drop_plan` | function | drop_plan(&mut self) |  |  |  |  |
 
-| elapse | function | elapse(&mut self, dt: f64) |  |  |  |  |
+| `elapse` | function | elapse(&mut self, dt: f64) |  |  |  |  |
 
-| explain | function | explain(domain: &str, problem: &str, plan_json: &str) |  |  |  |  |
+| `explain` | function | explain(domain: &str, problem: &str, plan_json: &str) |  |  |  |  |
 
-| fact | function | fact(&self, name: &str) |  |  |  |  |
+| `fact` | function | fact(&self, name: &str) |  |  |  |  |
 
-| fluent | function | fluent(&self, name: &str) |  |  |  |  |
+| `fluent` | function | fluent(&self, name: &str) |  |  |  |  |
 
-| fond_validate | function | fond_validate(problem_json: &str, plan_json: &str) |  |  |  |  |
+| `fond_validate` | function | fond_validate(problem_json: &str, plan_json: &str) |  |  |  |  |
 
-| fork | function | fork(&self) |  |  |  |  |
+| `fork` | function | fork(&self) |  |  |  |  |
 
-| goal_met | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) |  |  |  |  |
 
-| has_plan | function | has_plan(&self) |  |  |  |  |
+| `has_plan` | function | has_plan(&self) |  |  |  |  |
 
-| mind_bytes | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
 
-| new | function | new(domain: &str, problem: &str) |  |  |  |  |
+| `new` | function | new(domain: &str, problem: &str) |  |  |  |  |
 
-| observe | function | observe(&mut self, sight_json: &str) |  |  |  |  |
+| `observe` | function | observe(&mut self, sight_json: &str) |  |  |  |  |
 
-| plan | function | plan(
+| `plan` | function | plan(
         domain: &str,
         problem: &str,
         mode: Option<String>,
@@ -6236,7 +6236,7 @@
         search: Option<String>,
     ) |  |  |  |  |
 
-| plan_production | function | plan_production(
+| `plan_production` | function | plan_production(
         domain: &str,
         problem: &str,
         mode: Option<String>,
@@ -6247,130 +6247,130 @@
         request_id: Option<String>,
     ) |  |  |  |  |
 
-| plan_valid_json | function | plan_valid_json(&self, plan_json: &str, from: usize) |  |  |  |  |
+| `plan_valid_json` | function | plan_valid_json(&self, plan_json: &str, from: usize) |  |  |  |  |
 
-| probe_json | function | probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) |  |  |  |  |
+| `probe_json` | function | probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) |  |  |  |  |
 
-| readiness | function | readiness() |  |  |  |  |
+| `readiness` | function | readiness() |  |  |  |  |
 
-| repair | function | repair(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `repair` | function | repair(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
 
-| replan_following | function | replan_following(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `replan_following` | function | replan_following(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
 
-| restrict_contains | function | restrict_contains(&mut self, filter: String) |  |  |  |  |
+| `restrict_contains` | function | restrict_contains(&mut self, filter: String) |  |  |  |  |
 
-| restrict_prefix_claims | function | restrict_prefix_claims(&mut self, prefix: String, claimed: String) |  |  |  |  |
+| `restrict_prefix_claims` | function | restrict_prefix_claims(&mut self, prefix: String, claimed: String) |  |  |  |  |
 
-| set_fact | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
+| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
 
-| set_fluent | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
+| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
 
-| set_goal | function | set_goal(&mut self, goal: &str) |  |  |  |  |
+| `set_goal` | function | set_goal(&mut self, goal: &str) |  |  |  |  |
 
-| set_timed_fact | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
+| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
 
-| step_json | function | step_json(&self) |  |  |  |  |
+| `step_json` | function | step_json(&self) |  |  |  |  |
 
-| suffix_json | function | suffix_json(&self) |  |  |  |  |
+| `suffix_json` | function | suffix_json(&self) |  |  |  |  |
 
-| think | function | think(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `think` | function | think(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
 
-| valid | function | valid(&self) |  |  |  |  |
+| `valid` | function | valid(&self) |  |  |  |  |
 
-| version | function | version() |  |  |  |  |
+| `version` | function | version() |  |  |  |  |
 
-| world_bytes | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
 
-| WasmSession | struct |  |  |  |  |  |
+| `WasmSession` | struct |  |  |  |  |  |
 
-| contradictory_fact | function | contradictory_fact(sight: &[(String, bool) |  |  |  |  |
+| `contradictory_fact` | function | contradictory_fact(sight: &[(String, bool) |  |  |  |  |
 
-| fact_key | function | fact_key(fact: &str) |  |  |  |  |
+| `fact_key` | function | fact_key(fact: &str) |  |  |  |  |
 
-| Mode | enum |  |  |  |  |  |
+| `Mode` | enum |  |  |  |  |  |
 
-| Search | enum |  |  |  |  |  |
+| `Search` | enum |  |  |  |  |  |
 
-| SolveError | enum |  |  |  |  |  |
+| `SolveError` | enum |  |  |  |  |  |
 
-| decompose | function | decompose(
+| `decompose` | function | decompose(
     domain_src: &str,
     problem_src: &str,
     opts: &Options,
 ) |  |  |  |  |
 
-| parse | function | parse(src: &str) |  |  |  |  |
+| `parse` | function | parse(src: &str) |  |  |  |  |
 
-| solve | function | solve(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
+| `solve` | function | solve(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
 
-| Contract | struct |  |  |  |  |  |
+| `Contract` | struct |  |  |  |  |  |
 
-| Decomposition | struct |  |  |  |  |  |
+| `Decomposition` | struct |  |  |  |  |  |
 
-| DomainSummary | struct |  |  |  |  |  |
+| `DomainSummary` | struct |  |  |  |  |  |
 
-| Options | struct |  |  |  |  |  |
+| `Options` | struct |  |  |  |  |  |
 
-| ParseReport | struct |  |  |  |  |  |
+| `ParseReport` | struct |  |  |  |  |  |
 
-| Plan | struct |  |  |  |  |  |
+| `Plan` | struct |  |  |  |  |  |
 
-| ProblemSummary | struct |  |  |  |  |  |
+| `ProblemSummary` | struct |  |  |  |  |  |
 
-| Solution | struct |  |  |  |  |  |
+| `Solution` | struct |  |  |  |  |  |
 
-| Statistics | struct |  |  |  |  |  |
+| `Statistics` | struct |  |  |  |  |  |
 
-| Step | struct |  |  |  |  |  |
+| `Step` | struct |  |  |  |  |  |
 
-| clear | function | clear(w: &mut [u64], i: usize) |  |  |  |  |
+| `clear` | function | clear(w: &mut [u64], i: usize) |  |  |  |  |
 
-| count | function | count(w: &[u64]) |  |  |  |  |
+| `count` | function | count(w: &[u64]) |  |  |  |  |
 
-| set | function | set(w: &mut [u64], i: usize) |  |  |  |  |
+| `set` | function | set(w: &mut [u64], i: usize) |  |  |  |  |
 
-| test | function | test(w: &[u64], i: usize) |  |  |  |  |
+| `test` | function | test(w: &[u64], i: usize) |  |  |  |  |
 
-| words_for | function | words_for(n_bits: usize) |  |  |  |  |
+| `words_for` | function | words_for(n_bits: usize) |  |  |  |  |
 
-| elapsed_ms | function | elapsed_ms(&self) |  |  |  |  |
+| `elapsed_ms` | function | elapsed_ms(&self) |  |  |  |  |
 
-| elapsed_secs | function | elapsed_secs(&self) |  |  |  |  |
+| `elapsed_secs` | function | elapsed_secs(&self) |  |  |  |  |
 
-| elapsed_us | function | elapsed_us(&self) |  |  |  |  |
+| `elapsed_us` | function | elapsed_us(&self) |  |  |  |  |
 
-| now | function | now() |  |  |  |  |
+| `now` | function | now() |  |  |  |  |
 
-| Clock | struct |  |  |  |  |  |
+| `Clock` | struct |  |  |  |  |  |
 
-| Traj | enum |  |  |  |  |  |
+| `Traj` | enum |  |  |  |  |  |
 
-| accepted | function | accepted(&self) |  |  |  |  |
+| `accepted` | function | accepted(&self) |  |  |  |  |
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| expand | function | expand(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `expand` | function | expand(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| gate | function | gate(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `gate` | function | gate(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| hard_only_gated | function | hard_only_gated(
+| `hard_only_gated` | function | hard_only_gated(
     domain: &Domain,
     problem: &Problem,
 ) |  |  |  |  |
 
-| new | function | new(traj: &'a Traj) |  |  |  |  |
+| `new` | function | new(traj: &'a Traj) |  |  |  |  |
 
-| op_name | function | op_name(&self) |  |  |  |  |
+| `op_name` | function | op_name(&self) |  |  |  |  |
 
-| step | function | step(&mut self, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
+| `step` | function | step(&mut self, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
 
-| step_at | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
+| `step_at` | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
 
-| Expanded | struct |  |  |  |  |  |
+| `Expanded` | struct |  |  |  |  |  |
 
-| Fold | struct |  |  |  |  |  |
+| `Fold` | struct |  |  |  |  |  |
 
-| improve | function | improve(
+| `improve` | function | improve(
     task: &PackedTask,
     cf: usize,
     ops: Vec<usize>,
@@ -6384,7 +6384,7 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| improve_length | function | improve_length(
+| `improve_length` | function | improve_length(
     task: &PackedTask,
     ops: Vec<usize>,
     threads: usize,
@@ -6392,9 +6392,9 @@
     spent: usize,
 ) |  |  |  |  |
 
-| metric_fluent | function | metric_fluent(problem: &Problem) |  |  |  |  |
+| `metric_fluent` | function | metric_fluent(problem: &Problem) |  |  |  |  |
 
-| optimize_text | function | optimize_text(
+| `optimize_text` | function | optimize_text(
     problem: &Problem,
     task: &PackedTask,
     optimize: bool,
@@ -6404,124 +6404,124 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| plan_cost | function | plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) |  |  |  |  |
+| `plan_cost` | function | plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) |  |  |  |  |
 
-| CostOutcome | struct |  |  |  |  |  |
+| `CostOutcome` | struct |  |  |  |  |  |
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| espc_optimize | function | espc_optimize(
+| `espc_optimize` | function | espc_optimize(
     task: &PackedTask,
     cost_fluent: usize,
     sat: &mut SatGuidance,
     seed: Option<(Vec<usize>, f64) |  |  |  |  |
 
-| EspcPartition | struct |  |  |  |  |  |
+| `EspcPartition` | struct |  |  |  |  |  |
 
-| EspcResult | struct |  |  |  |  |  |
+| `EspcResult` | struct |  |  |  |  |  |
 
-| EveError | enum |  |  |  |  |  |
+| `EveError` | enum |  |  |  |  |  |
 
-| EveStage | enum |  |  |  |  |  |
+| `EveStage` | enum |  |  |  |  |  |
 
-| PlanningRegime | enum |  |  |  |  |  |
+| `PlanningRegime` | enum |  |  |  |  |  |
 
-| enter | function | enter(request: EveRequest) |  |  |  |  |
+| `enter` | function | enter(request: EveRequest) |  |  |  |  |
 
-| Activator | struct |  |  |  |  |  |
+| `Activator` | struct |  |  |  |  |  |
 
-| CapabilityTarget | struct |  |  |  |  |  |
+| `CapabilityTarget` | struct |  |  |  |  |  |
 
-| Eve | struct |  |  |  |  |  |
+| `Eve` | struct |  |  |  |  |  |
 
-| EveHandoff | struct |  |  |  |  |  |
+| `EveHandoff` | struct |  |  |  |  |  |
 
-| EveRequest | struct |  |  |  |  |  |
+| `EveRequest` | struct |  |  |  |  |  |
 
-| GenesisProjection | struct |  |  |  |  |  |
+| `GenesisProjection` | struct |  |  |  |  |  |
 
-| GenesisWorld | struct |  |  |  |  |  |
+| `GenesisWorld` | struct |  |  |  |  |  |
 
-| GgenManufacturingRequest | struct |  |  |  |  |  |
+| `GgenManufacturingRequest` | struct |  |  |  |  |  |
 
-| GroundedGoal | struct |  |  |  |  |  |
+| `GroundedGoal` | struct |  |  |  |  |  |
 
-| HddlDecompositionRequest | struct |  |  |  |  |  |
+| `HddlDecompositionRequest` | struct |  |  |  |  |  |
 
-| HddlSurface | struct |  |  |  |  |  |
+| `HddlSurface` | struct |  |  |  |  |  |
 
-| HumanPurpose | struct |  |  |  |  |  |
+| `HumanPurpose` | struct |  |  |  |  |  |
 
-| ManufactureTarget | struct |  |  |  |  |  |
+| `ManufactureTarget` | struct |  |  |  |  |  |
 
-| McpPlusHandoff | struct |  |  |  |  |  |
+| `McpPlusHandoff` | struct |  |  |  |  |  |
 
-| PpddlPolicyRequest | struct |  |  |  |  |  |
+| `PpddlPolicyRequest` | struct |  |  |  |  |  |
 
-| PpddlSurface | struct |  |  |  |  |  |
+| `PpddlSurface` | struct |  |  |  |  |  |
 
-| SplitDirective | struct |  |  |  |  |  |
+| `SplitDirective` | struct |  |  |  |  |  |
 
-| TruexContinuation | struct |  |  |  |  |  |
+| `TruexContinuation` | struct |  |  |  |  |  |
 
-| DemandMode | enum |  |  |  |  |  |
+| `DemandMode` | enum |  |  |  |  |  |
 
-| clear_overrides | function | clear_overrides() |  |  |  |  |
+| `clear_overrides` | function | clear_overrides() |  |  |  |  |
 
-| demand_mode | function | demand_mode() |  |  |  |  |
+| `demand_mode` | function | demand_mode() |  |  |  |  |
 
-| escalate | function | escalate() |  |  |  |  |
+| `escalate` | function | escalate() |  |  |  |  |
 
-| espc | function | espc() |  |  |  |  |
+| `espc` | function | espc() |  |  |  |  |
 
-| set_escalate_override | function | set_escalate_override(on: bool) |  |  |  |  |
+| `set_escalate_override` | function | set_escalate_override(on: bool) |  |  |  |  |
 
-| set_espc_override | function | set_espc_override(on: bool) |  |  |  |  |
+| `set_espc_override` | function | set_espc_override(on: bool) |  |  |  |  |
 
-| set_overrides | function | set_overrides(tdemand: bool, tdecomp: bool, tconc: bool) |  |  |  |  |
+| `set_overrides` | function | set_overrides(tdemand: bool, tdecomp: bool, tconc: bool) |  |  |  |  |
 
-| tconc | function | tconc() |  |  |  |  |
+| `tconc` | function | tconc() |  |  |  |  |
 
-| tdecomp | function | tdecomp() |  |  |  |  |
+| `tdecomp` | function | tdecomp() |  |  |  |  |
 
-| tdemand | function | tdemand() |  |  |  |  |
+| `tdemand` | function | tdemand() |  |  |  |  |
 
-| Outcome | enum |  |  |  |  |  |
+| `Outcome` | enum |  |  |  |  |  |
 
-| ground | function | ground(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground` | function | ground(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| ground_fixpoint | function | ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_fixpoint` | function | ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| ground_stratified | function | ground_stratified(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_stratified` | function | ground_stratified(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| ground_stratified_walled | function | ground_stratified_walled(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_stratified_walled` | function | ground_stratified_walled(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| ground_task | function | ground_task(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_task` | function | ground_task(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| initial_state | function | initial_state(t: &PackedTask) |  |  |  |  |
+| `initial_state` | function | initial_state(t: &PackedTask) |  |  |  |  |
 
-| objects_by_type | function | objects_by_type(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `objects_by_type` | function | objects_by_type(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| FxHasher | struct |  |  |  |  |  |
+| `FxHasher` | struct |  |  |  |  |  |
 
-| HddlError | enum |  |  |  |  |  |
+| `HddlError` | enum |  |  |  |  |  |
 
-| adapt_problem | function | adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) |  |  |  |  |
+| `adapt_problem` | function | adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) |  |  |  |  |
 
-| solve_hddl | function | solve_hddl(
+| `solve_hddl` | function | solve_hddl(
     domain_src: &str,
     problem_src: &str,
     limits: &PlannerLimits,
 ) |  |  |  |  |
 
-| solve_hddl_from_eve | function | solve_hddl_from_eve(
+| `solve_hddl_from_eve` | function | solve_hddl_from_eve(
     handoff: &EveHandoff,
     limits: &PlannerLimits,
 ) |  |  |  |  |
 
-| extraction_need_facts | function | extraction_need_facts(sc: &Scratch) |  |  |  |  |
+| `extraction_need_facts` | function | extraction_need_facts(sc: &Scratch) |  |  |  |  |
 
-| helpful_needed_adders | function | helpful_needed_adders(
+| `helpful_needed_adders` | function | helpful_needed_adders(
     task: &PackedTask,
     sc: &Scratch,
     bits: &[u64],
@@ -6529,9 +6529,9 @@
     def: &[bool],
 ) |  |  |  |  |
 
-| new | function | new(task: &PackedTask) |  |  |  |  |
+| `new` | function | new(task: &PackedTask) |  |  |  |  |
 
-| reachability_layers | function | reachability_layers(
+| `reachability_layers` | function | reachability_layers(
     task: &PackedTask,
     sc: &mut Scratch,
     bits: &[u64],
@@ -6539,7 +6539,7 @@
     def: &[bool],
 ) |  |  |  |  |
 
-| relaxed | function | relaxed(
+| `relaxed` | function | relaxed(
     task: &PackedTask,
     sc: &mut Scratch,
     bits: &[u64],
@@ -6547,28 +6547,7 @@
     def: &[bool],
 ) |  |  |  |  |
 
-| relaxed_costed | function | relaxed_costed(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-) |  |  |  |  |
-
-| relaxed_helpful | function | relaxed_helpful(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-) |  |  |  |  |
-
-| relaxed_plan_cost | function | relaxed_plan_cost(
+| `relaxed_costed` | function | relaxed_costed(
     task: &PackedTask,
     sc: &mut Scratch,
     bits: &[u64],
@@ -6579,7 +6558,7 @@
     cost_fluent: usize,
 ) |  |  |  |  |
 
-| relaxed_to | function | relaxed_to(
+| `relaxed_helpful` | function | relaxed_helpful(
     task: &PackedTask,
     sc: &mut Scratch,
     bits: &[u64],
@@ -6589,32 +6568,53 @@
     goal_num: &[NumPre],
 ) |  |  |  |  |
 
-| Scratch | struct |  |  |  |  |  |
+| `relaxed_plan_cost` | function | relaxed_plan_cost(
+    task: &PackedTask,
+    sc: &mut Scratch,
+    bits: &[u64],
+    fv: &[f64],
+    def: &[bool],
+    goal_pos: &[u32],
+    goal_num: &[NumPre],
+    cost_fluent: usize,
+) |  |  |  |  |
 
-| TrpgInfo | struct |  |  |  |  |  |
+| `relaxed_to` | function | relaxed_to(
+    task: &PackedTask,
+    sc: &mut Scratch,
+    bits: &[u64],
+    fv: &[f64],
+    def: &[bool],
+    goal_pos: &[u32],
+    goal_num: &[NumPre],
+) |  |  |  |  |
 
-| TrpgWindow | struct |  |  |  |  |  |
+| `Scratch` | struct |  |  |  |  |  |
 
-| explain | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) |  |  |  |  |
+| `TrpgInfo` | struct |  |  |  |  |  |
 
-| CausalLink | struct |  |  |  |  |  |
+| `TrpgWindow` | struct |  |  |  |  |  |
 
-| Explanation | struct |  |  |  |  |  |
+| `explain` | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) |  |  |  |  |
 
-| InvariantSpan | struct |  |  |  |  |  |
+| `CausalLink` | struct |  |  |  |  |  |
 
-| PrefReport | struct |  |  |  |  |  |
+| `Explanation` | struct |  |  |  |  |  |
 
-| synthesize | function | synthesize(domain: &Domain, task: &PackedTask) |  |  |  |  |
+| `InvariantSpan` | struct |  |  |  |  |  |
 
-| search | function | search(
+| `PrefReport` | struct |  |  |  |  |  |
+
+| `synthesize` | function | synthesize(domain: &Domain, task: &PackedTask) |  |  |  |  |
+
+| `search` | function | search(
     task: &PackedTask,
     threads: usize,
     max_eval: usize,
     forbidden: &[bool],
     slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
 
-| search_subgoal | function | search_subgoal(
+| `search_subgoal` | function | search_subgoal(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -6625,41 +6625,41 @@
     len_anytime: bool,
     slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
 
-| goal_landmarks | function | goal_landmarks(task: &PackedTask) |  |  |  |  |
+| `goal_landmarks` | function | goal_landmarks(task: &PackedTask) |  |  |  |  |
 
-| landmarks_for | function | landmarks_for(
+| `landmarks_for` | function | landmarks_for(
     task: &PackedTask,
     start: &crate::packed::State,
     goal_pos: &[u32],
 ) |  |  |  |  |
 
-| Tok | enum |  |  |  |  |  |
+| `Tok` | enum |  |  |  |  |  |
 
-| lex | function | lex(input: &str) |  |  |  |  |
+| `lex` | function | lex(input: &str) |  |  |  |  |
 
-| arm | function | arm() |  |  |  |  |
+| `arm` | function | arm() |  |  |  |  |
 
-| armed | function | armed(&self) |  |  |  |  |
+| `armed` | function | armed(&self) |  |  |  |  |
 
-| declared_budget_bytes | function | declared_budget_bytes() |  |  |  |  |
+| `declared_budget_bytes` | function | declared_budget_bytes() |  |  |  |  |
 
-| hit | function | hit(&self) |  |  |  |  |
+| `hit` | function | hit(&self) |  |  |  |  |
 
-| latch | function | latch() |  |  |  |  |
+| `latch` | function | latch() |  |  |  |  |
 
-| latched | function | latched() |  |  |  |  |
+| `latched` | function | latched() |  |  |  |  |
 
-| peak_resident_bytes | function | peak_resident_bytes() |  |  |  |  |
+| `peak_resident_bytes` | function | peak_resident_bytes() |  |  |  |  |
 
-| resident_bytes | function | resident_bytes() |  |  |  |  |
+| `resident_bytes` | function | resident_bytes() |  |  |  |  |
 
-| unarmed | function | unarmed() |  |  |  |  |
+| `unarmed` | function | unarmed() |  |  |  |  |
 
-| MemWall | struct |  |  |  |  |  |
+| `MemWall` | struct |  |  |  |  |  |
 
-| from_env | function | from_env() |  |  |  |  |
+| `from_env` | function | from_env() |  |  |  |  |
 
-| r_partition_facts | function | r_partition_facts(
+| `r_partition_facts` | function | r_partition_facts(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -6667,26 +6667,26 @@
     r_cap: usize,
 ) |  |  |  |  |
 
-| search | function | search(
+| `search` | function | search(
     task: &PackedTask,
     threads: usize,
     max_eval: usize,
     forbidden: &[bool],
     slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
 
-| search_driver | function | search_driver(
+| `search_driver` | function | search_driver(
     task: &PackedTask,
     max_eval: usize,
     forbidden: &[bool],
     slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
 
-| search_light | function | search_light(
+| `search_light` | function | search_light(
     task: &PackedTask,
     max_eval: usize,
     forbidden: &[bool],
 ) |  |  |  |  |
 
-| search_subgoal | function | search_subgoal(
+| `search_subgoal` | function | search_subgoal(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -6696,69 +6696,69 @@
     forbidden: &[bool],
     slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
 
-| DriverCfg | struct |  |  |  |  |  |
+| `DriverCfg` | struct |  |  |  |  |  |
 
-| OperatorCompileError | enum |  |  |  |  |  |
+| `OperatorCompileError` | enum |  |  |  |  |  |
 
-| compile_operator | function | compile_operator(
+| `compile_operator` | function | compile_operator(
     spec: &OperatorSpec,
     states: &[State],
 ) |  |  |  |  |
 
-| CompiledOperator | struct |  |  |  |  |  |
+| `CompiledOperator` | struct |  |  |  |  |  |
 
-| OperatorEffects | struct |  |  |  |  |  |
+| `OperatorEffects` | struct |  |  |  |  |  |
 
-| OperatorSpec | struct |  |  |  |  |  |
+| `OperatorSpec` | struct |  |  |  |  |  |
 
-| solve | function | solve(
+| `solve` | function | solve(
     task: &PackedTask,
     cf: Option<usize>,
     max_nodes: usize,
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| OptOutcome | struct |  |  |  |  |  |
+| `OptOutcome` | struct |  |  |  |  |  |
 
-| canonical_key | function | canonical_key(
+| `canonical_key` | function | canonical_key(
         &self,
         task: &PackedTask,
         state: &State,
         agenda: &[(i64, usize) |  |  |  |  |
 
-| canonical_skey | function | canonical_skey(
+| `canonical_skey` | function | canonical_skey(
         &self,
         task: &PackedTask,
         state: &State,
         cost_fluent: Option<usize>,
     ) |  |  |  |  |
 
-| canonical_skey_hash | function | canonical_skey_hash(
+| `canonical_skey_hash` | function | canonical_skey_hash(
         &self,
         task: &PackedTask,
         state: &State,
         cost_fluent: Option<usize>,
     ) |  |  |  |  |
 
-| detect | function | detect(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect` | function | detect(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
 
-| detect_classical | function | detect_classical(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect_classical` | function | detect_classical(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
 
-| detect_classical_iso | function | detect_classical_iso(
+| `detect_classical_iso` | function | detect_classical_iso(
     domain: &Domain,
     problem: &Problem,
     task: &PackedTask,
 ) |  |  |  |  |
 
-| detect_iso | function | detect_iso(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect_iso` | function | detect_iso(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
 
-| gen_key | function | gen_key(&self, op: usize, classes: &[Vec<u16>]) |  |  |  |  |
+| `gen_key` | function | gen_key(&self, op: usize, classes: &[Vec<u16>]) |  |  |  |  |
 
-| goal_free_view | function | goal_free_view(&self) |  |  |  |  |
+| `goal_free_view` | function | goal_free_view(&self) |  |  |  |  |
 
-| iso_active | function | iso_active(&self) |  |  |  |  |
+| `iso_active` | function | iso_active(&self) |  |  |  |  |
 
-| iso_goal_witness | function | iso_goal_witness(
+| `iso_goal_witness` | function | iso_goal_witness(
         &self,
         task: &PackedTask,
         state: &State,
@@ -6766,116 +6766,116 @@
         goal_num: &[NumPre],
     ) |  |  |  |  |
 
-| iso_remap_op | function | iso_remap_op(&self, sigma: &[Vec<u16>], op: usize) |  |  |  |  |
+| `iso_remap_op` | function | iso_remap_op(&self, sigma: &[Vec<u16>], op: usize) |  |  |  |  |
 
-| iso_untouched_goal | function | iso_untouched_goal(&self) |  |  |  |  |
+| `iso_untouched_goal` | function | iso_untouched_goal(&self) |  |  |  |  |
 
-| stabilizer_classes | function | stabilizer_classes(&self, state: &State, agenda: &[(f64, usize) |  |  |  |  |
+| `stabilizer_classes` | function | stabilizer_classes(&self, state: &State, agenda: &[(f64, usize) |  |  |  |  |
 
-| IsoGoal | struct |  |  |  |  |  |
+| `IsoGoal` | struct |  |  |  |  |  |
 
-| Orbit | struct |  |  |  |  |  |
+| `Orbit` | struct |  |  |  |  |  |
 
-| OrbitMap | struct |  |  |  |  |  |
+| `OrbitMap` | struct |  |  |  |  |  |
 
-| preamble | function | preamble(threads: usize) |  |  |  |  |
+| `preamble` | function | preamble(threads: usize) |  |  |  |  |
 
-| render | function | render(task: &PackedTask, result: &PlanResult, threads: usize) |  |  |  |  |
+| `render` | function | render(task: &PackedTask, result: &PlanResult, threads: usize) |  |  |  |  |
 
-| applicable_ops | function | applicable_ops(&self, s: &State, out: &mut Vec<u32>) |  |  |  |  |
+| `applicable_ops` | function | applicable_ops(&self, s: &State, out: &mut Vec<u32>) |  |  |  |  |
 
-| apply | function | apply(&self, oi: usize, s: &State) |  |  |  |  |
+| `apply` | function | apply(&self, oi: usize, s: &State) |  |  |  |  |
 
-| build_succ | function | build_succ(pre_pos: &Csr<u32>, n_facts: usize, n_ops: usize) |  |  |  |  |
+| `build_succ` | function | build_succ(pre_pos: &Csr<u32>, n_facts: usize, n_ops: usize) |  |  |  |  |
 
-| cond_effs | function | cond_effs(&self, oi: usize) |  |  |  |  |
+| `cond_effs` | function | cond_effs(&self, oi: usize) |  |  |  |  |
 
-| fact_id | function | fact_id(&self, disp: &str) |  |  |  |  |
+| `fact_id` | function | fact_id(&self, disp: &str) |  |  |  |  |
 
-| finish | function | finish(self) |  |  |  |  |
+| `finish` | function | finish(self) |  |  |  |  |
 
-| fluent_id | function | fluent_id(&self, disp: &str) |  |  |  |  |
+| `fluent_id` | function | fluent_id(&self, disp: &str) |  |  |  |  |
 
-| goal_met | function | goal_met(&self, s: &State) |  |  |  |  |
+| `goal_met` | function | goal_met(&self, s: &State) |  |  |  |  |
 
-| goal_met_with | function | goal_met_with(&self, s: &State, goal_pos: &[u32], goal_num: &[NumPre]) |  |  |  |  |
+| `goal_met_with` | function | goal_met_with(&self, s: &State, goal_pos: &[u32], goal_num: &[NumPre]) |  |  |  |  |
 
-| initial | function | initial(&self) |  |  |  |  |
+| `initial` | function | initial(&self) |  |  |  |  |
 
-| n_cond_effs | function | n_cond_effs(&self, oi: usize) |  |  |  |  |
+| `n_cond_effs` | function | n_cond_effs(&self, oi: usize) |  |  |  |  |
 
-| new | function | new() |  |  |  |  |
+| `new` | function | new() |  |  |  |  |
 
-| op_applicable | function | op_applicable(&self, oi: usize, s: &State) |  |  |  |  |
+| `op_applicable` | function | op_applicable(&self, oi: usize, s: &State) |  |  |  |  |
 
-| push_row | function | push_row(&mut self, items: impl IntoIterator<Item = T>) |  |  |  |  |
+| `push_row` | function | push_row(&mut self, items: impl IntoIterator<Item = T>) |  |  |  |  |
 
-| slice | function | slice(&self, i: usize) |  |  |  |  |
+| `slice` | function | slice(&self, i: usize) |  |  |  |  |
 
-| state_key | function | state_key(&self, s: &State) |  |  |  |  |
+| `state_key` | function | state_key(&self, s: &State) |  |  |  |  |
 
-| state_key_eq | function | state_key_eq(&self, a: &State, b: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_eq` | function | state_key_eq(&self, a: &State, b: &State, cost_fluent: Option<usize>) |  |  |  |  |
 
-| state_key_hash | function | state_key_hash(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_hash` | function | state_key_hash(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
 
-| state_key_with_cost | function | state_key_with_cost(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_with_cost` | function | state_key_with_cost(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
 
-| static_fluent | function | static_fluent(&self, disp: &str) |  |  |  |  |
+| `static_fluent` | function | static_fluent(&self, disp: &str) |  |  |  |  |
 
-| CondEff | struct |  |  |  |  |  |
+| `CondEff` | struct |  |  |  |  |  |
 
-| Csr | struct |  |  |  |  |  |
+| `Csr` | struct |  |  |  |  |  |
 
-| CsrBuilder | struct |  |  |  |  |  |
+| `CsrBuilder` | struct |  |  |  |  |  |
 
-| PackedTask | struct |  |  |  |  |  |
+| `PackedTask` | struct |  |  |  |  |  |
 
-| State | struct |  |  |  |  |  |
+| `State` | struct |  |  |  |  |  |
 
-| StateKey | struct |  |  |  |  |  |
+| `StateKey` | struct |  |  |  |  |  |
 
-| num_threads | function | num_threads() |  |  |  |  |
+| `num_threads` | function | num_threads() |  |  |  |  |
 
-| parse_domain | function | parse_domain(src: &str) |  |  |  |  |
+| `parse_domain` | function | parse_domain(src: &str) |  |  |  |  |
 
-| parse_problem | function | parse_problem(src: &str) |  |  |  |  |
+| `parse_problem` | function | parse_problem(src: &str) |  |  |  |  |
 
-| interaction_partition | function | interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) |  |  |  |  |
+| `interaction_partition` | function | interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) |  |  |  |  |
 
-| interaction_partition_of | function | interaction_partition_of(
+| `interaction_partition_of` | function | interaction_partition_of(
     task: &PackedTask,
     groups: &[Vec<u32>],
     goals: &[u32],
     excluded_vars: &FxHashSet<usize>,
 ) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| merge_at | function | merge_at(groups: &mut Vec<Subgoal>, i: usize, j: usize) |  |  |  |  |
+| `merge_at` | function | merge_at(groups: &mut Vec<Subgoal>, i: usize, j: usize) |  |  |  |  |
 
-| merge_with_neighbor | function | merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) |  |  |  |  |
+| `merge_with_neighbor` | function | merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) |  |  |  |  |
 
-| partition | function | partition(task: &PackedTask) |  |  |  |  |
+| `partition` | function | partition(task: &PackedTask) |  |  |  |  |
 
-| Subgoal | struct |  |  |  |  |  |
+| `Subgoal` | struct |  |  |  |  |  |
 
-| close_seed | function | close_seed(
+| `close_seed` | function | close_seed(
     task: &PackedTask,
     cost_fluent: usize,
     forgos: &[(usize, f64) |  |  |  |  |
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| display_metric | function | display_metric(&self, optimized: f64) |  |  |  |  |
+| `display_metric` | function | display_metric(&self, optimized: f64) |  |  |  |  |
 
-| hard_goal_plan | function | hard_goal_plan(
+| `hard_goal_plan` | function | hard_goal_plan(
     domain: &Domain,
     problem: &Problem,
     threads: usize,
     cfg: SearchCfg,
 ) |  |  |  |  |
 
-| hard_goal_seed | function | hard_goal_seed(
+| `hard_goal_seed` | function | hard_goal_seed(
     domain: &Domain,
     problem: &Problem,
     compiled: &PackedTask,
@@ -6883,172 +6883,172 @@
     cfg: SearchCfg,
 ) |  |  |  |  |
 
-| has_preferences | function | has_preferences(problem: &Problem) |  |  |  |  |
+| `has_preferences` | function | has_preferences(problem: &Problem) |  |  |  |  |
 
-| is_pddl3 | function | is_pddl3(problem: &Problem) |  |  |  |  |
+| `is_pddl3` | function | is_pddl3(problem: &Problem) |  |  |  |  |
 
-| lift_seed | function | lift_seed(compiled: &PackedTask, names: &[String]) |  |  |  |  |
+| `lift_seed` | function | lift_seed(compiled: &PackedTask, names: &[String]) |  |  |  |  |
 
-| metric_optimize | function | metric_optimize(
+| `metric_optimize` | function | metric_optimize(
     task: &PackedTask,
     cost_fluent: usize,
     forgos: &[(usize, f64) |  |  |  |  |
 
-| metric_optimize_seeded | function | metric_optimize_seeded(
+| `metric_optimize_seeded` | function | metric_optimize_seeded(
     task: &PackedTask,
     cost_fluent: usize,
     forgos: &[(usize, f64) |  |  |  |  |
 
-| pref_weights | function | pref_weights(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `pref_weights` | function | pref_weights(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| preferences | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) |  |  |  |  |
+| `preferences` | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) |  |  |  |  |
 
-| Compiled | struct |  |  |  |  |  |
+| `Compiled` | struct |  |  |  |  |  |
 
-| MetricResult | struct |  |  |  |  |  |
+| `MetricResult` | struct |  |  |  |  |  |
 
-| PhaseTail | struct |  |  |  |  |  |
+| `PhaseTail` | struct |  |  |  |  |  |
 
-| SeededResult | struct |  |  |  |  |  |
+| `SeededResult` | struct |  |  |  |  |  |
 
-| Validity | enum |  |  |  |  |  |
+| `Validity` | enum |  |  |  |  |  |
 
-| parse_classical | function | parse_classical(src: &str) |  |  |  |  |
+| `parse_classical` | function | parse_classical(src: &str) |  |  |  |  |
 
-| parse_timed | function | parse_timed(src: &str) |  |  |  |  |
+| `parse_timed` | function | parse_timed(src: &str) |  |  |  |  |
 
-| validate_plan | function | validate_plan(
+| `validate_plan` | function | validate_plan(
     domain_src: &str,
     problem_src: &str,
     plan_src: &str,
 ) |  |  |  |  |
 
-| run_ff | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) |  |  |  |  |
+| `run_ff` | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) |  |  |  |  |
 
-| run_planner | function | run_planner(
+| `run_planner` | function | run_planner(
     domain_src: &str,
     problem_src: &str,
     opts: &crate::Options,
     ipc: bool,
 ) |  |  |  |  |
 
-| PlannerError | enum |  |  |  |  |  |
+| `PlannerError` | enum |  |  |  |  |  |
 
-| solve_planning_type | function | solve_planning_type(
+| `solve_planning_type` | function | solve_planning_type(
     request: &UniversalPlanningRequest,
 ) |  |  |  |  |
 
-| Agent | struct |  |  |  |  |  |
+| `Agent` | struct |  |  |  |  |  |
 
-| Goal | struct |  |  |  |  |  |
+| `Goal` | struct |  |  |  |  |  |
 
-| Method | struct |  |  |  |  |  |
+| `Method` | struct |  |  |  |  |  |
 
-| PlanStep | struct |  |  |  |  |  |
+| `PlanStep` | struct |  |  |  |  |  |
 
-| PlannerLimits | struct |  |  |  |  |  |
+| `PlannerLimits` | struct |  |  |  |  |  |
 
-| PlanningProblem | struct |  |  |  |  |  |
+| `PlanningProblem` | struct |  |  |  |  |  |
 
-| PolicyEntry | struct |  |  |  |  |  |
+| `PolicyEntry` | struct |  |  |  |  |  |
 
-| PolicyOutcome | struct |  |  |  |  |  |
+| `PolicyOutcome` | struct |  |  |  |  |  |
 
-| QueueState | struct |  |  |  |  |  |
+| `QueueState` | struct |  |  |  |  |  |
 
-| RdfTriple | struct |  |  |  |  |  |
+| `RdfTriple` | struct |  |  |  |  |  |
 
-| State | struct |  |  |  |  |  |
+| `State` | struct |  |  |  |  |  |
 
-| Task | struct |  |  |  |  |  |
+| `Task` | struct |  |  |  |  |  |
 
-| Tool | struct |  |  |  |  |  |
+| `Tool` | struct |  |  |  |  |  |
 
-| Transition | struct |  |  |  |  |  |
+| `Transition` | struct |  |  |  |  |  |
 
-| UniversalPlan | struct |  |  |  |  |  |
+| `UniversalPlan` | struct |  |  |  |  |  |
 
-| UniversalPlanningRequest | struct |  |  |  |  |  |
+| `UniversalPlanningRequest` | struct |  |  |  |  |  |
 
-| WorkflowEdge | struct |  |  |  |  |  |
+| `WorkflowEdge` | struct |  |  |  |  |  |
 
-| PlanningCapability | enum |  |  |  |  |  |
+| `PlanningCapability` | enum |  |  |  |  |  |
 
-| PlanningRail | enum |  |  |  |  |  |
+| `PlanningRail` | enum |  |  |  |  |  |
 
-| PlanningRouteError | enum |  |  |  |  |  |
+| `PlanningRouteError` | enum |  |  |  |  |  |
 
-| PlanningType | enum |  |  |  |  |  |
+| `PlanningType` | enum |  |  |  |  |  |
 
-| rail | function | rail(self) |  |  |  |  |
+| `rail` | function | rail(self) |  |  |  |  |
 
-| required_capabilities | function | required_capabilities(self) |  |  |  |  |
+| `required_capabilities` | function | required_capabilities(self) |  |  |  |  |
 
-| route_planning_request | function | route_planning_request(
+| `route_planning_request` | function | route_planning_request(
     request: &PlanningRequest,
 ) |  |  |  |  |
 
-| token | function | token(self) |  |  |  |  |
+| `token` | function | token(self) |  |  |  |  |
 
-| PlanningRequest | struct |  |  |  |  |  |
+| `PlanningRequest` | struct |  |  |  |  |  |
 
-| PlanningRoute | struct |  |  |  |  |  |
+| `PlanningRoute` | struct |  |  |  |  |  |
 
-| PolicyGuarantee | enum |  |  |  |  |  |
+| `PolicyGuarantee` | enum |  |  |  |  |  |
 
-| PolicyIssue | enum |  |  |  |  |  |
+| `PolicyIssue` | enum |  |  |  |  |  |
 
-| validate_fond_policy | function | validate_fond_policy(
+| `validate_fond_policy` | function | validate_fond_policy(
     problem: &PlanningProblem,
     plan: &UniversalPlan,
 ) |  |  |  |  |
 
-| PolicyValidationReport | struct |  |  |  |  |  |
+| `PolicyValidationReport` | struct |  |  |  |  |  |
 
-| solve | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
+| `solve` | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
 
-| Outcome | struct |  |  |  |  |  |
+| `Outcome` | struct |  |  |  |  |  |
 
-| PpddlError | enum |  |  |  |  |  |
+| `PpddlError` | enum |  |  |  |  |  |
 
-| ProbabilisticObjective | enum |  |  |  |  |  |
+| `ProbabilisticObjective` | enum |  |  |  |  |  |
 
-| InitialStateProbability | struct |  |  |  |  |  |
+| `InitialStateProbability` | struct |  |  |  |  |  |
 
-| PolicyDecision | struct |  |  |  |  |  |
+| `PolicyDecision` | struct |  |  |  |  |  |
 
-| PolicyOutcome | struct |  |  |  |  |  |
+| `PolicyOutcome` | struct |  |  |  |  |  |
 
-| PolicyValidation | struct |  |  |  |  |  |
+| `PolicyValidation` | struct |  |  |  |  |  |
 
-| PpddlParseReport | struct |  |  |  |  |  |
+| `PpddlParseReport` | struct |  |  |  |  |  |
 
-| ProbabilisticOptions | struct |  |  |  |  |  |
+| `ProbabilisticOptions` | struct |  |  |  |  |  |
 
-| ProbabilisticSolution | struct |  |  |  |  |  |
+| `ProbabilisticSolution` | struct |  |  |  |  |  |
 
-| ProbabilisticState | struct |  |  |  |  |  |
+| `ProbabilisticState` | struct |  |  |  |  |  |
 
-| ProbabilisticStatistics | struct |  |  |  |  |  |
+| `ProbabilisticStatistics` | struct |  |  |  |  |  |
 
-| SimulationReport | struct |  |  |  |  |  |
+| `SimulationReport` | struct |  |  |  |  |  |
 
-| parse_ppddl | function | parse_ppddl(domain_src: &str, problem_src: &str) |  |  |  |  |
+| `parse_ppddl` | function | parse_ppddl(domain_src: &str, problem_src: &str) |  |  |  |  |
 
-| solve_ppddl | function | solve_ppddl(
+| `solve_ppddl` | function | solve_ppddl(
     domain_src: &str,
     problem_src: &str,
     options: &ProbabilisticOptions,
 ) |  |  |  |  |
 
-| validate_ppddl_policy | function | validate_ppddl_policy(
+| `validate_ppddl_policy` | function | validate_ppddl_policy(
     domain_src: &str,
     problem_src: &str,
     options: &ProbabilisticOptions,
     solution: &ProbabilisticSolution,
 ) |  |  |  |  |
 
-| simulate_ppddl | function | simulate_ppddl(
+| `simulate_ppddl` | function | simulate_ppddl(
     domain_src: &str,
     problem_src: &str,
     options: &ProbabilisticOptions,
@@ -7056,7 +7056,7 @@
     seed: u64,
 ) |  |  |  |  |
 
-| decompose_production | function | decompose_production(
+| `decompose_production` | function | decompose_production(
     domain: &str,
     problem: &str,
     options: &Options,
@@ -7064,31 +7064,31 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| goal_met | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) |  |  |  |  |
 
-| mind_bytes | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
 
-| new | function | new(
+| `new` | function | new(
         domain: &str,
         problem: &str,
         options: &Options,
         limits: ProductionLimits,
     ) |  |  |  |  |
 
-| parse_production | function | parse_production(
+| `parse_production` | function | parse_production(
     source: &str,
     max_input_bytes: usize,
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| replan | function | replan(
+| `replan` | function | replan(
         &self,
         max_evaluated: usize,
         memory_mb: Option<usize>,
         request_id: Option<&str>,
     ) |  |  |  |  |
 
-| solve_ppddl_production | function | solve_ppddl_production(
+| `solve_ppddl_production` | function | solve_ppddl_production(
     domain: &str,
     problem: &str,
     options: &ProbabilisticOptions,
@@ -7097,12 +7097,12 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| trace_production | function | trace_production(
+| `trace_production` | function | trace_production(
     domain: &str,
     problem: &str,
     plan: &[(String, Vec<String>) |  |  |  |  |
 
-| validate_plan_production | function | validate_plan_production(
+| `validate_plan_production` | function | validate_plan_production(
     domain: &str,
     problem: &str,
     plan: &str,
@@ -7111,13 +7111,13 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| world_bytes | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
 
-| PlanValidationEvidence | struct |  |  |  |  |  |
+| `PlanValidationEvidence` | struct |  |  |  |  |  |
 
-| ProductionSession | struct |  |  |  |  |  |
+| `ProductionSession` | struct |  |  |  |  |  |
 
-| decompose_production | function | decompose_production(
+| `decompose_production` | function | decompose_production(
     domain: &str,
     problem: &str,
     options: &Options,
@@ -7125,7 +7125,7 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| explain_production | function | explain_production(
+| `explain_production` | function | explain_production(
     domain: &str,
     problem: &str,
     plan: &Plan,
@@ -7133,57 +7133,57 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| depth_reached | function | depth_reached(&self) |  |  |  |  |
+| `depth_reached` | function | depth_reached(&self) |  |  |  |  |
 
-| from_predecessors | function | from_predecessors(
+| `from_predecessors` | function | from_predecessors(
         predecessors: &[Vec<u32>],
         prohibited: &[u32],
         max_depth: u32,
     ) |  |  |  |  |
 
-| from_successors | function | from_successors(
+| `from_successors` | function | from_successors(
         successors: &[Vec<u32>],
         prohibited: &[u32],
         max_depth: u32,
     ) |  |  |  |  |
 
-| is_safe | function | is_safe(&self, state: u32) |  |  |  |  |
+| `is_safe` | function | is_safe(&self, state: u32) |  |  |  |  |
 
-| saturated | function | saturated(&self) |  |  |  |  |
+| `saturated` | function | saturated(&self) |  |  |  |  |
 
-| unsafe_count | function | unsafe_count(&self) |  |  |  |  |
+| `unsafe_count` | function | unsafe_count(&self) |  |  |  |  |
 
-| BackwardSafeSet | struct |  |  |  |  |  |
+| `BackwardSafeSet` | struct |  |  |  |  |  |
 
-| AuthorityClass | enum |  |  |  |  |  |
+| `AuthorityClass` | enum |  |  |  |  |  |
 
-| CompatibilityClass | enum |  |  |  |  |  |
+| `CompatibilityClass` | enum |  |  |  |  |  |
 
-| DeterminismClass | enum |  |  |  |  |  |
+| `DeterminismClass` | enum |  |  |  |  |  |
 
-| InterfaceKind | enum |  |  |  |  |  |
+| `InterfaceKind` | enum |  |  |  |  |  |
 
-| ManifestError | enum |  |  |  |  |  |
+| `ManifestError` | enum |  |  |  |  |  |
 
-| OutcomeClass | enum |  |  |  |  |  |
+| `OutcomeClass` | enum |  |  |  |  |  |
 
-| ReadinessState | enum |  |  |  |  |  |
+| `ReadinessState` | enum |  |  |  |  |  |
 
-| ReplayClass | enum |  |  |  |  |  |
+| `ReplayClass` | enum |  |  |  |  |  |
 
-| SecurityClass | enum |  |  |  |  |  |
+| `SecurityClass` | enum |  |  |  |  |  |
 
-| ValidationStatus | enum |  |  |  |  |  |
+| `ValidationStatus` | enum |  |  |  |  |  |
 
-| capability_manifest | function | capability_manifest() |  |  |  |  |
+| `capability_manifest` | function | capability_manifest() |  |  |  |  |
 
-| fingerprint | function | fingerprint(&self) |  |  |  |  |
+| `fingerprint` | function | fingerprint(&self) |  |  |  |  |
 
-| new | function | new(code: impl Into<String>, message: impl Into<String>, retryable: bool) |  |  |  |  |
+| `new` | function | new(code: impl Into<String>, message: impl Into<String>, retryable: bool) |  |  |  |  |
 
-| production_input_fingerprint | function | production_input_fingerprint(domain: &str, problem: &str, options: &Options) |  |  |  |  |
+| `production_input_fingerprint` | function | production_input_fingerprint(domain: &str, problem: &str, options: &Options) |  |  |  |  |
 
-| solve_production | function | solve_production(
+| `solve_production` | function | solve_production(
     domain: &str,
     problem: &str,
     options: &Options,
@@ -7191,29 +7191,29 @@
     request_id: Option<&str>,
 ) |  |  |  |  |
 
-| validate | function | validate(&self) |  |  |  |  |
+| `validate` | function | validate(&self) |  |  |  |  |
 
-| BuildIdentity | struct |  |  |  |  |  |
+| `BuildIdentity` | struct |  |  |  |  |  |
 
-| CapabilityContract | struct |  |  |  |  |  |
+| `CapabilityContract` | struct |  |  |  |  |  |
 
-| CapabilityEvaluation | struct |  |  |  |  |  |
+| `CapabilityEvaluation` | struct |  |  |  |  |  |
 
-| CapabilityManifest | struct |  |  |  |  |  |
+| `CapabilityManifest` | struct |  |  |  |  |  |
 
-| OperationEnvelope | struct |  |  |  |  |  |
+| `OperationEnvelope` | struct |  |  |  |  |  |
 
-| ProductionLimits | struct |  |  |  |  |  |
+| `ProductionLimits` | struct |  |  |  |  |  |
 
-| PublicError | struct |  |  |  |  |  |
+| `PublicError` | struct |  |  |  |  |  |
 
-| ReadinessReport | struct |  |  |  |  |  |
+| `ReadinessReport` | struct |  |  |  |  |  |
 
-| ff_plan | function | ff_plan(task: &PackedTask, ops: &[usize]) |  |  |  |  |
+| `ff_plan` | function | ff_plan(task: &PackedTask, ops: &[usize]) |  |  |  |  |
 
-| ipc_plan | function | ipc_plan(task: &PackedTask, ops: &[usize], metric: Option<f64>) |  |  |  |  |
+| `ipc_plan` | function | ipc_plan(task: &PackedTask, ops: &[usize], metric: Option<f64>) |  |  |  |  |
 
-| metric_footer | function | metric_footer(
+| `metric_footer` | function | metric_footer(
     cost: f64,
     iterations: usize,
     n_prefs: usize,
@@ -7221,13 +7221,13 @@
     warn_other: bool,
 ) |  |  |  |  |
 
-| preamble | function | preamble(threads: usize) |  |  |  |  |
+| `preamble` | function | preamble(threads: usize) |  |  |  |  |
 
-| timing | function | timing(stats: &Stats, threads: usize) |  |  |  |  |
+| `timing` | function | timing(stats: &Stats, threads: usize) |  |  |  |  |
 
-| Solved | enum |  |  |  |  |  |
+| `Solved` | enum |  |  |  |  |  |
 
-| solve | function | solve(
+| `solve` | function | solve(
     task: &PackedTask,
     threads: usize,
     cfg: crate::search::SearchCfg,
@@ -7240,38 +7240,38 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| Stats | struct |  |  |  |  |  |
+| `Stats` | struct |  |  |  |  |  |
 
-| detect_resources | function | detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
+| `detect_resources` | function | detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
 
-| occupancy | function | occupancy(&self, bits: &[u64]) |  |  |  |  |
+| `occupancy` | function | occupancy(&self, bits: &[u64]) |  |  |  |  |
 
-| trip_bound | function | trip_bound(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
+| `trip_bound` | function | trip_bound(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
 
-| trips | function | trips(&self, bits: &[u64]) |  |  |  |  |
+| `trips` | function | trips(&self, bits: &[u64]) |  |  |  |  |
 
-| ResourceVar | struct |  |  |  |  |  |
+| `ResourceVar` | struct |  |  |  |  |  |
 
-| TripBound | struct |  |  |  |  |  |
+| `TripBound` | struct |  |  |  |  |  |
 
-| from_env | function | from_env() |  |  |  |  |
+| `from_env` | function | from_env() |  |  |  |  |
 
-| requires_concurrency | function | requires_concurrency(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `requires_concurrency` | function | requires_concurrency(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| solve_classical | function | solve_classical(
+| `solve_classical` | function | solve_classical(
     task: &PackedTask,
     groups: &[Vec<u32>],
     cfg: &SatCfg,
 ) |  |  |  |  |
 
-| solve_temporal | function | solve_temporal(
+| `solve_temporal` | function | solve_temporal(
     domain: &Domain,
     problem: &Problem,
     threads: usize,
     cfg: &SatCfg,
 ) |  |  |  |  |
 
-| solve_temporal_within | function | solve_temporal_within(
+| `solve_temporal_within` | function | solve_temporal_within(
     domain: &Domain,
     problem: &Problem,
     threads: usize,
@@ -7279,23 +7279,23 @@
     budget_secs: Option<f64>,
 ) |  |  |  |  |
 
-| SatCfg | struct |  |  |  |  |  |
+| `SatCfg` | struct |  |  |  |  |  |
 
-| SatOutcome | struct |  |  |  |  |  |
+| `SatOutcome` | struct |  |  |  |  |  |
 
-| PlanResult | enum |  |  |  |  |  |
+| `PlanResult` | enum |  |  |  |  |  |
 
-| arm_wall_limit | function | arm_wall_limit() |  |  |  |  |
+| `arm_wall_limit` | function | arm_wall_limit() |  |  |  |  |
 
-| cancelled | function | cancelled(&self) |  |  |  |  |
+| `cancelled` | function | cancelled(&self) |  |  |  |  |
 
-| cost | function | cost(&self, s: &State) |  |  |  |  |
+| `cost` | function | cost(&self, s: &State) |  |  |  |  |
 
-| from_weights | function | from_weights(weight_g: f64, weight_h: f64, max_eval: Option<usize>) |  |  |  |  |
+| `from_weights` | function | from_weights(weight_g: f64, weight_h: f64, max_eval: Option<usize>) |  |  |  |  |
 
-| holds | function | holds(&self, s: &State) |  |  |  |  |
+| `holds` | function | holds(&self, s: &State) |  |  |  |  |
 
-| plan | function | plan(
+| `plan` | function | plan(
     task: &PackedTask,
     threads: usize,
     cfg: SearchCfg,
@@ -7303,7 +7303,7 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| plan_avoiding | function | plan_avoiding(
+| `plan_avoiding` | function | plan_avoiding(
     task: &PackedTask,
     threads: usize,
     cfg: SearchCfg,
@@ -7312,9 +7312,9 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| search | function | search(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
+| `search` | function | search(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
 
-| search_from | function | search_from(
+| `search_from` | function | search_from(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -7329,7 +7329,7 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| solve_closure_bounded | function | solve_closure_bounded(
+| `solve_closure_bounded` | function | solve_closure_bounded(
     task: &PackedTask,
     goal_pos: &[u32],
     goal_num: &[NumPre],
@@ -7342,7 +7342,7 @@
     sat: Option<&SatGuidance>,
 ) |  |  |  |  |
 
-| solve_subgoal | function | solve_subgoal(
+| `solve_subgoal` | function | solve_subgoal(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -7352,7 +7352,7 @@
     orbit: Option<&crate::orbits::OrbitMap>,
 ) |  |  |  |  |
 
-| solve_subgoal_avoiding | function | solve_subgoal_avoiding(
+| `solve_subgoal_avoiding` | function | solve_subgoal_avoiding(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -7362,7 +7362,7 @@
     cfg: SearchCfg,
 ) |  |  |  |  |
 
-| solve_subgoal_bounded | function | solve_subgoal_bounded(
+| `solve_subgoal_bounded` | function | solve_subgoal_bounded(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -7374,7 +7374,7 @@
     sat: Option<&SatGuidance>,
 ) |  |  |  |  |
 
-| solve_subgoal_guided | function | solve_subgoal_guided(
+| `solve_subgoal_guided` | function | solve_subgoal_guided(
     task: &PackedTask,
     start: &State,
     goal_pos: &[u32],
@@ -7385,21 +7385,21 @@
     sat: Option<&SatGuidance>,
 ) |  |  |  |  |
 
-| with_cost_h | function | with_cost_h(mut self, cost_fluent: usize) |  |  |  |  |
+| `with_cost_h` | function | with_cost_h(mut self, cost_fluent: usize) |  |  |  |  |
 
-| with_cost_weight | function | with_cost_weight(mut self, w_c: f64) |  |  |  |  |
+| `with_cost_weight` | function | with_cost_weight(mut self, w_c: f64) |  |  |  |  |
 
-| ClosureCost | struct |  |  |  |  |  |
+| `ClosureCost` | struct |  |  |  |  |  |
 
-| PlanOutcome | struct |  |  |  |  |  |
+| `PlanOutcome` | struct |  |  |  |  |  |
 
-| PrefPhi | struct |  |  |  |  |  |
+| `PrefPhi` | struct |  |  |  |  |  |
 
-| SatGuidance | struct |  |  |  |  |  |
+| `SatGuidance` | struct |  |  |  |  |  |
 
-| SearchCfg | struct |  |  |  |  |  |
+| `SearchCfg` | struct |  |  |  |  |  |
 
-| select | function | select(
+| `select` | function | select(
     task: &PackedTask,
     groups: &[Vec<u32>],
     weights: &[f64],
@@ -7407,35 +7407,35 @@
     banned: &crate::hash::FxHashSet<u32>,
 ) |  |  |  |  |
 
-| Selection | struct |  |  |  |  |  |
+| `Selection` | struct |  |  |  |  |  |
 
-| ThinkVerdict | enum |  |  |  |  |  |
+| `ThinkVerdict` | enum |  |  |  |  |  |
 
-| apply_start | function | apply_start(&mut self, name: &str) |  |  |  |  |
+| `apply_start` | function | apply_start(&mut self, name: &str) |  |  |  |  |
 
-| elapse | function | elapse(&mut self, dt: f64) |  |  |  |  |
+| `elapse` | function | elapse(&mut self, dt: f64) |  |  |  |  |
 
-| fact | function | fact(&self, name: &str) |  |  |  |  |
+| `fact` | function | fact(&self, name: &str) |  |  |  |  |
 
-| fluent | function | fluent(&self, name: &str) |  |  |  |  |
+| `fluent` | function | fluent(&self, name: &str) |  |  |  |  |
 
-| fork | function | fork(&self) |  |  |  |  |
+| `fork` | function | fork(&self) |  |  |  |  |
 
-| goal_met | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) |  |  |  |  |
 
-| mind_bytes | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
 
-| new | function | new(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
+| `new` | function | new(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
 
-| observe | function | observe(&mut self, sight: &[(&str, bool) |  |  |  |  |
+| `observe` | function | observe(&mut self, sight: &[(&str, bool) |  |  |  |  |
 
-| plan_still_valid | function | plan_still_valid(&self, plan: &Plan, from_step: usize) |  |  |  |  |
+| `plan_still_valid` | function | plan_still_valid(&self, plan: &Plan, from_step: usize) |  |  |  |  |
 
-| replan | function | replan(&self) |  |  |  |  |
+| `replan` | function | replan(&self) |  |  |  |  |
 
-| replan_budgeted | function | replan_budgeted(&self, max_evaluated: usize, memory_mb: Option<usize>) |  |  |  |  |
+| `replan_budgeted` | function | replan_budgeted(&self, max_evaluated: usize, memory_mb: Option<usize>) |  |  |  |  |
 
-| replan_following | function | replan_following(
+| `replan_following` | function | replan_following(
         &self,
         prior: &Plan,
         from_step: usize,
@@ -7443,396 +7443,396 @@
         memory_mb: Option<usize>,
     ) |  |  |  |  |
 
-| restrict_ops | function | restrict_ops(&mut self, mut keep: impl FnMut(&str) |  |  |  |  |
+| `restrict_ops` | function | restrict_ops(&mut self, mut keep: impl FnMut(&str) |  |  |  |  |
 
-| set_fact | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
+| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
 
-| set_fluent | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
+| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
 
-| set_goal | function | set_goal(&mut self, goal: &str) |  |  |  |  |
+| `set_goal` | function | set_goal(&mut self, goal: &str) |  |  |  |  |
 
-| set_timed_fact | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
+| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
 
-| state_fingerprint | function | state_fingerprint(&self) |  |  |  |  |
+| `state_fingerprint` | function | state_fingerprint(&self) |  |  |  |  |
 
-| think | function | think(&self, budget: &ThinkBudget) |  |  |  |  |
+| `think` | function | think(&self, budget: &ThinkBudget) |  |  |  |  |
 
-| think_following | function | think_following(&self, prior: &Plan, from_step: usize, budget: &ThinkBudget) |  |  |  |  |
+| `think_following` | function | think_following(&self, prior: &Plan, from_step: usize, budget: &ThinkBudget) |  |  |  |  |
 
-| world_bytes | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
 
-| Session | struct |  |  |  |  |  |
+| `Session` | struct |  |  |  |  |  |
 
-| Think | struct |  |  |  |  |  |
+| `Think` | struct |  |  |  |  |  |
 
-| ThinkBudget | struct |  |  |  |  |  |
+| `ThinkBudget` | struct |  |  |  |  |  |
 
-| Bet | enum |  |  |  |  |  |
+| `Bet` | enum |  |  |  |  |  |
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| declines | function | declines(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `declines` | function | declines(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| lay_out | function | lay_out(
+| `lay_out` | function | lay_out(
     domain: &Domain,
     task: &PackedTask,
     ops: &[usize],
     shift: bool,
 ) |  |  |  |  |
 
-| solve | function | solve(domain: &Domain, problem: &Problem, threads: usize, bet: Bet) |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize, bet: Bet) |  |  |  |  |
 
-| compile | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| is_temporal | function | is_temporal(domain: &Domain) |  |  |  |  |
+| `is_temporal` | function | is_temporal(domain: &Domain) |  |  |  |  |
 
-| prepare | function | prepare(domain: &'a Domain, problem: &'a Problem) |  |  |  |  |
+| `prepare` | function | prepare(domain: &'a Domain, problem: &'a Problem) |  |  |  |  |
 
-| score | function | score(&self, plan: &TimedPlan) |  |  |  |  |
+| `score` | function | score(&self, plan: &TimedPlan) |  |  |  |  |
 
-| score_soft | function | score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `score_soft` | function | score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
 
-| solve | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| solve_scored | function | solve_scored(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve_scored` | function | solve_scored(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| to_ipc | function | to_ipc(&self) |  |  |  |  |
+| `to_ipc` | function | to_ipc(&self) |  |  |  |  |
 
-| validate | function | validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `validate` | function | validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
 
-| ScoredPlan | struct |  |  |  |  |  |
+| `ScoredPlan` | struct |  |  |  |  |  |
 
-| SnapInfo | struct |  |  |  |  |  |
+| `SnapInfo` | struct |  |  |  |  |  |
 
-| SoftScore | struct |  |  |  |  |  |
+| `SoftScore` | struct |  |  |  |  |  |
 
-| SoftScorer | struct |  |  |  |  |  |
+| `SoftScorer` | struct |  |  |  |  |  |
 
-| TemporalCompiled | struct |  |  |  |  |  |
+| `TemporalCompiled` | struct |  |  |  |  |  |
 
-| TimedPlan | struct |  |  |  |  |  |
+| `TimedPlan` | struct |  |  |  |  |  |
 
-| TimedStep | struct |  |  |  |  |  |
+| `TimedStep` | struct |  |  |  |  |  |
 
-| trace | function | trace(
+| `trace` | function | trace(
     domain_src: &str,
     problem_src: &str,
     plan: &[(String, Vec<String>) |  |  |  |  |
 
-| StateSnapshot | struct |  |  |  |  |  |
+| `StateSnapshot` | struct |  |  |  |  |  |
 
-| solve | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
 
-| n_actors | function | n_actors(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `n_actors` | function | n_actors(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| reschedule | function | reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `reschedule` | function | reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
 
-| single_actor_problem | function | single_actor_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `single_actor_problem` | function | single_actor_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| AssignOp | enum |  |  |  |  |  |
+| `AssignOp` | enum |  |  |  |  |  |
 
-| CompOp | enum |  |  |  |  |  |
+| `CompOp` | enum |  |  |  |  |  |
 
-| Constraint | enum |  |  |  |  |  |
+| `Constraint` | enum |  |  |  |  |  |
 
-| Effect | enum |  |  |  |  |  |
+| `Effect` | enum |  |  |  |  |  |
 
-| Expr | enum |  |  |  |  |  |
+| `Expr` | enum |  |  |  |  |  |
 
-| Formula | enum |  |  |  |  |  |
+| `Formula` | enum |  |  |  |  |  |
 
-| MetricDir | enum |  |  |  |  |  |
+| `MetricDir` | enum |  |  |  |  |  |
 
-| NExpr | enum |  |  |  |  |  |
+| `NExpr` | enum |  |  |  |  |  |
 
-| Term | enum |  |  |  |  |  |
+| `Term` | enum |  |  |  |  |  |
 
-| TimeSpec | enum |  |  |  |  |  |
+| `TimeSpec` | enum |  |  |  |  |  |
 
-| chosen | function | chosen(&self) |  |  |  |  |
+| `chosen` | function | chosen(&self) |  |  |  |  |
 
-| collect_fluents | function | collect_fluents(&self, out: &mut Vec<u32>) |  |  |  |  |
+| `collect_fluents` | function | collect_fluents(&self, out: &mut Vec<u32>) |  |  |  |  |
 
-| eval | function | eval(&self, fv: &[f64], def: &[bool]) |  |  |  |  |
+| `eval` | function | eval(&self, fv: &[f64], def: &[bool]) |  |  |  |  |
 
-| eval_numpre | function | eval_numpre(np: &NumPre, fv: &[f64], def: &[bool]) |  |  |  |  |
+| `eval_numpre` | function | eval_numpre(np: &NumPre, fv: &[f64], def: &[bool]) |  |  |  |  |
 
-| fixed | function | fixed(e: Expr) |  |  |  |  |
+| `fixed` | function | fixed(e: Expr) |  |  |  |  |
 
-| new | function | new(line: u32, message: impl Into<String>) |  |  |  |  |
+| `new` | function | new(line: u32, message: impl Into<String>) |  |  |  |  |
 
-| Action | struct |  |  |  |  |  |
+| `Action` | struct |  |  |  |  |  |
 
-| DerivedRule | struct |  |  |  |  |  |
+| `DerivedRule` | struct |  |  |  |  |  |
 
-| Domain | struct |  |  |  |  |  |
+| `Domain` | struct |  |  |  |  |  |
 
-| Duration | struct |  |  |  |  |  |
+| `Duration` | struct |  |  |  |  |  |
 
-| DurativeAction | struct |  |  |  |  |  |
+| `DurativeAction` | struct |  |  |  |  |  |
 
-| NumEff | struct |  |  |  |  |  |
+| `NumEff` | struct |  |  |  |  |  |
 
-| NumPre | struct |  |  |  |  |  |
+| `NumPre` | struct |  |  |  |  |  |
 
-| ParseError | struct |  |  |  |  |  |
+| `ParseError` | struct |  |  |  |  |  |
 
-| Problem | struct |  |  |  |  |  |
+| `Problem` | struct |  |  |  |  |  |
 
-| TimedLiteral | struct |  |  |  |  |  |
+| `TimedLiteral` | struct |  |  |  |  |  |
 
-| verify | function | verify(
+| `verify` | function | verify(
     domain_src: &str,
     problem_src: &str,
     plan: &[(String, Vec<String>) |  |  |  |  |
 
-| Verified | struct |  |  |  |  |  |
+| `Verified` | struct |  |  |  |  |  |
 
-| PredKind | enum |  |  |  |  |  |
+| `PredKind` | enum |  |  |  |  |  |
 
-| build | function | build(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `build` | function | build(domain: &Domain, problem: &Problem) |  |  |  |  |
 
-| domain_to_pddl | function | domain_to_pddl(
+| `domain_to_pddl` | function | domain_to_pddl(
     name: &str,
     requirements: &str,
     types: &[(String, String) |  |  |  |  |
 
-| dynamic_predicates | function | dynamic_predicates(domain: &Domain) |  |  |  |  |
+| `dynamic_predicates` | function | dynamic_predicates(domain: &Domain) |  |  |  |  |
 
-| goal_facts | function | goal_facts(problem: &Problem) |  |  |  |  |
+| `goal_facts` | function | goal_facts(problem: &Problem) |  |  |  |  |
 
-| positions_at | function | positions_at(&self, facts: &[String]) |  |  |  |  |
+| `positions_at` | function | positions_at(&self, facts: &[String]) |  |  |  |  |
 
-| to_pddl | function | to_pddl(
+| `to_pddl` | function | to_pddl(
     name: &str,
     domain_name: &str,
     objects: &[(String, String) |  |  |  |  |
 
-| VizEdge | struct |  |  |  |  |  |
+| `VizEdge` | struct |  |  |  |  |  |
 
-| VizGraph | struct |  |  |  |  |  |
+| `VizGraph` | struct |  |  |  |  |  |
 
-| VizMobile | struct |  |  |  |  |  |
+| `VizMobile` | struct |  |  |  |  |  |
 
-| VizNode | struct |  |  |  |  |  |
+| `VizNode` | struct |  |  |  |  |  |
 
-| corpus_dir | function | corpus_dir() |  |  |  |  |
+| `corpus_dir` | function | corpus_dir() |  |  |  |  |
 
-| corpus_ipc_dir | function | corpus_ipc_dir() |  |  |  |  |
+| `corpus_ipc_dir` | function | corpus_ipc_dir() |  |  |  |  |
 
-| differential_run_dir | function | differential_run_dir() |  |  |  |  |
+| `differential_run_dir` | function | differential_run_dir() |  |  |  |  |
 
-| harness_present | function | harness_present(what: &str, path: &Path) |  |  |  |  |
+| `harness_present` | function | harness_present(what: &str, path: &Path) |  |  |  |  |
 
-| oracle_dir | function | oracle_dir() |  |  |  |  |
+| `oracle_dir` | function | oracle_dir() |  |  |  |  |
 
-| oracle_runner | function | oracle_runner() |  |  |  |  |
+| `oracle_runner` | function | oracle_runner() |  |  |  |  |
 
-| base_sizes | function | base_sizes(rng: &mut Rng) |  |  |  |  |
+| `base_sizes` | function | base_sizes(rng: &mut Rng) |  |  |  |  |
 
-| below | function | below(&mut self, n: u64) |  |  |  |  |
+| `below` | function | below(&mut self, n: u64) |  |  |  |  |
 
-| chance | function | chance(&mut self, percent: u64) |  |  |  |  |
+| `chance` | function | chance(&mut self, percent: u64) |  |  |  |  |
 
-| draw_for | function | draw_for(seed: u64, sizes: Sizes) |  |  |  |  |
+| `draw_for` | function | draw_for(seed: u64, sizes: Sizes) |  |  |  |  |
 
-| draw_valid | function | draw_valid(seed: u64, sizes: Sizes) |  |  |  |  |
+| `draw_valid` | function | draw_valid(seed: u64, sizes: Sizes) |  |  |  |  |
 
-| generate | function | generate(seed: u64, sizes: Sizes) |  |  |  |  |
+| `generate` | function | generate(seed: u64, sizes: Sizes) |  |  |  |  |
 
-| generate_valid | function | generate_valid(seed: u64, sizes: Sizes) |  |  |  |  |
+| `generate_valid` | function | generate_valid(seed: u64, sizes: Sizes) |  |  |  |  |
 
-| halve_sizes | function | halve_sizes(s: Sizes) |  |  |  |  |
+| `halve_sizes` | function | halve_sizes(s: Sizes) |  |  |  |  |
 
-| mutation_of | function | mutation_of(seed: u64) |  |  |  |  |
+| `mutation_of` | function | mutation_of(seed: u64) |  |  |  |  |
 
-| new | function | new(seed: u64) |  |  |  |  |
+| `new` | function | new(seed: u64) |  |  |  |  |
 
-| next_u64 | function | next_u64(&mut self) |  |  |  |  |
+| `next_u64` | function | next_u64(&mut self) |  |  |  |  |
 
-| pick_idx | function | pick_idx(&mut self, len: usize) |  |  |  |  |
+| `pick_idx` | function | pick_idx(&mut self, len: usize) |  |  |  |  |
 
-| range | function | range(&mut self, lo: u64, hi: u64) |  |  |  |  |
+| `range` | function | range(&mut self, lo: u64, hi: u64) |  |  |  |  |
 
-| range_usize | function | range_usize(&mut self, lo: usize, hi: usize) |  |  |  |  |
+| `range_usize` | function | range_usize(&mut self, lo: usize, hi: usize) |  |  |  |  |
 
-| render | function | render(model: &Model, problem_name: &str) |  |  |  |  |
+| `render` | function | render(model: &Model, problem_name: &str) |  |  |  |  |
 
-| render_with_provenance | function | render_with_provenance(
+| `render_with_provenance` | function | render_with_provenance(
     model: &Model,
     problem_name: &str,
     header: &[&str],
 ) |  |  |  |  |
 
-| sizes_for | function | sizes_for(seed: u64) |  |  |  |  |
+| `sizes_for` | function | sizes_for(seed: u64) |  |  |  |  |
 
-| Model | struct |  |  |  |  |  |
+| `Model` | struct |  |  |  |  |  |
 
-| Rng | struct |  |  |  |  |  |
+| `Rng` | struct |  |  |  |  |  |
 
-| Sizes | struct |  |  |  |  |  |
+| `Sizes` | struct |  |  |  |  |  |
 
-| from_rows | function | from_rows(rows: &[RawRow]) |  |  |  |  |
+| `from_rows` | function | from_rows(rows: &[RawRow]) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| render | function | render(
+| `render` | function | render(
     header: &BoardHeader,
     summary: &[VariantSummary],
     score_against: Option<&str>,
 ) |  |  |  |  |
 
-| summarize_variants | function | summarize_variants(rows: &[RawRow], reference: Option<&Reference>) |  |  |  |  |
+| `summarize_variants` | function | summarize_variants(rows: &[RawRow], reference: Option<&Reference>) |  |  |  |  |
 
-| BoardHeader | struct |  |  |  |  |  |
+| `BoardHeader` | struct |  |  |  |  |  |
 
-| Reference | struct |  |  |  |  |  |
+| `Reference` | struct |  |  |  |  |  |
 
-| VariantSummary | struct |  |  |  |  |  |
+| `VariantSummary` | struct |  |  |  |  |  |
 
-| ConditionsError | enum |  |  |  |  |  |
+| `ConditionsError` | enum |  |  |  |  |  |
 
-| Slot | enum |  |  |  |  |  |
+| `Slot` | enum |  |  |  |  |  |
 
-| as_option | function | as_option(&self) |  |  |  |  |
+| `as_option` | function | as_option(&self) |  |  |  |  |
 
-| at | function | at(&self) |  |  |  |  |
+| `at` | function | at(&self) |  |  |  |  |
 
-| competitors_total | function | competitors_total(&self) |  |  |  |  |
+| `competitors_total` | function | competitors_total(&self) |  |  |  |  |
 
-| idle_pct | function | idle_pct(&self) |  |  |  |  |
+| `idle_pct` | function | idle_pct(&self) |  |  |  |  |
 
-| is_present | function | is_present(&self) |  |  |  |  |
+| `is_present` | function | is_present(&self) |  |  |  |  |
 
-| new | function | new(
+| `new` | function | new(
         at: Option<Number>,
         idle_pct: Option<Number>,
         competitors_total: Option<Number>,
     ) |  |  |  |  |
 
-| observe | function | observe(&mut self, r: &Reading<'_>) |  |  |  |  |
+| `observe` | function | observe(&mut self, r: &Reading<'_>) |  |  |  |  |
 
-| of | function | of(self_exclusion: Vec<String>) |  |  |  |  |
+| `of` | function | of(self_exclusion: Vec<String>) |  |  |  |  |
 
-| parse | function | parse(text: &str, path: &str) |  |  |  |  |
+| `parse` | function | parse(text: &str, path: &str) |  |  |  |  |
 
-| percentile | function | percentile(v: &[f64], p: f64) |  |  |  |  |
+| `percentile` | function | percentile(v: &[f64], p: f64) |  |  |  |  |
 
-| rollup_from_timeline | function | rollup_from_timeline(timeline: &[TimelineEntry]) |  |  |  |  |
+| `rollup_from_timeline` | function | rollup_from_timeline(timeline: &[TimelineEntry]) |  |  |  |  |
 
-| statistics_median | function | statistics_median(v: &[f64]) |  |  |  |  |
+| `statistics_median` | function | statistics_median(v: &[f64]) |  |  |  |  |
 
-| summarize | function | summarize(r: &Rollup, ended: &str, provenance: Option<&Provenance>) |  |  |  |  |
+| `summarize` | function | summarize(r: &Rollup, ended: &str, provenance: Option<&Provenance>) |  |  |  |  |
 
-| to_json | function | to_json(&self) |  |  |  |  |
+| `to_json` | function | to_json(&self) |  |  |  |  |
 
-| Competitors | struct |  |  |  |  |  |
+| `Competitors` | struct |  |  |  |  |  |
 
-| Conditions | struct |  |  |  |  |  |
+| `Conditions` | struct |  |  |  |  |  |
 
-| CpuSpeedLimit | struct |  |  |  |  |  |
+| `CpuSpeedLimit` | struct |  |  |  |  |  |
 
-| IdlePct | struct |  |  |  |  |  |
+| `IdlePct` | struct |  |  |  |  |  |
 
-| LoadAvg | struct |  |  |  |  |  |
+| `LoadAvg` | struct |  |  |  |  |  |
 
-| Provenance | struct |  |  |  |  |  |
+| `Provenance` | struct |  |  |  |  |  |
 
-| Reading | struct |  |  |  |  |  |
+| `Reading` | struct |  |  |  |  |  |
 
-| Rollup | struct |  |  |  |  |  |
+| `Rollup` | struct |  |  |  |  |  |
 
-| SwapMb | struct |  |  |  |  |  |
+| `SwapMb` | struct |  |  |  |  |  |
 
-| TimelineEntry | struct |  |  |  |  |  |
+| `TimelineEntry` | struct |  |  |  |  |  |
 
-| TimelineRollup | struct |  |  |  |  |  |
+| `TimelineRollup` | struct |  |  |  |  |  |
 
-| instances | function | instances(v: &Variant, max: usize, warnings: &mut Vec<String>) |  |  |  |  |
+| `instances` | function | instances(v: &Variant, max: usize, warnings: &mut Vec<String>) |  |  |  |  |
 
-| variants | function | variants(corpus: &Path, ipcs: &[String], selects: &dyn Fn(&str) |  |  |  |  |
+| `variants` | function | variants(corpus: &Path, ipcs: &[String], selects: &dyn Fn(&str) |  |  |  |  |
 
-| Instance | struct |  |  |  |  |  |
+| `Instance` | struct |  |  |  |  |  |
 
-| Variant | struct |  |  |  |  |  |
+| `Variant` | struct |  |  |  |  |  |
 
-| Walk | struct |  |  |  |  |  |
+| `Walk` | struct |  |  |  |  |  |
 
-| LockError | enum |  |  |  |  |  |
+| `LockError` | enum |  |  |  |  |  |
 
-| acquire | function | acquire(dir: &Path) |  |  |  |  |
+| `acquire` | function | acquire(dir: &Path) |  |  |  |  |
 
-| path | function | path(&self) |  |  |  |  |
+| `path` | function | path(&self) |  |  |  |  |
 
-| DirLock | struct |  |  |  |  |  |
+| `DirLock` | struct |  |  |  |  |  |
 
-| DbError | enum |  |  |  |  |  |
+| `DbError` | enum |  |  |  |  |  |
 
-| open | function | open(dir: &Path) |  |  |  |  |
+| `open` | function | open(dir: &Path) |  |  |  |  |
 
-| path | function | path(&self) |  |  |  |  |
+| `path` | function | path(&self) |  |  |  |  |
 
-| reader | function | reader(&self) |  |  |  |  |
+| `reader` | function | reader(&self) |  |  |  |  |
 
-| writer | function | writer(&self) |  |  |  |  |
+| `writer` | function | writer(&self) |  |  |  |  |
 
-| Db | struct |  |  |  |  |  |
+| `Db` | struct |  |  |  |  |  |
 
-| Cleanliness | enum |  |  |  |  |  |
+| `Cleanliness` | enum |  |  |  |  |  |
 
-| PassVerdict | enum |  |  |  |  |  |
+| `PassVerdict` | enum |  |  |  |  |  |
 
-| RunState | enum |  |  |  |  |  |
+| `RunState` | enum |  |  |  |  |  |
 
-| TimingQuality | enum |  |  |  |  |  |
+| `TimingQuality` | enum |  |  |  |  |  |
 
-| ValReason | enum |  |  |  |  |  |
+| `ValReason` | enum |  |  |  |  |  |
 
-| as_str | function | as_str(self) |  |  |  |  |
+| `as_str` | function | as_str(self) |  |  |  |  |
 
-| identity | function | identity(&self) |  |  |  |  |
+| `identity` | function | identity(&self) |  |  |  |  |
 
-| of | function | of(i: &Instance) |  |  |  |  |
+| `of` | function | of(i: &Instance) |  |  |  |  |
 
-| parse | function | parse(s: &str) |  |  |  |  |
+| `parse` | function | parse(s: &str) |  |  |  |  |
 
-| sort_key | function | sort_key(label: &str) |  |  |  |  |
+| `sort_key` | function | sort_key(label: &str) |  |  |  |  |
 
-| to_instance | function | to_instance(&self) |  |  |  |  |
+| `to_instance` | function | to_instance(&self) |  |  |  |  |
 
-| AttemptRec | struct |  |  |  |  |  |
+| `AttemptRec` | struct |  |  |  |  |  |
 
-| BoardFacts | struct |  |  |  |  |  |
+| `BoardFacts` | struct |  |  |  |  |  |
 
-| BoardKey | struct |  |  |  |  |  |
+| `BoardKey` | struct |  |  |  |  |  |
 
-| BoardPassRec | struct |  |  |  |  |  |
+| `BoardPassRec` | struct |  |  |  |  |  |
 
-| EngineFacts | struct |  |  |  |  |  |
+| `EngineFacts` | struct |  |  |  |  |  |
 
-| EngineKey | struct |  |  |  |  |  |
+| `EngineKey` | struct |  |  |  |  |  |
 
-| EventRec | struct |  |  |  |  |  |
+| `EventRec` | struct |  |  |  |  |  |
 
-| InstanceKey | struct |  |  |  |  |  |
+| `InstanceKey` | struct |  |  |  |  |  |
 
-| LiveChild | struct |  |  |  |  |  |
+| `LiveChild` | struct |  |  |  |  |  |
 
-| Measured | struct |  |  |  |  |  |
+| `Measured` | struct |  |  |  |  |  |
 
-| RunRecord | struct |  |  |  |  |  |
+| `RunRecord` | struct |  |  |  |  |  |
 
-| SamplePoint | struct |  |  |  |  |  |
+| `SamplePoint` | struct |  |  |  |  |  |
 
-| SampleRec | struct |  |  |  |  |  |
+| `SampleRec` | struct |  |  |  |  |  |
 
-| ThrottleWindowRec | struct |  |  |  |  |  |
+| `ThrottleWindowRec` | struct |  |  |  |  |  |
 
-| VariantKey | struct |  |  |  |  |  |
+| `VariantKey` | struct |  |  |  |  |  |
 
-| attempts_for | function | attempts_for(
+| `attempts_for` | function | attempts_for(
         &self,
         board_id: i64,
         engine_id: i64,
@@ -7840,48 +7840,48 @@
         label: &str,
     ) |  |  |  |  |
 
-| banked_instances | function | banked_instances(
+| `banked_instances` | function | banked_instances(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| boards_named | function | boards_named(&self, name: &str) |  |  |  |  |
+| `boards_named` | function | boards_named(&self, name: &str) |  |  |  |  |
 
-| canary_baseline | function | canary_baseline(
+| `canary_baseline` | function | canary_baseline(
         &self,
         label: &str,
         window: usize,
         pct: f64,
     ) |  |  |  |  |
 
-| canary_max_between | function | canary_max_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
+| `canary_max_between` | function | canary_max_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
 
-| clean_instances | function | clean_instances(
+| `clean_instances` | function | clean_instances(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| competitors_between | function | competitors_between(
+| `competitors_between` | function | competitors_between(
         &self,
         start_ts: f64,
         end_ts: f64,
     ) |  |  |  |  |
 
-| conn | function | conn(&self) |  |  |  |  |
+| `conn` | function | conn(&self) |  |  |  |  |
 
-| engine_by_hash | function | engine_by_hash(&self, blake3: &str) |  |  |  |  |
+| `engine_by_hash` | function | engine_by_hash(&self, blake3: &str) |  |  |  |  |
 
-| engines_for_board | function | engines_for_board(&self, board_id: i64) |  |  |  |  |
+| `engines_for_board` | function | engines_for_board(&self, board_id: i64) |  |  |  |  |
 
-| engines_matching | function | engines_matching(&self, needle: &str) |  |  |  |  |
+| `engines_matching` | function | engines_matching(&self, needle: &str) |  |  |  |  |
 
-| export_rows | function | export_rows(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `export_rows` | function | export_rows(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| live_children | function | live_children(&self) |  |  |  |  |
+| `live_children` | function | live_children(&self) |  |  |  |  |
 
-| next_attempt | function | next_attempt(
+| `next_attempt` | function | next_attempt(
         &self,
         board_id: i64,
         engine_id: i64,
@@ -7890,30 +7890,30 @@
         label: &str,
     ) |  |  |  |  |
 
-| open | function | open(path: &Path) |  |  |  |  |
+| `open` | function | open(path: &Path) |  |  |  |  |
 
-| pass_verdict | function | pass_verdict(
+| `pass_verdict` | function | pass_verdict(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| prior_peak_rss | function | prior_peak_rss(&self, variant: &str, label: &str) |  |  |  |  |
+| `prior_peak_rss` | function | prior_peak_rss(&self, variant: &str, label: &str) |  |  |  |  |
 
-| run_census | function | run_census(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `run_census` | function | run_census(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| runs_between | function | runs_between(
+| `runs_between` | function | runs_between(
         &self,
         engine_id: i64,
         start_ts: f64,
         end_ts: f64,
     ) |  |  |  |  |
 
-| sample_count | function | sample_count(&self, pass: Option<i64>) |  |  |  |  |
+| `sample_count` | function | sample_count(&self, pass: Option<i64>) |  |  |  |  |
 
-| samples_between | function | samples_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
+| `samples_between` | function | samples_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
 
-| solo_attempts | function | solo_attempts(
+| `solo_attempts` | function | solo_attempts(
         &self,
         board_id: i64,
         engine_id: i64,
@@ -7921,33 +7921,33 @@
         label: &str,
     ) |  |  |  |  |
 
-| swap_growth_between | function | swap_growth_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
+| `swap_growth_between` | function | swap_growth_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
 
-| throttle_windows_between | function | throttle_windows_between(
+| `throttle_windows_between` | function | throttle_windows_between(
         &self,
         start_ts: f64,
         end_ts: f64,
     ) |  |  |  |  |
 
-| timing_census | function | timing_census(
+| `timing_census` | function | timing_census(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| val_ok | function | val_ok(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `val_ok` | function | val_ok(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| val_rejected | function | val_rejected(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `val_rejected` | function | val_rejected(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| val_unavailable | function | val_unavailable(&self, board_id: i64, engine_id: i64) |  |  |  |  |
+| `val_unavailable` | function | val_unavailable(&self, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| verdicts_for | function | verdicts_for(
+| `verdicts_for` | function | verdicts_for(
         &self,
         board_id: i64,
         engine_id: i64,
     ) |  |  |  |  |
 
-| window_gate | function | window_gate(
+| `window_gate` | function | window_gate(
         &self,
         start_ts: f64,
         end_ts: f64,
@@ -7955,51 +7955,51 @@
         pass: Option<i64>,
     ) |  |  |  |  |
 
-| Reader | struct |  |  |  |  |  |
+| `Reader` | struct |  |  |  |  |  |
 
-| board_facts | function | board_facts(spec: &BoardSpec, m: &Manifest, first: Option<&RawRow>) |  |  |  |  |
+| `board_facts` | function | board_facts(spec: &BoardSpec, m: &Manifest, first: Option<&RawRow>) |  |  |  |  |
 
-| board_key_from_manifest | function | board_key_from_manifest(m: &Manifest, spec: &BoardSpec) |  |  |  |  |
+| `board_key_from_manifest` | function | board_key_from_manifest(m: &Manifest, spec: &BoardSpec) |  |  |  |  |
 
-| export | function | export(reader: &Reader, board_id: i64, engine_id: i64) |  |  |  |  |
+| `export` | function | export(reader: &Reader, board_id: i64, engine_id: i64) |  |  |  |  |
 
-| export_to | function | export_to(
+| `export_to` | function | export_to(
     reader: &Reader,
     board_id: i64,
     engine_id: i64,
     path: &Path,
 ) |  |  |  |  |
 
-| rebuild_from_artifacts | function | rebuild_from_artifacts(
+| `rebuild_from_artifacts` | function | rebuild_from_artifacts(
     writer: &WriterHandle,
     manifest: &Manifest,
     dir: &Path,
     val_unavailable: Option<&ValUnavailable>,
 ) |  |  |  |  |
 
-| RebuiltBoard | struct |  |  |  |  |  |
+| `RebuiltBoard` | struct |  |  |  |  |  |
 
-| MigrateError | enum |  |  |  |  |  |
+| `MigrateError` | enum |  |  |  |  |  |
 
-| migrate | function | migrate(conn: &Connection) |  |  |  |  |
+| `migrate` | function | migrate(conn: &Connection) |  |  |  |  |
 
-| board_pass | function | board_pass(&self, p: BoardPassRec) |  |  |  |  |
+| `board_pass` | function | board_pass(&self, p: BoardPassRec) |  |  |  |  |
 
-| canary | function | canary(&self, at: f64, label: String, secs: f64, solo: bool) |  |  |  |  |
+| `canary` | function | canary(&self, at: f64, label: String, secs: f64, solo: bool) |  |  |  |  |
 
-| child_gone | function | child_gone(&self, pid: i32) |  |  |  |  |
+| `child_gone` | function | child_gone(&self, pid: i32) |  |  |  |  |
 
-| child_spawned | function | child_spawned(&self, c: LiveChild) |  |  |  |  |
+| `child_spawned` | function | child_spawned(&self, c: LiveChild) |  |  |  |  |
 
-| child_stopped | function | child_stopped(&self, pid: i32, stopped: bool) |  |  |  |  |
+| `child_stopped` | function | child_stopped(&self, pid: i32, stopped: bool) |  |  |  |  |
 
-| event | function | event(&self, e: EventRec) |  |  |  |  |
+| `event` | function | event(&self, e: EventRec) |  |  |  |  |
 
-| flush | function | flush(&self) |  |  |  |  |
+| `flush` | function | flush(&self) |  |  |  |  |
 
-| handle | function | handle(&self) |  |  |  |  |
+| `handle` | function | handle(&self) |  |  |  |  |
 
-| resolve | function | resolve(
+| `resolve` | function | resolve(
         &self,
         board: BoardKey,
         board_facts: BoardFacts,
@@ -8007,330 +8007,330 @@
         engine_facts: EngineFacts,
     ) |  |  |  |  |
 
-| run | function | run(&self, rec: RunRecord) |  |  |  |  |
+| `run` | function | run(&self, rec: RunRecord) |  |  |  |  |
 
-| sample | function | sample(&self, s: SampleRec) |  |  |  |  |
+| `sample` | function | sample(&self, s: SampleRec) |  |  |  |  |
 
-| start | function | start(conn: Connection) |  |  |  |  |
+| `start` | function | start(conn: Connection) |  |  |  |  |
 
-| take_error | function | take_error(&self) |  |  |  |  |
+| `take_error` | function | take_error(&self) |  |  |  |  |
 
-| throttle_close | function | throttle_close(&self, id: i64, ended_at: f64) |  |  |  |  |
+| `throttle_close` | function | throttle_close(&self, id: i64, ended_at: f64) |  |  |  |  |
 
-| throttle_open | function | throttle_open(&self, w: ThrottleWindowRec) |  |  |  |  |
+| `throttle_open` | function | throttle_open(&self, w: ThrottleWindowRec) |  |  |  |  |
 
-| Writer | struct |  |  |  |  |  |
+| `Writer` | struct |  |  |  |  |  |
 
-| WriterHandle | struct |  |  |  |  |  |
+| `WriterHandle` | struct |  |  |  |  |  |
 
-| build | function | build(
+| `build` | function | build(
     timeout_secs: u64,
     mem_gb: f64,
     board_env: &BTreeMap<String, String>,
 ) |  |  |  |  |
 
-| validate | function | validate(
+| `validate` | function | validate(
     timeout_secs: u64,
     mem_gb: f64,
     board_env: &BTreeMap<String, String>,
 ) |  |  |  |  |
 
-| Ctl | enum |  |  |  |  |  |
+| `Ctl` | enum |  |  |  |  |  |
 
-| ExecError | enum |  |  |  |  |  |
+| `ExecError` | enum |  |  |  |  |  |
 
-| Killed | enum |  |  |  |  |  |
+| `Killed` | enum |  |  |  |  |  |
 
-| install_interrupt_handler | function | install_interrupt_handler() |  |  |  |  |
+| `install_interrupt_handler` | function | install_interrupt_handler() |  |  |  |  |
 
-| interrupted | function | interrupted() |  |  |  |  |
+| `interrupted` | function | interrupted() |  |  |  |  |
 
-| set_interrupted | function | set_interrupted(on: bool) |  |  |  |  |
+| `set_interrupted` | function | set_interrupted(on: bool) |  |  |  |  |
 
-| RunOutcome | struct |  |  |  |  |  |
+| `RunOutcome` | struct |  |  |  |  |  |
 
-| RunRequest | struct |  |  |  |  |  |
+| `RunRequest` | struct |  |  |  |  |  |
 
-| Reaped | enum |  |  |  |  |  |
+| `Reaped` | enum |  |  |  |  |  |
 
-| armed | function | armed(&self) |  |  |  |  |
+| `armed` | function | armed(&self) |  |  |  |  |
 
-| disarm | function | disarm(&mut self) |  |  |  |  |
+| `disarm` | function | disarm(&mut self) |  |  |  |  |
 
-| install_panic_reaper | function | install_panic_reaper() |  |  |  |  |
+| `install_panic_reaper` | function | install_panic_reaper() |  |  |  |  |
 
-| new | function | new(pgid: Pid) |  |  |  |  |
+| `new` | function | new(pgid: Pid) |  |  |  |  |
 
-| pgid | function | pgid(&self) |  |  |  |  |
+| `pgid` | function | pgid(&self) |  |  |  |  |
 
-| pid | function | pid(&self) |  |  |  |  |
+| `pid` | function | pid(&self) |  |  |  |  |
 
-| reap_registered | function | reap_registered() |  |  |  |  |
+| `reap_registered` | function | reap_registered() |  |  |  |  |
 
-| record | function | record(pid: Pid, run_id: Option<i64>, id: &ProcIdentity, spawned_at: f64) |  |  |  |  |
+| `record` | function | record(pid: Pid, run_id: Option<i64>, id: &ProcIdentity, spawned_at: f64) |  |  |  |  |
 
-| signalled | function | signalled(&self) |  |  |  |  |
+| `signalled` | function | signalled(&self) |  |  |  |  |
 
-| GroupGuard | struct |  |  |  |  |  |
+| `GroupGuard` | struct |  |  |  |  |  |
 
-| LiveChild | struct |  |  |  |  |  |
+| `LiveChild` | struct |  |  |  |  |  |
 
-| busiest | function | busiest(&self, procs: &[Proc]) |  |  |  |  |
+| `busiest` | function | busiest(&self, procs: &[Proc]) |  |  |  |  |
 
-| game_pids | function | game_pids(&self, procs: &[Proc]) |  |  |  |  |
+| `game_pids` | function | game_pids(&self, procs: &[Proc]) |  |  |  |  |
 
-| GameRules | struct |  |  |  |  |  |
+| `GameRules` | struct |  |  |  |  |  |
 
-| Proc | struct |  |  |  |  |  |
+| `Proc` | struct |  |  |  |  |  |
 
-| attribute | function | attribute(ps_output: &str, exclude: &dyn Fn(&str) |  |  |  |  |
+| `attribute` | function | attribute(ps_output: &str, exclude: &dyn Fn(&str) |  |  |  |  |
 
-| is_clean | function | is_clean(&self) |  |  |  |  |
+| `is_clean` | function | is_clean(&self) |  |  |  |  |
 
-| Sample | struct |  |  |  |  |  |
+| `Sample` | struct |  |  |  |  |  |
 
-| Level | enum |  |  |  |  |  |
+| `Level` | enum |  |  |  |  |  |
 
-| Reason | enum |  |  |  |  |  |
+| `Reason` | enum |  |  |  |  |  |
 
-| level | function | level(&self) |  |  |  |  |
+| `level` | function | level(&self) |  |  |  |  |
 
-| new | function | new(cfg: Config) |  |  |  |  |
+| `new` | function | new(cfg: Config) |  |  |  |  |
 
-| on_sample | function | on_sample(&mut self, s: &Sample, g: &GameState, now: Instant) |  |  |  |  |
+| `on_sample` | function | on_sample(&mut self, s: &Sample, g: &GameState, now: Instant) |  |  |  |  |
 
-| set_manual_hold | function | set_manual_hold(&mut self, on: bool) |  |  |  |  |
+| `set_manual_hold` | function | set_manual_hold(&mut self, on: bool) |  |  |  |  |
 
-| Config | struct |  |  |  |  |  |
+| `Config` | struct |  |  |  |  |  |
 
-| GameState | struct |  |  |  |  |  |
+| `GameState` | struct |  |  |  |  |  |
 
-| Throttle | struct |  |  |  |  |  |
+| `Throttle` | struct |  |  |  |  |  |
 
-| Transition | struct |  |  |  |  |  |
+| `Transition` | struct |  |  |  |  |  |
 
-| Generic | struct |  |  |  |  |  |
+| `Generic` | struct |  |  |  |  |  |
 
-| mach_ticks_to_ns | function | mach_ticks_to_ns(ticks: u64) |  |  |  |  |
+| `mach_ticks_to_ns` | function | mach_ticks_to_ns(ticks: u64) |  |  |  |  |
 
-| MacOs | struct |  |  |  |  |  |
+| `MacOs` | struct |  |  |  |  |  |
 
-| MemCap | enum |  |  |  |  |  |
+| `MemCap` | enum |  |  |  |  |  |
 
-| bytes | function | bytes(self) |  |  |  |  |
+| `bytes` | function | bytes(self) |  |  |  |  |
 
-| host | function | host() |  |  |  |  |
+| `host` | function | host() |  |  |  |  |
 
-| instrument | function | instrument(self) |  |  |  |  |
+| `instrument` | function | instrument(self) |  |  |  |  |
 
-| ProcIdentity | struct |  |  |  |  |  |
+| `ProcIdentity` | struct |  |  |  |  |  |
 
-| Topology | struct |  |  |  |  |  |
+| `Topology` | struct |  |  |  |  |  |
 
-| KeepAwake | trait |  |  |  |  |  |
+| `KeepAwake` | trait |  |  |  |  |  |
 
-| Platform | trait |  |  |  |  |  |
+| `Platform` | trait |  |  |  |  |  |
 
-| Admission | enum |  |  |  |  |  |
+| `Admission` | enum |  |  |  |  |  |
 
-| Denial | enum |  |  |  |  |  |
+| `Denial` | enum |  |  |  |  |  |
 
-| admit | function | admit(&self, level: Level, demand: Demand, declared: bool) |  |  |  |  |
+| `admit` | function | admit(&self, level: Level, demand: Demand, declared: bool) |  |  |  |  |
 
-| capacity | function | capacity(&self, level: Level) |  |  |  |  |
+| `capacity` | function | capacity(&self, level: Level) |  |  |  |  |
 
-| contains | function | contains(&self, board_id: &str) |  |  |  |  |
+| `contains` | function | contains(&self, board_id: &str) |  |  |  |  |
 
-| cores | function | cores(self) |  |  |  |  |
+| `cores` | function | cores(self) |  |  |  |  |
 
-| errors | function | errors(lines: &[String]) |  |  |  |  |
+| `errors` | function | errors(lines: &[String]) |  |  |  |  |
 
-| ids | function | ids(&self) |  |  |  |  |
+| `ids` | function | ids(&self) |  |  |  |  |
 
-| is_admitted | function | is_admitted(&self) |  |  |  |  |
+| `is_admitted` | function | is_admitted(&self) |  |  |  |  |
 
-| new | function | new(jobs: u32, threads: u32) |  |  |  |  |
+| `new` | function | new(jobs: u32, threads: u32) |  |  |  |  |
 
-| none | function | none() |  |  |  |  |
+| `none` | function | none() |  |  |  |  |
 
-| of | function | of(b: &BoardSpec, d: &Defaults) |  |  |  |  |
+| `of` | function | of(b: &BoardSpec, d: &Defaults) |  |  |  |  |
 
-| validate | function | validate(&self, m: &Manifest, declared: &Oversubscribed) |  |  |  |  |
+| `validate` | function | validate(&self, m: &Manifest, declared: &Oversubscribed) |  |  |  |  |
 
-| with_reserve | function | with_reserve(topology: Topology, reserve_p_cores: u32) |  |  |  |  |
+| `with_reserve` | function | with_reserve(topology: Topology, reserve_p_cores: u32) |  |  |  |  |
 
-| Accountant | struct |  |  |  |  |  |
+| `Accountant` | struct |  |  |  |  |  |
 
-| Demand | struct |  |  |  |  |  |
+| `Demand` | struct |  |  |  |  |  |
 
-| Oversubscribed | struct |  |  |  |  |  |
+| `Oversubscribed` | struct |  |  |  |  |  |
 
-| Event | enum |  |  |  |  |  |
+| `Event` | enum |  |  |  |  |  |
 
-| Next | enum |  |  |  |  |  |
+| `Next` | enum |  |  |  |  |  |
 
-| backoff | function | backoff(&self, consecutive: u32) |  |  |  |  |
+| `backoff` | function | backoff(&self, consecutive: u32) |  |  |  |  |
 
-| order_boards | function | order_boards(boards: &[BoardState], pass: u32) |  |  |  |  |
+| `order_boards` | function | order_boards(boards: &[BoardState], pass: u32) |  |  |  |  |
 
-| run | function | run(r: &mut dyn Runner, cfg: &LoopConfig) |  |  |  |  |
+| `run` | function | run(r: &mut dyn Runner, cfg: &LoopConfig) |  |  |  |  |
 
-| Attempt | struct |  |  |  |  |  |
+| `Attempt` | struct |  |  |  |  |  |
 
-| BoardState | struct |  |  |  |  |  |
+| `BoardState` | struct |  |  |  |  |  |
 
-| LoopConfig | struct |  |  |  |  |  |
+| `LoopConfig` | struct |  |  |  |  |  |
 
-| Outcome | struct |  |  |  |  |  |
+| `Outcome` | struct |  |  |  |  |  |
 
-| Runner | trait |  |  |  |  |  |
+| `Runner` | trait |  |  |  |  |  |
 
-| Admission | enum |  |  |  |  |  |
+| `Admission` | enum |  |  |  |  |  |
 
-| Denied | enum |  |  |  |  |  |
+| `Denied` | enum |  |  |  |  |  |
 
-| Rule | enum |  |  |  |  |  |
+| `Rule` | enum |  |  |  |  |  |
 
-| config | function | config(&self) |  |  |  |  |
+| `config` | function | config(&self) |  |  |  |  |
 
-| is_admitted | function | is_admitted(&self) |  |  |  |  |
+| `is_admitted` | function | is_admitted(&self) |  |  |  |  |
 
-| new | function | new(cfg: Config) |  |  |  |  |
+| `new` | function | new(cfg: Config) |  |  |  |  |
 
-| poll | function | poll(&mut self, level: Level, sample: &Sample, now: Instant) |  |  |  |  |
+| `poll` | function | poll(&mut self, level: Level, sample: &Sample, now: Instant) |  |  |  |  |
 
-| reset | function | reset(&mut self) |  |  |  |  |
+| `reset` | function | reset(&mut self) |  |  |  |  |
 
-| Config | struct |  |  |  |  |  |
+| `Config` | struct |  |  |  |  |  |
 
-| Gate | struct |  |  |  |  |  |
+| `Gate` | struct |  |  |  |  |  |
 
-| Bank | enum |  |  |  |  |  |
+| `Bank` | enum |  |  |  |  |  |
 
-| Owe | enum |  |  |  |  |  |
+| `Owe` | enum |  |  |  |  |  |
 
-| Verdict | enum |  |  |  |  |  |
+| `Verdict` | enum |  |  |  |  |  |
 
-| as_str | function | as_str(self) |  |  |  |  |
+| `as_str` | function | as_str(self) |  |  |  |  |
 
-| banked | function | banked(self) |  |  |  |  |
+| `banked` | function | banked(self) |  |  |  |  |
 
-| box_fault | function | box_fault(self) |  |  |  |  |
+| `box_fault` | function | box_fault(self) |  |  |  |  |
 
-| judge | function | judge(rule: &Rule, f: &Facts) |  |  |  |  |
+| `judge` | function | judge(rule: &Rule, f: &Facts) |  |  |  |  |
 
-| rho | function | rho(&self) |  |  |  |  |
+| `rho` | function | rho(&self) |  |  |  |  |
 
-| rho_floor_ms | function | rho_floor_ms(&self) |  |  |  |  |
+| `rho_floor_ms` | function | rho_floor_ms(&self) |  |  |  |  |
 
-| timing | function | timing(f: &Facts) |  |  |  |  |
+| `timing` | function | timing(f: &Facts) |  |  |  |  |
 
-| Facts | struct |  |  |  |  |  |
+| `Facts` | struct |  |  |  |  |  |
 
-| Rule | struct |  |  |  |  |  |
+| `Rule` | struct |  |  |  |  |  |
 
-| Disabled | enum |  |  |  |  |  |
+| `Disabled` | enum |  |  |  |  |  |
 
-| InstanceKey | enum |  |  |  |  |  |
+| `InstanceKey` | enum |  |  |  |  |  |
 
-| Reject | enum |  |  |  |  |  |
+| `Reject` | enum |  |  |  |  |  |
 
-| disabled | function | disabled(&self) |  |  |  |  |
+| `disabled` | function | disabled(&self) |  |  |  |  |
 
-| from_document | function | from_document(doc: &crate::artifact::conditions::Conditions) |  |  |  |  |
+| `from_document` | function | from_document(doc: &crate::artifact::conditions::Conditions) |  |  |  |  |
 
-| get | function | get(&self, key: &RowKey) |  |  |  |  |
+| `get` | function | get(&self, key: &RowKey) |  |  |  |  |
 
-| has_timeline | function | has_timeline(&self) |  |  |  |  |
+| `has_timeline` | function | has_timeline(&self) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| judge | function | judge(row: &RawRow, cond: &Conditions, want: &RunParams) |  |  |  |  |
+| `judge` | function | judge(row: &RawRow, cond: &Conditions, want: &RunParams) |  |  |  |  |
 
-| judge_lines | function | judge_lines(text: &str, cond: &Conditions, want: &RunParams) |  |  |  |  |
+| `judge_lines` | function | judge_lines(text: &str, cond: &Conditions, want: &RunParams) |  |  |  |  |
 
-| kind | function | kind(&self) |  |  |  |  |
+| `kind` | function | kind(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| load | function | load(path: &Path) |  |  |  |  |
+| `load` | function | load(path: &Path) |  |  |  |  |
 
-| mode_str | function | mode_str(&self) |  |  |  |  |
+| `mode_str` | function | mode_str(&self) |  |  |  |  |
 
-| none | function | none() |  |  |  |  |
+| `none` | function | none() |  |  |  |  |
 
-| of | function | of(r: &RawRow) |  |  |  |  |
+| `of` | function | of(r: &RawRow) |  |  |  |  |
 
-| parse | function | parse(text: &str) |  |  |  |  |
+| `parse` | function | parse(text: &str) |  |  |  |  |
 
-| reject_counts | function | reject_counts(&self) |  |  |  |  |
+| `reject_counts` | function | reject_counts(&self) |  |  |  |  |
 
-| rejected | function | rejected(&self) |  |  |  |  |
+| `rejected` | function | rejected(&self) |  |  |  |  |
 
-| Conditions | struct |  |  |  |  |  |
+| `Conditions` | struct |  |  |  |  |  |
 
-| Rejected | struct |  |  |  |  |  |
+| `Rejected` | struct |  |  |  |  |  |
 
-| Resume | struct |  |  |  |  |  |
+| `Resume` | struct |  |  |  |  |  |
 
-| RowKey | struct |  |  |  |  |  |
+| `RowKey` | struct |  |  |  |  |  |
 
-| RunParams | struct |  |  |  |  |  |
+| `RunParams` | struct |  |  |  |  |  |
 
-| TimelineSample | struct |  |  |  |  |  |
+| `TimelineSample` | struct |  |  |  |  |  |
 
-| Tier | enum |  |  |  |  |  |
+| `Tier` | enum |  |  |  |  |  |
 
-| census | function | census(plan: &[Scheduled]) |  |  |  |  |
+| `census` | function | census(plan: &[Scheduled]) |  |  |  |  |
 
-| classify | function | classify(prior: Option<Prior>, t: &Thresholds) |  |  |  |  |
+| `classify` | function | classify(prior: Option<Prior>, t: &Thresholds) |  |  |  |  |
 
-| eta | function | eta(plan: &[Scheduled], jobs: u32) |  |  |  |  |
+| `eta` | function | eta(plan: &[Scheduled], jobs: u32) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| order | function | order(
+| `order` | function | order(
     instances: &[RowKey],
     h: &dyn History,
     t: &Thresholds,
     budget_secs: f64,
 ) |  |  |  |  |
 
-| NoHistory | struct |  |  |  |  |  |
+| `NoHistory` | struct |  |  |  |  |  |
 
-| Prior | struct |  |  |  |  |  |
+| `Prior` | struct |  |  |  |  |  |
 
-| Scheduled | struct |  |  |  |  |  |
+| `Scheduled` | struct |  |  |  |  |  |
 
-| Thresholds | struct |  |  |  |  |  |
+| `Thresholds` | struct |  |  |  |  |  |
 
-| History | trait |  |  |  |  |  |
+| `History` | trait |  |  |  |  |  |
 
-| argv | function | argv(cfg: &BoardCfg, domain: &Path, problem: &Path) |  |  |  |  |
+| `argv` | function | argv(cfg: &BoardCfg, domain: &Path, problem: &Path) |  |  |  |  |
 
-| BoardCfg | struct |  |  |  |  |  |
+| `BoardCfg` | struct |  |  |  |  |  |
 
-| Engine | struct |  |  |  |  |  |
+| `Engine` | struct |  |  |  |  |  |
 
-| Measured | struct |  |  |  |  |  |
+| `Measured` | struct |  |  |  |  |  |
 
-| Unavailable | enum |  |  |  |  |  |
+| `Unavailable` | enum |  |  |  |  |  |
 
-| Verdict | enum |  |  |  |  |  |
+| `Verdict` | enum |  |  |  |  |  |
 
-| as_json | function | as_json(self) |  |  |  |  |
+| `as_json` | function | as_json(self) |  |  |  |  |
 
-| find | function | find(repo: &Path, configured: Option<&Path>) |  |  |  |  |
+| `find` | function | find(repo: &Path, configured: Option<&Path>) |  |  |  |  |
 
-| judge | function | judge(rc: Option<i32>, signal: Option<i32>, stdout: &str, stderr: &str) |  |  |  |  |
+| `judge` | function | judge(rc: Option<i32>, signal: Option<i32>, stdout: &str, stderr: &str) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| reason | function | reason(self) |  |  |  |  |
+| `reason` | function | reason(self) |  |  |  |  |
 
-| render_plan | function | render_plan(steps: &[Step], temporal: bool) |  |  |  |  |
+| `render_plan` | function | render_plan(steps: &[Step], temporal: bool) |  |  |  |  |
 
-| validate | function | validate(
+| `validate` | function | validate(
     val: Option<&Path>,
     domain: &Path,
     problem: &Path,
@@ -8339,210 +8339,210 @@
     plan_path: &Path,
 ) |  |  |  |  |
 
-| Step | struct |  |  |  |  |  |
+| `Step` | struct |  |  |  |  |  |
 
-| ArchiveError | enum |  |  |  |  |  |
+| `ArchiveError` | enum |  |  |  |  |  |
 
-| arch_key | function | arch_key(variant: &str, instance: u64) |  |  |  |  |
+| `arch_key` | function | arch_key(variant: &str, instance: u64) |  |  |  |  |
 
-| arch_track | function | arch_track(variant: &str) |  |  |  |  |
+| `arch_track` | function | arch_track(variant: &str) |  |  |  |  |
 
-| best_length | function | best_length(&self, k: &ArchKey) |  |  |  |  |
+| `best_length` | function | best_length(&self, k: &ArchKey) |  |  |  |  |
 
-| best_makespan | function | best_makespan(&self, k: &ArchKey) |  |  |  |  |
+| `best_makespan` | function | best_makespan(&self, k: &ArchKey) |  |  |  |  |
 
-| count_action_lines | function | count_action_lines(body: &str) |  |  |  |  |
+| `count_action_lines` | function | count_action_lines(body: &str) |  |  |  |  |
 
-| has_lengths | function | has_lengths(&self) |  |  |  |  |
+| `has_lengths` | function | has_lengths(&self) |  |  |  |  |
 
-| has_makespans | function | has_makespans(&self) |  |  |  |  |
+| `has_makespans` | function | has_makespans(&self) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| iter | function | iter(&self) |  |  |  |  |
+| `iter` | function | iter(&self) |  |  |  |  |
 
-| lengths | function | lengths(&self, k: &ArchKey) |  |  |  |  |
+| `lengths` | function | lengths(&self, k: &ArchKey) |  |  |  |  |
 
-| lengths_map | function | lengths_map(&self) |  |  |  |  |
+| `lengths_map` | function | lengths_map(&self) |  |  |  |  |
 
-| makespan_of | function | makespan_of(body: &str) |  |  |  |  |
+| `makespan_of` | function | makespan_of(body: &str) |  |  |  |  |
 
-| makespans | function | makespans(&self, k: &ArchKey) |  |  |  |  |
+| `makespans` | function | makespans(&self, k: &ArchKey) |  |  |  |  |
 
-| makespans_map | function | makespans_map(&self) |  |  |  |  |
+| `makespans_map` | function | makespans_map(&self) |  |  |  |  |
 
-| open | function | open(path: &Path) |  |  |  |  |
+| `open` | function | open(path: &Path) |  |  |  |  |
 
-| warnings | function | warnings(&self) |  |  |  |  |
+| `warnings` | function | warnings(&self) |  |  |  |  |
 
-| ArchiveWarnings | struct |  |  |  |  |  |
+| `ArchiveWarnings` | struct |  |  |  |  |  |
 
-| Ipc5Archive | struct |  |  |  |  |  |
+| `Ipc5Archive` | struct |  |  |  |  |  |
 
-| best | function | best(&self, year_key: &str, domain: &str, instance: u64) |  |  |  |  |
+| `best` | function | best(&self, year_key: &str, domain: &str, instance: u64) |  |  |  |  |
 
-| from_sources | function | from_sources(bounds_2023: Option<&str>, cost_bounds_2018: Option<&str>) |  |  |  |  |
+| `from_sources` | function | from_sources(bounds_2023: Option<&str>, cost_bounds_2018: Option<&str>) |  |  |  |  |
 
-| get | function | get(&self, k: &BoundKey) |  |  |  |  |
+| `get` | function | get(&self, k: &BoundKey) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| load | function | load(corpus_root: &Path) |  |  |  |  |
+| `load` | function | load(corpus_root: &Path) |  |  |  |  |
 
-| problems | function | problems(&self) |  |  |  |  |
+| `problems` | function | problems(&self) |  |  |  |  |
 
-| BestKnownBounds | struct |  |  |  |  |  |
+| `BestKnownBounds` | struct |  |  |  |  |  |
 
-| Class | enum |  |  |  |  |  |
+| `Class` | enum |  |  |  |  |  |
 
-| failure_classes | function | failure_classes(&self) |  |  |  |  |
+| `failure_classes` | function | failure_classes(&self) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| Coverage | struct |  |  |  |  |  |
+| `Coverage` | struct |  |  |  |  |  |
 
-| Cleanliness | enum |  |  |  |  |  |
+| `Cleanliness` | enum |  |  |  |  |  |
 
-| Clock | enum |  |  |  |  |  |
+| `Clock` | enum |  |  |  |  |  |
 
-| Cost | enum |  |  |  |  |  |
+| `Cost` | enum |  |  |  |  |  |
 
-| Mode | enum |  |  |  |  |  |
+| `Mode` | enum |  |  |  |  |  |
 
-| a | function | a(&self) |  |  |  |  |
+| `a` | function | a(&self) |  |  |  |  |
 
-| a_solved | function | a_solved(&self) |  |  |  |  |
+| `a_solved` | function | a_solved(&self) |  |  |  |  |
 
-| b | function | b(&self) |  |  |  |  |
+| `b` | function | b(&self) |  |  |  |  |
 
-| b_solved | function | b_solved(&self) |  |  |  |  |
+| `b_solved` | function | b_solved(&self) |  |  |  |  |
 
-| cheaper_a | function | cheaper_a(&self) |  |  |  |  |
+| `cheaper_a` | function | cheaper_a(&self) |  |  |  |  |
 
-| cheaper_b | function | cheaper_b(&self) |  |  |  |  |
+| `cheaper_b` | function | cheaper_b(&self) |  |  |  |  |
 
-| clean | function | clean(&self) |  |  |  |  |
+| `clean` | function | clean(&self) |  |  |  |  |
 
-| cleanliness | function | cleanliness(&self, r: &RawRow) |  |  |  |  |
+| `cleanliness` | function | cleanliness(&self, r: &RawRow) |  |  |  |  |
 
-| clock | function | clock(&self) |  |  |  |  |
+| `clock` | function | clock(&self) |  |  |  |  |
 
-| common | function | common(&self) |  |  |  |  |
+| `common` | function | common(&self) |  |  |  |  |
 
-| coverage | function | coverage(&self) |  |  |  |  |
+| `coverage` | function | coverage(&self) |  |  |  |  |
 
-| delta | function | delta(&self) |  |  |  |  |
+| `delta` | function | delta(&self) |  |  |  |  |
 
-| dirty | function | dirty(&self) |  |  |  |  |
+| `dirty` | function | dirty(&self) |  |  |  |  |
 
-| equal | function | equal(&self) |  |  |  |  |
+| `equal` | function | equal(&self) |  |  |  |  |
 
-| from_json | function | from_json(src: &str) |  |  |  |  |
+| `from_json` | function | from_json(src: &str) |  |  |  |  |
 
-| from_jsonl | function | from_jsonl(
+| `from_jsonl` | function | from_jsonl(
         name: impl Into<String>,
         budget: f64,
         src: &str,
         path: &str,
     ) |  |  |  |  |
 
-| from_rows | function | from_rows(name: impl Into<String>, budget: f64, rows: Vec<RawRow>) |  |  |  |  |
+| `from_rows` | function | from_rows(name: impl Into<String>, budget: f64, rows: Vec<RawRow>) |  |  |  |  |
 
-| gained | function | gained(&self) |  |  |  |  |
+| `gained` | function | gained(&self) |  |  |  |  |
 
-| get | function | get(&self, k: &InstanceKey) |  |  |  |  |
+| `get` | function | get(&self, k: &InstanceKey) |  |  |  |  |
 
-| has_timeline | function | has_timeline(&self) |  |  |  |  |
+| `has_timeline` | function | has_timeline(&self) |  |  |  |  |
 
-| interval | function | interval(&self) |  |  |  |  |
+| `interval` | function | interval(&self) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| is_regression | function | is_regression(&self) |  |  |  |  |
+| `is_regression` | function | is_regression(&self) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| len | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) |  |  |  |  |
 
-| load | function | load(path: &Path) |  |  |  |  |
+| `load` | function | load(path: &Path) |  |  |  |  |
 
-| lost | function | lost(&self) |  |  |  |  |
+| `lost` | function | lost(&self) |  |  |  |  |
 
-| mean_a | function | mean_a(&self) |  |  |  |  |
+| `mean_a` | function | mean_a(&self) |  |  |  |  |
 
-| mean_b | function | mean_b(&self) |  |  |  |  |
+| `mean_b` | function | mean_b(&self) |  |  |  |  |
 
-| name | function | name(self) |  |  |  |  |
+| `name` | function | name(self) |  |  |  |  |
 
-| new | function | new(referee: &'r Referee, a: &'r RunRef, b: &'r RunRef) |  |  |  |  |
+| `new` | function | new(referee: &'r Referee, a: &'r RunRef, b: &'r RunRef) |  |  |  |  |
 
-| none | function | none() |  |  |  |  |
+| `none` | function | none() |  |  |  |  |
 
-| of | function | of(r: &RawRow) |  |  |  |  |
+| `of` | function | of(r: &RawRow) |  |  |  |  |
 
-| percentiles | function | percentiles(&self) |  |  |  |  |
+| `percentiles` | function | percentiles(&self) |  |  |  |  |
 
-| qualified | function | qualified(&self) |  |  |  |  |
+| `qualified` | function | qualified(&self) |  |  |  |  |
 
-| quality | function | quality(&self) |  |  |  |  |
+| `quality` | function | quality(&self) |  |  |  |  |
 
-| referee | function | referee(&self) |  |  |  |  |
+| `referee` | function | referee(&self) |  |  |  |  |
 
-| render | function | render(&self, mode: Mode) |  |  |  |  |
+| `render` | function | render(&self, mode: Mode) |  |  |  |  |
 
-| render_trend | function | render_trend(t: &Trend) |  |  |  |  |
+| `render_trend` | function | render_trend(t: &Trend) |  |  |  |  |
 
-| scored | function | scored(&self) |  |  |  |  |
+| `scored` | function | scored(&self) |  |  |  |  |
 
-| solved | function | solved(&self, referee: &Referee) |  |  |  |  |
+| `solved` | function | solved(&self, referee: &Referee) |  |  |  |  |
 
-| table | function | table(&self) |  |  |  |  |
+| `table` | function | table(&self) |  |  |  |  |
 
-| timing | function | timing(&self, cond_a: &Conditions, cond_b: &Conditions) |  |  |  |  |
+| `timing` | function | timing(&self, cond_a: &Conditions, cond_b: &Conditions) |  |  |  |  |
 
-| to_json | function | to_json(&self) |  |  |  |  |
+| `to_json` | function | to_json(&self) |  |  |  |  |
 
-| total_a | function | total_a(&self) |  |  |  |  |
+| `total_a` | function | total_a(&self) |  |  |  |  |
 
-| total_b | function | total_b(&self) |  |  |  |  |
+| `total_b` | function | total_b(&self) |  |  |  |  |
 
-| unstamped | function | unstamped(&self) |  |  |  |  |
+| `unstamped` | function | unstamped(&self) |  |  |  |  |
 
-| value | function | value(self) |  |  |  |  |
+| `value` | function | value(self) |  |  |  |  |
 
-| variants | function | variants(&self) |  |  |  |  |
+| `variants` | function | variants(&self) |  |  |  |  |
 
-| with_trend | function | with_trend(mut self, t: Trend) |  |  |  |  |
+| `with_trend` | function | with_trend(mut self, t: Trend) |  |  |  |  |
 
-| worse | function | worse(self, other: Cleanliness) |  |  |  |  |
+| `worse` | function | worse(self, other: Cleanliness) |  |  |  |  |
 
-| Conditions | struct |  |  |  |  |  |
+| `Conditions` | struct |  |  |  |  |  |
 
-| CoverageDiff | struct |  |  |  |  |  |
+| `CoverageDiff` | struct |  |  |  |  |  |
 
-| Diff | struct |  |  |  |  |  |
+| `Diff` | struct |  |  |  |  |  |
 
-| Gained | struct |  |  |  |  |  |
+| `Gained` | struct |  |  |  |  |  |
 
-| InstanceKey | struct |  |  |  |  |  |
+| `InstanceKey` | struct |  |  |  |  |  |
 
-| Loaded | struct |  |  |  |  |  |
+| `Loaded` | struct |  |  |  |  |  |
 
-| Lost | struct |  |  |  |  |  |
+| `Lost` | struct |  |  |  |  |  |
 
-| Percentiles | struct |  |  |  |  |  |
+| `Percentiles` | struct |  |  |  |  |  |
 
-| QualityDiff | struct |  |  |  |  |  |
+| `QualityDiff` | struct |  |  |  |  |  |
 
-| RunRef | struct |  |  |  |  |  |
+| `RunRef` | struct |  |  |  |  |  |
 
-| TimingDiff | struct |  |  |  |  |  |
+| `TimingDiff` | struct |  |  |  |  |  |
 
-| VariantRow | struct |  |  |  |  |  |
+| `VariantRow` | struct |  |  |  |  |  |
 
-| cell | function | cell(
+| `cell` | function | cell(
         &self,
         label: &str,
         rows: &[RawRow],
@@ -8551,245 +8551,245 @@
         total: usize,
     ) |  |  |  |  |
 
-| cohort | function | cohort(&self, label: &str) |  |  |  |  |
+| `cohort` | function | cohort(&self, label: &str) |  |  |  |  |
 
-| load | function | load(benchmarks_dir: &Path) |  |  |  |  |
+| `load` | function | load(benchmarks_dir: &Path) |  |  |  |  |
 
-| placement | function | placement(&self, s: usize, n: usize) |  |  |  |  |
+| `placement` | function | placement(&self, s: usize, n: usize) |  |  |  |  |
 
-| unmatched_splits | function | unmatched_splits(&self, label: &str, rows: &[RawRow]) |  |  |  |  |
+| `unmatched_splits` | function | unmatched_splits(&self, label: &str, rows: &[RawRow]) |  |  |  |  |
 
-| warnings | function | warnings(&self) |  |  |  |  |
+| `warnings` | function | warnings(&self) |  |  |  |  |
 
-| Cohort | struct |  |  |  |  |  |
+| `Cohort` | struct |  |  |  |  |  |
 
-| Entrant | struct |  |  |  |  |  |
+| `Entrant` | struct |  |  |  |  |  |
 
-| FieldBook | struct |  |  |  |  |  |
+| `FieldBook` | struct |  |  |  |  |  |
 
-| bar | function | bar(pct: f64, width: usize) |  |  |  |  |
+| `bar` | function | bar(pct: f64, width: usize) |  |  |  |  |
 
-| fmt_f | function | fmt_f(x: f64, places: usize) |  |  |  |  |
+| `fmt_f` | function | fmt_f(x: f64, places: usize) |  |  |  |  |
 
-| ordinal | function | ordinal(n: usize) |  |  |  |  |
+| `ordinal` | function | ordinal(n: usize) |  |  |  |  |
 
-| ordinal_suffix | function | ordinal_suffix(n: usize) |  |  |  |  |
+| `ordinal_suffix` | function | ordinal_suffix(n: usize) |  |  |  |  |
 
-| pct | function | pct(solved: usize, total: usize) |  |  |  |  |
+| `pct` | function | pct(solved: usize, total: usize) |  |  |  |  |
 
-| py_round | function | py_round(x: f64, ndigits: i32) |  |  |  |  |
+| `py_round` | function | py_round(x: f64, ndigits: i32) |  |  |  |  |
 
-| py_round_i | function | py_round_i(x: f64) |  |  |  |  |
+| `py_round_i` | function | py_round_i(x: f64) |  |  |  |  |
 
-| thousands | function | thousands(n: u64) |  |  |  |  |
+| `thousands` | function | thousands(n: u64) |  |  |  |  |
 
-| HistoryError | enum |  |  |  |  |  |
+| `HistoryError` | enum |  |  |  |  |  |
 
-| as_str | function | as_str(&self) |  |  |  |  |
+| `as_str` | function | as_str(&self) |  |  |  |  |
 
-| comparable_predecessor | function | comparable_predecessor(
+| `comparable_predecessor` | function | comparable_predecessor(
         &self,
         box_: &BoxId,
         cur: &VersionKey,
     ) |  |  |  |  |
 
-| current_version | function | current_version(root: &Path) |  |  |  |  |
+| `current_version` | function | current_version(root: &Path) |  |  |  |  |
 
-| delta | function | delta(&self, label: &str, solved: usize, total: usize) |  |  |  |  |
+| `delta` | function | delta(&self, label: &str, solved: usize, total: usize) |  |  |  |  |
 
-| delta_cell | function | delta_cell(
+| `delta_cell` | function | delta_cell(
     prev: Option<&ComparablePredecessor<'_>>,
     label: &str,
     solved: usize,
     total: usize,
 ) |  |  |  |  |
 
-| from_json | function | from_json(src: &str) |  |  |  |  |
+| `from_json` | function | from_json(src: &str) |  |  |  |  |
 
-| load | function | load(path: &Path) |  |  |  |  |
+| `load` | function | load(path: &Path) |  |  |  |  |
 
-| new | function | new(s: impl Into<String>) |  |  |  |  |
+| `new` | function | new(s: impl Into<String>) |  |  |  |  |
 
-| parse | function | parse(s: &str) |  |  |  |  |
+| `parse` | function | parse(s: &str) |  |  |  |  |
 
-| parts | function | parts(&self) |  |  |  |  |
+| `parts` | function | parts(&self) |  |  |  |  |
 
-| snapshots | function | snapshots(&self) |  |  |  |  |
+| `snapshots` | function | snapshots(&self) |  |  |  |  |
 
-| to_json | function | to_json(&self) |  |  |  |  |
+| `to_json` | function | to_json(&self) |  |  |  |  |
 
-| track | function | track(&self, label: &str) |  |  |  |  |
+| `track` | function | track(&self, label: &str) |  |  |  |  |
 
-| trend | function | trend(&self, label: &str, box_: &BoxId) |  |  |  |  |
+| `trend` | function | trend(&self, label: &str, box_: &BoxId) |  |  |  |  |
 
-| try_load | function | try_load(path: &Path) |  |  |  |  |
+| `try_load` | function | try_load(path: &Path) |  |  |  |  |
 
-| upsert | function | upsert(&mut self, s: Snapshot) |  |  |  |  |
+| `upsert` | function | upsert(&mut self, s: Snapshot) |  |  |  |  |
 
-| version | function | version(&self) |  |  |  |  |
+| `version` | function | version(&self) |  |  |  |  |
 
-| version_key | function | version_key(&self) |  |  |  |  |
+| `version_key` | function | version_key(&self) |  |  |  |  |
 
-| BoxId | struct |  |  |  |  |  |
+| `BoxId` | struct |  |  |  |  |  |
 
-| ComparablePredecessor | struct |  |  |  |  |  |
+| `ComparablePredecessor` | struct |  |  |  |  |  |
 
-| History | struct |  |  |  |  |  |
+| `History` | struct |  |  |  |  |  |
 
-| MeasuredAt | struct |  |  |  |  |  |
+| `MeasuredAt` | struct |  |  |  |  |  |
 
-| Snapshot | struct |  |  |  |  |  |
+| `Snapshot` | struct |  |  |  |  |  |
 
-| Trend | struct |  |  |  |  |  |
+| `Trend` | struct |  |  |  |  |  |
 
-| VersionKey | struct |  |  |  |  |  |
+| `VersionKey` | struct |  |  |  |  |  |
 
-| parse_rows | function | parse_rows(src: &str, path: &str) |  |  |  |  |
+| `parse_rows` | function | parse_rows(src: &str, path: &str) |  |  |  |  |
 
-| ManifestError | enum |  |  |  |  |  |
+| `ManifestError` | enum |  |  |  |  |  |
 
-| PatternError | enum |  |  |  |  |  |
+| `PatternError` | enum |  |  |  |  |  |
 
-| board | function | board(&self, id: &str) |  |  |  |  |
+| `board` | function | board(&self, id: &str) |  |  |  |  |
 
-| board_by_label | function | board_by_label(&self, label: &str) |  |  |  |  |
+| `board_by_label` | function | board_by_label(&self, label: &str) |  |  |  |  |
 
-| board_by_raw | function | board_by_raw(&self, raw: &str) |  |  |  |  |
+| `board_by_raw` | function | board_by_raw(&self, raw: &str) |  |  |  |  |
 
-| errors | function | errors(&self) |  |  |  |  |
+| `errors` | function | errors(&self) |  |  |  |  |
 
-| is_match | function | is_match(&self, variant: &str) |  |  |  |  |
+| `is_match` | function | is_match(&self, variant: &str) |  |  |  |  |
 
-| is_proof_track | function | is_proof_track(&self, label: &str) |  |  |  |  |
+| `is_proof_track` | function | is_proof_track(&self, label: &str) |  |  |  |  |
 
-| load | function | load(path: &Path) |  |  |  |  |
+| `load` | function | load(path: &Path) |  |  |  |  |
 
-| parse | function | parse(src: &str) |  |  |  |  |
+| `parse` | function | parse(src: &str) |  |  |  |  |
 
-| rebaselined_on | function | rebaselined_on(&self, label: &str, box_: &str) |  |  |  |  |
+| `rebaselined_on` | function | rebaselined_on(&self, label: &str, box_: &str) |  |  |  |  |
 
-| search | function | search(&self, hay: &str) |  |  |  |  |
+| `search` | function | search(&self, hay: &str) |  |  |  |  |
 
-| selector | function | selector(&self) |  |  |  |  |
+| `selector` | function | selector(&self) |  |  |  |  |
 
-| selects | function | selects(&self, variant: &str) |  |  |  |  |
+| `selects` | function | selects(&self, variant: &str) |  |  |  |  |
 
-| set | function | set(&self, name: &str) |  |  |  |  |
+| `set` | function | set(&self, name: &str) |  |  |  |  |
 
-| track | function | track(&self, name: &str) |  |  |  |  |
+| `track` | function | track(&self, name: &str) |  |  |  |  |
 
-| validate | function | validate(&self) |  |  |  |  |
+| `validate` | function | validate(&self) |  |  |  |  |
 
-| warnings | function | warnings(&self) |  |  |  |  |
+| `warnings` | function | warnings(&self) |  |  |  |  |
 
-| BoardSpec | struct |  |  |  |  |  |
+| `BoardSpec` | struct |  |  |  |  |  |
 
-| CorpusSpec | struct |  |  |  |  |  |
+| `CorpusSpec` | struct |  |  |  |  |  |
 
-| Defaults | struct |  |  |  |  |  |
+| `Defaults` | struct |  |  |  |  |  |
 
-| Manifest | struct |  |  |  |  |  |
+| `Manifest` | struct |  |  |  |  |  |
 
-| Pattern | struct |  |  |  |  |  |
+| `Pattern` | struct |  |  |  |  |  |
 
-| Selector | struct |  |  |  |  |  |
+| `Selector` | struct |  |  |  |  |  |
 
-| SetSpec | struct |  |  |  |  |  |
+| `SetSpec` | struct |  |  |  |  |  |
 
-| TrackSpec | struct |  |  |  |  |  |
+| `TrackSpec` | struct |  |  |  |  |  |
 
-| Gate | enum |  |  |  |  |  |
+| `Gate` | enum |  |  |  |  |  |
 
-| PromoteError | enum |  |  |  |  |  |
+| `PromoteError` | enum |  |  |  |  |  |
 
-| TierMovePolicy | enum |  |  |  |  |  |
+| `TierMovePolicy` | enum |  |  |  |  |  |
 
-| accepts | function | accepts(&self, board: &str) |  |  |  |  |
+| `accepts` | function | accepts(&self, board: &str) |  |  |  |  |
 
-| against | function | against(&self) |  |  |  |  |
+| `against` | function | against(&self) |  |  |  |  |
 
-| apply | function | apply(&self) |  |  |  |  |
+| `apply` | function | apply(&self) |  |  |  |  |
 
-| board | function | board(&self) |  |  |  |  |
+| `board` | function | board(&self) |  |  |  |  |
 
-| boards | function | boards(&self) |  |  |  |  |
+| `boards` | function | boards(&self) |  |  |  |  |
 
-| bytes | function | bytes(&self) |  |  |  |  |
+| `bytes` | function | bytes(&self) |  |  |  |  |
 
-| changes | function | changes(&self) |  |  |  |  |
+| `changes` | function | changes(&self) |  |  |  |  |
 
-| compute | function | compute(
+| `compute` | function | compute(
         box_: &str,
         prev: Option<&ComparablePredecessor<'_>>,
         live: &[LiveBoard],
     ) |  |  |  |  |
 
-| denominator_grew | function | denominator_grew(&self) |  |  |  |  |
+| `denominator_grew` | function | denominator_grew(&self) |  |  |  |  |
 
-| dst | function | dst(&self) |  |  |  |  |
+| `dst` | function | dst(&self) |  |  |  |  |
 
-| entries | function | entries(&self) |  |  |  |  |
+| `entries` | function | entries(&self) |  |  |  |  |
 
-| failures | function | failures(&self) |  |  |  |  |
+| `failures` | function | failures(&self) |  |  |  |  |
 
-| full_table | function | full_table(&self) |  |  |  |  |
+| `full_table` | function | full_table(&self) |  |  |  |  |
 
-| like_for_like | function | like_for_like(&self) |  |  |  |  |
+| `like_for_like` | function | like_for_like(&self) |  |  |  |  |
 
-| pct | function | pct(&self) |  |  |  |  |
+| `pct` | function | pct(&self) |  |  |  |  |
 
-| pct_dropped_on_entry_day | function | pct_dropped_on_entry_day(&self) |  |  |  |  |
+| `pct_dropped_on_entry_day` | function | pct_dropped_on_entry_day(&self) |  |  |  |  |
 
-| placements | function | placements(&self) |  |  |  |  |
+| `placements` | function | placements(&self) |  |  |  |  |
 
-| plan | function | plan(
+| `plan` | function | plan(
     root: &Path,
     manifest: &Manifest,
     sets: &[&str],
     policy: &TierMovePolicy,
 ) |  |  |  |  |
 
-| promoted_lines | function | promoted_lines(&self) |  |  |  |  |
+| `promoted_lines` | function | promoted_lines(&self) |  |  |  |  |
 
-| refusal | function | refusal(&self) |  |  |  |  |
+| `refusal` | function | refusal(&self) |  |  |  |  |
 
-| sentence | function | sentence(&self, box_: &str) |  |  |  |  |
+| `sentence` | function | sentence(&self, box_: &str) |  |  |  |  |
 
-| solved | function | solved(&self) |  |  |  |  |
+| `solved` | function | solved(&self) |  |  |  |  |
 
-| src | function | src(&self) |  |  |  |  |
+| `src` | function | src(&self) |  |  |  |  |
 
-| tier_moves | function | tier_moves(&self) |  |  |  |  |
+| `tier_moves` | function | tier_moves(&self) |  |  |  |  |
 
-| total | function | total(&self) |  |  |  |  |
+| `total` | function | total(&self) |  |  |  |  |
 
-| Change | struct |  |  |  |  |  |
+| `Change` | struct |  |  |  |  |  |
 
-| GateReport | struct |  |  |  |  |  |
+| `GateReport` | struct |  |  |  |  |  |
 
-| Headline | struct |  |  |  |  |  |
+| `Headline` | struct |  |  |  |  |  |
 
-| LiveBoard | struct |  |  |  |  |  |
+| `LiveBoard` | struct |  |  |  |  |  |
 
-| Placement | struct |  |  |  |  |  |
+| `Placement` | struct |  |  |  |  |  |
 
-| Promotion | struct |  |  |  |  |  |
+| `Promotion` | struct |  |  |  |  |  |
 
-| TierMove | struct |  |  |  |  |  |
+| `TierMove` | struct |  |  |  |  |  |
 
-| TwoHeadlines | struct |  |  |  |  |  |
+| `TwoHeadlines` | struct |  |  |  |  |  |
 
-| write_indent1 | function | write_indent1(v: &serde_json::Value, out: &mut String) |  |  |  |  |
+| `write_indent1` | function | write_indent1(v: &serde_json::Value, out: &mut String) |  |  |  |  |
 
-| write_str | function | write_str(s: &str, out: &mut String) |  |  |  |  |
+| `write_str` | function | write_str(s: &str, out: &mut String) |  |  |  |  |
 
-| write_value | function | write_value(v: &serde_json::Value, out: &mut String) |  |  |  |  |
+| `write_value` | function | write_value(v: &serde_json::Value, out: &mut String) |  |  |  |  |
 
-| Currency | enum |  |  |  |  |  |
+| `Currency` | enum |  |  |  |  |  |
 
-| QualityNote | enum |  |  |  |  |  |
+| `QualityNote` | enum |  |  |  |  |  |
 
-| bounds_wtl | function | bounds_wtl(
+| `bounds_wtl` | function | bounds_wtl(
     rows: &[RawRow],
     referee: &Referee,
     bounds: &BestKnownBounds,
@@ -8797,87 +8797,87 @@
     variant_suffix: &str,
 ) |  |  |  |  |
 
-| currency | function | currency(&self) |  |  |  |  |
+| `currency` | function | currency(&self) |  |  |  |  |
 
-| l | function | l(&self) |  |  |  |  |
+| `l` | function | l(&self) |  |  |  |  |
 
-| length_wtl | function | length_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
+| `length_wtl` | function | length_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
 
-| makespan_wtl | function | makespan_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
+| `makespan_wtl` | function | makespan_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
 
-| mean | function | mean(&self) |  |  |  |  |
+| `mean` | function | mean(&self) |  |  |  |  |
 
-| n | function | n(&self) |  |  |  |  |
+| `n` | function | n(&self) |  |  |  |  |
 
-| new | function | new(scored: Option<Wtl>, fallback: impl Into<String>) |  |  |  |  |
+| `new` | function | new(scored: Option<Wtl>, fallback: impl Into<String>) |  |  |  |  |
 
-| prefix | function | prefix(self) |  |  |  |  |
+| `prefix` | function | prefix(self) |  |  |  |  |
 
-| render | function | render(&self) |  |  |  |  |
+| `render` | function | render(&self) |  |  |  |  |
 
-| t | function | t(&self) |  |  |  |  |
+| `t` | function | t(&self) |  |  |  |  |
 
-| w | function | w(&self) |  |  |  |  |
+| `w` | function | w(&self) |  |  |  |  |
 
-| Wtl | struct |  |  |  |  |  |
+| `Wtl` | struct |  |  |  |  |  |
 
-| Instance | enum |  |  |  |  |  |
+| `Instance` | enum |  |  |  |  |  |
 
-| Notes | enum |  |  |  |  |  |
+| `Notes` | enum |  |  |  |  |  |
 
-| as_num | function | as_num(&self) |  |  |  |  |
+| `as_num` | function | as_num(&self) |  |  |  |  |
 
-| current | function | current(solved: bool) |  |  |  |  |
+| `current` | function | current(solved: bool) |  |  |  |  |
 
-| domain_key | function | domain_key(&self) |  |  |  |  |
+| `domain_key` | function | domain_key(&self) |  |  |  |  |
 
-| note_text | function | note_text(&self) |  |  |  |  |
+| `note_text` | function | note_text(&self) |  |  |  |  |
 
-| of | function | of(o: &serde_json::Map<String, serde_json::Value>) |  |  |  |  |
+| `of` | function | of(o: &serde_json::Map<String, serde_json::Value>) |  |  |  |  |
 
-| text | function | text(&self) |  |  |  |  |
+| `text` | function | text(&self) |  |  |  |  |
 
-| time_secs | function | time_secs(&self) |  |  |  |  |
+| `time_secs` | function | time_secs(&self) |  |  |  |  |
 
-| write_row | function | write_row(r: &RawRow, out: &mut String) |  |  |  |  |
+| `write_row` | function | write_row(r: &RawRow, out: &mut String) |  |  |  |  |
 
-| Present | struct |  |  |  |  |  |
+| `Present` | struct |  |  |  |  |  |
 
-| RawRow | struct |  |  |  |  |  |
+| `RawRow` | struct |  |  |  |  |  |
 
-| budget_for | function | budget_for(&self, r: &RawRow, registry: f64) |  |  |  |  |
+| `budget_for` | function | budget_for(&self, r: &RawRow, registry: f64) |  |  |  |  |
 
-| classify | function | classify(&self, r: &RawRow, registry_budget: f64) |  |  |  |  |
+| `classify` | function | classify(&self, r: &RawRow, registry_budget: f64) |  |  |  |  |
 
-| contains | function | contains(&self, r: &RawRow) |  |  |  |  |
+| `contains` | function | contains(&self, r: &RawRow) |  |  |  |  |
 
-| coverage | function | coverage(&self, rows: &[RawRow], registry_budget: f64) |  |  |  |  |
+| `coverage` | function | coverage(&self, rows: &[RawRow], registry_budget: f64) |  |  |  |  |
 
-| is_empty | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) |  |  |  |  |
 
-| is_solved | function | is_solved(&self, r: &RawRow) |  |  |  |  |
+| `is_solved` | function | is_solved(&self, r: &RawRow) |  |  |  |  |
 
-| new | function | new(val_unavailable: ValUnavailable) |  |  |  |  |
+| `new` | function | new(val_unavailable: ValUnavailable) |  |  |  |  |
 
-| Referee | struct |  |  |  |  |  |
+| `Referee` | struct |  |  |  |  |  |
 
-| ValUnavailable | struct |  |  |  |  |  |
+| `ValUnavailable` | struct |  |  |  |  |  |
 
-| render | function | render(ctx: &RenderCtx) |  |  |  |  |
+| `render` | function | render(ctx: &RenderCtx) |  |  |  |  |
 
-| CtxError | enum |  |  |  |  |  |
+| `CtxError` | enum |  |  |  |  |  |
 
-| absent_cell | function | absent_cell(&self, label: &str) |  |  |  |  |
+| `absent_cell` | function | absent_cell(&self, label: &str) |  |  |  |  |
 
-| board | function | board(&self, label: &str) |  |  |  |  |
+| `board` | function | board(&self, label: &str) |  |  |  |  |
 
-| coverage_of | function | coverage_of(&self, rows: &[RawRow], budget: f64) |  |  |  |  |
+| `coverage_of` | function | coverage_of(&self, rows: &[RawRow], budget: f64) |  |  |  |  |
 
-| data | function | data(&self, label: &str) |  |  |  |  |
+| `data` | function | data(&self, label: &str) |  |  |  |  |
 
-| load | function | load(root: &Path, box_id: BoxId) |  |  |  |  |
+| `load` | function | load(root: &Path, box_id: BoxId) |  |  |  |  |
 
-| new | function | new(
+| `new` | function | new(
         manifest: Manifest,
         boards: Vec<BoardRows>,
         referee: Referee,
@@ -8889,89 +8889,89 @@
         box_id: BoxId,
     ) |  |  |  |  |
 
-| predecessor | function | predecessor(&self) |  |  |  |  |
+| `predecessor` | function | predecessor(&self) |  |  |  |  |
 
-| proof_mark | function | proof_mark(&self, label: &str) |  |  |  |  |
+| `proof_mark` | function | proof_mark(&self, label: &str) |  |  |  |  |
 
-| split | function | split(&self, label: &str, ipc: &str) |  |  |  |  |
+| `split` | function | split(&self, label: &str, ipc: &str) |  |  |  |  |
 
-| standings | function | standings(&self) |  |  |  |  |
+| `standings` | function | standings(&self) |  |  |  |  |
 
-| BoardRows | struct |  |  |  |  |  |
+| `BoardRows` | struct |  |  |  |  |  |
 
-| LiveBoard | struct |  |  |  |  |  |
+| `LiveBoard` | struct |  |  |  |  |  |
 
-| RenderCtx | struct |  |  |  |  |  |
+| `RenderCtx` | struct |  |  |  |  |  |
 
-| Standings | struct |  |  |  |  |  |
+| `Standings` | struct |  |  |  |  |  |
 
-| block | function | block(ctx: &RenderCtx) |  |  |  |  |
+| `block` | function | block(ctx: &RenderCtx) |  |  |  |  |
 
-| patch | function | patch(readme_text: &str, block: &str) |  |  |  |  |
+| `patch` | function | patch(readme_text: &str, block: &str) |  |  |  |  |
 
-| render | function | render(ctx: &RenderCtx) |  |  |  |  |
+| `render` | function | render(ctx: &RenderCtx) |  |  |  |  |
 
-| SnapshotError | enum |  |  |  |  |  |
+| `SnapshotError` | enum |  |  |  |  |  |
 
-| Source | enum |  |  |  |  |  |
+| `Source` | enum |  |  |  |  |  |
 
-| bank | function | bank(
+| `bank` | function | bank(
     root: &Path,
     manifest: &Manifest,
     referee: &Referee,
     args: &Args,
 ) |  |  |  |  |
 
-| parse_args | function | parse_args(argv: &[String], env_box: Option<&str>) |  |  |  |  |
+| `parse_args` | function | parse_args(argv: &[String], env_box: Option<&str>) |  |  |  |  |
 
-| tracks | function | tracks(
+| `tracks` | function | tracks(
     root: &Path,
     manifest: &Manifest,
     referee: &Referee,
     source: &Source,
 ) |  |  |  |  |
 
-| write | function | write(&self) |  |  |  |  |
+| `write` | function | write(&self) |  |  |  |  |
 
-| Args | struct |  |  |  |  |  |
+| `Args` | struct |  |  |  |  |  |
 
-| Banked | struct |  |  |  |  |  |
+| `Banked` | struct |  |  |  |  |  |
 
-| incident | function | incident(name: &str) |  |  |  |  |
+| `incident` | function | incident(name: &str) |  |  |  |  |
 
-| real_val_map | function | real_val_map() |  |  |  |  |
+| `real_val_map` | function | real_val_map() |  |  |  |  |
 
-| run | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
+| `run` | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
 
-| stage_for | function | stage_for(ver: &str) |  |  |  |  |
+| `stage_for` | function | stage_for(ver: &str) |  |  |  |  |
 
-| Opts | struct |  |  |  |  |  |
+| `Opts` | struct |  |  |  |  |  |
 
-| in_quiet_hours | function | in_quiet_hours(&self, minutes_past_midnight: u32) |  |  |  |  |
+| `in_quiet_hours` | function | in_quiet_hours(&self, minutes_past_midnight: u32) |  |  |  |  |
 
-| load | function | load(path: &std::path::Path) |  |  |  |  |
+| `load` | function | load(path: &std::path::Path) |  |  |  |  |
 
-| path | function | path() |  |  |  |  |
+| `path` | function | path() |  |  |  |  |
 
-| Config | struct |  |  |  |  |  |
+| `Config` | struct |  |  |  |  |  |
 
-| Contention | struct |  |  |  |  |  |
+| `Contention` | struct |  |  |  |  |  |
 
-| Db | struct |  |  |  |  |  |
+| `Db` | struct |  |  |  |  |  |
 
-| QuietHours | struct |  |  |  |  |  |
+| `QuietHours` | struct |  |  |  |  |  |
 
-| Referee | struct |  |  |  |  |  |
+| `Referee` | struct |  |  |  |  |  |
 
-| Repo | struct |  |  |  |  |  |
+| `Repo` | struct |  |  |  |  |  |
 
-| Scheduler | struct |  |  |  |  |  |
+| `Scheduler` | struct |  |  |  |  |  |
 
-| Sweep | struct |  |  |  |  |  |
+| `Sweep` | struct |  |  |  |  |  |
 
-| Ui | struct |  |  |  |  |  |
+| `Ui` | struct |  |  |  |  |  |
 
-| compare | function | compare(
+| `compare` | function | compare(
     repo: &Path,
     cfg: &crate::config::Config,
     set_name: &str,
@@ -8981,111 +8981,111 @@
     lost: Option<&Path>,
 ) |  |  |  |  |
 
-| frame | function | frame(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
+| `frame` | function | frame(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
 
-| run | function | run(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
+| `run` | function | run(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
 
-| status | function | status(
+| `status` | function | status(
     repo: &Path,
     cfg: &crate::config::Config,
     set_name: &str,
     json: bool,
 ) |  |  |  |  |
 
-| flush_to_stdout | function | flush_to_stdout() |  |  |  |  |
+| `flush_to_stdout` | function | flush_to_stdout() |  |  |  |  |
 
-| is_quiet | function | is_quiet() |  |  |  |  |
+| `is_quiet` | function | is_quiet() |  |  |  |  |
 
-| quiet | function | quiet(on: bool) |  |  |  |  |
+| `quiet` | function | quiet(on: bool) |  |  |  |  |
 
-| recent | function | recent(n: usize) |  |  |  |  |
+| `recent` | function | recent(n: usize) |  |  |  |  |
 
-| say | function | say(line: String) |  |  |  |  |
+| `say` | function | say(line: String) |  |  |  |  |
 
-| tz_offset_secs | function | tz_offset_secs() |  |  |  |  |
+| `tz_offset_secs` | function | tz_offset_secs() |  |  |  |  |
 
-| RepoError | enum |  |  |  |  |  |
+| `RepoError` | enum |  |  |  |  |  |
 
-| build_planner | function | build_planner(dir: &Path) |  |  |  |  |
+| `build_planner` | function | build_planner(dir: &Path) |  |  |  |  |
 
-| candidate_path | function | candidate_path(repo: &Path) |  |  |  |  |
+| `candidate_path` | function | candidate_path(repo: &Path) |  |  |  |  |
 
-| probe | function | probe(path: &Path) |  |  |  |  |
+| `probe` | function | probe(path: &Path) |  |  |  |  |
 
-| require_version | function | require_version(&self, want: &str) |  |  |  |  |
+| `require_version` | function | require_version(&self, want: &str) |  |  |  |  |
 
-| short_hash | function | short_hash(&self) |  |  |  |  |
+| `short_hash` | function | short_hash(&self) |  |  |  |  |
 
-| supports_mode | function | supports_mode(&self, mode: &str) |  |  |  |  |
+| `supports_mode` | function | supports_mode(&self, mode: &str) |  |  |  |  |
 
-| worktree_for | function | worktree_for(worktree_dir: &Path, tag: &str) |  |  |  |  |
+| `worktree_for` | function | worktree_for(worktree_dir: &Path, tag: &str) |  |  |  |  |
 
-| Engine | struct |  |  |  |  |  |
+| `Engine` | struct |  |  |  |  |  |
 
-| run | function | run(repo: &Path, cfg: &Config, o: Opts<'_>) |  |  |  |  |
+| `run` | function | run(repo: &Path, cfg: &Config, o: Opts<'_>) |  |  |  |  |
 
-| tags | function | tags(repo: &Path) |  |  |  |  |
+| `tags` | function | tags(repo: &Path) |  |  |  |  |
 
-| Opts | struct |  |  |  |  |  |
+| `Opts` | struct |  |  |  |  |  |
 
-| Prior | enum |  |  |  |  |  |
+| `Prior` | enum |  |  |  |  |  |
 
-| admits | function | admits(
+| `admits` | function | admits(
         &self,
         variant: &str,
         label: &str,
         prior: &BTreeMap<String, (bool, Option<f64>) |  |  |  |  |
 
-| describe | function | describe(&self) |  |  |  |  |
+| `describe` | function | describe(&self) |  |  |  |  |
 
-| from_args | function | from_args(a: &SelectArgs) |  |  |  |  |
+| `from_args` | function | from_args(a: &SelectArgs) |  |  |  |  |
 
-| is_subset | function | is_subset(&self) |  |  |  |  |
+| `is_subset` | function | is_subset(&self) |  |  |  |  |
 
-| needs_prior | function | needs_prior(&self) |  |  |  |  |
+| `needs_prior` | function | needs_prior(&self) |  |  |  |  |
 
-| parse_rows | function | parse_rows(src: &str) |  |  |  |  |
+| `parse_rows` | function | parse_rows(src: &str) |  |  |  |  |
 
-| stage | function | stage(&self, repo: &Path, set: &str, engine_ver: &str, engine_hash: &str) |  |  |  |  |
+| `stage` | function | stage(&self, repo: &Path, set: &str, engine_ver: &str, engine_hash: &str) |  |  |  |  |
 
-| wants_board | function | wants_board(&self, id: &str) |  |  |  |  |
+| `wants_board` | function | wants_board(&self, id: &str) |  |  |  |  |
 
-| Select | struct |  |  |  |  |  |
+| `Select` | struct |  |  |  |  |  |
 
-| SelectArgs | struct |  |  |  |  |  |
+| `SelectArgs` | struct |  |  |  |  |  |
 
-| attach | function | attach(&self, tx: mpsc::Sender<Ctl>) |  |  |  |  |
+| `attach` | function | attach(&self, tx: mpsc::Sender<Ctl>) |  |  |  |  |
 
-| attached | function | attached(&self) |  |  |  |  |
+| `attached` | function | attached(&self) |  |  |  |  |
 
-| calibrate | function | calibrate(
+| `calibrate` | function | calibrate(
         &mut self,
         prior: Option<f64>,
         record: &dyn Fn(f64) |  |  |  |  |
 
-| canary | function | canary(&self) |  |  |  |  |
+| `canary` | function | canary(&self) |  |  |  |  |
 
-| ctl_for | function | ctl_for(from: Level, to: Level, demote_ok: bool) |  |  |  |  |
+| `ctl_for` | function | ctl_for(from: Level, to: Level, demote_ok: bool) |  |  |  |  |
 
-| demote_ok | function | demote_ok(&self) |  |  |  |  |
+| `demote_ok` | function | demote_ok(&self) |  |  |  |  |
 
-| detach | function | detach(&self, id: u64) |  |  |  |  |
+| `detach` | function | detach(&self, id: u64) |  |  |  |  |
 
-| from_config | function | from_config(c: &crate::config::Scheduler) |  |  |  |  |
+| `from_config` | function | from_config(c: &crate::config::Scheduler) |  |  |  |  |
 
-| held | function | held(&self) |  |  |  |  |
+| `held` | function | held(&self) |  |  |  |  |
 
-| hold | function | hold(&self, on: bool) |  |  |  |  |
+| `hold` | function | hold(&self, on: bool) |  |  |  |  |
 
-| label | function | label(&self) |  |  |  |  |
+| `label` | function | label(&self) |  |  |  |  |
 
-| level | function | level(&self) |  |  |  |  |
+| `level` | function | level(&self) |  |  |  |  |
 
-| new | function | new(manifest: &'a Manifest, setup: Setup<'_>) |  |  |  |  |
+| `new` | function | new(manifest: &'a Manifest, setup: Setup<'_>) |  |  |  |  |
 
-| policy_mem_budget | function | policy_mem_budget(mem_bytes: u64, at_the_box: bool, pack: &Pack) |  |  |  |  |
+| `policy_mem_budget` | function | policy_mem_budget(mem_bytes: u64, at_the_box: bool, pack: &Pack) |  |  |  |  |
 
-| policy_width | function | policy_width(
+| `policy_width` | function | policy_width(
     level: Level,
     quiet_hours: bool,
     user_idle_secs: Option<f64>,
@@ -9093,20 +9093,20 @@
     pack: &Pack,
 ) |  |  |  |  |
 
-| read | function | read(&mut self, on_spawn: Option<&dyn Fn(Pid, f64) |  |  |  |  |
+| `read` | function | read(&mut self, on_spawn: Option<&dyn Fn(Pid, f64) |  |  |  |  |
 
-| reason | function | reason(&self) |  |  |  |  |
+| `reason` | function | reason(&self) |  |  |  |  |
 
-| resolve | function | resolve(
+| `resolve` | function | resolve(
         repo: &Path,
         engine: &Path,
         engine_hash: &str,
         r: &crate::config::Referee,
     ) |  |  |  |  |
 
-| run | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
+| `run` | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
 
-| run_engine | function | run_engine(
+| `run_engine` | function | run_engine(
     repo: &Path,
     cfg: &crate::config::Config,
     o: Opts<'_>,
@@ -9115,193 +9115,193 @@
     stage: Option<PathBuf>,
 ) |  |  |  |  |
 
-| send | function | send(&self, c: Ctl) |  |  |  |  |
+| `send` | function | send(&self, c: Ctl) |  |  |  |  |
 
-| set_canary | function | set_canary(&self, factor: f64) |  |  |  |  |
+| `set_canary` | function | set_canary(&self, factor: f64) |  |  |  |  |
 
-| set_demote_ok | function | set_demote_ok(&self, on: bool) |  |  |  |  |
+| `set_demote_ok` | function | set_demote_ok(&self, on: bool) |  |  |  |  |
 
-| set_level | function | set_level(&self, level: Level, reason: Option<String>) |  |  |  |  |
+| `set_level` | function | set_level(&self, level: Level, reason: Option<String>) |  |  |  |  |
 
-| set_width | function | set_width(&self, w: usize) |  |  |  |  |
+| `set_width` | function | set_width(&self, w: usize) |  |  |  |  |
 
-| solo | function | solo() |  |  |  |  |
+| `solo` | function | solo() |  |  |  |  |
 
-| throttle_config | function | throttle_config(c: &crate::config::Contention) |  |  |  |  |
+| `throttle_config` | function | throttle_config(c: &crate::config::Contention) |  |  |  |  |
 
-| total_instances | function | total_instances(&self) |  |  |  |  |
+| `total_instances` | function | total_instances(&self) |  |  |  |  |
 
-| width | function | width(&self) |  |  |  |  |
+| `width` | function | width(&self) |  |  |  |  |
 
-| Canary | struct |  |  |  |  |  |
+| `Canary` | struct |  |  |  |  |  |
 
-| DbCtx | struct |  |  |  |  |  |
+| `DbCtx` | struct |  |  |  |  |  |
 
-| Opts | struct |  |  |  |  |  |
+| `Opts` | struct |  |  |  |  |  |
 
-| Pack | struct |  |  |  |  |  |
+| `Pack` | struct |  |  |  |  |  |
 
-| Progress | struct |  |  |  |  |  |
+| `Progress` | struct |  |  |  |  |  |
 
-| Running | struct |  |  |  |  |  |
+| `Running` | struct |  |  |  |  |  |
 
-| Setup | struct |  |  |  |  |  |
+| `Setup` | struct |  |  |  |  |  |
 
-| Shared | struct |  |  |  |  |  |
+| `Shared` | struct |  |  |  |  |  |
 
-| SweepRunner | struct |  |  |  |  |  |
+| `SweepRunner` | struct |  |  |  |  |  |
 
-| Cell | enum |  |  |  |  |  |
+| `Cell` | enum |  |  |  |  |  |
 
-| Level | enum |  |  |  |  |  |
+| `Level` | enum |  |  |  |  |  |
 
-| LogKind | enum |  |  |  |  |  |
+| `LogKind` | enum |  |  |  |  |  |
 
-| Sort | enum |  |  |  |  |  |
+| `Sort` | enum |  |  |  |  |  |
 
-| View | enum |  |  |  |  |  |
+| `View` | enum |  |  |  |  |  |
 
-| back | function | back(&mut self) |  |  |  |  |
+| `back` | function | back(&mut self) |  |  |  |  |
 
-| banked | function | banked(self) |  |  |  |  |
+| `banked` | function | banked(self) |  |  |  |  |
 
-| board | function | board(&self) |  |  |  |  |
+| `board` | function | board(&self) |  |  |  |  |
 
-| cycle_sort | function | cycle_sort(&mut self) |  |  |  |  |
+| `cycle_sort` | function | cycle_sort(&mut self) |  |  |  |  |
 
-| delta_secs | function | delta_secs(&self) |  |  |  |  |
+| `delta_secs` | function | delta_secs(&self) |  |  |  |  |
 
-| dismiss_toasts | function | dismiss_toasts(&mut self) |  |  |  |  |
+| `dismiss_toasts` | function | dismiss_toasts(&mut self) |  |  |  |  |
 
-| done | function | done(&self) |  |  |  |  |
+| `done` | function | done(&self) |  |  |  |  |
 
-| enter | function | enter(&mut self) |  |  |  |  |
+| `enter` | function | enter(&mut self) |  |  |  |  |
 
-| expire_toasts | function | expire_toasts(&mut self, dwell: Duration) |  |  |  |  |
+| `expire_toasts` | function | expire_toasts(&mut self, dwell: Duration) |  |  |  |  |
 
-| frac | function | frac(&self) |  |  |  |  |
+| `frac` | function | frac(&self) |  |  |  |  |
 
-| gain | function | gain(&self) |  |  |  |  |
+| `gain` | function | gain(&self) |  |  |  |  |
 
-| gains | function | gains(&self) |  |  |  |  |
+| `gains` | function | gains(&self) |  |  |  |  |
 
-| jump | function | jump(&mut self, to_end: bool) |  |  |  |  |
+| `jump` | function | jump(&mut self, to_end: bool) |  |  |  |  |
 
-| label | function | label(self) |  |  |  |  |
+| `label` | function | label(self) |  |  |  |  |
 
-| move_selection | function | move_selection(&mut self, delta: isize) |  |  |  |  |
+| `move_selection` | function | move_selection(&mut self, delta: isize) |  |  |  |  |
 
-| near_wall | function | near_wall(&self) |  |  |  |  |
+| `near_wall` | function | near_wall(&self) |  |  |  |  |
 
-| next | function | next(self) |  |  |  |  |
+| `next` | function | next(self) |  |  |  |  |
 
-| owed | function | owed(&self) |  |  |  |  |
+| `owed` | function | owed(&self) |  |  |  |  |
 
-| prev_solved | function | prev_solved(&self) |  |  |  |  |
+| `prev_solved` | function | prev_solved(&self) |  |  |  |  |
 
-| rank | function | rank(self) |  |  |  |  |
+| `rank` | function | rank(self) |  |  |  |  |
 
-| regression | function | regression(&self) |  |  |  |  |
+| `regression` | function | regression(&self) |  |  |  |  |
 
-| regressions | function | regressions(&self) |  |  |  |  |
+| `regressions` | function | regressions(&self) |  |  |  |  |
 
-| rho | function | rho(&self) |  |  |  |  |
+| `rho` | function | rho(&self) |  |  |  |  |
 
-| running | function | running(&self) |  |  |  |  |
+| `running` | function | running(&self) |  |  |  |  |
 
-| selected_instance | function | selected_instance(&self) |  |  |  |  |
+| `selected_instance` | function | selected_instance(&self) |  |  |  |  |
 
-| solve_secs | function | solve_secs(&self) |  |  |  |  |
+| `solve_secs` | function | solve_secs(&self) |  |  |  |  |
 
-| solved | function | solved(&self) |  |  |  |  |
+| `solved` | function | solved(&self) |  |  |  |  |
 
-| sorted_instances | function | sorted_instances(&self) |  |  |  |  |
+| `sorted_instances` | function | sorted_instances(&self) |  |  |  |  |
 
-| strip | function | strip(cells: &[InstanceCell], width: usize) |  |  |  |  |
+| `strip` | function | strip(cells: &[InstanceCell], width: usize) |  |  |  |  |
 
-| tally | function | tally(&mut self) |  |  |  |  |
+| `tally` | function | tally(&mut self) |  |  |  |  |
 
-| toggle_timeline | function | toggle_timeline(&mut self) |  |  |  |  |
+| `toggle_timeline` | function | toggle_timeline(&mut self) |  |  |  |  |
 
-| total | function | total(&self) |  |  |  |  |
+| `total` | function | total(&self) |  |  |  |  |
 
-| AttemptRow | struct |  |  |  |  |  |
+| `AttemptRow` | struct |  |  |  |  |  |
 
-| BoardRow | struct |  |  |  |  |  |
+| `BoardRow` | struct |  |  |  |  |  |
 
-| InstanceCell | struct |  |  |  |  |  |
+| `InstanceCell` | struct |  |  |  |  |  |
 
-| InstanceDetail | struct |  |  |  |  |  |
+| `InstanceDetail` | struct |  |  |  |  |  |
 
-| LevelState | struct |  |  |  |  |  |
+| `LevelState` | struct |  |  |  |  |  |
 
-| LogLine | struct |  |  |  |  |  |
+| `LogLine` | struct |  |  |  |  |  |
 
-| Slot | struct |  |  |  |  |  |
+| `Slot` | struct |  |  |  |  |  |
 
-| SlotRun | struct |  |  |  |  |  |
+| `SlotRun` | struct |  |  |  |  |  |
 
-| Snapshot | struct |  |  |  |  |  |
+| `Snapshot` | struct |  |  |  |  |  |
 
-| StripCol | struct |  |  |  |  |  |
+| `StripCol` | struct |  |  |  |  |  |
 
-| SweepProgress | struct |  |  |  |  |  |
+| `SweepProgress` | struct |  |  |  |  |  |
 
-| Timeline | struct |  |  |  |  |  |
+| `Timeline` | struct |  |  |  |  |  |
 
-| TimelinePoint | struct |  |  |  |  |  |
+| `TimelinePoint` | struct |  |  |  |  |  |
 
-| Toast | struct |  |  |  |  |  |
+| `Toast` | struct |  |  |  |  |  |
 
-| compact | function | compact(text: &str) |  |  |  |  |
+| `compact` | function | compact(text: &str) |  |  |  |  |
 
-| render | function | render(text: &str, max_width: usize) |  |  |  |  |
+| `render` | function | render(text: &str, max_width: usize) |  |  |  |  |
 
-| detail | function | detail() |  |  |  |  |
+| `detail` | function | detail() |  |  |  |  |
 
-| snapshot | function | snapshot(t: f64) |  |  |  |  |
+| `snapshot` | function | snapshot(t: f64) |  |  |  |  |
 
-| draw | function | draw(f: &mut Frame, s: &Snapshot, th: &Theme, banner_text: &str) |  |  |  |  |
+| `draw` | function | draw(f: &mut Frame, s: &Snapshot, th: &Theme, banner_text: &str) |  |  |  |  |
 
-| new | function | new(progress: Arc<Mutex<Progress>>, shared: Arc<Shared>) |  |  |  |  |
+| `new` | function | new(progress: Arc<Mutex<Progress>>, shared: Arc<Shared>) |  |  |  |  |
 
-| next | function | next(&mut self, prev: &Snapshot) |  |  |  |  |
+| `next` | function | next(&mut self, prev: &Snapshot) |  |  |  |  |
 
-| Feed | struct |  |  |  |  |  |
+| `Feed` | struct |  |  |  |  |  |
 
-| Action | enum |  |  |  |  |  |
+| `Action` | enum |  |  |  |  |  |
 
-| action_for | function | action_for(k: KeyEvent, s: &mut Snapshot) |  |  |  |  |
+| `action_for` | function | action_for(k: KeyEvent, s: &mut Snapshot) |  |  |  |  |
 
-| enter | function | enter() |  |  |  |  |
+| `enter` | function | enter() |  |  |  |  |
 
-| TerminalGuard | struct |  |  |  |  |  |
+| `TerminalGuard` | struct |  |  |  |  |  |
 
-| Depth | enum |  |  |  |  |  |
+| `Depth` | enum |  |  |  |  |  |
 
-| bar_cells | function | bar_cells(&self) |  |  |  |  |
+| `bar_cells` | function | bar_cells(&self) |  |  |  |  |
 
-| detect | function | detect() |  |  |  |  |
+| `detect` | function | detect() |  |  |  |  |
 
-| forge | function | forge() |  |  |  |  |
+| `forge` | function | forge() |  |  |  |  |
 
-| glyph | function | glyph(&self, unicode: &'static str, ascii: &'static str) |  |  |  |  |
+| `glyph` | function | glyph(&self, unicode: &'static str, ascii: &'static str) |  |  |  |  |
 
-| spark_cells | function | spark_cells(&self) |  |  |  |  |
+| `spark_cells` | function | spark_cells(&self) |  |  |  |  |
 
-| unicode_ok | function | unicode_ok() |  |  |  |  |
+| `unicode_ok` | function | unicode_ok() |  |  |  |  |
 
-| Theme | struct |  |  |  |  |  |
+| `Theme` | struct |  |  |  |  |  |
 
-| bar | function | bar(theme: &Theme, frac: f64, width: usize) |  |  |  |  |
+| `bar` | function | bar(theme: &Theme, frac: f64, width: usize) |  |  |  |  |
 
-| duration | function | duration(secs: u64) |  |  |  |  |
+| `duration` | function | duration(secs: u64) |  |  |  |  |
 
-| ellipsize | function | ellipsize(s: &str, width: usize) |  |  |  |  |
+| `ellipsize` | function | ellipsize(s: &str, width: usize) |  |  |  |  |
 
-| spark | function | spark(theme: &Theme, values: &[f64], width: usize) |  |  |  |  |
+| `spark` | function | spark(theme: &Theme, values: &[f64], width: usize) |  |  |  |  |
 
-| until | function | until(secs: u64) |  |  |  |  |
+| `until` | function | until(secs: u64) |  |  |  |  |
 
 
 <!-- ============================================================= -->
