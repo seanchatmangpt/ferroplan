@@ -1291,7 +1291,7 @@ and one of them was hiding the other.
 | `test --release -p ferroplan -p ferroplan-cli -- --include-ignored` | **398 passed, 0 failed** (59 binaries) |
 | `test` (DEBUG) `-p ferroplan -p ferroplan-cli -p ferroplan-mcp` | **394 passed, 0 failed** |
 | `test --release --all` | 435 passed, 0 failed (68 binaries) |
-| `package` + `publish --dry-run -p ferroplan-sat` | clean |
+| package + `publish --dry-run -p ferroplan-sat` | clean |
 | `publish --dry-run -p ferroplan` | fails, as `RELEASING.md` says it must until `ferroplan-sat` 0.28.0 is on the index; `build -p ferroplan -p ferroplan-cli -p ferroplan-mcp` clean |
 | `maturin build --release` (ferroplan-py) | `ferroplan-0.28.0-cp38-abi3-macosx_11_0_arm64.whl`. Local, macOS-ARM: the manylinux x86 wheel that ships is UNVERIFIED until CI builds it |
 | `release-notes-roll.py --check` | clean |

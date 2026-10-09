@@ -122,7 +122,7 @@ metric*:
 
 | variant | result |
 |---|---|
-| cost-aware heuristic + cost-first A*/WA* (×2) | suboptimal + timeouts; `h` blind |
+| cost-aware heuristic + cost-first A*/WA* (×2) | suboptimal + timeouts; h-value blind |
 | 10× B&B budget | openstacks unchanged (70) — search *direction*, not budget |
 | per-preference greedy force-collect | no gain; timed out many-pref instances |
 | all-forgo coverage floor | slow base search; hollow metrics |

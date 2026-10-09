@@ -9,7 +9,7 @@ Metric-FF's `ff -o domain -f problem`.
 | `-f, --problem <FILE>` | PDDL problem |
 | `--json` | emit a structured JSON `Solution` instead of classic text |
 | `--json-request <FILE>` | self-contained `{domain, problem, options}` JSON job (`-` = stdin) |
-| `--mode <auto\|ff\|partition\|pddl3\|temporal\|portfolio>` | planning strategy (default `auto`) |
+| `--mode <auto\|ff\|partition\|pddl3\|temporal\|portfolio>` | planning strategy (default auto) |
 | `--search <auto\|ehc\|best-first\|ehc-then-best-first>` | search strategy |
 | `--weight-g <W>` / `--weight-h <W>` | best-first path-length / heuristic weights |
 | `--max-evaluated <N>` | cap on nodes evaluated before giving up |

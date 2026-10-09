@@ -100,10 +100,10 @@ Five stages, each owning its refusals:
 
 | Stage | Where | What happens |
 |---|---|---|
-| probabilistic pre-pass | `crates/ferroplan-hddl/src/probabilistic.rs` | `(:probabilistic ...)` sugar rewritten to `oneof` + weight map, before tokenizing |
+| probabilistic pre-pass | `crates/ferroplan-hddl/src/probabilistic.rs` | `(:probabilistic ...)` sugar rewritten to oneof + weight map, before tokenizing |
 | parse + validate | `parser.rs`, `validate.rs` | HDDL text → typed AST; static checks (resolution, arity, duplicates) |
-| ground | `grounder.rs` | Type closure, object indexing, substitution; `oneof`/`when` expand into grounded effect branches |
-| translate | `translate.rs` | BFS over the reachable *composite* (fact-set, TN-frontier) space; decomposition-aware — only actions reachable via an actual decomposition become transitions; `oneof` outcomes become probability-weighted transitions; TN completion is the synthetic `htn:done` fact |
+| ground | `grounder.rs` | Type closure, object indexing, substitution; oneof/when expand into grounded effect branches |
+| translate | `translate.rs` | BFS over the reachable *composite* (fact-set, TN-frontier) space; decomposition-aware — only actions reachable via an actual decomposition become transitions; oneof outcomes become probability-weighted transitions; TN completion is the synthetic `htn:done` fact |
 | solve | `solve_hddl` → `solve_planning_type` | Adapt into `PlanningProblem` (decomposition transitions get zero cost — bookkeeping, not world action), run the strong/strong-cyclic fixpoints |
 
 Two structural facts carry the design. First, every phase after the parser

@@ -14,7 +14,7 @@ the SHA only (wave-2 law); branches may advance after the freeze.
 | # | branch | frozen SHA | delivers |
 |---|---|---|---|
 | 1 | fix/eq-goal-evaluation | `24c94f6` | grounder/translate `GroundGoal::Eq`, goal DNF folds, always-on micro-recurse oracle agreement test |
-| 2 | fix/ground-conditional-effects | `818e9ea` | parser/grounder/validate/translate: `when` flattening, method `:effect`, `root_networks` — EXPECT CONFLICTS with #1 in grounder.rs/translate.rs: semantic union, keep BOTH the Eq variant and root_networks |
+| 2 | fix/ground-conditional-effects | `818e9ea` | parser/grounder/validate/translate: when flattening, method `:effect`, `root_networks` — EXPECT CONFLICTS with #1 in grounder.rs/translate.rs: semantic union, keep BOTH the Eq variant and root_networks |
 | 3 | fix/parse-depth-budget | `e272cbd` | parser reader depth budget + `ParseError::NestingTooDeep` (may conflict with #2's parser edits: keep both, depth budget wraps all) |
 | 4 | fix/fond-loop-failsafes | `7fea6cc` | planning_runtime: `fond_policy` states+1 failsafe (max_iterations advisory) |
 | 5 | stress/concurrency-wasm | `aae68be` | wasi_abi `FP_HDDL_ROOT_MISMATCH` arm + host dispatch stress test + `#[path]` shim (keep the match arm — it completes an exhaustive match) |

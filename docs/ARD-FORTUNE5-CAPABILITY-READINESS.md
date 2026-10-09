@@ -698,7 +698,7 @@ Generated readiness JSON is a claim until the independent admission command reco
 | PRD-FR-002 | CLI readiness command |
 | PRD-FR-003 | `OperationEnvelope<T>` |
 | PRD-FR-004 | Public failure taxonomy |
-| PRD-FR-005 | `ResourceLimits` and adapter profiles |
+| PRD-FR-005 | the proposed ResourceLimits shape and adapter profiles |
 | PRD-FR-006 | Request context cancellation/deadline |
 | PRD-FR-007 | Determinism and replay classes |
 | PRD-FR-008 | Independent validator gate |

@@ -13,9 +13,9 @@ the line:
 | metric | meaning | deterministic? |
 |---|---|---|
 | coverage | problems solved | ✅ |
-| `evaluated` | states expanded by the search | ✅ — the primary search-efficiency metric |
-| `length` / `metric` | plan length / PDDL3 cost | ✅ — solution quality |
-| `ms` | wall-clock | ❌ machine/load-dependent — profiling only, never the verdict |
+| evaluated | states expanded by the search | ✅ — the primary search-efficiency metric |
+| length / metric | plan length / PDDL3 cost | ✅ — solution quality |
+| ms | wall-clock | ❌ machine/load-dependent — profiling only, never the verdict |
 
 ```sh
 cargo build --release

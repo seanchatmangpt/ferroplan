@@ -94,12 +94,12 @@ boundary loud and typed:
 
 | Rule | Meaning |
 |---|---|
-| Action `:effect` | A `when`'s condition is a ground goal over the action's binding (flat literal conjunction — `or`/`imply`/quantifiers refused there); its body is a conjunctive add/delete set. |
-| Method `:effect` | Same grammar minus `oneof`, applied when the method is chosen for decomposition, before any subtask executes; guards evaluate against the pre-decomposition state. A method with no `:effect` behaves exactly as before (no-op). |
-| One level of `when`-in-`when` flattens | `(when c1 (when c2 e))` grounds identically to `(when (and c1 c2) e)` — a second conditional whose guard conjoins both conditions. Sound because every guard is evaluated against the same source state. |
-| Deeper nesting refused | A `when` at depth ≥ 3 keeps the existing typed refusal (`nested 'when' is out of scope`) rather than silently widening. |
+| Action `:effect` | A when's condition is a ground goal over the action's binding (flat literal conjunction — or/imply/quantifiers refused there); its body is a conjunctive add/delete set. |
+| Method `:effect` | Same grammar minus oneof, applied when the method is chosen for decomposition, before any subtask executes; guards evaluate against the pre-decomposition state. A method with no `:effect` behaves exactly as before (no-op). |
+| One level of when-in-when flattens | `(when c1 (when c2 e))` grounds identically to `(when (and c1 c2) e)` — a second conditional whose guard conjoins both conditions. Sound because every guard is evaluated against the same source state. |
+| Deeper nesting refused | A when at depth ≥ 3 keeps the existing typed refusal (`nested 'when' is out of scope`) rather than silently widening. |
 | Guarded outcomes | Translation evaluates every guard against the transition's SOURCE state per outcome and applies the guarded del-then-add — the same compilation the in-repo `ppddl` compiler uses (`crates/ferroplan/src/ppddl/compile/part06.rs`); one shared `apply_effect_branch` serves action outcomes and method decompositions. |
-| `when` inside a `oneof` branch | Still refused at parse time (deliberate deviation, table below). |
+| when inside a oneof branch | Still refused at parse time (deliberate deviation, table below). |
 
 ### `oneof` rules (landing semantics)
 
@@ -110,14 +110,14 @@ Ferroplan's landing surface matches, with every refusal typed
 
 | Rule | Meaning |
 |---|---|
-| Top-level only | `oneof` is legal only as the whole `:effect` of an `:action`. Under a top-level `and` (`(:effect (and (p) (oneof ...)))`), under a `when`, in a precondition, a method condition, or `:goal` — refused. (A precondition-position `oneof` used to fall through to a silent mis-parse as an atom with predicate `oneof`; now a typed error.) |
+| Top-level only | oneof is legal only as the whole `:effect` of an `:action`. Under a top-level and (`(:effect (and (p) (oneof ...)))`), under a when, in a precondition, a method condition, or `:goal` — refused. (A precondition-position oneof used to fall through to a silent mis-parse as an atom with predicate oneof; now a typed error.) |
 | `k >= 1` | A bare `(oneof)` is refused: it would ground to an action with zero outcomes, an unexecutable dead-end. |
-| `k == 1` degenerates | A single-branch `oneof` is normalized to its branch — a deterministic effect. The parsed AST's `Effect::Oneof` therefore always carries `k >= 2` genuinely non-deterministic branches. |
+| `k == 1` degenerates | A single-branch oneof is normalized to its branch — a deterministic effect. The parsed AST's `Effect::Oneof` therefore always carries `k >= 2` genuinely non-deterministic branches. |
 | Empty branch allowed | A branch may be the empty effect `()`; it survives as an `Effect::Empty` branch and grounds/translates to a genuine no-change outcome. |
 | Overlap allowed | Branches need not be mutually exclusive. |
-| Branch shapes | Plain literal effects, `and`-conjunctions of those, or `()`. |
-| Nesting rejected | `oneof` inside a `oneof` branch: refused. |
-| `when` in a branch rejected — deliberate deviation | The reference implementation *parses* `when` inside a `oneof` branch but silently drops the conditional effect downstream (a known open item there), manufacturing a silently-weaker domain. Ferroplan refuses loudly instead. This is a documented, deliberate deviation: a domain the reference accepts may be rejected by ferroplan, never silently mis-solved. |
+| Branch shapes | Plain literal effects, and-conjunctions of those, or `()`. |
+| Nesting rejected | oneof inside a oneof branch: refused. |
+| when in a branch rejected — deliberate deviation | The reference implementation *parses* when inside a oneof branch but silently drops the conditional effect downstream (a known open item there), manufacturing a silently-weaker domain. Ferroplan refuses loudly instead. This is a documented, deliberate deviation: a domain the reference accepts may be rejected by ferroplan, never silently mis-solved. |
 
 ## 2. Semantics
 
@@ -272,15 +272,15 @@ open tickets bound what it currently guarantees.
 
 | Stage | Location | Role |
 |---|---|---|
-| `:probabilistic` text pre-pass | `crates/ferroplan-hddl/src/probabilistic.rs` (`preprocess`) | Rewrites weighted `:probabilistic` blocks into `oneof` + side-channel weight map before tokenizing. |
+| `:probabilistic` text pre-pass | `crates/ferroplan-hddl/src/probabilistic.rs` (`preprocess`) | Rewrites weighted `:probabilistic` blocks into oneof + side-channel weight map before tokenizing. |
 | Parse | `crates/ferroplan-hddl/src/parser.rs` (`parse_domain`, `parse_problem`) | HDDL text -> `ast::Domain`/`ast::Problem`. Typed refusals per Section 1. |
 | Validate | `crates/ferroplan-hddl/src/validate.rs` (`validate_domain`, `validate_problem`) | Pre-grounding static checks: task/predicate/type resolution, arity, duplicates. |
-| Ground | `crates/ferroplan-hddl/src/grounder.rs` (`ground`) | Type closure, object indexing, substitution; full combinatorial grounding by default, optional delete-relaxation pruning (`prune_unreachable`). `oneof`/`when` expand into grounded effect branches. |
-| Translate | `crates/ferroplan-hddl/src/translate.rs` (`translate`) | BFS over the reachable *composite* (fact-set, TN-frontier) state space. Decomposition-aware: only actions reachable via an actual decomposition become transitions. `oneof` outcomes become probability-weighted transitions; method choice and execution order become ordinary `htn:decompose:*`/`htn:exec:*` transitions; TN completion is the synthetic `htn:done` fact. |
+| Ground | `crates/ferroplan-hddl/src/grounder.rs` (`ground`) | Type closure, object indexing, substitution; full combinatorial grounding by default, optional delete-relaxation pruning (`prune_unreachable`). oneof/when expand into grounded effect branches. |
+| Translate | `crates/ferroplan-hddl/src/translate.rs` (`translate`) | BFS over the reachable *composite* (fact-set, TN-frontier) state space. Decomposition-aware: only actions reachable via an actual decomposition become transitions. oneof outcomes become probability-weighted transitions; method choice and execution order become ordinary `htn:decompose:*`/`htn:exec:*` transitions; TN completion is the synthetic `htn:done` fact. |
 | Adapt | `crates/ferroplan/src/hddl.rs` (`adapt_problem`) | Field-for-field mapping into `planning_runtime::PlanningProblem`. Decomposition transitions get zero cost/duration: bookkeeping, not world action. |
 | Solve | `crates/ferroplan/src/hddl.rs` (`solve_hddl`) -> `planning_runtime::solve_planning_type` | `PlanningType::Fond`: `fond_policy`, falling back to `fond_policy_strong_cyclic` on `NoPlan`. HDDL is a front-end, not an 18th+ paradigm, so the result reports `Fond` — honestly naming the solver that ran. |
 | WASM | `crates/ferroplan-wasm/src/wasi_abi.rs` | Ops `hddl_solve` (HDDL text -> `UniversalPlan` JSON; per-stage error codes `FP_PARSE`/`FP_HDDL_GROUND`/`FP_HDDL_TRANSLATE`/`FP_MODEL`), `htn_plan` (JSON problem, forces `PlanningType::Hierarchical`), `fond_policy` (JSON problem, forces `PlanningType::Fond`). |
-| Eve | `crates/ferroplan/src/eve.rs` (`EveStage::DecomposeHddl`) | Stage sits between `ProjectGenesis` and `GovernUncertaintyPpddl`. Currently no consumer — the Eve bridge is in flight (wave ticket T10). |
+| Eve | `crates/ferroplan/src/eve.rs` (`EveStage::DecomposeHddl`) | Stage sits between `ProjectGenesis` and the GovernUncertaintyPpddl stage. Currently no consumer — the Eve bridge is in flight (wave ticket T10). |
 
 Boundedness: every phase enforces its own internal state/iteration/
 wall-clock limits with loud typed refusals (`TaskNetworkDepthExceeded`,
@@ -302,7 +302,7 @@ and are stated exactly.
 | Knob | Location | Fields and defaults |
 |---|---|---|
 | `PlannerLimits` | `crates/ferroplan/src/planning_runtime.rs` (serde-visible via `UniversalPlanningRequest`) | `max_depth` 128 · `max_states` 100,000 · `max_iterations` 512 · `max_wall_ms` 10,000 ms — `max_wall_ms == 0` means unbounded; the wall deadline is checked once per fixpoint round, and `solve_hddl` keys its whole-call watchdog off the same field |
-| `GroundingLimits` | `crates/ferroplan-hddl/src/grounder.rs` | `max_ground_actions` 10,000 · `max_ground_methods` 10,000 · `prune_unreachable` `false` · `max_wall` `Some(10 s)` — `None` means unbounded; each grounding sub-phase checks the wall against its own start time, so total ground wall is a small multiple of the per-phase budget. **Caller mapping (ticket fond-htn-43):** `solve_hddl` builds this struct via `grounding_limits_from` (`crates/ferroplan/src/hddl.rs`) — `max_ground_actions`/`max_ground_methods` = `PlannerLimits::max_states` ÷ 10, `max_wall` = `Some(max_wall_ms)` with `0` → `None` (unbounded), `prune_unreachable` stays `false`. The ÷10 calibration is default-identical: the default `max_states` 100,000 reproduces exactly the 10,000/10,000 defaults above, so plain `Default::default()` callers see no change; raising `max_states` raises both ground caps proportionally |
+| `GroundingLimits` | `crates/ferroplan-hddl/src/grounder.rs` | `max_ground_actions` 10,000 · `max_ground_methods` 10,000 · `prune_unreachable` false · `max_wall` `Some(10 s)` — `None` means unbounded; each grounding sub-phase checks the wall against its own start time, so total ground wall is a small multiple of the per-phase budget. **Caller mapping (ticket fond-htn-43):** `solve_hddl` builds this struct via `grounding_limits_from` (`crates/ferroplan/src/hddl.rs`) — `max_ground_actions`/`max_ground_methods` = `PlannerLimits::max_states` ÷ 10, `max_wall` = `Some(max_wall_ms)` with `0` → `None` (unbounded), `prune_unreachable` stays false. The ÷10 calibration is default-identical: the default `max_states` 100,000 reproduces exactly the 10,000/10,000 defaults above, so plain `Default::default()` callers see no change; raising `max_states` raises both ground caps proportionally |
 | `TranslateLimits` | `crates/ferroplan-hddl/src/translate.rs` | `max_task_network_depth` 64 · `max_wall` `Some(10 s)` · `max_states` `Some(200,000)` interned composite states — `None` means unbounded; both are checked once per state popped off the BFS queue |
 
 Honest caveat, current behavior (ticket 23 pending): `solve_hddl`'s pipeline
@@ -464,8 +464,8 @@ binding rules are in the wave context (Section 6 below).
 |---|---|---|
 | Goal = empty task network (TN-emptiness only) | Goal = `htn:done` synthetic fact (TN frontier empty) AND the domain `:goal` facts — a real HTN solution requires the *entire* network reduced to executed primitives with `:goal` as an additional requirement on the final facts, never `:goal` holding on a half-decomposed state | Implemented |
 | Method preconditions compiled away | `MethodDef.precondition` retained as a first-class AST node; grounded form checked by `translate` — an unconditional method decomposes exactly as before | Implemented; stricter than the reference dialect |
-| `when` inside a `oneof` branch parsed, then silently dropped downstream | `ParseError::MalformedOneof` — loud refusal; ferroplan never accepts a shape it would silently weaken | Deliberate deviation (Section 1) |
-| `oneof` position surface (entire top-level `:effect`, `k >= 1`) | Same surface, landed on main from frozen `fix/oneof-koala-semantics` (`4d40f99`); earlier permissive behavior (`oneof` under a top-level `and`, silent goal-position mis-parse) refused | Implemented (aligned) |
+| when inside a oneof branch parsed, then silently dropped downstream | `ParseError::MalformedOneof` — loud refusal; ferroplan never accepts a shape it would silently weaken | Deliberate deviation (Section 1) |
+| oneof position surface (entire top-level `:effect`, `k >= 1`) | Same surface, landed on main from frozen `fix/oneof-koala-semantics` (`4d40f99`); earlier permissive behavior (oneof under a top-level and, silent goal-position mis-parse) refused | Implemented (aligned) |
 | `:probabilistic w e ...` weighted-effect extension with side-channel weight map | `probabilistic::preprocess` — same shape in Rust: text pre-pass, weights per enclosing `:action` name, raw source text preserved | Implemented |
 | Fixed vs flexible method commitment (commit the decomposition up front vs. allow commitment to vary with the execution branch) | Method choice is an explicit OR-branchpoint (`htn:decompose:<addr>:<method>`) inside the composite state space: the policy commits per composite state and may choose differently in different states — the flexible end of the spectrum, in the (TN, state)-policy sense of Chen & Bercher | Implemented (policy-level flexibility; no up-front commitment) |
 | Flexible / fixed-ld / fixed oracle solving modes | Differential-testing inputs only — verdict classes to compare against, not ferroplan modes | External oracle only |
