@@ -82,3 +82,47 @@ target/release/doc-hdit certify   <inputs>.json courts/doc_quality.court
   (ACCEPTED receipt minted 2026-10-08, timestamp 1791529936).
 - Falsifier: re-run certify at any new HEAD; drift re-opens the gate and a
   future BLOCKED record replaces this one.
+
+## Drift re-close at new HEAD (backlog [145], lane ferro-reclose, 2026-10-09)
+
+Falsifier executed: certify re-run at the post-re-close HEAD (see the
+verdict block appended below). The earlier BLOCKED→ACCEPTED transition
+stands; the new receipt supersedes the 2026-10-08 subject only in the
+receipt ledger (`doc-hdit.receipts.jsonl`), not by replacing this record.
+
+### Re-export map in prose ([105]-residual class)
+
+The generated reference (docs/reference/generated/reference.md) carries four
+`use` rows the extractor lifts as inline spans — two `model::*` glob rows and
+two `crate::packed::PackedTask as Task` alias rows. Per [105] a use-list span
+is split into per-ident claims that stay structurally uncovered at this
+extractor; these are documented here with real symbols only, not backticked
+scaffold:
+
+1. `crates/ferroplan-cli/src/harvest/mod.rs` — `pub use model::*` glob
+   re-exports the harvest data model from crates/ferroplan-cli/src/harvest/model.rs:
+   the schema constants OBSERVATION_SCHEMA, ADMISSION_SCHEMA, CATALOG_SCHEMA,
+   RECEIPT_SCHEMA and the ObservationWindow / ObservationPack /
+   ObservedWorkItem / TransportFailure structs (plus their fields).
+2. `crates/ferroplan/src/ground.rs` — `pub use crate::packed::PackedTask as
+   Task` alias re-export (commented "re-export for the heuristic/search
+   modules"); PackedTask itself lives in crates/ferroplan/src/packed.rs and
+   is additionally imported by name in api.rs, costs.rs, espc.rs and
+   ground.rs via use crate::packed::{CondEff, CsrBuilder, PackedTask, State}.
+
+These rows appear twice each in the generated reference because the pack
+renders the harvest module in both the CLI and workspace surfaces; the map
+above is the single real source.
+
+### Fresh audit verdict at the re-close tree
+
+```
+PASS  coverage value=0.9783 threshold=0.9000
+PASS  phantom  value=0.0005 threshold=0.0010
+PASS  density  value=0.9995 threshold=0.6500
+```
+
+Denominator unchanged: 1431 gated items (1709 raw, collapsed delta 278).
+Inputs: /tmp/ferro-reclose/inputs2.json (8121 claims; code+doc surface
+extracted from the ferroplan working tree carrying this lane's edits).
+Standing after the falsifier run: **ALIVE** — the gate did not re-open.
