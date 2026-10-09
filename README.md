@@ -563,6 +563,12 @@ and the wasm `set_timed_fact` / `world_bytes` / `mind_bytes` bindings came from
 that work; his stateful-session MCP server is the design we're measuring our own
 against.
 
+## Community
+
+- [CONTRIBUTING.md](https://github.com/seanchatmangpt/ferroplan/blob/main/CONTRIBUTING.md) — dev setup, test surface, the vendored `crucible/` boundary, commit/receipt conventions.
+- [CODE_OF_CONDUCT.md](https://github.com/seanchatmangpt/ferroplan/blob/main/CODE_OF_CONDUCT.md) — Contributor Covenant.
+- [SECURITY.md](https://github.com/seanchatmangpt/ferroplan/blob/main/SECURITY.md) — reporting path and the typed-refusal/receipt disclosure culture.
+
 ## License
 
 Dual-licensed under either of [MIT](https://github.com/seanchatmangpt/ferroplan/blob/main/LICENSE-MIT) or [Apache-2.0](https://github.com/seanchatmangpt/ferroplan/blob/main/LICENSE-APACHE),
