@@ -136,3 +136,5 @@ extractor source bytes) into every new receipt and refuses typed
 differs from the recorded one; `--force-rebaseline` mints a NEW baseline
 receipt acknowledging the drift. Pass `--extractor scripts/gen_doc_surface.py`
 (ggen-marketplace) when replaying so new receipts carry the pin.
+
+Gated under the module-level denominator law (ggen-marketplace docs/sjira/v26.10.8/DENOMINATOR-SCOPE-DECISION.md @0f3d840ff); per-function coverage figures are the report-only layer. As-of 2026-10-09.
