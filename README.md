@@ -47,7 +47,7 @@ that solver.
 | seq-mco t8 | 253/280 | `██████████████░░` 90% |
 | seq-mco t4 | 252/280 | `██████████████░░` 90% |
 
-Best five shown. **[Full standings → `STANDINGS.md`](https://github.com/hhh42/ferroplan/blob/main/STANDINGS.md)** · per-track detail, quality scoring and failure classes in [`benchmarks/ipc-standings.md`](https://github.com/hhh42/ferroplan/blob/main/benchmarks/ipc-standings.md).
+Best five shown. **[Full standings → `STANDINGS.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/STANDINGS.md)** · per-track detail, quality scoring and failure classes in [`benchmarks/ipc-standings.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/benchmarks/ipc-standings.md).
 <!-- STANDINGS:END -->
 
 ferroplan is a from-scratch reimplementation of the FF family of planners with a
@@ -101,7 +101,7 @@ trails and IPC-5 preference quality is competitive-not-winning — see
 > Measured through the harness on the six IPC-5 boards the work was aimed
 > at: **379 → 569 of 788**, none lost, and **316 → 491** on the variants
 > SGPlan5 entered, where it solves 612. Two things the
-> [changelog](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG.md)
+> [changelog](https://github.com/seanchatmangpt/ferroplan/blob/main/CHANGELOG.md)
 > spells out rather than nets off: 46 of the +190 are the *empty plan* on
 > problems with no hard goal — valid, and the boards' standing convention,
 > but floor quality — and coverage is not what IPC-5 ranked these tracks on.
@@ -118,7 +118,7 @@ trails and IPC-5 preference quality is competitive-not-winning — see
 > it was the subset read, not the test suite, that found them and the three
 > holes behind them.
 
-Earlier releases are summarised in the [changelog](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG.md) and its [archive](https://github.com/hhh42/ferroplan/blob/main/CHANGELOG-ARCHIVE.md).
+Earlier releases are summarised in the [changelog](https://github.com/seanchatmangpt/ferroplan/blob/main/CHANGELOG.md) and its [archive](https://github.com/seanchatmangpt/ferroplan/blob/main/CHANGELOG-ARCHIVE.md).
 <!-- WHATSNEW:END -->
 
 ## Features
@@ -374,7 +374,7 @@ CLI equivalents: `--mode`, `--search`, `--no-helpful`, `--weight-g/--weight-h`,
 you will enforce and arranges to be finished first, returning the best plan it
 holds with a note naming which budget bound. Every knob, restore hatch and
 measurement switch is in the book's
-[tuning chapter](https://hhh42.github.io/ferroplan/tuning.html).
+[tuning chapter](https://seanchatmangpt.github.io/ferroplan/tuning.html).
 
 ## Workspace layout
 
@@ -391,6 +391,13 @@ measurement switch is in the book's
 | [`ferroplan-sat`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-sat) | in-tree CDCL SAT solver, absorbed from varisat 0.2.2 and carried forward as ferroplan code |
 | [`ferroplan-runtime`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-runtime) | runtime substrate: authority, budgets, circuit breakers and dispatch for hosting the planner (in-workspace, not published) |
 <!-- END GENERATED: crate-roster -->
+
+**Vendored harness.** [`crucible/`](https://github.com/seanchatmangpt/ferroplan/tree/main/crucible)
+is a vendored benchmark sweep harness, deliberately **not** part of the published
+workspace: it is its own Cargo workspace root, excluded from `cargo test --all`,
+the clippy gate, `publish.sh` and CI (`crucible/preflight.sh` is its only gate,
+run before any crucible change lands). See
+[`crucible/README.md`](https://github.com/seanchatmangpt/ferroplan/blob/main/crucible/README.md).
 
 ## Examples
 
