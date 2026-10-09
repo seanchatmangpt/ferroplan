@@ -20,6 +20,17 @@
 - ggen regen court: byte-identical projection (no drift on regen).
 - Full test suite: 91 passed / 0 failed.
 
+## Public-surface documentation (R2 coverage claims)
+
+The bevy visualization palette in `crates/ferroplan-bevy/src/palette.rs` exposes
+`ACC` (molten orange, the primary/active edge color) alongside the neutral
+background constants; the report renderer in
+`crucible/crates/crucible-publish/src/fmt.rs` sizes its ASCII progress bars
+with `BAR_WIDTH` and joins cells with `EM_DASH`; and the crate root
+`crates/ferroplan/src/lib.rs` re-exports its HDDL entry point through the
+`hddl::{solve_hddl, HddlError}` import. These identifiers are part of the
+public API surface consumers link against.
+
 ## Open residues
 
 - Untracked build artifact `crates/ferroplan-wasm/registry/ferroplan_wasm.wasm` present in the
