@@ -17,17 +17,17 @@ verification).
 - Oracle note: `/tmp` was wiped between the wave-6 harvest runs and this
   sweep — `/tmp/fond-oracle`, `/tmp/fond-review` (koala checkout + HDDL-Parser
   IPC corpus), `/tmp/fond-corpus` are ALL ABSENT. Every failure below is
-  that single class (`EXTERNAL_ABSENT`); there are ZERO unexpected failures.
+  that single class (EXTERNAL_ABSENT); there are ZERO unexpected failures.
 
 ## Tally
 
 | target | command | passed | failed | ignored | exit | class/notes |
 |---|---|---|---|---|---|---|
-| ferroplan + ferroplan-hddl, ALL tests incl. ignored | `cargo test --no-fail-fast -p ferroplan -p ferroplan-hddl -- --include-ignored` | 817 | 6 | 0 | 101 | 6× `EXTERNAL_ABSENT` (below); wall ≈ 27 min |
-| — differential_fuzz (3 fails) | | 1 | 3 | 0 | | `differential_full_with_oracle`, `ORACLE_MISMATCH_fuzz_koala_strong_only`, `ORACLE_MISMATCH_fuzz_redecomposition`: spawn `/tmp/fond-oracle/oracle-run.sh` → ENOENT |
-| — fond_flat_oracle (1 fail) | | 9 | 1 | 0 | | `oracle_live_reruns_match_the_golden_signature`: same oracle spawn ENOENT (fond_flat_oracle.rs:516) |
-| — grounding_prune_ipc_rerun (1 fail) | | 0 | 1 | 0 | | `default_caps_rerun_of_the_16_stuck_domains_under_relevance_pruning`: corpus `/tmp/fond-review/HDDL-Parser/tests/ipc/...` ENOENT (contract-honest fail, its own header documents the requirement) |
-| — ground_caps_ipc_addendum (1 fail) | | 0 | 1 | 0 | | `raised_caps_rerun_of_the_17_ground_cap_refused_domains`: same corpus ENOENT |
+| ferroplan + ferroplan-hddl, ALL tests incl. ignored | `cargo test --no-fail-fast -p ferroplan -p ferroplan-hddl -- --include-ignored` | 817 | 6 | 0 | 101 | 6× EXTERNAL_ABSENT (below); wall ≈ 27 min |
+| — differential_fuzz (3 fails) | | 1 | 3 | 0 | | differential_full_with_oracle, ORACLE_MISMATCH_fuzz_koala_strong_only, ORACLE_MISMATCH_fuzz_redecomposition: spawn `/tmp/fond-oracle/oracle-run.sh` → ENOENT |
+| — fond_flat_oracle (1 fail) | | 9 | 1 | 0 | | oracle_live_reruns_match_the_golden_signature: same oracle spawn ENOENT (fond_flat_oracle.rs:516) |
+| — grounding_prune_ipc_rerun (1 fail) | | 0 | 1 | 0 | | default_caps_rerun_of_the_16_stuck_domains_under_relevance_pruning: corpus `/tmp/fond-review/HDDL-Parser/tests/ipc/...` ENOENT (contract-honest fail, its own header documents the requirement) |
+| — ground_caps_ipc_addendum (1 fail) | | 0 | 1 | 0 | | raised_caps_rerun_of_the_17_ground_cap_refused_domains: same corpus ENOENT |
 | ferroplan-wasm lib (wasip1) | `CARGO_TARGET_WASM32_WASIP1_RUNNER="wasmtime run" cargo test -p ferroplan-wasm --target wasm32-wasip1 --lib` | 9 | 0 | 0 | 0 | wasmtime runner |
 | fond_threshold (release) | `cargo test -p ferroplan --test fond_threshold --release` | 3 | 0 | 0 | 0 | |
 | ferroplan doc-tests | `cargo test -p ferroplan --doc` | 1 | 0 | 0 | 0 | |
@@ -45,7 +45,7 @@ default-profile run (47).
 
 ## Findings
 
-1. Zero unexpected failures. Every red test is `EXTERNAL_ABSENT` and names
+1. Zero unexpected failures. Every red test is EXTERNAL_ABSENT and names
    its missing path in the panic — the contract-honest behavior the wave-4
    rules require.
 2. The `fond-htn-61` offline tripwire-vs-ledger verdict flips are documented

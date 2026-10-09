@@ -21,6 +21,10 @@
 
 - crates/ferroplan-bevy/src/anim.rs::start_frac (function)
 
+- crates/ferroplan-bevy/src/blocks.rs::../demo/domain.pddl (str_key)
+
+- crates/ferroplan-bevy/src/blocks.rs::../demo/problem.pddl (str_key)
+
 - crates/ferroplan-bevy/src/blocks.rs::Act (enum)
 
 - crates/ferroplan-bevy/src/blocks.rs::Drag (struct)
@@ -78,10 +82,6 @@
 - crates/ferroplan-bevy/src/icons.rs::color_for (function)
 
 - crates/ferroplan-bevy/src/icons.rs::mat_handle (function)
-
-- crates/ferroplan-bevy/src/icons.rs::mesh_handle (function)
-
-- crates/ferroplan-bevy/src/icons.rs::shape_for (function)
 
 
 ## Steps

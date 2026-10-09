@@ -613,7 +613,7 @@ counted only under 58 s (`satprobe.py`, `tprobe.py`, `tally.txt`):
 | lever | what the probe ran | rows converted |
 |---|---|---:|
 | the PDDL3 route has no first plan | `ff --satisfice` on the rows the optimizer timed out on | **60** (qual 51 → 97 of 100; simple 119 → 130 of 130) |
-| the temporal ladder has no sequential rung | durative → one classical action, plan, lay out end to end (`compress.py`) | **121** (complex-pref 29 → 82; metric-time 44 → 89; time 53 → 76) |
+| the temporal ladder has no sequential rung | durative → one classical action, plan, lay out end to end (compress.py) | **121** (complex-pref 29 → 82; metric-time 44 → 89; time 53 → 76) |
 | the preference tier overruns its own wall | (found while probing) a banked, valid plan returned at 21.94 s of a 20 s wall | folded into the two above |
 
 Six boards, **319 → 500 against SGPlan5's 612**, from levers that are
@@ -1232,7 +1232,7 @@ has priced it yet.
 
 ## THE CUT — 0.28.0 (opened 2026-09-21)
 
-The workspace is at 0.28.0, the `cut28` set is in the manifest (the same 32
+The workspace is at 0.28.0, the cut28 set is in the manifest (the same 32
 boards as cut27, stage `benchmarks/air28`, version gate 0.28), and the release
 text is written: `CHANGELOG.md` [0.28.0], the README's Status line and "What's
 new in 0.28.0", the book's temporal, PDDL3 and tuning chapters.
@@ -1295,7 +1295,7 @@ and one of them was hiding the other.
 | `publish --dry-run -p ferroplan` | fails, as `RELEASING.md` says it must until `ferroplan-sat` 0.28.0 is on the index; `build -p ferroplan -p ferroplan-cli -p ferroplan-mcp` clean |
 | `maturin build --release` (ferroplan-py) | `ferroplan-0.28.0-cp38-abi3-macosx_11_0_arm64.whl`. Local, macOS-ARM: the manylinux x86 wheel that ships is UNVERIFIED until CI builds it |
 | `release-notes-roll.py --check` | clean |
-| `crucible/preflight.sh` | every step clean but `tui --dump`, which reads the OPERATOR's repo (the main checkout) and found no `cut28` there yet. Re-run once that checkout is on this commit |
+| `crucible/preflight.sh` | every step clean but `tui --dump`, which reads the OPERATOR's repo (the main checkout) and found no cut28 there yet. Re-run once that checkout is on this commit |
 
 1. **`opt_wall::opt_ladder_spends_the_wall` was never a load flake.** It
    failed 5 runs in 12 ALONE on an idle box. Its `resume` leg pins the
@@ -1341,7 +1341,7 @@ and one of them was hiding the other.
    the committed `+1.1 pts (vs 0.26.0)`. Regenerating now would publish a table
    of equals signs. In the worktree, where the raws are absent, the test skips
    and `crucible/preflight.sh` is **clean** end to end (it needed the
-   operator's checkout to carry `cut28` first: `tui --dump` reads that
+   operator's checkout to carry cut28 first: `tui --dump` reads that
    manifest, not the worktree's).
 
 **The sweep is running.** Launched 2026-09-21 ~10:50 from the operator's

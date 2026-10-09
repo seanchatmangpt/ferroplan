@@ -29,10 +29,10 @@ no search behavior and no number on this page derives from them.
 
 | corpus | instances | solved (ferroplan) | solved (oracle) | refused-by-limit | gaps | source file |
 |---|---|---|---|---|---|---|
-| HTN differential (IPC-2023 + PANDA + SHOP3) | 21 | 14 | 20 | 4 (`TRANSLATE_ERROR`, 10 s translate wall) | 2 grounder refusals (`GAP:*`) + 1 open verdict | [`crates/ferroplan/tests/fixtures/htn-oracle/RESULTS.md`](../crates/ferroplan/tests/fixtures/htn-oracle/RESULTS.md) |
+| HTN differential (IPC-2023 + PANDA + SHOP3) | 21 | 14 | 20 | 4 (TRANSLATE_ERROR, 10 s translate wall) | 2 grounder refusals (`GAP:*`) + 1 open verdict | [`crates/ferroplan/tests/fixtures/htn-oracle/RESULTS.md`](../crates/ferroplan/tests/fixtures/htn-oracle/RESULTS.md) |
 | IPC-2023 HTN pipeline suite | 13 | 9 | — | 4 (`LIMIT:translate-wall`) | 0 | [`crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md`](../crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md) |
-| FOND-HTN oracle harvest (7 koala domains × 5 + 1 negative case) | 31 | — | 18 | 12 (`TIMEOUT`, 90 s wall) | 1 `UNSUPPORTED` (parse-stage negative case) | [`crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full.json`](../crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full.json) + [summary](../crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full-summary.md) |
-| FOND-HTN golden agreement ledger (micro + external cases) | 10 | 5 | 9 | 3 (ferroplan `error`, resource-limit) | 3 admitted semantic divergences (pinned by tests) | [`crates/ferroplan/tests/fixtures/fond-htn/oracle-goldens.json`](../crates/ferroplan/tests/fixtures/fond-htn/oracle-goldens.json) |
+| FOND-HTN oracle harvest (7 koala domains × 5 + 1 negative case) | 31 | — | 18 | 12 (`TIMEOUT`, 90 s wall) | 1 UNSUPPORTED (parse-stage negative case) | [`crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full.json`](../crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full.json) + [summary](../crates/ferroplan/tests/fixtures/fond-htn/oracle-harvest-full-summary.md) |
+| FOND-HTN golden agreement ledger (micro + external cases) | 10 | 5 | 9 | 3 (ferroplan error, resource-limit) | 3 admitted semantic divergences (pinned by tests) | [`crates/ferroplan/tests/fixtures/fond-htn/oracle-goldens.json`](../crates/ferroplan/tests/fixtures/fond-htn/oracle-goldens.json) |
 | flat-FOND three-way (8 hand-authored domains) | 8 | 7 | 2 | 5 (oracle `TIMEOUT` on cyclic-only — koala-side signature) | 0 (8/8 three-way class agreement) | [`crates/ferroplan/tests/fixtures/fond-flat/oracle-goldens.json`](../crates/ferroplan/tests/fixtures/fond-flat/oracle-goldens.json) + 8 × `verdict.json` |
 | IPC full sweep (wave-4, 43 domains × 1 problem) | 43 | 12 | — | 28 (`LIMIT:*`: 14 ground-actions, 9 translate-wall, 3 ground-methods, 2 solve-wall) | 3 `GAP:ground` (typed validation refusals) | [`crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS.md`](../crates/ferroplan/tests/fixtures/ipc-sweep/RESULTS.md) |
 | Scaling ladder (wave-4, 2 families × 6 rungs) | 12 | 12 | — | 0 — no refusal through n=128 | 0 | [`crates/ferroplan/tests/fixtures/scaling-ladder/RESULTS.md`](../crates/ferroplan/tests/fixtures/scaling-ladder/RESULTS.md) |
@@ -57,9 +57,9 @@ open-verdict class, 6/21 admitted mismatches (each pinned by an
 | outcome | count | instances |
 |---|---|---|
 | SOLVED (both engines) | 14 | Blocksworld-GTOHP, Blocksworld-HPDDL, Depots, Factories-simple, Lamps, Multiarm-Blocksworld, PO_Satellite, Robot, Towers, panda-empty, panda-interleaving, shop3-port-ab-ordering, shop3-port-loan-credit, shop3-port-swap |
-| `TRANSLATE_ERROR` (oracle SOLVED) — `LIMIT:translate` | 4 | PCP_1, PO_Transport, Satellite-GTOHP, Transport |
-| `GROUND_ERROR` (oracle SOLVED) — `GAP:*` | 2 | panda-conditional-effect (`nested 'when' is out of scope`), panda-method-effect (`unbound variable '?x'`) |
-| open verdict (oracle harness ERROR, ferroplan clean `NoPlan`) | 1 | shop3-port-loan-noplan |
+| TRANSLATE_ERROR (oracle SOLVED) — `LIMIT:translate` | 4 | PCP_1, PO_Transport, Satellite-GTOHP, Transport |
+| GROUND_ERROR (oracle SOLVED) — `GAP:*` | 2 | panda-conditional-effect (`nested 'when' is out of scope`), panda-method-effect (`unbound variable '?x'`) |
+| open verdict (oracle harness ERROR, ferroplan clean NoPlan) | 1 | shop3-port-loan-noplan |
 
 Every strict SOLVED agreement was additionally outcome-closure-checked
 against the independently re-derived ground IR. The 4 translate-limit
@@ -121,7 +121,7 @@ This file is a committed fact record; no in-repo test consumes it.
 | Depots | 5 | 2 | 3 | |
 | Rover | 5 | 3 | 2 | |
 | Satellite | 5 | 5 | 0 | all sub-second |
-| AssemblyHierarchical | 1 | — | — | `UNSUPPORTED` — parse-stage negative case: the oracle silently mis-compiles the undeclared `FaultyPort` type (objects dropped, exit 0); the anti-example behind ferroplan's parse-rejection requirement |
+| AssemblyHierarchical | 1 | — | — | UNSUPPORTED — parse-stage negative case: the oracle silently mis-compiles the undeclared FaultyPort type (objects dropped, exit 0); the anti-example behind ferroplan's parse-rejection requirement |
 
 Total: **18 SOLVED / 12 TIMEOUT / 0 NOSOLUTION / 0 PARSE_ERROR /
 1 UNSUPPORTED**. TIMEOUT rows are genuine search exhaustion at the 90 s
@@ -188,7 +188,7 @@ both).
 | coffee | cyclic-only | TIMEOUT / TIMEOUT | SOLVED (strong-cyclic), closure-verified |
 | faults-1bit | strong | SOLVED (~0.1 s) | SOLVED (strong) |
 | boolean-not | strong | SOLVED (~0.1 s) | SOLVED (strong) |
-| river-unsafe | unsolvable | NOSOLUTION (~0.15 s) | typed `NoPlan` |
+| river-unsafe | unsolvable | NOSOLUTION (~0.15 s) | typed NoPlan |
 
 8/8 three-way class agreement. The oracle TIMEOUTs on the five
 cyclic-only domains are the *signature* of a strong-only search facing
@@ -279,7 +279,7 @@ release profile:
 | solve_planning_type_dispatch_tiny_chain (dispatch floor) | 899 ns |
 
 Strong-cyclic walls include the preceding strong-fixpoint NoPlan pass
-(production dispatch is strong first, strong-cyclic on `NoPlan`).
+(production dispatch is strong first, strong-cyclic on NoPlan).
 Structural + wall tripwires pin these shapes in
 [`crates/ferroplan/tests/fond_threshold.rs`](../crates/ferroplan/tests/fond_threshold.rs)
 (release bound 50 ms / dev 1200 ms, both green at the recording commit
@@ -312,7 +312,7 @@ means (and does not mean):
 - **TIMEOUT** — wall clock exhausted while still searching. **Not**
   unsolvability evidence; the run was killed mid-expansion.
 - **PARSE_ERROR** — the input was rejected at the parse stage (loud,
-  typed refusal, no panic). Recorded as `UNSUPPORTED` in the harvest
+  typed refusal, no panic). Recorded as UNSUPPORTED in the harvest
   where the case is a negative-corpus entry rather than a run.
 - **ERROR** — oracle harness/pipeline failure before or outside search
   (e.g. serializer crash). Neither solved nor unsolvable: an *open
@@ -321,8 +321,8 @@ means (and does not mean):
 - **LIMIT:\*** — a typed internal limit refused before a verdict:
   `LIMIT:translate-wall` = the translate phase's own 10 000 ms wall
   (`TranslateLimits::default()`), `LIMIT:translate` (corpus 1's
-  `TRANSLATE_ERROR` rows) = the same limit seen as a typed
-  `TRANSLATE_ERROR`. Honest, loud refusals — not wrong answers.
+  TRANSLATE_ERROR rows) = the same limit seen as a typed
+  TRANSLATE_ERROR. Honest, loud refusals — not wrong answers.
 - **GAP:\*** — a capability gap, honestly refused:
   `GAP:conditional-effects` (action-level nested `when` out of scope),
   `GAP:method-effect-grounding` (zero-action method-`:effect` domains,

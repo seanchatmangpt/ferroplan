@@ -145,7 +145,7 @@ whole thing exists for -- see the closing section.
 
 
 Scoped 2026-08-25. This cycle's headline is not the engine. It is the
-**harness**: `crucible`, a resident Rust program that replaces the sweep
+**harness**: crucible, a resident Rust program that replaces the sweep
 drivers, the runner, the contention watcher and the standings generator with
 one supervised process. Design spec: `crucible-spec.md`. Working plan and
 phase gates: the approved crucible plan.
@@ -230,7 +230,7 @@ Coverage is untouched — every one of these rows is an unsolved row either way 
 so no headline number moves. What moves is the attribution.
 
 **Decision: port the bug, prove the port, then fix it as its own named
-change.** `crucible`'s `classify()` ships with exact equality so byte-parity
+change.** crucible's `classify()` ships with exact equality so byte-parity
 against the oracle is demonstrable; a *separate* commit then widens the match,
 regenerates the goldens, and records the −7 early-exit / +7 mem-cap movement in
 the cut record. `spawn-fail` has the identical exact-equality shape and gets

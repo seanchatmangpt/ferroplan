@@ -48,7 +48,7 @@ the promotion law's line (`test_promotion_law_actually_refuses` passes).
 | CE-GALL-28 | PARTIAL_ALIVE (NO_REPLAY) | CONFIRMED | " |
 | CE-GALL-29 | PARTIAL_ALIVE (NO_REPLAY) | CONFIRMED | " |
 | CE-GALL-30 | PARTIAL_ALIVE (MOCKED) | CONFIRMED | No positive witness by design (refuted claim) |
-| CE-GALL-31 | UNSUPPORTED (DEPENDENCY_MISSING) | CONFIRMED | `verify_chain` genuinely absent repo-wide |
+| CE-GALL-31 | UNSUPPORTED (DEPENDENCY_MISSING) | CONFIRMED | verify_chain genuinely absent repo-wide |
 | CE-GALL-32 | PARTIAL_ALIVE (NO_REPLAY) | CONFIRMED | Named test exists and passes |
 | CE-GALL-33 | PARTIAL_ALIVE (DEPENDENCY_MISSING) | CONFIRMED | Open defect, no falsifier by design |
 | CE-GALL-34 | PARTIAL_ALIVE (NO_REPLAY) | CONFIRMED | Named tests exist and pass |
@@ -113,7 +113,7 @@ is on the table here.
 |---|---|---|
 | Checkpoint 13 → CE-GALL-30 → CE-GALL-38 | **Self-correcting** | CE-GALL-30's hand-fabrication finding sits untouched in the record, where it belongs; CE-GALL-38 calls itself a partial mechanical re-witness straight up, not a fix. Nothing slips back in. |
 | Checkpoint 14/19 → CE-GALL-31 → CE-GALL-39 | **NOT self-correcting** | Checkpoint 14 and Checkpoint 19 both still run their "Required proof" bullets asserting fork detection/refusal, no qualifier, no flinch. The correction lives in a prepended update box — never stitched into the checklist itself. A reader who skips the box and reads only the bullets walks away misled. |
-| Checkpoint 9 → CE-GALL-37 | **NOT self-correcting** | Checkpoint 9's body still calls it "architecturally absent from the MCP tool schema," flat, no hedge. CE-GALL-37 cuts that down — recursive descent exists via `cmca_allocate_recursive`; the actual remaining gap is `bind_allocation_receipt`'s flat `previous_receipt` chaining, nothing broader. No pointer was ever dropped back into Checkpoint 9's text. |
+| Checkpoint 9 → CE-GALL-37 | **NOT self-correcting** | Checkpoint 9's body still calls it "architecturally absent from the MCP tool schema," flat, no hedge. CE-GALL-37 cuts that down — recursive descent exists via cmca_allocate_recursive; the actual remaining gap is bind_allocation_receipt's flat previous_receipt chaining, nothing broader. No pointer was ever dropped back into Checkpoint 9's text. |
 | Checkpoint 20 | **Self-correcting** | The update box already carries the CE-GALL-30 hand-fabrication caveat, in place, no gap. |
 
 **Follow-up candidate (not fixed by this audit):** Checkpoints 9, 14, and
@@ -137,7 +137,7 @@ revision-event label, not a gap in the numbering worth chasing.
   promote a single checkpoint's standing under the promotion law. Call
   it evidence staged for a future replay, not the replay itself.
 - Nothing found here got fixed. The already-known
-  `bind_allocation_receipt` / `cmca_allocate_recursive` schema mismatch
+  bind_allocation_receipt / cmca_allocate_recursive schema mismatch
   surfaced by CE-GALL-40's own receipt stays open, same as the two
   uncorrected-in-place contradiction chains (14/19, 9) above — flagged
   as follow-up candidates, touched by nothing else.

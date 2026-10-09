@@ -2,7 +2,7 @@
 
 ## Summary
 
-ferroplan is a crate with 170 modules and 1134 public items on its code surface.
+ferroplan is a crate with 271 modules and 1709 public items on its code surface.
 
 ## Verified snippet
 

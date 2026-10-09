@@ -58,6 +58,10 @@
 
 | `toggle_editor` | function | toggle_editor( keys: Res<ButtonInput<KeyCode>>, scene: Res<Scene>, mut editor: ResMut<Editor>, ) |  |  |  |  |
 
+| `../demo/domain.pddl` | str_key | DOMAIN = "../demo/domain.pddl" |  |  |  |  |
+
+| `../demo/problem.pddl` | str_key | PROBLEM = "../demo/problem.pddl" |  |  |  |  |
+
 | `Drag` | struct | Drag { held: Option<DragKind>, ghost: Option<Entity> } |  |  |  |  |
 
 | `Editor` | struct | Editor { pub open: bool, pub focus: Option<Focus>, mode: Mode, dirty: bool, status: String, problem_name: String, objects: Vec<(String, String)>, init: Vec<(String, Vec<String>)>, goal: Vec<(String, Vec<String>)>, counters: HashMap<String, u32>, seeded: bool, dname: String, requirements: String, types: Vec<(String, String)>, dpreds: Vec<(String, Vec<String>)>, actions: Vec<EdAction>, dseeded: bool } |  |  |  |  |
@@ -222,6 +226,11 @@
 | `InfoText` | struct |  |  |  |  |  |
 
 
+### crates/ferroplan-bevy/src/webhandoff.rs
+
+| `ferroplan.handoff` | str_key | KEY = "ferroplan.handoff" |  |  |  |  |
+
+
 ### crates/ferroplan-cli/src/generated/options.rs
 
 | `FF_THREADS` | const | FF_THREADS: usize |  |  |  |  |
@@ -333,6 +342,14 @@
 
 | `ReplayState` | enum | ReplayState { NotExecuted, ReplayMatch, ReplayMismatch } |  |  |  |  |
 
+| `ferroplan-harvest-admission/v1` | str_key | ADMISSION_SCHEMA = "ferroplan-harvest-admission/v1" |  |  |  |  |
+
+| `ferroplan-harvest-receipt/v1` | str_key | RECEIPT_SCHEMA = "ferroplan-harvest-receipt/v1" |  |  |  |  |
+
+| `ferroplan-method-catalog/v1` | str_key | CATALOG_SCHEMA = "ferroplan-method-catalog/v1" |  |  |  |  |
+
+| `ferroplan-observation-pack/v1` | str_key | OBSERVATION_SCHEMA = "ferroplan-observation-pack/v1" |  |  |  |  |
+
 | `AdmissionReport` | struct | AdmissionReport { pub schema: String, pub admitted: Vec<AdmittedWork>, pub excluded: Vec<ExcludedWork>, pub unresolved_transport_failures: Vec<TransportFailure> } |  |  |  |  |
 
 | `AdmittedWork` | struct | AdmittedWork { pub identity: String, pub level: AdmissionLevel, pub work: ObservedWorkItem, pub evidence: Vec<EvidenceRef> } |  |  |  |  |
@@ -370,6 +387,11 @@
 | `ValidationRecord` | struct | ValidationRecord { pub command: String, pub result: String, pub detail: Option<String> } |  |  |  |  |
 
 | `ValidationSummary` | struct | ValidationSummary { pub parse_ok: bool, pub parse_error: Option<String>, pub solve_attempted: bool, pub solved: Option<bool>, pub initial_value: Option<f64>, pub policy_valid: Option<bool>, pub policy_errors: Vec<String>, pub records: Vec<ValidationRecord> } |  |  |  |  |
+
+
+### crates/ferroplan-hddl/examples/fixture_f_stats.rs
+
+| `FIXTURE_F_WALL_SECS` | env_key | std::env::var("FIXTURE_F_WALL_SECS") |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/examples/validate_files.rs
@@ -466,6 +488,22 @@
 
 | `index_objects_by_type` | function | index_objects_by_type( domain: &Domain, problem: &Problem, closure: &BTreeMap<String, BTreeSet<String>>, ) -> BTreeMap<String, Vec<String>> |  |  |  |  |
 
+| `../fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/problem.hddl` | str_key | FIXTURE_C_PROBLEM = "../fixtures/c/problem.hddl" |  |  |  |  |
+
+| `../fixtures/d/domain.hddl` | str_key | FIXTURE_D_DOMAIN = "../fixtures/d/domain.hddl" |  |  |  |  |
+
+| `../fixtures/d/problem.hddl` | str_key | FIXTURE_D_PROBLEM = "../fixtures/d/problem.hddl" |  |  |  |  |
+
+| `../fixtures/e/domain.hddl` | str_key | FIXTURE_E_DOMAIN = "../fixtures/e/domain.hddl" |  |  |  |  |
+
+| `../fixtures/e/problem.hddl` | str_key | FIXTURE_E_PROBLEM = "../fixtures/e/problem.hddl" |  |  |  |  |
+
 | `GroundAction` | struct | GroundAction { pub name: String, pub precondition: GroundGoal, pub outcomes: Vec<GroundEffectBranch> } |  |  |  |  |
 
 | `GroundConditional` | struct | GroundConditional { pub pos_cond: BTreeSet<String>, pub neg_cond: BTreeSet<String>, pub add: BTreeSet<String>, pub del: BTreeSet<String> } |  |  |  |  |
@@ -501,6 +539,192 @@
 
 | `parse_problem_with_budget` | function | parse_problem_with_budget(src: &str, max_depth: usize) -> Result<Problem, ParseError> |  |  |  |  |
 
+| `(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (and (p) (oneof (q) (r)))))` | str_key | DOMAIN = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (and (p) (oneof (q) (r)))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (when (r) (p))) (q))))` | str_key | UNDER_AND = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (when (r) (p))) (q))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (when (r) (p)) (q))))` | str_key | DIRECT = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (when (r) (p)) (q))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (when (r) (oneof (p) (q)))))` | str_key | DOMAIN = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (when (r) (oneof (p) (q)))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p) (q))
+          (:action a
+            :parameters ()
+            :precondition (oneof (p) (q))
+            :effect (and (p))))` | str_key | DOMAIN = "(define (domain bad)
+          (:predicates (p) (q))
+          (:action a
+            :parameters ()
+            :precondition (oneof (p) (q))
+            :effect (and (p))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof)))` | str_key | DOMAIN = "(define (domain bad)
+          (:predicates (p))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof)))" |  |  |  |  |
+
+| `(define (domain childsnack-style)
+          (:types child)
+          (:predicates (served ?c - child) (dirty ?c - child))
+          (:action putdown
+            :parameters (?c - child)
+            :precondition ()
+            :effect (oneof
+              (and (served ?c))
+              (and (served ?c) (not (dirty ?c))))))` | str_key | DOMAIN = "(define (domain childsnack-style)
+          (:types child)
+          (:predicates (served ?c - child) (dirty ?c - child))
+          (:action putdown
+            :parameters (?c - child)
+            :precondition ()
+            :effect (oneof
+              (and (served ?c))
+              (and (served ?c) (not (dirty ?c))))))" |  |  |  |  |
+
+| `(define (domain drop-d)
+          (:types loc truck)
+          (:predicates (at ?t - truck ?l - loc))
+          (:action drop
+            :parameters (?t - truck ?from - loc ?to - loc)
+            :precondition (at ?t ?from)
+            :effect (oneof
+              (and (not (at ?t ?from)) (at ?t ?to))
+              ())))` | str_key | DOMAIN = "(define (domain drop-d)
+          (:types loc truck)
+          (:predicates (at ?t - truck ?l - loc))
+          (:action drop
+            :parameters (?t - truck ?from - loc ?to - loc)
+            :precondition (at ?t ?from)
+            :effect (oneof
+              (and (not (at ?t ?from)) (at ?t ?to))
+              ())))" |  |  |  |  |
+
+| `(define (domain one-way)
+          (:predicates (p) (q))
+          (:action once
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (p) (q)))))` | str_key | DOMAIN = "(define (domain one-way)
+          (:predicates (p) (q))
+          (:action once
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (p) (q)))))" |  |  |  |  |
+
+| `(define (domain ordering-operator)
+          (:types loc)
+          (:predicates (at ?l - loc))
+          (:task deliver :parameters (?l - loc))
+          (:method m-deliver
+            :parameters (?l - loc)
+            :task (deliver ?l)
+            :subtasks (and
+              (t1 (deliver ?l))
+              (t2 (deliver ?l))
+              (t3 (deliver ?l)))
+            :ordering (and
+              (< t1 t2)
+              (t2 < t3))))` | str_key | DOMAIN = "(define (domain ordering-operator)
+          (:types loc)
+          (:predicates (at ?l - loc))
+          (:task deliver :parameters (?l - loc))
+          (:method m-deliver
+            :parameters (?l - loc)
+            :task (deliver ?l)
+            :subtasks (and
+              (t1 (deliver ?l))
+              (t2 (deliver ?l))
+              (t3 (deliver ?l)))
+            :ordering (and
+              (< t1 t2)
+              (t2 < t3))))" |  |  |  |  |
+
+| `(define (domain temporal-d)
+  (:durative-action fly
+    :parameters (?a ?b)
+    :duration (= ?duration 10)
+    :condition (at start (at ?a))
+    :effect (at end (at ?b))))` | str_key | DOMAIN = "(define (domain temporal-d)
+  (:durative-action fly
+    :parameters (?a ?b)
+    :duration (= ?duration 10)
+    :condition (at start (at ?a))
+    :effect (at end (at ?b))))" |  |  |  |  |
+
+| `(define (domain three-way)
+          (:predicates (p) (q) (r))
+          (:action tri
+            :parameters ()
+            :precondition ()
+            :effect (oneof (p) (q) (r))))` | str_key | DOMAIN = "(define (domain three-way)
+          (:predicates (p) (q) (r))
+          (:action tri
+            :parameters ()
+            :precondition ()
+            :effect (oneof (p) (q) (r))))" |  |  |  |  |
+
+| `../fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../fixtures/b/domain.hddl` | str_key | FIXTURE_B_DOMAIN = "../fixtures/b/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/e/domain.hddl` | str_key | FIXTURE_E_DOMAIN = "../fixtures/e/domain.hddl" |  |  |  |  |
+
+| `../fixtures/f/domain.hddl` | str_key | FIXTURE_F_DOMAIN = "../fixtures/f/domain.hddl" |  |  |  |  |
+
+| `../fixtures/f/problem.hddl` | str_key | FIXTURE_F_PROBLEM = "../fixtures/f/problem.hddl" |  |  |  |  |
+
 
 ### crates/ferroplan-hddl/src/probabilistic.rs
 
@@ -514,6 +738,380 @@
 | `TranslateError` | enum | TranslateError { UnsupportedNegativeGoal, UnsupportedGoalConnective(String), MalformedTermEquality { found: usize, }, UnboundVariable(String), TaskNetworkDepthExceeded { addr: String, limit: usize, }, Timeout { elapsed_ms: u128, limit_ms: u128, }, MemoryLimitExceeded { states: usize, limit: usize, }, Ground(GroundError) } |  |  |  |  |
 
 | `translate` | function | translate( ir: &GroundedIR, limits: &TranslateLimits, ) -> Result<PlanningProblem, TranslateError> |  |  |  |  |
+
+| `(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))` | str_key | DOMAIN = "(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))" |  |  |  |  |
+
+| `(define (domain eq-gate)
+  (:requirements :typing :equality :method-preconditions)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action mark-p :parameters () :precondition () :effect (p))
+  (:action mark-q :parameters () :precondition () :effect (q))
+  (:method m-eq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (= ?x a)
+    :ordered-subtasks (and (t1 (mark-p))))
+  (:method m-neq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (not (= ?x a))
+    :ordered-subtasks (and (t1 (mark-q)))))` | str_key | DOMAIN = "(define (domain eq-gate)
+  (:requirements :typing :equality :method-preconditions)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action mark-p :parameters () :precondition () :effect (p))
+  (:action mark-q :parameters () :precondition () :effect (q))
+  (:method m-eq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (= ?x a)
+    :ordered-subtasks (and (t1 (mark-p))))
+  (:method m-neq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (not (= ?x a))
+    :ordered-subtasks (and (t1 (mark-q)))))" |  |  |  |  |
+
+| `(define (domain eq-goal)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p))
+  (:task go :parameters ())
+  (:method m-go
+    :task (go)
+    :ordered-subtasks ()))` | str_key | DOMAIN = "(define (domain eq-goal)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p))
+  (:task go :parameters ())
+  (:method m-go
+    :task (go)
+    :ordered-subtasks ()))" |  |  |  |  |
+
+| `(define (domain eq-when)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action probe :parameters (?x - loc)
+    :precondition ()
+    :effect (and
+      (when (= ?x a) (and (not (q)) (p)))
+      (when (not (= ?x a)) (and (not (p)) (q)))))
+  (:method m-go
+    :parameters (?x - loc)
+    :task (go ?x)
+    :ordered-subtasks (and (t1 (probe ?x)))))` | str_key | DOMAIN = "(define (domain eq-when)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action probe :parameters (?x - loc)
+    :precondition ()
+    :effect (and
+      (when (= ?x a) (and (not (q)) (p)))
+      (when (not (= ?x a)) (and (not (p)) (q)))))
+  (:method m-go
+    :parameters (?x - loc)
+    :task (go ?x)
+    :ordered-subtasks (and (t1 (probe ?x)))))" |  |  |  |  |
+
+| `(define (domain gated-tri)
+  (:predicates (ready) (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition (ready)
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))` | str_key | DOMAIN = "(define (domain gated-tri)
+  (:predicates (ready) (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition (ready)
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))" |  |  |  |  |
+
+| `(define (domain method-precond-g)
+  (:predicates (ready) (done-a) (done-b))
+  (:task run :parameters ())
+  (:method use-a
+    :parameters ()
+    :task (run)
+    :precondition (ready)
+    :ordered-subtasks (mark-a))
+  (:method use-b
+    :parameters ()
+    :task (run)
+    :precondition (not (ready))
+    :ordered-subtasks (mark-b))
+  (:action mark-a
+    :effect (done-a))
+  (:action mark-b
+    :effect (done-b)))` | str_key | DOMAIN = "(define (domain method-precond-g)
+  (:predicates (ready) (done-a) (done-b))
+  (:task run :parameters ())
+  (:method use-a
+    :parameters ()
+    :task (run)
+    :precondition (ready)
+    :ordered-subtasks (mark-a))
+  (:method use-b
+    :parameters ()
+    :task (run)
+    :precondition (not (ready))
+    :ordered-subtasks (mark-b))
+  (:action mark-a
+    :effect (done-a))
+  (:action mark-b
+    :effect (done-b)))" |  |  |  |  |
+
+| `(define (domain noop-then-move)
+  (:predicates (at-a) (at-b))
+  (:task go :parameters ())
+  (:action pause
+    :parameters ()
+    :precondition ()
+    :effect (and))
+  (:action move
+    :parameters ()
+    :precondition (at-a)
+    :effect (and (not (at-a)) (at-b)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (pause)) (t2 (move)))))` | str_key | DOMAIN = "(define (domain noop-then-move)
+  (:predicates (at-a) (at-b))
+  (:task go :parameters ())
+  (:action pause
+    :parameters ()
+    :precondition ()
+    :effect (and))
+  (:action move
+    :parameters ()
+    :precondition (at-a)
+    :effect (and (not (at-a)) (at-b)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (pause)) (t2 (move)))))" |  |  |  |  |
+
+| `(define (domain shortcut-g)
+  (:types loc)
+  (:predicates (at ?l - loc) (cheated))
+  (:task run :parameters ())
+  (:action drive
+    :parameters (?a - loc ?b - loc)
+    :precondition (at ?a)
+    :effect (and (not (at ?a)) (at ?b)))
+  (:action special-action
+    :parameters (?a - loc)
+    :precondition (at ?a)
+    :effect (and (cheated)))
+  (:method m-run
+    :parameters ()
+    :task (run)
+    :ordered-subtasks (and (t1 (drive l1 l2)))))` | str_key | DOMAIN = "(define (domain shortcut-g)
+  (:types loc)
+  (:predicates (at ?l - loc) (cheated))
+  (:task run :parameters ())
+  (:action drive
+    :parameters (?a - loc ?b - loc)
+    :precondition (at ?a)
+    :effect (and (not (at ?a)) (at ?b)))
+  (:action special-action
+    :parameters (?a - loc)
+    :precondition (at ?a)
+    :effect (and (cheated)))
+  (:method m-run
+    :parameters ()
+    :task (run)
+    :ordered-subtasks (and (t1 (drive l1 l2)))))" |  |  |  |  |
+
+| `(define (domain three-way)
+  (:predicates (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition ()
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))` | str_key | DOMAIN = "(define (domain three-way)
+  (:predicates (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition ()
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))" |  |  |  |  |
+
+| `(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem eq-when-p)
+  (:domain eq-when)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go a)) (g2 (go b))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem eq-when-p)
+  (:domain eq-when)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go a)) (g2 (go b))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem gated-tri-p1)
+  (:domain gated-tri)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem gated-tri-p1)
+  (:domain gated-tri)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem method-precond-g-p1)
+  (:domain method-precond-g)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (run))))
+  (:init (ready))
+  (:goal (and (done-a))))` | str_key | PROBLEM = "(define (problem method-precond-g-p1)
+  (:domain method-precond-g)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (run))))
+  (:init (ready))
+  (:goal (and (done-a))))" |  |  |  |  |
+
+| `(define (problem noop-then-move-p1)
+  (:domain noop-then-move)
+  (:objects)
+  (:init (at-a))
+  (:goal (at-b))
+  (:htn :ordered-subtasks (and (g1 (go)))))` | str_key | PROBLEM = "(define (problem noop-then-move-p1)
+  (:domain noop-then-move)
+  (:objects)
+  (:init (at-a))
+  (:goal (at-b))
+  (:htn :ordered-subtasks (and (g1 (go)))))" |  |  |  |  |
+
+| `(define (problem shortcut-g-p1)
+  (:domain shortcut-g)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (run))))
+  (:init (at l1))
+  (:goal (and (cheated))))` | str_key | PROBLEM = "(define (problem shortcut-g-p1)
+  (:domain shortcut-g)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (run))))
+  (:init (at l1))
+  (:goal (and (cheated))))" |  |  |  |  |
+
+| `(define (problem three-way-p1)
+  (:domain three-way)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem three-way-p1)
+  (:domain three-way)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem transport-a-p1-neg)
+  (:domain transport-a)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (and (at l2) (not (has-package)))))` | str_key | PROBLEM = "(define (problem transport-a-p1-neg)
+  (:domain transport-a)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (and (at l2) (not (has-package)))))" |  |  |  |  |
+
+| `(define (problem transport-a-p1-or)
+  (:domain transport-a)
+  (:objects l1 l2 l3 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (or (at l2) (at l3))))` | str_key | PROBLEM = "(define (problem transport-a-p1-or)
+  (:domain transport-a)
+  (:objects l1 l2 l3 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (or (at l2) (at l3))))" |  |  |  |  |
+
+| `../fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/problem.hddl` | str_key | FIXTURE_C_PROBLEM = "../fixtures/c/problem.hddl" |  |  |  |  |
+
+| `../fixtures/e/domain.hddl` | str_key | FIXTURE_E_DOMAIN = "../fixtures/e/domain.hddl" |  |  |  |  |
+
+| `../fixtures/e/problem.hddl` | str_key | FIXTURE_E_PROBLEM = "../fixtures/e/problem.hddl" |  |  |  |  |
+
+| `../fixtures/f/domain.hddl` | str_key | FIXTURE_F_DOMAIN = "../fixtures/f/domain.hddl" |  |  |  |  |
+
+| `../fixtures/f/problem.hddl` | str_key | FIXTURE_F_PROBLEM = "../fixtures/f/problem.hddl" |  |  |  |  |
 
 | `Goal` | struct | Goal { pub facts: BTreeSet<String> } |  |  |  |  |
 
@@ -546,6 +1144,149 @@
 
 | `validate_problem_with_warnings` | function | validate_problem_with_warnings( domain: &Domain, problem: &Problem, ) -> Result<Vec<ValidationWarning>, ValidationError> |  |  |  |  |
 
+| `../fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../fixtures/b/domain.hddl` | str_key | FIXTURE_B_DOMAIN = "../fixtures/b/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/d/domain.hddl` | str_key | FIXTURE_D_DOMAIN = "../fixtures/d/domain.hddl" |  |  |  |  |
+
+| `../fixtures/f/domain.hddl` | str_key | FIXTURE_F_DOMAIN = "../fixtures/f/domain.hddl" |  |  |  |  |
+
+| `../fixtures/g/domain.hddl` | str_key | FIXTURE_G_DOMAIN = "../fixtures/g/domain.hddl" |  |  |  |  |
+
+| `../fixtures/g/problem.hddl` | str_key | FIXTURE_G_PROBLEM = "../fixtures/g/problem.hddl" |  |  |  |  |
+
+
+### crates/ferroplan-hddl/tests/solve_x.rs
+
+| `CARGO_MANIFEST_DIR` | str_key | DOMAIN_PATH = "CARGO_MANIFEST_DIR" |  |  |  |  |
+
+| `preserve` | str_key | ORDER = "preserve" |  |  |  |  |
+
+
+### crates/ferroplan-hddl/tests/validate_files.rs
+
+| `../fixtures/c/domain.hddl` | str_key | C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/problem.hddl` | str_key | C_PROBLEM = "../fixtures/c/problem.hddl" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/src/admission.rs
+
+| `canonical_digest` | str_key | RESOURCE_TOOLS = "canonical_digest" |  |  |  |  |
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
+| `urn:chatman:claude-code-admission:v1` | str_key | RECEIPT_DOMAIN = "urn:chatman:claude-code-admission:v1" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/src/experience.rs
+
+| `dx_manifest` | str_key | RESOURCE_TOOLS = "dx_manifest" |  |  |  |  |
+
+| `plugins/chatman-ecosystem/ontology/ferroplan-experience.ttl` | str_key | ONTOLOGY_SOURCE = "plugins/chatman-ecosystem/ontology/ferroplan-experience.ttl" |  |  |  |  |
+
+| `solve` | str_key | CAPABILITIES = "solve" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/src/generated/tool_ontology.rs
+
+| `Applies fact and/or fluent observations to a session's belief (via Session::observe for facts, Session::set_fluent per changed fluent), bumping epoch if anything surprised, and reports whether the currently-stored plan is still valid from the current cursor. Fluent comparison against the prior value is an exact to_bits() equality check, not epsilon-tolerant.` | str_key | OBSERVE_ONTOLOGY = "Applies fact and/or fluent observations to a session's belief (via Session::observe for facts, Session::set_fluent per changed fluent), bumping epoch if anything surprised, and reports whether the currently-stored plan is still valid from the current cursor. Fluent comparison against the prior value is an exact to_bits() equality check, not epsilon-tolerant." |  |  |  |  |
+
+| `Apply a bounded heterogeneous session transaction on a staged fork and commit exactly once, or refuse without partial mutation.` | str_key | QOL_BATCH_ONTOLOGY = "Apply a bounded heterogeneous session transaction on a staged fork and commit exactly once, or refuse without partial mutation." |  |  |  |  |
+
+| `Atomically manufacture a ready persistent planning mind from domain, problem, goal, authority scope, and bounded search settings.` | str_key | WIZARD_BOOTSTRAP_ONTOLOGY = "Atomically manufacture a ready persistent planning mind from domain, problem, goal, authority scope, and bounded search settings." |  |  |  |  |
+
+| `Classify a tool or protocol failure into a typed cause with bounded confidence, corrective actions, and refusal-preserving recovery guidance.` | str_key | DOCTOR_EXPLAIN_ONTOLOGY = "Classify a tool or protocol failure into a typed cause with bounded confidence, corrective actions, and refusal-preserving recovery guidance." |  |  |  |  |
+
+| `Compile a high-level operator intent into an ordered, inspectable Ferroplan tool recipe with preflight, rollback, and receipt checkpoints.` | str_key | WIZARD_RECIPE_ONTOLOGY = "Compile a high-level operator intent into an ordered, inspectable Ferroplan tool recipe with preflight, rollback, and receipt checkpoints." |  |  |  |  |
+
+| `Diagnose global or per-session health, assign typed findings, calculate standing, and emit executable remediation hints without mutating state.` | str_key | DOCTOR_SCAN_ONTOLOGY = "Diagnose global or per-session health, assign typed findings, calculate standing, and emit executable remediation hints without mutating state." |  |  |  |  |
+
+| `Enumerate a bounded combinatorial capability lattice, minimal reachability depths, dependency edges, blocked frontiers, and theoretical composition capacity.` | str_key | VISION_LATTICE_ONTOLOGY = "Enumerate a bounded combinatorial capability lattice, minimal reachability depths, dependency edges, blocked frontiers, and theoretical composition capacity." |  |  |  |  |
+
+| `Gall Checkpoint 9 (Recursive Multifractal Allocation): runs cmca_allocate's exact admission law at a root frontier, then descends into zero or more selected admitted nodes, each with a fresh local N=8/F=10 frontier, chaining every depth's payload_digest into the next depth's envelope server-side (never caller-supplied/trusted). Refuses the whole call -- no partial chain -- on: selected_parent_node naming an id that was not an admitted candidate at the immediately preceding depth (ParentNodeUnknown-shaped refusal); selected_parent_node repeating an id already used to enter an earlier depth on the same chain (cyclic-ancestry refusal); or any depth's own admission failing cmca_allocate's underlying candidate/forest/factor law. Same-input calls are byte-identical (deterministic replay) since every depth is a pure function of its own input plus the previous depth's real digest.` | str_key | CMCA_RECURSIVE_ONTOLOGY = "Gall Checkpoint 9 (Recursive Multifractal Allocation): runs cmca_allocate's exact admission law at a root frontier, then descends into zero or more selected admitted nodes, each with a fresh local N=8/F=10 frontier, chaining every depth's payload_digest into the next depth's envelope server-side (never caller-supplied/trusted). Refuses the whole call -- no partial chain -- on: selected_parent_node naming an id that was not an admitted candidate at the immediately preceding depth (ParentNodeUnknown-shaped refusal); selected_parent_node repeating an id already used to enter an earlier depth on the same chain (cyclic-ancestry refusal); or any depth's own admission failing cmca_allocate's underlying candidate/forest/factor law. Same-input calls are byte-identical (deterministic replay) since every depth is a pure function of its own input plus the previous depth's real digest." |  |  |  |  |
+
+| `Inferred: a validation tool beyond plain syntax parsing — most plausibly checking a domain+problem pair grounds successfully (i.e. exercising ferroplan::api's grounding path without necessarily searching for a full plan), used as a pre-flight check before an expensive solve/decompose call. No struct named Validate*/ValidationReport was present in the extracted api.rs public-surface listing, so this tool's exact backing type and field schema is UNVERIFIED against the source excerpts available to this ontology; modeled at the tool-name/purpose level only.` | str_key | VALIDATE_ONTOLOGY = "Inferred: a validation tool beyond plain syntax parsing — most plausibly checking a domain+problem pair grounds successfully (i.e. exercising ferroplan::api's grounding path without necessarily searching for a full plan), used as a pre-flight check before an expensive solve/decompose call. No struct named Validate*/ValidationReport was present in the extracted api.rs public-surface listing, so this tool's exact backing type and field schema is UNVERIFIED against the source excerpts available to this ontology; modeled at the tool-name/purpose level only." |  |  |  |  |
+
+| `Inferred: binds a CMCA/BCINR allocation payload (such as cmca_allocate's output) into a chained receipt, analogous in spirit to the session tools' chain_receipt over SESSION_RECEIPT_DOMAIN, but scoped to allocation payloads rather than session events. Exact input/output field schema not captured at fine grain in the extraction available.` | str_key | BIND_ALLOC_ONTOLOGY = "Inferred: binds a CMCA/BCINR allocation payload (such as cmca_allocate's output) into a chained receipt, analogous in spirit to the session tools' chain_receipt over SESSION_RECEIPT_DOMAIN, but scoped to allocation payloads rather than session events. Exact input/output field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Inferred: binds a ferroplan Plan/Solution payload into a chained receipt, so a downstream actuation broker (per chatman-ecosystem.ttl's ce:BRCE) can require ce:requiresReceipt before treating a candidate plan as admissible. Exact input/output field schema not captured at fine grain in the extraction available.` | str_key | BIND_PLAN_ONTOLOGY = "Inferred: binds a ferroplan Plan/Solution payload into a chained receipt, so a downstream actuation broker (per chatman-ecosystem.ttl's ce:BRCE) can require ce:requiresReceipt before treating a candidate plan as admissible. Exact input/output field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Inferred: computes a canonical (deterministic-serialization) blake3 digest over an arbitrary JSON payload, for use as a stable content-identity input to receipt chaining elsewhere. Exact input/output field schema not captured at fine grain in the extraction available; documented at the tool-name/purpose level only.` | str_key | DIGEST_ONTOLOGY = "Inferred: computes a canonical (deterministic-serialization) blake3 digest over an arbitrary JSON payload, for use as a stable content-identity input to receipt chaining elsewhere. Exact input/output field schema not captured at fine grain in the extraction available; documented at the tool-name/purpose level only." |  |  |  |  |
+
+| `Inferred: verifies a previously-bound receipt (allocation or plan) against its claimed chain head / digest, returning whether the chain is intact. Exact input/output field schema not captured at fine grain in the extraction available.` | str_key | VERIFY_ONTOLOGY = "Inferred: verifies a previously-bound receipt (allocation or plan) against its claimed chain head / digest, returning whether the chain is intact. Exact input/output field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Manufacture a deterministic transport-neutral BLAKE3 integrity envelope with correlation, causation, idempotency, predecessor, and expiry fields; it performs no network operation.` | str_key | TELCO_ENVELOPE_ONTOLOGY = "Manufacture a deterministic transport-neutral BLAKE3 integrity envelope with correlation, causation, idempotency, predecessor, and expiry fields; it performs no network operation." |  |  |  |  |
+
+| `Moves the session's cursor forward by completed_steps against the stored last_plan's length; errors if that would run past the plan's end. Advancing the cursor does not itself apply any world effects — effects still enter belief only via session_observe (or set_fact/elapse on the underlying Session), per the source comment at line 5 and the tool description at line 288.` | str_key | ADVANCE_ONTOLOGY = "Moves the session's cursor forward by completed_steps against the stored last_plan's length; errors if that would run past the plan's end. Advancing the cursor does not itself apply any world effects — effects still enter belief only via session_observe (or set_fact/elapse on the underlying Session), per the source comment at line 5 and the tool description at line 288." |  |  |  |  |
+
+| `Opens (grounds) a new Session under session_id and stores it server-side, chaining an 'opened' receipt. Rejects if the session_id already exists unless replace is true. Rejects non-canonical session_ids (must be alphanumeric/-/_/./:).` | str_key | OPEN_ONTOLOGY = "Opens (grounds) a new Session under session_id and stores it server-side, chaining an 'opened' receipt. Rejects if the session_id already exists unless replace is true. Rejects non-canonical session_ids (must be alphanumeric/-/_/./:)." |  |  |  |  |
+
+| `Read session state, selected facts and fluents, plan standing, diagnostics, memory, lineage, and recent history in one round trip.` | str_key | QOL_SNAPSHOT_ONTOLOGY = "Read session state, selected facts and fluents, plan standing, diagnostics, memory, lineage, and recent history in one round trip." |  |  |  |  |
+
+| `Read-only status snapshot of a session — no receipt is chained (nothing mutated).` | str_key | STATUS_ONTOLOGY = "Read-only status snapshot of a session — no receipt is chained (nothing mutated)." |  |  |  |  |
+
+| `Removes the session from server state (frees its grounded world if no other session shares it). No receipt chaining; no error if the session_id doesn't exist.` | str_key | CLOSE_ONTOLOGY = "Removes the session from server state (frees its grounded world if no other session shares it). No receipt chaining; no error if the session_id doesn't exist." |  |  |  |  |
+
+| `Retargets a session's goal via Session::set_goal, resets cursor to 0, and bumps epoch. remaining_plan_valid in the response checks plan_still_valid(last_plan, 0) — against the just-reset cursor, not whatever cursor held before the call.` | str_key | SET_GOAL_ONTOLOGY = "Retargets a session's goal via Session::set_goal, resets cursor to 0, and bumps epoch. remaining_plan_valid in the response checks plan_still_valid(last_plan, 0) — against the just-reset cursor, not whatever cursor held before the call." |  |  |  |  |
+
+| `Return the complete self-describing Ferroplan capability manifest, including authority categories, contracts, effects, reversibility, receipt behavior, and composition examples.` | str_key | DX_MANIFEST_ONTOLOGY = "Return the complete self-describing Ferroplan capability manifest, including authority categories, contracts, effects, reversibility, receipt behavior, and composition examples." |  |  |  |  |
+
+| `Runs the bcinr_cmca (Chatman Multifractal Cascade Allocator) fixed-size allocation over exactly N=8 candidates, validating each candidate's id (non-empty, unique), parent (forest structure: exactly one root, no cycles), fixed-point factors (F entries, finite, in [0, u32::MAX/65536]), and cost. Note: this tool is CMCA/BCINR allocation surface bundled onto the session server, not itself a Session operation — it is the only tool here with no session_id and no receipt chaining on the ManagedSession scheme (it returns a self-contained payload_digest instead).` | str_key | CMCA_ONTOLOGY = "Runs the bcinr_cmca (Chatman Multifractal Cascade Allocator) fixed-size allocation over exactly N=8 candidates, validating each candidate's id (non-empty, unique), parent (forest structure: exactly one root, no cycles), fixed-point factors (F entries, finite, in [0, u32::MAX/65536]), and cost. Note: this tool is CMCA/BCINR allocation surface bundled onto the session server, not itself a Session operation — it is the only tool here with no session_id and no receipt chaining on the ManagedSession scheme (it returns a self-contained payload_digest instead)." |  |  |  |  |
+
+| `Search the bounded capability graph for a minimal deterministic tool sequence from admitted starting atoms to requested outcome atoms.` | str_key | DX_COMPOSE_ONTOLOGY = "Search the bounded capability graph for a minimal deterministic tool sequence from admitted starting atoms to requested outcome atoms." |  |  |  |  |
+
+| `The think step: if the stored last_plan is still valid from the current cursor, short-circuits to a 'follow' decision (searched:false) without invoking any planner, regardless of prefer_follow. Otherwise searches: prefer_follow only changes behavior when a (now-invalid) prior plan exists — then it chooses between Session::replan_following (bias toward the prior plan's structure) and Session::replan_budgeted (from-scratch bounded search); with no prior plan at all it always uses replan_budgeted regardless of prefer_follow. Cursor is always reset to 0 after any search path (both branches). decision is 'replan' if solved else 'bounded-refusal'.` | str_key | THINK_ONTOLOGY = "The think step: if the stored last_plan is still valid from the current cursor, short-circuits to a 'follow' decision (searched:false) without invoking any planner, regardless of prefer_follow. Otherwise searches: prefer_follow only changes behavior when a (now-invalid) prior plan exists — then it chooses between Session::replan_following (bias toward the prior plan's structure) and Session::replan_budgeted (from-scratch bounded search); with no prior plan at all it always uses replan_budgeted regardless of prefer_follow. Cursor is always reset to 0 after any search path (both branches). decision is 'replan' if solved else 'bounded-refusal'." |  |  |  |  |
+
+| `Verify a transport envelope's schema, payload identity, envelope identity, routing expectations, predecessor, and expiry without treating integrity as authentication.` | str_key | TELCO_VERIFY_ONTOLOGY = "Verify a transport envelope's schema, payload identity, envelope identity, routing expectations, predecessor, and expiry without treating integrity as authentication." |  |  |  |  |
+
+| `Wraps ferroplan::api::decompose(domain_src, problem_src, opts) -> Result<Decomposition, SolveError>: decomposes a temporal goal into solvable contracts, solves and stitches them, and returns the inspectable fp:Decomposition. Inferred: MCP wrapper's exact JSON field schema not captured at fine grain in the extraction available.` | str_key | DECOMPOSE_ONTOLOGY = "Wraps ferroplan::api::decompose(domain_src, problem_src, opts) -> Result<Decomposition, SolveError>: decomposes a temporal goal into solvable contracts, solves and stitches them, and returns the inspectable fp:Decomposition. Inferred: MCP wrapper's exact JSON field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Wraps ferroplan::api::parse(src) -> ParseReport: validates PDDL syntax and returns a structure summary without grounding or solving, auto-detecting domain vs problem. Inferred: MCP wrapper's exact JSON field schema not captured at fine grain in the extraction available.` | str_key | PARSE_ONTOLOGY = "Wraps ferroplan::api::parse(src) -> ParseReport: validates PDDL syntax and returns a structure summary without grounding or solving, auto-detecting domain vs problem. Inferred: MCP wrapper's exact JSON field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Wraps ferroplan::api::solve(domain_src, problem_src, opts) -> Result<Solution, SolveError>: parses domain+problem PDDL, grounds, and searches for a plan under the given fp:Options, returning the fp:Solution shape. Inferred: field-by-field JSON request/response schema for the MCP wrapper itself (as opposed to the underlying api::solve signature, which is documented in api.rs) was not captured at fine grain in the extraction available.` | str_key | SOLVE_ONTOLOGY = "Wraps ferroplan::api::solve(domain_src, problem_src, opts) -> Result<Solution, SolveError>: parses domain+problem PDDL, grounds, and searches for a plan under the given fp:Options, returning the fp:Solution shape. Inferred: field-by-field JSON request/response schema for the MCP wrapper itself (as opposed to the underlying api::solve signature, which is documented in api.rs) was not captured at fine grain in the extraction available." |  |  |  |  |
+
+
+### crates/ferroplan-mcp/src/main.rs
+
+| `solve` | str_key | MAIN_RESOURCE_TOOLS = "solve" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/src/mcp_plus_ready.rs
+
+| `ferroplan-mcp-plus/1.0` | str_key | PROFILE = "ferroplan-mcp-plus/1.0" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/src/session.rs
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
+| `session_open` | str_key | RESOURCE_TOOLS = "session_open" |  |  |  |  |
+
+| `urn:chatman:ferroplan-session-chain:v1` | str_key | SESSION_RECEIPT_DOMAIN = "urn:chatman:ferroplan-session-chain:v1" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/src/session_control.rs
+
+| `domain_digest` | str_key | KEYS = "domain_digest" |  |  |  |  |
+
+| `session_list` | str_key | RESOURCE_TOOLS = "session_list" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/admission_protocol.rs
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/checkpoint8_refusals.rs
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
 
 ### crates/ferroplan-mcp/tests/common/mod.rs
 
@@ -567,7 +1308,127 @@
 
 | `start` | function | start() -> Client |  |  |  |  |
 
+| `(define (domain d) (:requirements :strips) (:predicates (p) (q) (r)) ` | str_key | DOM = "(define (domain d) (:requirements :strips) (:predicates (p) (q) (r)) " |  |  |  |  |
+
+| `(define (problem pr) (:domain d) (:init (p)) (:goal (r)))` | str_key | PROB = "(define (problem pr) (:domain d) (:init (p)) (:goal (r)))" |  |  |  |  |
+
 | `Client` | struct | Client { child: Child, stdin: Option<ChildStdin>, stdout: BufReader<ChildStdout>, next_id: i64 } |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/dogfood_chain.rs
+
+| `(define (domain loc) (:requirements :strips) ` | str_key | DOM = "(define (domain loc) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem locp) (:domain loc) (:init (at-a)) (:goal (at-c)))` | str_key | PROB = "(define (problem locp) (:domain loc) (:init (at-a)) (:goal (at-c)))" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/mcp_ontology_drift.rs
+
+| `../../plugins/chatman-ecosystem/ontology/ferroplan-domain.ttl` | str_key | ONTOLOGIES = "../../plugins/chatman-ecosystem/ontology/ferroplan-domain.ttl" |  |  |  |  |
+
+| `solve` | str_key | MAIN_STRUCTS = "solve" |  |  |  |  |
+
+| `src/generated/tool_ontology.rs` | str_key | GENERATED_REL = "src/generated/tool_ontology.rs" |  |  |  |  |
+
+| `src/main.rs` | str_key | ROUTER_SOURCES = "src/main.rs" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/merged_server.rs
+
+| `solve` | str_key | ALL_42_TOOLS = "solve" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/recursive_admission_protocol.rs
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/session.rs
+
+| `
+(define (domain farm) (:requirements :strips :typing :numeric-fluents)
+  (:types agent place)
+  (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+  (:functions (grain))
+  (:action walk :parameters (?a - agent ?from ?to - place)
+    :precondition (and (at ?a ?from) (road ?from ?to))
+    :effect (and (not (at ?a ?from)) (at ?a ?to)))
+  (:action harvest :parameters (?a - agent ?p - place)
+    :precondition (and (at ?a ?p) (fertile ?p))
+    :effect (increase (grain) 1)))` | str_key | FARM_DOM = "
+(define (domain farm) (:requirements :strips :typing :numeric-fluents)
+  (:types agent place)
+  (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+  (:functions (grain))
+  (:action walk :parameters (?a - agent ?from ?to - place)
+    :precondition (and (at ?a ?from) (road ?from ?to))
+    :effect (and (not (at ?a ?from)) (at ?a ?to)))
+  (:action harvest :parameters (?a - agent ?p - place)
+    :precondition (and (at ?a ?p) (fertile ?p))
+    :effect (increase (grain) 1)))" |  |  |  |  |
+
+| `
+(define (domain rollers) (:requirements :strips :typing)
+  (:types ball room)
+  (:predicates (at ?b - ball ?r - room) (link ?x ?y - room)
+               (goal-room ?r - room) (home ?b - ball))
+  (:action roll :parameters (?b - ball ?from ?to - room)
+    :precondition (and (at ?b ?from) (link ?from ?to))
+    :effect (and (not (at ?b ?from)) (at ?b ?to)))
+  (:action park :parameters (?b - ball ?r - room)
+    :precondition (and (at ?b ?r) (goal-room ?r))
+    :effect (home ?b)))` | str_key | ORB_DOM = "
+(define (domain rollers) (:requirements :strips :typing)
+  (:types ball room)
+  (:predicates (at ?b - ball ?r - room) (link ?x ?y - room)
+               (goal-room ?r - room) (home ?b - ball))
+  (:action roll :parameters (?b - ball ?from ?to - room)
+    :precondition (and (at ?b ?from) (link ?from ?to))
+    :effect (and (not (at ?b ?from)) (at ?b ?to)))
+  (:action park :parameters (?b - ball ?r - room)
+    :precondition (and (at ?b ?r) (goal-room ?r))
+    :effect (home ?b)))" |  |  |  |  |
+
+| `
+(define (problem p) (:domain farm)
+  (:objects v1 - agent hut field - place)
+  (:init (at v1 hut) (road hut field) (road field hut) (fertile field) (= (grain) 0))
+  (:goal (>= (grain) 2)))` | str_key | FARM_PRB = "
+(define (problem p) (:domain farm)
+  (:objects v1 - agent hut field - place)
+  (:init (at v1 hut) (road hut field) (road field hut) (fertile field) (= (grain) 0))
+  (:goal (>= (grain) 2)))" |  |  |  |  |
+
+| `
+(define (problem p) (:domain rollers)
+  (:objects b1 b2 - ball ra rb - room)
+  (:init (at b1 ra) (at b2 ra) (link ra rb) (link rb ra) (goal-room rb))
+  (:goal (and (home b1) (home b2))))` | str_key | ORB_PRB = "
+(define (problem p) (:domain rollers)
+  (:objects b1 b2 - ball ra rb - room)
+  (:init (at b1 ra) (at b2 ra) (link ra rb) (link rb ra) (goal-room rb))
+  (:goal (and (home b1) (home b2))))" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/session_goal_advance.rs
+
+| `(define (domain d3) (:requirements :strips) ` | str_key | DOM = "(define (domain d3) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem pr3) (:domain d3) (:init (p)) (:goal (s)))` | str_key | PROB = "(define (problem pr3) (:domain d3) (:init (p)) (:goal (s)))" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/session_lifecycle_bookends.rs
+
+| `(define (domain d) (:requirements :strips) (:predicates (p) (q)) ` | str_key | DOM = "(define (domain d) (:requirements :strips) (:predicates (p) (q)) " |  |  |  |  |
+
+| `(define (problem pr) (:domain d) (:init (p)) (:goal (q)))` | str_key | PROB = "(define (problem pr) (:domain d) (:init (p)) (:goal (q)))" |  |  |  |  |
+
+
+### crates/ferroplan-mcp/tests/session_protocol.rs
+
+| `(define (domain d) (:requirements :strips) (:predicates (p) (q)) ` | str_key | DOM = "(define (domain d) (:requirements :strips) (:predicates (p) (q)) " |  |  |  |  |
+
+| `(define (problem pr) (:domain d) (:init (p)) (:goal (q)))` | str_key | PROB = "(define (problem pr) (:domain d) (:init (p)) (:goal (q)))" |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/authority.rs
@@ -1572,6 +2433,311 @@
 
 | `fp_dealloc` | function | fp_dealloc(ptr: *mut u8, len: usize) |  |  |  |  |
 
+| `(define (domain rooms)
+      (:requirements :strips :typing)
+      (:types room)
+      (:predicates (at ?r - room) (link ?a - room ?b - room))
+      (:action go
+        :parameters (?a - room ?b - room)
+        :precondition (and (at ?a) (link ?a ?b))
+        :effect (and (at ?b) (not (at ?a)))))` | str_key | CORRIDOR_DOMAIN = "(define (domain rooms)
+      (:requirements :strips :typing)
+      (:types room)
+      (:predicates (at ?r - room) (link ?a - room ?b - room))
+      (:action go
+        :parameters (?a - room ?b - room)
+        :precondition (and (at ?a) (link ?a ?b))
+        :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (problem corridor)
+      (:domain rooms)
+      (:objects a b c d - room)
+      (:init (at a) (link a b) (link b c) (link c d))
+      (:goal (at d)))` | str_key | CORRIDOR_PROBLEM = "(define (problem corridor)
+      (:domain rooms)
+      (:objects a b c d - room)
+      (:init (at a) (link a b) (link b c) (link c d))
+      (:goal (at d)))" |  |  |  |  |
+
+| `(define (problem dead-end)
+      (:domain rooms)
+      (:objects a b c d - room)
+      (:init (at a) (link a b) (link b c))
+      (:goal (at d)))` | str_key | CORRIDOR_DEAD_END_PROBLEM = "(define (problem dead-end)
+      (:domain rooms)
+      (:objects a b c d - room)
+      (:init (at a) (link a b) (link b c))
+      (:goal (at d)))" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../../ferroplan-hddl/fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/c/problem.hddl` | str_key | FIXTURE_C_PROBLEM = "../../ferroplan-hddl/fixtures/c/problem.hddl" |  |  |  |  |
+
+
+### crates/ferroplan-wasm/tests/abi_ontology_drift.rs
+
+| `../../ontology/ferroplan-wasm.ttl` | str_key | ONTOLOGY_REL = "../../ontology/ferroplan-wasm.ttl" |  |  |  |  |
+
+| `fp_alloc` | str_key | EXPECTED_EXPORTS = "fp_alloc" |  |  |  |  |
+
+| `fp_dealloc` | str_key | FREE_SYMBOL = "fp_dealloc" |  |  |  |  |
+
+| `ontology/contract.ttl` | str_key | CONTRACTS_REL = "ontology/contract.ttl" |  |  |  |  |
+
+| `registry/capability-registry.json` | str_key | REGISTRY_REL = "registry/capability-registry.json" |  |  |  |  |
+
+| `src/wasi_abi.rs` | str_key | WASI_ABI_REL = "src/wasi_abi.rs" |  |  |  |  |
+
+
+### crates/ferroplan-wasm/tests/browser.rs
+
+| `(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))` | str_key | DOMAIN = "(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (problem two-room)
+  (:domain rooms)
+  (:objects a b - room)
+  (:init (at a) (link a b))
+  (:goal (at b)))` | str_key | PROBLEM = "(define (problem two-room)
+  (:domain rooms)
+  (:objects a b - room)
+  (:init (at a) (link a b))
+  (:goal (at b)))" |  |  |  |  |
+
+
+### crates/ferroplan-wasm/tests/copy_drift.rs
+
+| `../../../ggen-marketplace/packs/qri-qualification-profile-pack` | str_key | PACK_REL = "../../../ggen-marketplace/packs/qri-qualification-profile-pack" |  |  |  |  |
+
+
+### crates/ferroplan-wasm/tests/dfcm_browser_parity.rs
+
+| `(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))` | str_key | DOMAIN = "(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (problem repair)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c b))
+  (:goal (at b)))` | str_key | PROBLEM = "(define (problem repair)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c b))
+  (:goal (at b)))" |  |  |  |  |
+
+
+### crates/ferroplan-wasm/tests/pin_drift.rs
+
+| `# c` | str_key | REG = "# c" |  |  |  |  |
+
+| `x` | str_key | ONT = "x" |  |  |  |  |
+
+
+### crates/ferroplan/benches/fond.rs
+
+| `drop-retry` | str_key | DIRS = "drop-retry" |  |  |  |  |
+
+
+### crates/ferroplan/benches/session_fork.rs
+
+| `(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))` | str_key | DOMAIN = "(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+
+### crates/ferroplan/examples/bazaar_live.rs
+
+| `../../../benchmarks/bench/bazaar-chain-domain.pddl` | str_key | DOM = "../../../benchmarks/bench/bazaar-chain-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain-x2m.pddl` | str_key | PRB_X2M = "../../../benchmarks/bench/bazaar-chain-x2m.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain.pddl` | str_key | PRB = "../../../benchmarks/bench/bazaar-chain.pddl" |  |  |  |  |
+
+
+### crates/ferroplan/examples/bazaar_thinks.rs
+
+| `../../../benchmarks/bench/bazaar-chain-domain.pddl` | str_key | DOM = "../../../benchmarks/bench/bazaar-chain-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain-x2.pddl` | str_key | PRB_X2 = "../../../benchmarks/bench/bazaar-chain-x2.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain.pddl` | str_key | PRB = "../../../benchmarks/bench/bazaar-chain.pddl" |  |  |  |  |
+
+
+### crates/ferroplan/examples/game_think.rs
+
+| `
+(define (domain homestead) (:requirements :strips :typing :numeric-fluents)
+  (:types agent place)
+  (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+  (:functions (grain))
+  (:action walk :parameters (?a - agent ?from ?to - place)
+    :precondition (and (at ?a ?from) (road ?from ?to))
+    :effect (and (not (at ?a ?from)) (at ?a ?to)))
+  (:action harvest :parameters (?a - agent ?p - place)
+    :precondition (and (at ?a ?p) (fertile ?p))
+    :effect (increase (grain) 1)))` | str_key | DOM = "
+(define (domain homestead) (:requirements :strips :typing :numeric-fluents)
+  (:types agent place)
+  (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+  (:functions (grain))
+  (:action walk :parameters (?a - agent ?from ?to - place)
+    :precondition (and (at ?a ?from) (road ?from ?to))
+    :effect (and (not (at ?a ?from)) (at ?a ?to)))
+  (:action harvest :parameters (?a - agent ?p - place)
+    :precondition (and (at ?a ?p) (fertile ?p))
+    :effect (increase (grain) 1)))" |  |  |  |  |
+
+| `
+(define (problem morning) (:domain homestead)
+  (:objects vera - agent hut field barn - place)
+  (:init (at vera hut) (road hut field) (road field hut)
+         (road field barn) (road barn field) (fertile field) (= (grain) 0))
+  (:goal (>= (grain) 3)))` | str_key | PRB = "
+(define (problem morning) (:domain homestead)
+  (:objects vera - agent hut field barn - place)
+  (:init (at vera hut) (road hut field) (road field hut)
+         (road field barn) (road barn field) (fertile field) (= (grain) 0))
+  (:goal (>= (grain) 3)))" |  |  |  |  |
+
+
+### crates/ferroplan/examples/json_api.rs
+
+| `(define (domain gripper)
+ (:requirements :strips :typing)
+ (:types room ball gripper)
+ (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+              (free ?g - gripper) (carry ?b - ball ?g - gripper))
+ (:action move :parameters (?from ?to - room)
+   :precondition (at-robby ?from) :effect (and (at-robby ?to) (not (at-robby ?from))))
+ (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+   :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+   :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+ (:action drop :parameters (?b - ball ?r - room ?g - gripper)
+   :precondition (and (carry ?b ?g) (at-robby ?r))
+   :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))` | str_key | DOMAIN = "(define (domain gripper)
+ (:requirements :strips :typing)
+ (:types room ball gripper)
+ (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+              (free ?g - gripper) (carry ?b - ball ?g - gripper))
+ (:action move :parameters (?from ?to - room)
+   :precondition (at-robby ?from) :effect (and (at-robby ?to) (not (at-robby ?from))))
+ (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+   :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+   :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+ (:action drop :parameters (?b - ball ?r - room ?g - gripper)
+   :precondition (and (carry ?b ?g) (at-robby ?r))
+   :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))" |  |  |  |  |
+
+| `(define (problem g1) (:domain gripper)
+ (:objects rooma roomb - room  ball1 ball2 - ball  left right - gripper)
+ (:init (at-robby rooma) (free left) (free right)
+        (at ball1 rooma) (at ball2 rooma))
+ (:goal (and (at ball1 roomb) (at ball2 roomb))))` | str_key | PROBLEM = "(define (problem g1) (:domain gripper)
+ (:objects rooma roomb - room  ball1 ball2 - ball  left right - gripper)
+ (:init (at-robby rooma) (free left) (free right)
+        (at ball1 rooma) (at ball2 rooma))
+ (:goal (and (at ball1 roomb) (at ball2 roomb))))" |  |  |  |  |
+
+
+### crates/ferroplan/examples/many_minds.rs
+
+| `../../../benchmarks/bench/bazaar-redistribution.pddl` | str_key | PRB = "../../../benchmarks/bench/bazaar-redistribution.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar.pddl` | str_key | DOM = "../../../benchmarks/bench/bazaar.pddl" |  |  |  |  |
+
+
+### crates/ferroplan/examples/validate_plan.rs
+
+| `(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+               (free ?g - gripper) (carry ?b - ball ?g - gripper))
+  (:action move :parameters (?from ?to - room)
+    :precondition (at-robby ?from)
+    :effect (and (not (at-robby ?from)) (at-robby ?to)))
+  (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+    :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+  (:action drop :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (carry ?b ?g) (at-robby ?r))
+    :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))` | str_key | DOMAIN = "(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+               (free ?g - gripper) (carry ?b - ball ?g - gripper))
+  (:action move :parameters (?from ?to - room)
+    :precondition (at-robby ?from)
+    :effect (and (not (at-robby ?from)) (at-robby ?to)))
+  (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+    :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+  (:action drop :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (carry ?b ?g) (at-robby ?r))
+    :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))" |  |  |  |  |
+
+| `(define (problem gripper-1) (:domain gripper)
+  (:objects rooma roomb - room b1 - ball left - gripper)
+  (:init (at-robby rooma) (at b1 rooma) (free left))
+  (:goal (at b1 roomb)))` | str_key | PROBLEM = "(define (problem gripper-1) (:domain gripper)
+  (:objects rooma roomb - room b1 - ball left - gripper)
+  (:init (at-robby rooma) (at b1 rooma) (free left))
+  (:goal (at b1 roomb)))" |  |  |  |  |
+
+
+### crates/ferroplan/examples/village.rs
+
+| `THINK_EVALS` | env_key | std::env::var("THINK_EVALS") |  |  |  |  |
+
+| `../../../benchmarks/village/domain.pddl` | str_key | DOM = "../../../benchmarks/village/domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/village/pair.pddl` | str_key | PRB = "../../../benchmarks/village/pair.pddl" |  |  |  |  |
+
+
+### crates/ferroplan/examples/village_live.rs
+
+| `../../../benchmarks/village/domain.pddl` | str_key | DOM = "../../../benchmarks/village/domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/village/pair.pddl` | str_key | PRB = "../../../benchmarks/village/pair.pddl" |  |  |  |  |
+
 
 ### crates/ferroplan/src/api.rs
 
@@ -1580,6 +2746,12 @@
 | `Search` | enum | Search { Auto, Ehc, BestFirst, EhcThenBestFirst } |  |  |  |  |
 
 | `SolveError` | enum | SolveError { DomainParse(crate::types::ParseError), ProblemParse(crate::types::ParseError), EmptyType { kind: String, pred: String, ty: String, }, Derived(String), Unsupported(String) } |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_SAT_CLASSICAL` | env_key | std::env::var("FF_SAT_CLASSICAL") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `decompose` | function | decompose( domain_src: &str, problem_src: &str, opts: &Options, ) -> Result<Decomposition, SolveError> |  |  |  |  |
 
@@ -1640,6 +2812,16 @@
 
 | `Traj` | enum | Traj { Always(Formula), Sometime(Formula), AtMostOnce(Formula), SometimeAfter(Formula, Formula), SometimeBefore(Formula, Formula), AtEnd(Formula), Within(f64, Formula), AlwaysWithin(f64, Formula, Formula) } |  |  |  |  |
 
+| `FF_CONSTRAINTS_REJECT` | env_key | std::env::var("FF_CONSTRAINTS_REJECT") |  |  |  |  |
+
+| `FF_NO_COND_SHARE` | env_key | std::env::var("FF_NO_COND_SHARE") |  |  |  |  |
+
+| `FF_NO_TRAJ_END` | env_key | std::env::var("FF_NO_TRAJ_END") |  |  |  |  |
+
+| `FF_PREF_NO_STATIC` | env_key | std::env::var("FF_PREF_NO_STATIC") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
 | `accepted` | function | accepted(&self) -> bool |  |  |  |  |
 
 | `compile` | function | compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> |  |  |  |  |
@@ -1658,12 +2840,20 @@
 
 | `step_at` | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) -> bool) |  |  |  |  |
 
+| `TRAJ-CLOCK` | str_key | CLOCK_FLUENT = "TRAJ-CLOCK" |  |  |  |  |
+
+| `TRAJ-END` | str_key | END_ACTION = "TRAJ-END" |  |  |  |  |
+
 | `Expanded` | struct | Expanded { pub hard: Vec<Traj>, pub soft: Vec<(String, Vec<Traj>)> } |  |  |  |  |
 
 | `Fold` | struct | Fold { traj: &'a Traj, ok: bool, seen: bool, holding: bool, pending: bool, safe: bool, last: bool, due: f64 } |  |  |  |  |
 
 
 ### crates/ferroplan/src/costs.rs
+
+| `FF_COST_SWEEP_EVALS` | env_key | std::env::var("FF_COST_SWEEP_EVALS") |  |  |  |  |
+
+| `FF_LEN_SWEEP_EVALS` | env_key | std::env::var("FF_LEN_SWEEP_EVALS") |  |  |  |  |
 
 | `improve` | function | improve( task: &PackedTask, cf: usize, ops: Vec<usize>, first_cost: f64, threads: usize, base: SearchCfg, spent: usize, orbit: Option<&crate::orbits::OrbitMap>, ) -> CostOutcome |  |  |  |  |
 
@@ -1682,8 +2872,32 @@
 
 | `compile` | function | compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> |  |  |  |  |
 
+| `(define (domain g) (:requirements :typing :adl)
+      (:types node)
+      (:predicates (link ?a ?b - node) (reachable ?a ?b - node) (at ?n - node) (visited ?n - node))
+      (:derived (reachable ?a ?b - node)
+        (or (link ?a ?b)
+            (exists (?c - node) (and (link ?a ?c) (reachable ?c ?b)))))
+      (:action go :parameters (?from ?to - node)
+        :precondition (and (at ?from) (reachable ?from ?to))
+        :effect (and (not (at ?from)) (at ?to) (visited ?to))))` | str_key | DOM = "(define (domain g) (:requirements :typing :adl)
+      (:types node)
+      (:predicates (link ?a ?b - node) (reachable ?a ?b - node) (at ?n - node) (visited ?n - node))
+      (:derived (reachable ?a ?b - node)
+        (or (link ?a ?b)
+            (exists (?c - node) (and (link ?a ?c) (reachable ?c ?b)))))
+      (:action go :parameters (?from ?to - node)
+        :precondition (and (at ?from) (reachable ?from ?to))
+        :effect (and (not (at ?from)) (at ?to) (visited ?to))))" |  |  |  |  |
+
 
 ### crates/ferroplan/src/espc.rs
+
+| `FF_ESPC_MONO` | env_key | std::env::var("FF_ESPC_MONO") |  |  |  |  |
+
+| `FF_ESPC_TIME_MS` | env_key | std::env::var("FF_ESPC_TIME_MS") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
 
 | `espc_optimize` | function | espc_optimize( task: &PackedTask, cost_fluent: usize, sat: &mut SatGuidance, seed: Option<(Vec<usize>, f64)>, part: Option<EspcPartition>, threads: usize, cfg: SearchCfg, ) -> Option<EspcResult> |  |  |  |  |
 
@@ -1703,6 +2917,8 @@
 | `PlanningRegime` | enum | PlanningRegime { Deterministic, Probabilistic } |  |  |  |  |
 
 | `enter` | function | enter(request: EveRequest) -> Result<EveHandoff, EveError> |  |  |  |  |
+
+| `ferroplan.eve-genesis.v1` | str_key | EVE_PROTOCOL = "ferroplan.eve-genesis.v1" |  |  |  |  |
 
 | `Activator` | struct | Activator { pub name: String, pub value: String } |  |  |  |  |
 
@@ -1745,6 +2961,18 @@
 
 | `DemandMode` | enum | DemandMode { Off, Numeric, Full } |  |  |  |  |
 
+| `FF_NO_ESCALATE` | env_key | std::env::var("FF_NO_ESCALATE") |  |  |  |  |
+
+| `FF_NO_ESPC` | env_key | std::env::var("FF_NO_ESPC") |  |  |  |  |
+
+| `FF_NO_TDEMAND` | env_key | std::env::var("FF_NO_TDEMAND") |  |  |  |  |
+
+| `FF_TCONC` | env_key | std::env::var("FF_TCONC") |  |  |  |  |
+
+| `FF_TDECOMP` | env_key | std::env::var("FF_TDECOMP") |  |  |  |  |
+
+| `FF_TDEMAND` | env_key | std::env::var("FF_TDEMAND") |  |  |  |  |
+
 | `clear_overrides` | function | clear_overrides() |  |  |  |  |
 
 | `demand_mode` | function | demand_mode() -> DemandMode |  |  |  |  |
@@ -1769,6 +2997,30 @@
 ### crates/ferroplan/src/ground.rs
 
 | `Outcome` | enum | Outcome { Task(PackedTask), GoalTrue, GoalFalse(String), GoalUndefinedFluent(String), EmptyType { kind: &'static str, pred: String, ty: String, }, WallExhausted(String) } |  |  |  |  |
+
+| `FF_GROUND_PHASES` | env_key | std::env::var("FF_GROUND_PHASES") |  |  |  |  |
+
+| `FF_NO_DNF_STATIC` | env_key | std::env::var("FF_NO_DNF_STATIC") |  |  |  |  |
+
+| `FF_NO_FACT_COMPACT` | env_key | std::env::var("FF_NO_FACT_COMPACT") |  |  |  |  |
+
+| `FF_NO_FIXPOINT_GROUND` | env_key | std::env::var("FF_NO_FIXPOINT_GROUND") |  |  |  |  |
+
+| `FF_NO_FLUENT_COMPACT` | env_key | std::env::var("FF_NO_FLUENT_COMPACT") |  |  |  |  |
+
+| `FF_NO_FLUENT_FOLD` | env_key | std::env::var("FF_NO_FLUENT_FOLD") |  |  |  |  |
+
+| `FF_NO_GOAL_FACTOR` | env_key | std::env::var("FF_NO_GOAL_FACTOR") |  |  |  |  |
+
+| `FF_NO_JOIN_INDEX` | env_key | std::env::var("FF_NO_JOIN_INDEX") |  |  |  |  |
+
+| `FF_NO_MCV_JOIN` | env_key | std::env::var("FF_NO_MCV_JOIN") |  |  |  |  |
+
+| `FF_NO_STRAT_GROUND` | env_key | std::env::var("FF_NO_STRAT_GROUND") |  |  |  |  |
+
+| `FF_NUMPRE_TEMPORAL` | env_key | std::env::var("FF_NUMPRE_TEMPORAL") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `ground` | function | ground(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
@@ -1802,6 +3054,78 @@
 
 | `solve_hddl_from_eve` | function | solve_hddl_from_eve( handoff: &EveHandoff, limits: &PlannerLimits, ) -> Result<UniversalPlan, HddlError> |  |  |  |  |
 
+| `(define (domain coin)
+  (:predicates (heads) (tails))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof (heads) (tails)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))` | str_key | DOMAIN = "(define (domain coin)
+  (:predicates (heads) (tails))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof (heads) (tails)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))" |  |  |  |  |
+
+| `(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))` | str_key | DOMAIN = "(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))" |  |  |  |  |
+
+| `(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem coin-p1)
+  (:domain coin)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal (or (heads) (tails))))` | str_key | PROBLEM = "(define (problem coin-p1)
+  (:domain coin)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal (or (heads) (tails))))" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../../ferroplan-hddl/fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../../ferroplan-hddl/fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../../ferroplan-hddl/fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/c/problem.hddl` | str_key | FIXTURE_C_PROBLEM = "../../ferroplan-hddl/fixtures/c/problem.hddl" |  |  |  |  |
+
 
 ### crates/ferroplan/src/heuristic.rs
 
@@ -1810,6 +3134,22 @@
 | `T_EXTRACT` | const | T_EXTRACT: std::sync::atomic::AtomicU64 |  |  |  |  |
 
 | `T_RESET` | const | T_RESET: std::sync::atomic::AtomicU64 |  |  |  |  |
+
+| `FF_NO_NEED_DIRS` | env_key | std::env::var("FF_NO_NEED_DIRS") |  |  |  |  |
+
+| `FF_NO_NUMH` | env_key | std::env::var("FF_NO_NUMH") |  |  |  |  |
+
+| `FF_NO_NUMPRE` | env_key | std::env::var("FF_NO_NUMPRE") |  |  |  |  |
+
+| `FF_NO_NUMPRE_CHAIN` | env_key | std::env::var("FF_NO_NUMPRE_CHAIN") |  |  |  |  |
+
+| `FF_NUMPRE_DEPTH` | env_key | std::env::var("FF_NUMPRE_DEPTH") |  |  |  |  |
+
+| `FF_NUMPRE_NODAMP` | env_key | std::env::var("FF_NUMPRE_NODAMP") |  |  |  |  |
+
+| `FF_NUMPRE_NOSKIP` | env_key | std::env::var("FF_NUMPRE_NOSKIP") |  |  |  |  |
+
+| `FF_NUMPRE_NOSUM` | env_key | std::env::var("FF_NUMPRE_NOSUM") |  |  |  |  |
 
 | `extraction_need_facts` | function | extraction_need_facts(sc: &Scratch) -> Vec<(u32, u32)> |  |  |  |  |
 
@@ -1829,6 +3169,74 @@
 
 | `relaxed_to` | function | relaxed_to( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], ) -> Option<i32> |  |  |  |  |
 
+| `
+    (define (domain watering-mini)
+      (:requirements :typing :numeric-fluents)
+      (:types agent plant - object)
+      (:functions (x ?o - object) (carrying ?a - agent)
+                  (poured ?p - plant) (maxx))
+      (:action move_right :parameters (?a - agent)
+        :precondition (<= (+ (x ?a) 1) (maxx))
+        :effect (increase (x ?a) 1))
+      (:action move_left :parameters (?a - agent)
+        :precondition (>= (- (x ?a) 1) 0)
+        :effect (decrease (x ?a) 1))
+      (:action pour :parameters (?a - agent ?p - plant)
+        :precondition (and (= (x ?a) (x ?p)) (>= (carrying ?a) 1))
+        :effect (and (decrease (carrying ?a) 1) (increase (poured ?p) 1))))` | str_key | WATER_DOM = "
+    (define (domain watering-mini)
+      (:requirements :typing :numeric-fluents)
+      (:types agent plant - object)
+      (:functions (x ?o - object) (carrying ?a - agent)
+                  (poured ?p - plant) (maxx))
+      (:action move_right :parameters (?a - agent)
+        :precondition (<= (+ (x ?a) 1) (maxx))
+        :effect (increase (x ?a) 1))
+      (:action move_left :parameters (?a - agent)
+        :precondition (>= (- (x ?a) 1) 0)
+        :effect (decrease (x ?a) 1))
+      (:action pour :parameters (?a - agent ?p - plant)
+        :precondition (and (= (x ?a) (x ?p)) (>= (carrying ?a) 1))
+        :effect (and (decrease (carrying ?a) 1) (increase (poured ?p) 1))))" |  |  |  |  |
+
+| `
+    (define (problem watering-mini-1) (:domain watering-mini)
+      (:objects a1 - agent pa pb - plant)
+      (:init (= (x a1) 0) (= (x pa) 1) (= (x pb) 9)
+             (= (carrying a1) 5) (= (poured pa) 0) (= (poured pb) 0)
+             (= (maxx) 12))
+      (:goal (and (= (poured pa) 1) (= (poured pb) 1))))` | str_key | WATER_PRB = "
+    (define (problem watering-mini-1) (:domain watering-mini)
+      (:objects a1 - agent pa pb - plant)
+      (:init (= (x a1) 0) (= (x pa) 1) (= (x pb) 9)
+             (= (carrying a1) 5) (= (poured pa) 0) (= (poured pb) 0)
+             (= (maxx) 12))
+      (:goal (and (= (poured pa) 1) (= (poured pb) 1))))" |  |  |  |  |
+
+| `(define (domain drain)
+      (:requirements :fluents)
+      (:predicates (there) (idle))
+      (:functions (energy))
+      (:action drive :parameters ()
+        :precondition (>= (energy) 8)
+        :effect (and (there) (decrease (energy) 8)))
+      (:action wander :parameters ()
+        :precondition (idle)
+        :effect (decrease (energy) 1)))` | str_key | DRAIN_DOM = "(define (domain drain)
+      (:requirements :fluents)
+      (:predicates (there) (idle))
+      (:functions (energy))
+      (:action drive :parameters ()
+        :precondition (>= (energy) 8)
+        :effect (and (there) (decrease (energy) 8)))
+      (:action wander :parameters ()
+        :precondition (idle)
+        :effect (decrease (energy) 1)))" |  |  |  |  |
+
+| `(define (problem d1) (:domain drain)
+      (:init (idle) (= (energy) 5)) (:goal (there)))` | str_key | DRAIN_PRB = "(define (problem d1) (:domain drain)
+      (:init (idle) (= (energy) 5)) (:goal (there)))" |  |  |  |  |
+
 | `Scratch` | struct | Scratch { reached: Vec<bool>, fact_layer: Vec<u32>, op_layer: Vec<u32>, gen: u32, op_stamp: Vec<u32>, applicable: Vec<u32>, lb: Vec<f64>, ub: Vec<f64>, selected: Vec<u32>, need_fact: Vec<u32>, queue: Vec<u32>, num_applied: Vec<u32>, cond_ops: Vec<u32>, helpful: Vec<u32>, fact_time: Vec<f64>, op_time: Vec<f64> } |  |  |  |  |
 
 | `TrpgInfo` | struct | TrpgInfo { pub start_of: Vec<u32>, pub lag: Vec<f64>, pub floor: Vec<f64>, pub windows: Vec<Vec<TrpgWindow>> } |  |  |  |  |
@@ -1839,6 +3247,20 @@
 ### crates/ferroplan/src/introspect.rs
 
 | `explain` | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) -> Result<Explanation, String> |  |  |  |  |
+
+| `(define (domain chain)
+      (:requirements :strips)
+      (:predicates (a) (b) (c) (d))
+      (:action MK-B :parameters () :precondition (a) :effect (b))
+      (:action MK-C :parameters () :precondition (b) :effect (c)))` | str_key | CHAIN_DOM = "(define (domain chain)
+      (:requirements :strips)
+      (:predicates (a) (b) (c) (d))
+      (:action MK-B :parameters () :precondition (a) :effect (b))
+      (:action MK-C :parameters () :precondition (b) :effect (c)))" |  |  |  |  |
+
+| `(define (problem chain-1) (:domain chain)
+      (:init (a)) (:goal (c)))` | str_key | CHAIN_PRB = "(define (problem chain-1) (:domain chain)
+      (:init (a)) (:goal (c)))" |  |  |  |  |
 
 | `CausalLink` | struct | CausalLink { pub provider: Option<usize>, pub consumer: usize, pub fact: String } |  |  |  |  |
 
@@ -1853,8 +3275,126 @@
 
 | `synthesize` | function | synthesize(domain: &Domain, task: &PackedTask) -> Vec<Vec<u32>> |  |  |  |  |
 
+| `(define (domain blocks)
+      (:requirements :strips :typing)
+      (:types block)
+      (:predicates (on ?x ?y - block) (ontable ?x - block) (clear ?x - block)
+                   (handempty) (holding ?x - block))
+      (:action pickup :parameters (?x - block)
+        :precondition (and (clear ?x) (ontable ?x) (handempty))
+        :effect (and (not (ontable ?x)) (not (clear ?x)) (not (handempty)) (holding ?x)))
+      (:action putdown :parameters (?x - block)
+        :precondition (holding ?x)
+        :effect (and (not (holding ?x)) (clear ?x) (handempty) (ontable ?x)))
+      (:action stack :parameters (?x ?y - block)
+        :precondition (and (holding ?x) (clear ?y))
+        :effect (and (not (holding ?x)) (not (clear ?y)) (clear ?x) (handempty) (on ?x ?y)))
+      (:action unstack :parameters (?x ?y - block)
+        :precondition (and (on ?x ?y) (clear ?x) (handempty))
+        :effect (and (holding ?x) (clear ?y) (not (clear ?x)) (not (on ?x ?y)) (not (handempty)))))` | str_key | BLOCKS = "(define (domain blocks)
+      (:requirements :strips :typing)
+      (:types block)
+      (:predicates (on ?x ?y - block) (ontable ?x - block) (clear ?x - block)
+                   (handempty) (holding ?x - block))
+      (:action pickup :parameters (?x - block)
+        :precondition (and (clear ?x) (ontable ?x) (handempty))
+        :effect (and (not (ontable ?x)) (not (clear ?x)) (not (handempty)) (holding ?x)))
+      (:action putdown :parameters (?x - block)
+        :precondition (holding ?x)
+        :effect (and (not (holding ?x)) (clear ?x) (handempty) (ontable ?x)))
+      (:action stack :parameters (?x ?y - block)
+        :precondition (and (holding ?x) (clear ?y))
+        :effect (and (not (holding ?x)) (not (clear ?y)) (clear ?x) (handempty) (on ?x ?y)))
+      (:action unstack :parameters (?x ?y - block)
+        :precondition (and (on ?x ?y) (clear ?x) (handempty))
+        :effect (and (holding ?x) (clear ?y) (not (clear ?x)) (not (on ?x ?y)) (not (handempty)))))" |  |  |  |  |
+
+| `(define (domain gripper)
+      (:requirements :strips :typing)
+      (:types room ball)
+      (:predicates (at-robby ?r - room) (ball-at ?b - ball ?r - room) (carry ?b - ball))
+      (:action move :parameters (?from ?to - room)
+        :precondition (at-robby ?from)
+        :effect (and (not (at-robby ?from)) (at-robby ?to)))
+      (:action pick :parameters (?b - ball ?r - room)
+        :precondition (and (ball-at ?b ?r) (at-robby ?r))
+        :effect (and (not (ball-at ?b ?r)) (carry ?b)))
+      (:action drop :parameters (?b - ball ?r - room)
+        :precondition (and (carry ?b) (at-robby ?r))
+        :effect (and (not (carry ?b)) (ball-at ?b ?r))))` | str_key | GRIPPER = "(define (domain gripper)
+      (:requirements :strips :typing)
+      (:types room ball)
+      (:predicates (at-robby ?r - room) (ball-at ?b - ball ?r - room) (carry ?b - ball))
+      (:action move :parameters (?from ?to - room)
+        :precondition (at-robby ?from)
+        :effect (and (not (at-robby ?from)) (at-robby ?to)))
+      (:action pick :parameters (?b - ball ?r - room)
+        :precondition (and (ball-at ?b ?r) (at-robby ?r))
+        :effect (and (not (ball-at ?b ?r)) (carry ?b)))
+      (:action drop :parameters (?b - ball ?r - room)
+        :precondition (and (carry ?b) (at-robby ?r))
+        :effect (and (not (carry ?b)) (ball-at ?b ?r))))" |  |  |  |  |
+
+| `(define (domain log)
+      (:requirements :strips :typing)
+      (:types vehicle package location)
+      (:predicates (at ?x - object ?l - location) (in ?p - package ?v - vehicle)
+                   (road ?a ?b - location))
+      (:action drive :parameters (?v - vehicle ?from ?to - location)
+        :precondition (and (at ?v ?from) (road ?from ?to))
+        :effect (and (not (at ?v ?from)) (at ?v ?to)))
+      (:action load :parameters (?p - package ?v - vehicle ?l - location)
+        :precondition (and (at ?p ?l) (at ?v ?l))
+        :effect (and (not (at ?p ?l)) (in ?p ?v)))
+      (:action unload :parameters (?p - package ?v - vehicle ?l - location)
+        :precondition (and (in ?p ?v) (at ?v ?l))
+        :effect (and (not (in ?p ?v)) (at ?p ?l))))` | str_key | LOGISTICS = "(define (domain log)
+      (:requirements :strips :typing)
+      (:types vehicle package location)
+      (:predicates (at ?x - object ?l - location) (in ?p - package ?v - vehicle)
+                   (road ?a ?b - location))
+      (:action drive :parameters (?v - vehicle ?from ?to - location)
+        :precondition (and (at ?v ?from) (road ?from ?to))
+        :effect (and (not (at ?v ?from)) (at ?v ?to)))
+      (:action load :parameters (?p - package ?v - vehicle ?l - location)
+        :precondition (and (at ?p ?l) (at ?v ?l))
+        :effect (and (not (at ?p ?l)) (in ?p ?v)))
+      (:action unload :parameters (?p - package ?v - vehicle ?l - location)
+        :precondition (and (in ?p ?v) (at ?v ?l))
+        :effect (and (not (in ?p ?v)) (at ?p ?l))))" |  |  |  |  |
+
+| `(define (problem p) (:domain blocks)
+      (:objects a b c - block)
+      (:init (ontable a) (on b a) (on c b) (clear c) (handempty))
+      (:goal (on a b)))` | str_key | BLOCKS_PROB = "(define (problem p) (:domain blocks)
+      (:objects a b c - block)
+      (:init (ontable a) (on b a) (on c b) (clear c) (handempty))
+      (:goal (on a b)))" |  |  |  |  |
+
+| `(define (problem p) (:domain gripper)
+      (:objects ra rb - room b1 - ball)
+      (:init (at-robby ra) (ball-at b1 ra))
+      (:goal (at-robby rb)))` | str_key | GRIP_PROB = "(define (problem p) (:domain gripper)
+      (:objects ra rb - room b1 - ball)
+      (:init (at-robby ra) (ball-at b1 ra))
+      (:goal (at-robby rb)))" |  |  |  |  |
+
+| `(define (problem p) (:domain log)
+      (:objects v1 - vehicle pk1 - package a b c - location)
+      (:init (at v1 a) (at pk1 b) (road a b) (road b c) (road a c))
+      (:goal (at pk1 c)))` | str_key | LOG_PROB = "(define (problem p) (:domain log)
+      (:objects v1 - vehicle pk1 - package a b c - location)
+      (:init (at v1 a) (at pk1 b) (road a b) (road b c) (road a c))
+      (:goal (at pk1 c)))" |  |  |  |  |
+
 
 ### crates/ferroplan/src/lama.rs
+
+| `FF_LAMA_EXT_ARRIVAL` | env_key | std::env::var("FF_LAMA_EXT_ARRIVAL") |  |  |  |  |
+
+| `FF_LEN_ANYTIME` | env_key | std::env::var("FF_LEN_ANYTIME") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `search` | function | search( task: &PackedTask, threads: usize, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
@@ -1910,6 +3450,12 @@
 
 ### crates/ferroplan/src/mem.rs
 
+| `FF_MEM_BUDGET_GB` | env_key | std::env::var("FF_MEM_BUDGET_GB") |  |  |  |  |
+
+| `FF_MEM_TRIP_FRAC` | env_key | std::env::var("FF_MEM_TRIP_FRAC") |  |  |  |  |
+
+| `FF_NO_MEM_WALL` | env_key | std::env::var("FF_NO_MEM_WALL") |  |  |  |  |
+
 | `arm` | function | arm() -> Self |  |  |  |  |
 
 | `armed` | function | armed(&self) -> bool |  |  |  |  |
@@ -1932,6 +3478,14 @@
 
 
 ### crates/ferroplan/src/novelty.rs
+
+| `FF_NOV_R_CAP` | env_key | std::env::var("FF_NOV_R_CAP") |  |  |  |  |
+
+| `FF_NUMNOV` | env_key | std::env::var("FF_NUMNOV") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `from_env` | function | from_env() -> Self |  |  |  |  |
 
@@ -1963,12 +3517,40 @@
 
 ### crates/ferroplan/src/optimal.rs
 
+| `FF_NO_HMAX_SPRINT` | env_key | std::env::var("FF_NO_HMAX_SPRINT") |  |  |  |  |
+
+| `FF_NO_INC_LMCUT` | env_key | std::env::var("FF_NO_INC_LMCUT") |  |  |  |  |
+
+| `FF_NO_LMCUT` | env_key | std::env::var("FF_NO_LMCUT") |  |  |  |  |
+
+| `FF_NO_NODECAP_REFILL` | env_key | std::env::var("FF_NO_NODECAP_REFILL") |  |  |  |  |
+
+| `FF_OPT_GATE_MARGIN` | env_key | std::env::var("FF_OPT_GATE_MARGIN") |  |  |  |  |
+
+| `FF_OPT_NO_NUMFOLD` | env_key | std::env::var("FF_OPT_NO_NUMFOLD") |  |  |  |  |
+
+| `FF_OPT_NO_NUMH` | env_key | std::env::var("FF_OPT_NO_NUMH") |  |  |  |  |
+
+| `FF_OPT_NO_RESUME` | env_key | std::env::var("FF_OPT_NO_RESUME") |  |  |  |  |
+
+| `FF_OPT_NO_ROOTGATE` | env_key | std::env::var("FF_OPT_NO_ROOTGATE") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
+
 | `solve` | function | solve( task: &PackedTask, cf: Option<usize>, max_nodes: usize, orbit: Option<&crate::orbits::OrbitMap>, ) -> OptOutcome |  |  |  |  |
 
 | `OptOutcome` | struct | OptOutcome { pub ops: Option<Vec<usize>>, pub cost: f64, pub expanded: usize, pub evaluated: usize, pub proven: bool, pub reject: Option<String>, pub heuristic: &'static str, pub clock_tripped: bool } |  |  |  |  |
 
 
 ### crates/ferroplan/src/orbits.rs
+
+| `FF_NO_ORBIT` | env_key | std::env::var("FF_NO_ORBIT") |  |  |  |  |
+
+| `FF_NO_ORBIT_CLASSICAL` | env_key | std::env::var("FF_NO_ORBIT_CLASSICAL") |  |  |  |  |
+
+| `FF_ORBIT_DEBUG` | env_key | std::env::var("FF_ORBIT_DEBUG") |  |  |  |  |
+
+| `FF_ORBIT_ISO` | env_key | std::env::var("FF_ORBIT_ISO") |  |  |  |  |
 
 | `canonical_key` | function | canonical_key( &self, task: &PackedTask, state: &State, agenda: &[(i64, usize)], ) -> (crate::packed::StateKey, Vec<(i64, usize)>) |  |  |  |  |
 
@@ -2071,6 +3653,8 @@
 
 | `MIN_PAR` | const | MIN_PAR: usize |  |  |  |  |
 
+| `FFDP_THREADS` | env_key | std::env::var("FFDP_THREADS") |  |  |  |  |
+
 | `num_threads` | function | num_threads() -> usize |  |  |  |  |
 
 | `par_map` | function | par_map(items: &[T], threads: usize, f: F) -> Vec<R> |  |  |  |  |
@@ -2083,6 +3667,8 @@
 | `parse_domain` | function | parse_domain(src: &str) -> Result<Domain, ParseError> |  |  |  |  |
 
 | `parse_problem` | function | parse_problem(src: &str) -> Result<Problem, ParseError> |  |  |  |  |
+
+| `:STRIPS` | str_key | SUPPORTED = ":STRIPS" |  |  |  |  |
 
 
 ### crates/ferroplan/src/partition.rs
@@ -2099,6 +3685,24 @@
 
 | `partition` | function | partition(task: &PackedTask) -> Vec<Subgoal> |  |  |  |  |
 
+| `
+    (define (domain t) (:requirements :strips)
+      (:predicates (done1) (tok-a) (tok-b))
+      (:action grab :precondition (tok-a)
+        :effect (and (done1) (not (tok-a)) (tok-b)))
+      (:action swap :precondition (tok-b)
+        :effect (and (not (tok-b)) (tok-a))))` | str_key | DOM = "
+    (define (domain t) (:requirements :strips)
+      (:predicates (done1) (tok-a) (tok-b))
+      (:action grab :precondition (tok-a)
+        :effect (and (done1) (not (tok-a)) (tok-b)))
+      (:action swap :precondition (tok-b)
+        :effect (and (not (tok-b)) (tok-a))))" |  |  |  |  |
+
+| `(define (problem p) (:domain t)
+      (:init (tok-a)) (:goal (and (done1) (tok-b))))` | str_key | PRB = "(define (problem p) (:domain t)
+      (:init (tok-a)) (:goal (and (done1) (tok-b))))" |  |  |  |  |
+
 | `Subgoal` | struct | Subgoal { pub pos: Vec<u32>, pub num: Vec<NumPre> } |  |  |  |  |
 
 
@@ -2107,6 +3711,44 @@
 | `COST` | const | COST: &str |  |  |  |  |
 
 | `COST_DISP` | const | COST_DISP: &str |  |  |  |  |
+
+| `FF_DEADLINE_WEIGHT` | env_key | std::env::var("FF_DEADLINE_WEIGHT") |  |  |  |  |
+
+| `FF_ESPC_TRAJ_PAIRS` | env_key | std::env::var("FF_ESPC_TRAJ_PAIRS") |  |  |  |  |
+
+| `FF_PREF_COMPILED` | env_key | std::env::var("FF_PREF_COMPILED") |  |  |  |  |
+
+| `FF_PREF_COST_WEIGHT` | env_key | std::env::var("FF_PREF_COST_WEIGHT") |  |  |  |  |
+
+| `FF_PREF_EVAL_BUDGET` | env_key | std::env::var("FF_PREF_EVAL_BUDGET") |  |  |  |  |
+
+| `FF_PREF_GREEDY` | env_key | std::env::var("FF_PREF_GREEDY") |  |  |  |  |
+
+| `FF_PREF_NO_BARRIER` | env_key | std::env::var("FF_PREF_NO_BARRIER") |  |  |  |  |
+
+| `FF_PREF_NO_ESCALATE` | env_key | std::env::var("FF_PREF_NO_ESCALATE") |  |  |  |  |
+
+| `FF_PREF_NO_RESTARTS` | env_key | std::env::var("FF_PREF_NO_RESTARTS") |  |  |  |  |
+
+| `FF_PREF_NO_SEED` | env_key | std::env::var("FF_PREF_NO_SEED") |  |  |  |  |
+
+| `FF_PREF_NO_SELECT` | env_key | std::env::var("FF_PREF_NO_SELECT") |  |  |  |  |
+
+| `FF_PREF_NO_STATIC` | env_key | std::env::var("FF_PREF_NO_STATIC") |  |  |  |  |
+
+| `FF_PREF_NUMLEGACY` | env_key | std::env::var("FF_PREF_NUMLEGACY") |  |  |  |  |
+
+| `FF_PREF_SEED` | env_key | std::env::var("FF_PREF_SEED") |  |  |  |  |
+
+| `FF_PREF_SEED3` | env_key | std::env::var("FF_PREF_SEED3") |  |  |  |  |
+
+| `FF_PREF_SEED_BOUND` | env_key | std::env::var("FF_PREF_SEED_BOUND") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_RES_THRESH` | env_key | std::env::var("FF_RES_THRESH") |  |  |  |  |
+
+| `FF_RES_WEIGHT` | env_key | std::env::var("FF_RES_WEIGHT") |  |  |  |  |
 
 | `close_seed` | function | close_seed( task: &PackedTask, cost_fluent: usize, forgos: &[(usize, f64)], prefix: &[usize], ) -> Option<(Vec<usize>, f64)> |  |  |  |  |
 
@@ -2132,6 +3774,14 @@
 
 | `preferences` | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) -> Vec<(String, Formula)> |  |  |  |  |
 
+| `(TOTAL-COST)` | str_key | COST_DISP = "(TOTAL-COST)" |  |  |  |  |
+
+| `P3ENDED` | str_key | ENDED = "P3ENDED" |  |  |  |  |
+
+| `P3PLANNING` | str_key | PLANNING = "P3PLANNING" |  |  |  |  |
+
+| `TOTAL-COST` | str_key | COST = "TOTAL-COST" |  |  |  |  |
+
 | `Compiled` | struct | Compiled { pub domain: Domain, pub problem: Problem, pub minimize: bool, pub maximized: bool, pub metric_konst: f64, pub n_prefs: usize, pub warn_other: bool, pub unsupported: Option<String>, pub synthetic: HashSet<String>, pub forgos: Vec<(String, f64)>, pub folded_metric: bool } |  |  |  |  |
 
 | `MetricResult` | struct | MetricResult { pub ops: Vec<usize>, pub cost: f64, pub iterations: usize, pub proven: bool } |  |  |  |  |
@@ -2151,12 +3801,22 @@
 
 | `validate_plan` | function | validate_plan( domain_src: &str, problem_src: &str, plan_src: &str, ) -> Result<Validity, String> |  |  |  |  |
 
+| `(define (domain c)` | str_key | CLASSICAL_DOMAIN = "(define (domain c)" |  |  |  |  |
+
+| `(define (domain ct)` | str_key | TEMPORAL_DOMAIN = "(define (domain ct)" |  |  |  |  |
+
+| `(define (problem p) (:domain c)` | str_key | CLASSICAL_PROBLEM = "(define (problem p) (:domain c)" |  |  |  |  |
+
 
 ### crates/ferroplan/src/planner.rs
+
+| `FF_SAT_CLASSICAL` | env_key | std::env::var("FF_SAT_CLASSICAL") |  |  |  |  |
 
 | `run_ff` | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) -> (String, i32) |  |  |  |  |
 
 | `run_planner` | function | run_planner( domain_src: &str, problem_src: &str, opts: &crate::Options, ipc: bool, ) -> (String, i32) |  |  |  |  |
+
+| `grounding budget reached! no plan found within budget (grounding NOT finished).` | str_key | GROUNDING_WALL_LINE = "grounding budget reached! no plan found within budget (grounding NOT finished)." |  |  |  |  |
 
 
 ### crates/ferroplan/src/planning_runtime.rs
@@ -2238,6 +3898,8 @@
 
 ### crates/ferroplan/src/portfolio.rs
 
+| `FF_PORTFOLIO_SLICED` | env_key | std::env::var("FF_PORTFOLIO_SLICED") |  |  |  |  |
+
 | `solve` | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) -> Outcome |  |  |  |  |
 
 | `Outcome` | struct | Outcome { pub ops: Option<Vec<usize>>, pub evaluated: usize, pub winner: Option<&'static str> } |  |  |  |  |
@@ -2248,6 +3910,18 @@
 | `PpddlError` | enum | PpddlError { Syntax(String), DomainParse(ParseError), ProblemParse(ParseError), Derived(String), Unsupported(String), InvalidProbability(String), InvalidOptions(String), OutcomeLimit { action: String, limit: usize }, StateLimit { limit: usize }, TransitionLimit { limit: usize }, GroundingFailed, GroundingDivergence { action: String, expected: usize, observed: usize, }, InitialOutcomeLimit { limit: usize }, RewardViolation(String), PolicyLimit { limit: usize }, ValueTableLimit { limit: usize } } |  |  |  |  |
 
 | `ProbabilisticObjective` | enum | ProbabilisticObjective { Auto, MaximizeGoalProbability, MinimizeGoalProbability, MaximizeExpectedReward, MinimizeExpectedReward, MaximizeExpectedMetric, MinimizeExpectedMetric } |  |  |  |  |
+
+| `:PROBABILISTIC-EFFECTS` | str_key | PROB_REQ = ":PROBABILISTIC-EFFECTS" |  |  |  |  |
+
+| `:REWARDS` | str_key | REWARD_REQ = ":REWARDS" |  |  |  |  |
+
+| `PPDDL-A` | str_key | VARIANT_PREFIX = "PPDDL-A" |  |  |  |  |
+
+| `PPDDL-INIT-PENDING` | str_key | INIT_PENDING = "PPDDL-INIT-PENDING" |  |  |  |  |
+
+| `PPDDL-INITIALIZE` | str_key | INIT_ACTION = "PPDDL-INITIALIZE" |  |  |  |  |
+
+| `PPDDL-MARKER-A` | str_key | MARKER_PREFIX = "PPDDL-MARKER-A" |  |  |  |  |
 
 | `InitialStateProbability` | struct | InitialStateProbability { pub state: usize, pub probability: f64, pub goal: bool } |  |  |  |  |
 
@@ -2312,6 +3986,12 @@
 
 | `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
+| `(define (domain smoke) (:requirements :strips) ` | str_key | DOMAIN = "(define (domain smoke) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem smoke-p) (:domain smoke) ` | str_key | PROBLEM = "(define (problem smoke-p) (:domain smoke) " |  |  |  |  |
+
+| `ferroplan.production-surface.v1` | str_key | PRODUCTION_SURFACE_HASH_DOMAIN = "ferroplan.production-surface.v1" |  |  |  |  |
+
 | `PlanValidationEvidence` | struct | PlanValidationEvidence { pub valid: bool, pub reason: Option<String> } |  |  |  |  |
 
 | `ProductionSession` | struct | ProductionSession { inner: Session, domain: String, problem: String, limits: ProductionLimits, input_fingerprint: String } |  |  |  |  |
@@ -2322,6 +4002,14 @@
 | `decompose_production` | function | decompose_production( domain: &str, problem: &str, options: &Options, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Decomposition> |  |  |  |  |
 
 | `explain_production` | function | explain_production( domain: &str, problem: &str, plan: &Plan, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Explanation> |  |  |  |  |
+
+| `(define (domain smoke) (:requirements :strips) ` | str_key | DOMAIN = "(define (domain smoke) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem smoke-p) (:domain smoke) ` | str_key | PROBLEM = "(define (problem smoke-p) (:domain smoke) " |  |  |  |  |
+
+| `ferroplan.production-decompose.v1` | str_key | DECOMPOSE_HASH_DOMAIN = "ferroplan.production-decompose.v1" |  |  |  |  |
+
+| `ferroplan.production-explain.v1` | str_key | EXPLAIN_HASH_DOMAIN = "ferroplan.production-explain.v1" |  |  |  |  |
 
 
 ### crates/ferroplan/src/reachability.rs
@@ -2383,6 +4071,20 @@
 
 | `validate` | function | validate(&self) -> Result<(), ManifestError> |  |  |  |  |
 
+| `(define (domain smoke) (:requirements :strips) ` | str_key | DOMAIN = "(define (domain smoke) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem smoke-p) (:domain smoke) ` | str_key | PROBLEM = "(define (problem smoke-p) (:domain smoke) " |  |  |  |  |
+
+| `candidate_only` | str_key | CANDIDATE_AUTHORITY = "candidate_only" |  |  |  |  |
+
+| `ferroplan.capabilities.v1` | str_key | CAPABILITY_MANIFEST_SCHEMA = "ferroplan.capabilities.v1" |  |  |  |  |
+
+| `ferroplan.capability-manifest.v1` | str_key | MANIFEST_HASH_DOMAIN = "ferroplan.capability-manifest.v1" |  |  |  |  |
+
+| `ferroplan.operation.v1` | str_key | OPERATION_ENVELOPE_SCHEMA = "ferroplan.operation.v1" |  |  |  |  |
+
+| `ferroplan.production-input.v1` | str_key | INPUT_HASH_DOMAIN = "ferroplan.production-input.v1" |  |  |  |  |
+
 | `BuildIdentity` | struct | BuildIdentity { pub product_version: String, pub source_revision: Option<String>, pub manifest_fingerprint: Option<String> } |  |  |  |  |
 
 | `CapabilityContract` | struct | CapabilityContract { pub id: String, pub version: String, pub owner: String, pub component: String, pub interface: InterfaceKind, pub authority: AuthorityClass, pub determinism: DeterminismClass, pub replay: ReplayClass, pub input_schema: String, pub output_schema: String, pub resource_profile: String, pub failure_contract: String, pub telemetry_contract: String, pub compatibility: CompatibilityClass, pub security: SecurityClass, pub shipped: bool, pub required_evidence: Vec<String> } |  |  |  |  |
@@ -2417,6 +4119,14 @@
 
 | `Solved` | enum | Solved { Plan(Vec<usize>, Stats), Unsolvable { capped: bool, } } |  |  |  |  |
 
+| `FF_NO_LAMA` | env_key | std::env::var("FF_NO_LAMA") |  |  |  |  |
+
+| `FF_RESLM` | env_key | std::env::var("FF_RESLM") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
+
 | `solve` | function | solve( task: &PackedTask, threads: usize, cfg: crate::search::SearchCfg, mutex_groups: &[Vec<u32>], orbit: Option<&crate::orbits::OrbitMap>, ) -> Solved |  |  |  |  |
 
 | `Stats` | struct | Stats { pub init_groups: usize, pub final_groups: usize, pub merges: usize, pub fallback: bool } |  |  |  |  |
@@ -2432,12 +4142,82 @@
 
 | `trips` | function | trips(&self, bits: &[u64]) -> i64 |  |  |  |  |
 
+| `(define (domain ctr) (:requirements :typing)
+      (:types count)
+      (:predicates (avail ?s - count) (nxt ?lo ?hi - count))
+      (:action consume :parameters (?a ?b - count)
+        :precondition (and (avail ?a) (nxt ?b ?a))
+        :effect (and (not (avail ?a)) (avail ?b)))
+      (:action restore :parameters (?a ?b - count)
+        :precondition (and (avail ?a) (nxt ?a ?b))
+        :effect (and (not (avail ?a)) (avail ?b))))` | str_key | DOM = "(define (domain ctr) (:requirements :typing)
+      (:types count)
+      (:predicates (avail ?s - count) (nxt ?lo ?hi - count))
+      (:action consume :parameters (?a ?b - count)
+        :precondition (and (avail ?a) (nxt ?b ?a))
+        :effect (and (not (avail ?a)) (avail ?b)))
+      (:action restore :parameters (?a ?b - count)
+        :precondition (and (avail ?a) (nxt ?a ?b))
+        :effect (and (not (avail ?a)) (avail ?b))))" |  |  |  |  |
+
+| `(define (domain tinytrans)
+      (:requirements :strips :typing)
+      (:types loc pkg cap)
+      (:predicates (tat ?l - loc) (pat ?p - pkg ?l - loc) (pin ?p - pkg)
+                   (cap ?c - cap) (nxt ?a ?b - cap))
+      (:action mv :parameters (?a ?b - loc)
+        :precondition (tat ?a) :effect (and (not (tat ?a)) (tat ?b)))
+      (:action pick :parameters (?p - pkg ?l - loc ?a ?b - cap)
+        :precondition (and (tat ?l) (pat ?p ?l) (nxt ?a ?b) (cap ?b))
+        :effect (and (not (pat ?p ?l)) (pin ?p) (cap ?a) (not (cap ?b))))
+      (:action drop :parameters (?p - pkg ?l - loc ?a ?b - cap)
+        :precondition (and (tat ?l) (pin ?p) (nxt ?a ?b) (cap ?a))
+        :effect (and (not (pin ?p)) (pat ?p ?l) (cap ?b) (not (cap ?a)))))` | str_key | TDOM = "(define (domain tinytrans)
+      (:requirements :strips :typing)
+      (:types loc pkg cap)
+      (:predicates (tat ?l - loc) (pat ?p - pkg ?l - loc) (pin ?p - pkg)
+                   (cap ?c - cap) (nxt ?a ?b - cap))
+      (:action mv :parameters (?a ?b - loc)
+        :precondition (tat ?a) :effect (and (not (tat ?a)) (tat ?b)))
+      (:action pick :parameters (?p - pkg ?l - loc ?a ?b - cap)
+        :precondition (and (tat ?l) (pat ?p ?l) (nxt ?a ?b) (cap ?b))
+        :effect (and (not (pat ?p ?l)) (pin ?p) (cap ?a) (not (cap ?b))))
+      (:action drop :parameters (?p - pkg ?l - loc ?a ?b - cap)
+        :precondition (and (tat ?l) (pin ?p) (nxt ?a ?b) (cap ?a))
+        :effect (and (not (pin ?p)) (pat ?p ?l) (cap ?b) (not (cap ?a)))))" |  |  |  |  |
+
+| `(define (problem ctr1) (:domain ctr)
+      (:objects c0 c1 c2 c3 - count)
+      (:init (avail c3) (nxt c0 c1) (nxt c1 c2) (nxt c2 c3))
+      (:goal (avail c0)))` | str_key | PROB = "(define (problem ctr1) (:domain ctr)
+      (:objects c0 c1 c2 c3 - count)
+      (:init (avail c3) (nxt c0 c1) (nxt c1 c2) (nxt c2 c3))
+      (:goal (avail c0)))" |  |  |  |  |
+
+| `(define (problem tt1) (:domain tinytrans)
+      (:objects l1 l2 l3 - loc p1 p2 p3 - pkg c0 c1 c2 - cap)
+      (:init (tat l1) (pat p1 l1) (pat p2 l1) (pat p3 l1)
+             (cap c2) (nxt c0 c1) (nxt c1 c2))
+      (:goal (and (pat p1 l2) (pat p2 l2) (pat p3 l3))))` | str_key | TPROB = "(define (problem tt1) (:domain tinytrans)
+      (:objects l1 l2 l3 - loc p1 p2 p3 - pkg c0 c1 c2 - cap)
+      (:init (tat l1) (pat p1 l1) (pat p2 l1) (pat p3 l1)
+             (cap c2) (nxt c0 c1) (nxt c1 c2))
+      (:goal (and (pat p1 l2) (pat p2 l2) (pat p3 l3))))" |  |  |  |  |
+
 | `ResourceVar` | struct | ResourceVar { pub members: Vec<(u32, u32)> } |  |  |  |  |
 
 | `TripBound` | struct | TripBound { pub goals: Vec<u32>, pub pool: i64 } |  |  |  |  |
 
 
 ### crates/ferroplan/src/sat.rs
+
+| `FF_NO_SAT_LAYERGEN` | env_key | std::env::var("FF_NO_SAT_LAYERGEN") |  |  |  |  |
+
+| `FF_NO_SAT_RATEBAIL` | env_key | std::env::var("FF_NO_SAT_RATEBAIL") |  |  |  |  |
+
+| `FF_SAT_BRANCH` | env_key | std::env::var("FF_SAT_BRANCH") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `from_env` | function | from_env() -> Self |  |  |  |  |
 
@@ -2459,6 +4239,54 @@
 | `DEFAULT_MAX_EVAL` | const | DEFAULT_MAX_EVAL: usize |  |  |  |  |
 
 | `PlanResult` | enum | PlanResult { Plan { ops: Vec<usize>, advance: Vec<i32>, evaluated: usize, max_g: usize, }, Unsolvable { evaluated: usize, capped: bool, } } |  |  |  |  |
+
+| `FF_CLM` | env_key | std::env::var("FF_CLM") |  |  |  |  |
+
+| `FF_HTRACE` | env_key | std::env::var("FF_HTRACE") |  |  |  |  |
+
+| `FF_LEN_ANYTIME` | env_key | std::env::var("FF_LEN_ANYTIME") |  |  |  |  |
+
+| `FF_MEM_BUDGET_GB` | env_key | std::env::var("FF_MEM_BUDGET_GB") |  |  |  |  |
+
+| `FF_NOVDRIVER_ONLY` | env_key | std::env::var("FF_NOVDRIVER_ONLY") |  |  |  |  |
+
+| `FF_NOVELTY` | env_key | std::env::var("FF_NOVELTY") |  |  |  |  |
+
+| `FF_NOVELTY_ONLY` | env_key | std::env::var("FF_NOVELTY_ONLY") |  |  |  |  |
+
+| `FF_NOVLIGHT` | env_key | std::env::var("FF_NOVLIGHT") |  |  |  |  |
+
+| `FF_NOVLIGHT_ONLY` | env_key | std::env::var("FF_NOVLIGHT_ONLY") |  |  |  |  |
+
+| `FF_NOV_OLD` | env_key | std::env::var("FF_NOV_OLD") |  |  |  |  |
+
+| `FF_NO_EHC_WALLCAP` | env_key | std::env::var("FF_NO_EHC_WALLCAP") |  |  |  |  |
+
+| `FF_NO_ENRICH` | env_key | std::env::var("FF_NO_ENRICH") |  |  |  |  |
+
+| `FF_NO_LAMA` | env_key | std::env::var("FF_NO_LAMA") |  |  |  |  |
+
+| `FF_NO_NODECAP_REFILL` | env_key | std::env::var("FF_NO_NODECAP_REFILL") |  |  |  |  |
+
+| `FF_NO_NOVELTY` | env_key | std::env::var("FF_NO_NOVELTY") |  |  |  |  |
+
+| `FF_NO_NOVLIGHT` | env_key | std::env::var("FF_NO_NOVLIGHT") |  |  |  |  |
+
+| `FF_NO_REFILL` | env_key | std::env::var("FF_NO_REFILL") |  |  |  |  |
+
+| `FF_NO_RUNG_WALLCAP` | env_key | std::env::var("FF_NO_RUNG_WALLCAP") |  |  |  |  |
+
+| `FF_REPORT_RESERVE_SECS` | env_key | std::env::var("FF_REPORT_RESERVE_SECS") |  |  |  |  |
+
+| `FF_RESLM` | env_key | std::env::var("FF_RESLM") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_SEARCH_NODE_CAP` | env_key | std::env::var("FF_SEARCH_NODE_CAP") |  |  |  |  |
+
+| `FF_TIME_LIMIT` | env_key | std::env::var("FF_TIME_LIMIT") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `arm_wall_limit` | function | arm_wall_limit() |  |  |  |  |
 
@@ -2558,6 +4386,250 @@
 
 | `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
+| `
+        (define (domain gate) (:requirements :strips :numeric-fluents)
+          (:predicates (done))
+          (:functions (permit))
+          (:action act :precondition (>= (permit) 1) :effect (done)))` | str_key | GDOM = "
+        (define (domain gate) (:requirements :strips :numeric-fluents)
+          (:predicates (done))
+          (:functions (permit))
+          (:action act :precondition (>= (permit) 1) :effect (done)))" |  |  |  |  |
+
+| `
+        (define (domain shop)
+          (:requirements :strips :typing :durative-actions :numeric-fluents)
+          (:types worker)
+          (:predicates (idle ?w - worker) (built ?w - worker))
+          (:functions (build-time ?w - worker))
+          (:durative-action build
+            :parameters (?w - worker)
+            :duration (= ?duration (build-time ?w))
+            :condition (at start (idle ?w))
+            :effect (and (at start (not (idle ?w))) (at end (built ?w)))))` | str_key | DDOM = "
+        (define (domain shop)
+          (:requirements :strips :typing :durative-actions :numeric-fluents)
+          (:types worker)
+          (:predicates (idle ?w - worker) (built ?w - worker))
+          (:functions (build-time ?w - worker))
+          (:durative-action build
+            :parameters (?w - worker)
+            :duration (= ?duration (build-time ?w))
+            :condition (at start (idle ?w))
+            :effect (and (at start (not (idle ?w))) (at end (built ?w)))))" |  |  |  |  |
+
+| `
+        (define (problem g) (:domain gate)
+          (:init (= (permit) 0))
+          (:goal (done)))` | str_key | GPRB = "
+        (define (problem g) (:domain gate)
+          (:init (= (permit) 0))
+          (:goal (done)))" |  |  |  |  |
+
+| `
+        (define (problem job) (:domain shop)
+          (:objects w1 - worker)
+          (:init (idle w1) (= (build-time w1) 5))
+          (:goal (built w1)))` | str_key | DPRB = "
+        (define (problem job) (:domain shop)
+          (:objects w1 - worker)
+          (:init (idle w1) (= (build-time w1) 5))
+          (:goal (built w1)))" |  |  |  |  |
+
+| `
+    (define (domain farm) (:requirements :strips :typing :numeric-fluents)
+      (:types agent place)
+      (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+      (:functions (grain))
+      (:action walk :parameters (?a - agent ?from ?to - place)
+        :precondition (and (at ?a ?from) (road ?from ?to))
+        :effect (and (not (at ?a ?from)) (at ?a ?to)))
+      (:action harvest :parameters (?a - agent ?p - place)
+        :precondition (and (at ?a ?p) (fertile ?p))
+        :effect (increase (grain) 1)))` | str_key | DOM = "
+    (define (domain farm) (:requirements :strips :typing :numeric-fluents)
+      (:types agent place)
+      (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+      (:functions (grain))
+      (:action walk :parameters (?a - agent ?from ?to - place)
+        :precondition (and (at ?a ?from) (road ?from ?to))
+        :effect (and (not (at ?a ?from)) (at ?a ?to)))
+      (:action harvest :parameters (?a - agent ?p - place)
+        :precondition (and (at ?a ?p) (fertile ?p))
+        :effect (increase (grain) 1)))" |  |  |  |  |
+
+| `
+    (define (domain lamp) (:requirements :strips :negative-preconditions)
+      (:predicates (on) (broken))
+      (:action switch-on :precondition (and (not (on)) (not (broken))) :effect (on))
+      (:action switch-off :precondition (on) :effect (not (on))))` | str_key | NEG_DOM = "
+    (define (domain lamp) (:requirements :strips :negative-preconditions)
+      (:predicates (on) (broken))
+      (:action switch-on :precondition (and (not (on)) (not (broken))) :effect (on))
+      (:action switch-off :precondition (on) :effect (not (on))))" |  |  |  |  |
+
+| `
+    (define (domain rollers) (:requirements :strips :typing)
+      (:types ball room)
+      (:predicates (at ?b - ball ?r - room) (link ?x ?y - room)
+                   (goal-room ?r - room) (home ?b - ball))
+      (:action roll :parameters (?b - ball ?from ?to - room)
+        :precondition (and (at ?b ?from) (link ?from ?to))
+        :effect (and (not (at ?b ?from)) (at ?b ?to)))
+      (:action park :parameters (?b - ball ?r - room)
+        :precondition (and (at ?b ?r) (goal-room ?r))
+        :effect (home ?b)))` | str_key | ORB_DOM = "
+    (define (domain rollers) (:requirements :strips :typing)
+      (:types ball room)
+      (:predicates (at ?b - ball ?r - room) (link ?x ?y - room)
+                   (goal-room ?r - room) (home ?b - ball))
+      (:action roll :parameters (?b - ball ?from ?to - room)
+        :precondition (and (at ?b ?from) (link ?from ?to))
+        :effect (and (not (at ?b ?from)) (at ?b ?to)))
+      (:action park :parameters (?b - ball ?r - room)
+        :precondition (and (at ?b ?r) (goal-room ?r))
+        :effect (home ?b)))" |  |  |  |  |
+
+| `
+    (define (domain seqshop) (:requirements :strips :typing :durative-actions)
+      (:types w)
+      (:predicates (idle ?x - w) (staged ?x - w) (built ?x - w) (power))
+      (:durative-action stage1 :parameters (?x - w) :duration (= ?duration 5)
+        :condition (at start (idle ?x))
+        :effect (and (at start (not (idle ?x))) (at end (staged ?x))))
+      (:durative-action stage2 :parameters (?x - w) :duration (= ?duration 5)
+        :condition (and (at start (staged ?x)) (at start (power)))
+        :effect (at end (built ?x)))
+      (:durative-action grid :parameters () :duration (= ?duration 1)
+        :condition (at start (power))
+        :effect (and (at start (not (power))) (at end (power)))))` | str_key | SEQ_DOM = "
+    (define (domain seqshop) (:requirements :strips :typing :durative-actions)
+      (:types w)
+      (:predicates (idle ?x - w) (staged ?x - w) (built ?x - w) (power))
+      (:durative-action stage1 :parameters (?x - w) :duration (= ?duration 5)
+        :condition (at start (idle ?x))
+        :effect (and (at start (not (idle ?x))) (at end (staged ?x))))
+      (:durative-action stage2 :parameters (?x - w) :duration (= ?duration 5)
+        :condition (and (at start (staged ?x)) (at start (power)))
+        :effect (at end (built ?x)))
+      (:durative-action grid :parameters () :duration (= ?duration 1)
+        :condition (at start (power))
+        :effect (and (at start (not (power))) (at end (power)))))" |  |  |  |  |
+
+| `
+    (define (domain shop) (:requirements :strips :typing :durative-actions)
+      (:types job machine)
+      (:predicates (todo ?j - job) (done ?j - job) (up ?m - machine) (fast ?m - machine)
+                   (slow ?m - machine))
+      (:durative-action run-fast :parameters (?j - job ?m - machine)
+        :duration (= ?duration 2)
+        :condition (and (at start (todo ?j)) (at start (up ?m)) (at start (fast ?m))
+                        (over all (up ?m)))
+        :effect (and (at start (not (todo ?j))) (at end (done ?j))))
+      (:durative-action run-slow :parameters (?j - job ?m - machine)
+        :duration (= ?duration 8)
+        :condition (and (at start (todo ?j)) (at start (up ?m)) (at start (slow ?m))
+                        (over all (up ?m)))
+        :effect (and (at start (not (todo ?j))) (at end (done ?j))))
+      (:durative-action maintain :parameters (?m - machine)
+        :duration (= ?duration 1)
+        :condition (at start (up ?m))
+        :effect (and (at start (not (up ?m))) (at end (up ?m)))))` | str_key | SHOP_DOM = "
+    (define (domain shop) (:requirements :strips :typing :durative-actions)
+      (:types job machine)
+      (:predicates (todo ?j - job) (done ?j - job) (up ?m - machine) (fast ?m - machine)
+                   (slow ?m - machine))
+      (:durative-action run-fast :parameters (?j - job ?m - machine)
+        :duration (= ?duration 2)
+        :condition (and (at start (todo ?j)) (at start (up ?m)) (at start (fast ?m))
+                        (over all (up ?m)))
+        :effect (and (at start (not (todo ?j))) (at end (done ?j))))
+      (:durative-action run-slow :parameters (?j - job ?m - machine)
+        :duration (= ?duration 8)
+        :condition (and (at start (todo ?j)) (at start (up ?m)) (at start (slow ?m))
+                        (over all (up ?m)))
+        :effect (and (at start (not (todo ?j))) (at end (done ?j))))
+      (:durative-action maintain :parameters (?m - machine)
+        :duration (= ?duration 1)
+        :condition (at start (up ?m))
+        :effect (and (at start (not (up ?m))) (at end (up ?m)))))" |  |  |  |  |
+
+| `
+    (define (domain workshop) (:requirements :strips :typing :durative-actions)
+      (:types worker)
+      (:predicates (idle ?w - worker) (built ?w - worker))
+      (:durative-action build
+        :parameters (?w - worker)
+        :duration (= ?duration 5)
+        :condition (at start (idle ?w))
+        :effect (and (at start (not (idle ?w))) (at end (built ?w)))))` | str_key | TDOM = "
+    (define (domain workshop) (:requirements :strips :typing :durative-actions)
+      (:types worker)
+      (:predicates (idle ?w - worker) (built ?w - worker))
+      (:durative-action build
+        :parameters (?w - worker)
+        :duration (= ?duration 5)
+        :condition (at start (idle ?w))
+        :effect (and (at start (not (idle ?w))) (at end (built ?w)))))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain farm)
+      (:objects v1 - agent hut field - place)
+      (:init (at v1 hut) (road hut field) (road field hut) (fertile field) (= (grain) 0))
+      (:goal (>= (grain) 2)))` | str_key | PRB = "
+    (define (problem p) (:domain farm)
+      (:objects v1 - agent hut field - place)
+      (:init (at v1 hut) (road hut field) (road field hut) (fertile field) (= (grain) 0))
+      (:goal (>= (grain) 2)))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain lamp)
+      (:init) (:goal (on)))` | str_key | NEG_PRB = "
+    (define (problem p) (:domain lamp)
+      (:init) (:goal (on)))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain rollers)
+      (:objects b1 b2 - ball ra rb - room)
+      (:init (at b1 ra) (at b2 ra) (link ra rb) (link rb ra) (goal-room rb))
+      (:goal (and (home b1) (home b2))))` | str_key | ORB_PRB = "
+    (define (problem p) (:domain rollers)
+      (:objects b1 b2 - ball ra rb - room)
+      (:init (at b1 ra) (at b2 ra) (link ra rb) (link rb ra) (goal-room rb))
+      (:goal (and (home b1) (home b2))))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain seqshop)
+      (:objects w1 - w)
+      (:init (idle w1) (power))
+      (:goal (built w1)))` | str_key | SEQ_PRB = "
+    (define (problem p) (:domain seqshop)
+      (:objects w1 - w)
+      (:init (idle w1) (power))
+      (:goal (built w1)))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain shop)
+      (:objects j1 j2 - job f s - machine)
+      (:init (todo j1) (todo j2) (up f) (up s) (fast f) (slow s))
+      (:goal (and (done j1) (done j2))))` | str_key | SHOP_PRB = "
+    (define (problem p) (:domain shop)
+      (:objects j1 j2 - job f s - machine)
+      (:init (todo j1) (todo j2) (up f) (up s) (fast f) (slow s))
+      (:goal (and (done j1) (done j2))))" |  |  |  |  |
+
+| `
+    (define (problem shift) (:domain workshop)
+      (:objects w1 w2 - worker)
+      (:init (idle w1) (idle w2))
+      (:goal (and (built w1) (built w2))))` | str_key | TPRB = "
+    (define (problem shift) (:domain workshop)
+      (:objects w1 w2 - worker)
+      (:init (idle w1) (idle w2))
+      (:goal (and (built w1) (built w2))))" |  |  |  |  |
+
+| `urn:ferroplan:session-state:v1` | str_key | DOMAIN = "urn:ferroplan:session-state:v1" |  |  |  |  |
+
 | `Session` | struct | Session { task: PackedTask, threads: usize, weight_g: f64, weight_h: f64, max_evaluated: Option<usize>, ehc_first: bool, fact_ids: Arc<FxHashMap<String, u32>>, dynamic: Arc<[bool]>, fluent_ids: Arc<FxHashMap<String, u32>>, temporal: Option<Arc<crate::temporal::TemporalCompiled>>, tier: crate::features::DemandMode, running_preds: Vec<String>, op_ids: Arc<FxHashMap<String, usize>>, mirror: Arc<FxHashMap<u32, u32>>, forbidden: Vec<bool>, timed: Vec<(f64, u32, bool)>, til_setters: Arc<FxHashMap<(u32, bool), usize>>, running: Vec<(f64, usize)>, lifted: Option<Arc<(crate::types::Domain, crate::types::Problem)>>, goal_formula: Formula } |  |  |  |  |
 
 | `Think` | struct | Think { pub solution: Solution, pub capped: bool, pub spent_ms: u64, pub spent_evals: usize, pub verdict: ThinkVerdict } |  |  |  |  |
@@ -2573,6 +4645,10 @@
 
 | `Bet` | enum | Bet { First, Rest } |  |  |  |  |
 
+| `FF_NO_TCOMPRESS` | env_key | std::env::var("FF_NO_TCOMPRESS") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
+
 | `compile` | function | compile(domain: &Domain, problem: &Problem) -> (Domain, Problem) |  |  |  |  |
 
 | `declines` | function | declines(domain: &Domain, problem: &Problem) -> Option<&'static str> |  |  |  |  |
@@ -2583,6 +4659,48 @@
 
 
 ### crates/ferroplan/src/temporal.rs
+
+| `FF_H_ENDGATE` | env_key | std::env::var("FF_H_ENDGATE") |  |  |  |  |
+
+| `FF_LAX_HELPFUL` | env_key | std::env::var("FF_LAX_HELPFUL") |  |  |  |  |
+
+| `FF_NOREL` | env_key | std::env::var("FF_NOREL") |  |  |  |  |
+
+| `FF_NO_LADDER_DEDUP` | env_key | std::env::var("FF_NO_LADDER_DEDUP") |  |  |  |  |
+
+| `FF_NO_SAT` | env_key | std::env::var("FF_NO_SAT") |  |  |  |  |
+
+| `FF_NO_TSUCC` | env_key | std::env::var("FF_NO_TSUCC") |  |  |  |  |
+
+| `FF_NO_TSYMM` | env_key | std::env::var("FF_NO_TSYMM") |  |  |  |  |
+
+| `FF_ORBIT_DEBUG` | env_key | std::env::var("FF_ORBIT_DEBUG") |  |  |  |  |
+
+| `FF_ORBIT_GEN` | env_key | std::env::var("FF_ORBIT_GEN") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_TAGENDA_W` | env_key | std::env::var("FF_TAGENDA_W") |  |  |  |  |
+
+| `FF_TAGENDA_W_PRUNE` | env_key | std::env::var("FF_TAGENDA_W_PRUNE") |  |  |  |  |
+
+| `FF_TB_FREE_G` | env_key | std::env::var("FF_TB_FREE_G") |  |  |  |  |
+
+| `FF_TDEMAND_W` | env_key | std::env::var("FF_TDEMAND_W") |  |  |  |  |
+
+| `FF_TEMPORAL_ABS_KEY` | env_key | std::env::var("FF_TEMPORAL_ABS_KEY") |  |  |  |  |
+
+| `FF_TEMPORAL_NODE_CAP` | env_key | std::env::var("FF_TEMPORAL_NODE_CAP") |  |  |  |  |
+
+| `FF_TEVAL_BUDGET` | env_key | std::env::var("FF_TEVAL_BUDGET") |  |  |  |  |
+
+| `FF_TLAMA` | env_key | std::env::var("FF_TLAMA") |  |  |  |  |
+
+| `FF_TLIFO` | env_key | std::env::var("FF_TLIFO") |  |  |  |  |
+
+| `FF_TRPG` | env_key | std::env::var("FF_TRPG") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `compile` | function | compile(domain: &Domain, problem: &Problem) -> TemporalCompiled |  |  |  |  |
 
@@ -2621,10 +4739,36 @@
 
 | `trace` | function | trace( domain_src: &str, problem_src: &str, plan: &[(String, Vec<String>)], ) -> Result<Vec<StateSnapshot>, String> |  |  |  |  |
 
+| `
+    (define (domain logi) (:requirements :typing)
+      (:types location truck)
+      (:predicates (at ?t - truck ?l - location) (road ?a ?b - location))
+      (:action drive :parameters (?t - truck ?from ?to - location)
+        :precondition (and (at ?t ?from) (road ?from ?to))
+        :effect (and (not (at ?t ?from)) (at ?t ?to))))` | str_key | DOM = "
+    (define (domain logi) (:requirements :typing)
+      (:types location truck)
+      (:predicates (at ?t - truck ?l - location) (road ?a ?b - location))
+      (:action drive :parameters (?t - truck ?from ?to - location)
+        :precondition (and (at ?t ?from) (road ?from ?to))
+        :effect (and (not (at ?t ?from)) (at ?t ?to))))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain logi)
+      (:objects a b - location  t1 - truck)
+      (:init (at t1 a) (road a b))
+      (:goal (at t1 b)))` | str_key | PRB = "
+    (define (problem p) (:domain logi)
+      (:objects a b - location  t1 - truck)
+      (:init (at t1 a) (road a b))
+      (:goal (at t1 b)))" |  |  |  |  |
+
 | `StateSnapshot` | struct | StateSnapshot { pub facts: Vec<String>, pub fluents: Vec<(String, f64)> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/tresolve.rs
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
 
 | `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> |  |  |  |  |
 
@@ -2674,6 +4818,8 @@
 
 | `new` | function | new(line: u32, message: impl Into<String>) -> Self |  |  |  |  |
 
+| `?DURATION` | str_key | DURATION_PSEUDO = "?DURATION" |  |  |  |  |
+
 | `Action` | struct | Action { pub name: Sym, pub params: Vec<(Sym, Sym)>, pub precond: Formula, pub effect: Effect, pub monitored: bool } |  |  |  |  |
 
 | `DerivedRule` | struct | DerivedRule { pub head: Sym, pub params: Vec<(Sym, Sym)>, pub body: Formula } |  |  |  |  |
@@ -2718,6 +4864,36 @@
 
 | `to_pddl` | function | to_pddl( name: &str, domain_name: &str, objects: &[(String, String)], init: &[(String, Vec<String>)], goal: &[(String, Vec<String>)], ) -> String |  |  |  |  |
 
+| `
+    (define (domain logi) (:requirements :typing)
+      (:types location truck package)
+      (:predicates (at ?x - truck ?l - location) (road ?a ?b - location)
+                   (in ?p - package ?t - truck) (delivered ?p - package))
+      (:action drive :parameters (?t - truck ?from ?to - location)
+        :precondition (and (at ?t ?from) (road ?from ?to))
+        :effect (and (not (at ?t ?from)) (at ?t ?to))))` | str_key | DOM = "
+    (define (domain logi) (:requirements :typing)
+      (:types location truck package)
+      (:predicates (at ?x - truck ?l - location) (road ?a ?b - location)
+                   (in ?p - package ?t - truck) (delivered ?p - package))
+      (:action drive :parameters (?t - truck ?from ?to - location)
+        :precondition (and (at ?t ?from) (road ?from ?to))
+        :effect (and (not (at ?t ?from)) (at ?t ?to))))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain logi)
+      (:objects a b c - location  t1 - truck  p1 - package)
+      (:init (at t1 a) (road a b) (road b c) (in p1 t1))
+      (:goal (delivered p1)))` | str_key | PRB = "
+    (define (problem p) (:domain logi)
+      (:objects a b c - location  t1 - truck  p1 - package)
+      (:init (at t1 a) (road a b) (road b c) (in p1 t1))
+      (:goal (delivered p1)))" |  |  |  |  |
+
+| `AT` | str_key | POSITION_NAMES = "AT" |  |  |  |  |
+
+| `ROAD` | str_key | EDGE_NAMES = "ROAD" |  |  |  |  |
+
 | `VizEdge` | struct | VizEdge { pub a: String, pub b: String, pub pred: String } |  |  |  |  |
 
 | `VizGraph` | struct | VizGraph { pub nodes: Vec<VizNode>, pub edges: Vec<VizEdge>, pub mobiles: Vec<VizMobile>, pub props_by_object: BTreeMap<String, Vec<String>>, pub goal_by_object: BTreeMap<String, Vec<String>>, pub pred_kind: BTreeMap<String, PredKind>, pub location_types: BTreeSet<String> } |  |  |  |  |
@@ -2727,7 +4903,186 @@
 | `VizNode` | struct | VizNode { pub object: String, pub ty: String } |  |  |  |  |
 
 
+### crates/ferroplan/tests/action_costs.rs
+
+| `
+(define (domain roads)
+  (:requirements :strips :typing :action-costs)
+  (:types loc)
+  (:constants a b c - loc)
+  (:predicates (at ?l - loc))
+  (:functions (total-cost) - number)
+  (:action hop
+    :parameters ()
+    :precondition (at a)
+    :effect (and (not (at a)) (at c) (increase (total-cost) 10)))
+  (:action step1
+    :parameters ()
+    :precondition (at a)
+    :effect (and (not (at a)) (at b) (increase (total-cost) 1)))
+  (:action step2
+    :parameters ()
+    :precondition (at b)
+    :effect (and (not (at b)) (at c) (increase (total-cost) 1))))
+` | str_key | ROADS_DOMAIN = "
+(define (domain roads)
+  (:requirements :strips :typing :action-costs)
+  (:types loc)
+  (:constants a b c - loc)
+  (:predicates (at ?l - loc))
+  (:functions (total-cost) - number)
+  (:action hop
+    :parameters ()
+    :precondition (at a)
+    :effect (and (not (at a)) (at c) (increase (total-cost) 10)))
+  (:action step1
+    :parameters ()
+    :precondition (at a)
+    :effect (and (not (at a)) (at b) (increase (total-cost) 1)))
+  (:action step2
+    :parameters ()
+    :precondition (at b)
+    :effect (and (not (at b)) (at c) (increase (total-cost) 1))))
+" |  |  |  |  |
+
+| `
+(define (problem roads-1) (:domain roads)
+  (:init (at a) (= (total-cost) 0))
+  (:goal (at c))
+  (:metric minimize (total-cost)))
+` | str_key | ROADS_PROBLEM = "
+(define (problem roads-1) (:domain roads)
+  (:init (at a) (= (total-cost) 0))
+  (:goal (at c))
+  (:metric minimize (total-cost)))
+" |  |  |  |  |
+
+
+### crates/ferroplan/tests/adl.rs
+
+| `(define (domain adl1)
+ (:requirements :typing :adl :negative-preconditions)
+ (:types item)
+ (:predicates (tagged ?x - item) (done) (linked ?a - item ?b - item))
+ (:action tag :parameters (?x - item) :precondition (not (tagged ?x)) :effect (tagged ?x))
+ (:action link :parameters (?a - item ?b - item)
+   :precondition (and (not (= ?a ?b)) (tagged ?a) (tagged ?b))
+   :effect (linked ?a ?b))
+ (:action finish :parameters ()
+   :precondition (and (forall (?x - item) (tagged ?x))
+                      (exists (?a - item ?b - item) (linked ?a ?b)))
+   :effect (done)))` | str_key | DOM = "(define (domain adl1)
+ (:requirements :typing :adl :negative-preconditions)
+ (:types item)
+ (:predicates (tagged ?x - item) (done) (linked ?a - item ?b - item))
+ (:action tag :parameters (?x - item) :precondition (not (tagged ?x)) :effect (tagged ?x))
+ (:action link :parameters (?a - item ?b - item)
+   :precondition (and (not (= ?a ?b)) (tagged ?a) (tagged ?b))
+   :effect (linked ?a ?b))
+ (:action finish :parameters ()
+   :precondition (and (forall (?x - item) (tagged ?x))
+                      (exists (?a - item ?b - item) (linked ?a ?b)))
+   :effect (done)))" |  |  |  |  |
+
+| `(define (domain briefcase)
+ (:requirements :typing :adl)
+ (:types obj loc)
+ (:predicates (at-bc ?l - loc) (inbc ?o - obj) (at ?o - obj ?l - loc))
+ (:action move :parameters (?from ?to - loc)
+   :precondition (at-bc ?from)
+   :effect (and (at-bc ?to) (not (at-bc ?from))
+                (forall (?o - obj)
+                  (when (inbc ?o) (and (at ?o ?to) (not (at ?o ?from)))))))
+ (:action putin :parameters (?o - obj ?l - loc)
+   :precondition (and (at-bc ?l) (at ?o ?l))
+   :effect (inbc ?o))
+ (:action takeout :parameters (?o - obj)
+   :precondition (inbc ?o)
+   :effect (not (inbc ?o))))` | str_key | BRIEFCASE = "(define (domain briefcase)
+ (:requirements :typing :adl)
+ (:types obj loc)
+ (:predicates (at-bc ?l - loc) (inbc ?o - obj) (at ?o - obj ?l - loc))
+ (:action move :parameters (?from ?to - loc)
+   :precondition (at-bc ?from)
+   :effect (and (at-bc ?to) (not (at-bc ?from))
+                (forall (?o - obj)
+                  (when (inbc ?o) (and (at ?o ?to) (not (at ?o ?from)))))))
+ (:action putin :parameters (?o - obj ?l - loc)
+   :precondition (and (at-bc ?l) (at ?o ?l))
+   :effect (inbc ?o))
+ (:action takeout :parameters (?o - obj)
+   :precondition (inbc ?o)
+   :effect (not (inbc ?o))))" |  |  |  |  |
+
+| `(define (domain toggle)
+ (:requirements :adl)
+ (:predicates (on) (marker))
+ (:action flip :parameters ()
+   :precondition (marker)
+   :effect (and (when (on) (not (on))) (when (not (on)) (on)))))` | str_key | TOGGLE = "(define (domain toggle)
+ (:requirements :adl)
+ (:predicates (on) (marker))
+ (:action flip :parameters ()
+   :precondition (marker)
+   :effect (and (when (on) (not (on))) (when (not (on)) (on)))))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/api.rs
+
+| `(define (domain g)
+ (:requirements :strips :typing)
+ (:types loc)
+ (:predicates (at ?l - loc) (link ?a - loc ?b - loc))
+ (:action move :parameters (?a ?b - loc)
+   :precondition (and (at ?a) (link ?a ?b)) :effect (and (at ?b) (not (at ?a)))))` | str_key | GRID = "(define (domain g)
+ (:requirements :strips :typing)
+ (:types loc)
+ (:predicates (at ?l - loc) (link ?a - loc ?b - loc))
+ (:action move :parameters (?a ?b - loc)
+   :precondition (and (at ?a) (link ?a ?b)) :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (domain t)
+ (:requirements :strips :typing)
+ (:types loc pkg)
+ (:predicates (truck-at ?l - loc) (pkg-at ?p - pkg ?l - loc) (in ?p - pkg) (road ?a ?b - loc))
+ (:action drive :parameters (?a ?b - loc)
+   :precondition (and (truck-at ?a) (road ?a ?b)) :effect (and (truck-at ?b) (not (truck-at ?a))))
+ (:action load :parameters (?p - pkg ?l - loc)
+   :precondition (and (pkg-at ?p ?l) (truck-at ?l)) :effect (and (in ?p) (not (pkg-at ?p ?l))))
+ (:action unload :parameters (?p - pkg ?l - loc)
+   :precondition (and (in ?p) (truck-at ?l)) :effect (and (pkg-at ?p ?l) (not (in ?p)))))` | str_key | TRANSPORT = "(define (domain t)
+ (:requirements :strips :typing)
+ (:types loc pkg)
+ (:predicates (truck-at ?l - loc) (pkg-at ?p - pkg ?l - loc) (in ?p - pkg) (road ?a ?b - loc))
+ (:action drive :parameters (?a ?b - loc)
+   :precondition (and (truck-at ?a) (road ?a ?b)) :effect (and (truck-at ?b) (not (truck-at ?a))))
+ (:action load :parameters (?p - pkg ?l - loc)
+   :precondition (and (pkg-at ?p ?l) (truck-at ?l)) :effect (and (in ?p) (not (pkg-at ?p ?l))))
+ (:action unload :parameters (?p - pkg ?l - loc)
+   :precondition (and (in ?p) (truck-at ?l)) :effect (and (pkg-at ?p ?l) (not (in ?p)))))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/api_panic_hunt.rs
+
+| `parse_domain` | str_key | TARGETS_PARSER = "parse_domain" |  |  |  |  |
+
+| `preprocess` | str_key | TARGETS_PREPROCESS = "preprocess" |  |  |  |  |
+
+
+### crates/ferroplan/tests/call_budget.rs
+
+| `CALL_BUDGET_CHILD` | env_key | std::env::var("CALL_BUDGET_CHILD") |  |  |  |  |
+
+
 ### crates/ferroplan/tests/common/external.rs
+
+| `FERROPLAN_CORPUS_DIR` | env_key | std::env::var_os("FERROPLAN_CORPUS_DIR") |  |  |  |  |
+
+| `FERROPLAN_ORACLE_DIR` | env_key | std::env::var_os("FERROPLAN_ORACLE_DIR") |  |  |  |  |
+
+| `FERROPLAN_RUN_DIR` | env_key | std::env::var_os("FERROPLAN_RUN_DIR") |  |  |  |  |
+
+| `HOME` | env_key | std::env::var_os("HOME") |  |  |  |  |
 
 | `corpus_dir` | function | corpus_dir() -> PathBuf |  |  |  |  |
 
@@ -2782,11 +5137,1949 @@
 
 | `sizes_for` | function | sizes_for(seed: u64) -> Sizes |  |  |  |  |
 
+| `;; differential-fuzz: self-authored seeded VALID draw (ticket fond-htn-61,` | str_key | PROVENANCE_DIFF_T61 = ";; differential-fuzz: self-authored seeded VALID draw (ticket fond-htn-61," |  |  |  |  |
+
+| `;; fuzz-found: self-authored seeded draw (ticket fond-htn-31,` | str_key | PROVENANCE_FUZZ_T31 = ";; fuzz-found: self-authored seeded draw (ticket fond-htn-31," |  |  |  |  |
+
 | `Model` | struct | Model { types: Vec<String>, preds: Vec<(String, Vec<usize>)>, actions: Vec<ActionM>, tasks: Vec<(String, Vec<(String, usize)>)>, methods: Vec<MethodM>, objects: Vec<(String, usize)>, init: Vec<LitO>, goal: Vec<LitO>, root: Vec<(String, CallM)> } |  |  |  |  |
 
 | `Rng` | struct | Rng { u64 } |  |  |  |  |
 
 | `Sizes` | struct | Sizes { pub types: usize, pub preds: usize, pub tasks: usize, pub actions: usize, pub objects: usize, pub subs: usize, pub root_subs: usize } |  |  |  |  |
+
+
+### crates/ferroplan/tests/complex_prefs.rs
+
+| `
+(define (domain cond-pref)
+  (:requirements :typing :durative-actions :preferences)
+  (:types thing)
+  (:predicates (clean ?x - thing) (ready ?x - thing) (moved ?x - thing) (quiet))
+  (:durative-action move
+    :parameters (?x - thing)
+    :duration (= ?duration 1)
+    :condition (and (preference pc (at start (clean ?x)))
+                    (preference pall (at start (forall (?y - thing) (clean ?y))))
+                    (at start (ready ?x))
+                    (at start (preference pq (quiet)))
+                    (preference po (over all (quiet))))
+    :effect (and (at start (not (ready ?x))) (at end (moved ?x)))))
+` | str_key | COND_DOMAIN = "
+(define (domain cond-pref)
+  (:requirements :typing :durative-actions :preferences)
+  (:types thing)
+  (:predicates (clean ?x - thing) (ready ?x - thing) (moved ?x - thing) (quiet))
+  (:durative-action move
+    :parameters (?x - thing)
+    :duration (= ?duration 1)
+    :condition (and (preference pc (at start (clean ?x)))
+                    (preference pall (at start (forall (?y - thing) (clean ?y))))
+                    (at start (ready ?x))
+                    (at start (preference pq (quiet)))
+                    (preference po (over all (quiet))))
+    :effect (and (at start (not (ready ?x))) (at end (moved ?x)))))
+" |  |  |  |  |
+
+| `
+(define (domain cp-mini)
+  (:requirements :strips :durative-actions :constraints :preferences)
+  (:predicates (fresh-work) (fresh-wave) (done) (waved) (never-obtainable))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 5)
+    :condition (at start (fresh-work))
+    :effect (and (at start (not (fresh-work))) (at end (done))))
+  (:durative-action wave
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-wave))
+    :effect (and (at start (not (fresh-wave))) (at end (waved)))))
+` | str_key | DOMAIN = "
+(define (domain cp-mini)
+  (:requirements :strips :durative-actions :constraints :preferences)
+  (:predicates (fresh-work) (fresh-wave) (done) (waved) (never-obtainable))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 5)
+    :condition (at start (fresh-work))
+    :effect (and (at start (not (fresh-work))) (at end (done))))
+  (:durative-action wave
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-wave))
+    :effect (and (at start (not (fresh-wave))) (at end (waved)))))
+" |  |  |  |  |
+
+| `
+(define (problem cond-pref-1) (:domain cond-pref)
+  (:objects a b - thing)
+  (:init (clean a) (ready a) (ready b) (quiet))
+  (:goal (and (moved a) (moved b)))
+  (:metric minimize (+ (* 1 (is-violated pc)) (* 10 (is-violated pall))
+                       (* 100 (is-violated pq)) (* 1000 (is-violated po)))))
+` | str_key | COND_PROBLEM = "
+(define (problem cond-pref-1) (:domain cond-pref)
+  (:objects a b - thing)
+  (:init (clean a) (ready a) (ready b) (quiet))
+  (:goal (and (moved a) (moved b)))
+  (:metric minimize (+ (* 1 (is-violated pc)) (* 10 (is-violated pall))
+                       (* 100 (is-violated pq)) (* 1000 (is-violated po)))))
+" |  |  |  |  |
+
+| `
+(define (problem cp-mixed) (:domain cp-mini)
+  (:init (fresh-work) (fresh-wave))
+  (:goal (and (done) (preference gp (waved))))
+  (:constraints (and (preference cp (sometime (waved)))
+                     (preference cq (sometime (never-obtainable)))))
+  (:metric minimize (+ (* 2 (is-violated gp))
+                       (* 3 (is-violated cp))
+                       (* 5 (is-violated cq)))))
+` | str_key | P_MIXED = "
+(define (problem cp-mixed) (:domain cp-mini)
+  (:init (fresh-work) (fresh-wave))
+  (:goal (and (done) (preference gp (waved))))
+  (:constraints (and (preference cp (sometime (waved)))
+                     (preference cq (sometime (never-obtainable)))))
+  (:metric minimize (+ (* 2 (is-violated gp))
+                       (* 3 (is-violated cp))
+                       (* 5 (is-violated cq)))))
+" |  |  |  |  |
+
+| `
+(define (problem cp-sat) (:domain cp-mini)
+  (:init (fresh-work) (fresh-wave))
+  (:goal (and (done) (preference gp (waved))))
+  (:constraints (preference cp (sometime (waved))))
+  (:metric minimize (+ (* 2 (is-violated gp)) (* 3 (is-violated cp)))))
+` | str_key | P_SATISFIABLE = "
+(define (problem cp-sat) (:domain cp-mini)
+  (:init (fresh-work) (fresh-wave))
+  (:goal (and (done) (preference gp (waved))))
+  (:constraints (preference cp (sometime (waved))))
+  (:metric minimize (+ (* 2 (is-violated gp)) (* 3 (is-violated cp)))))
+" |  |  |  |  |
+
+
+### crates/ferroplan/tests/constraints.rs
+
+| `(define (domain sw)
+  (:requirements :strips :constraints)
+  (:predicates (on) (off) (lamp) (used))
+  (:action flip-on :precondition (off) :effect (and (not (off)) (on)))
+  (:action flip-off :precondition (on) :effect (and (not (on)) (off)))
+  (:action light :precondition (on) :effect (and (lamp) (used))))` | str_key | DOM = "(define (domain sw)
+  (:requirements :strips :constraints)
+  (:predicates (on) (off) (lamp) (used))
+  (:action flip-on :precondition (off) :effect (and (not (off)) (on)))
+  (:action flip-off :precondition (on) :effect (and (not (on)) (off)))
+  (:action light :precondition (on) :effect (and (lamp) (used))))" |  |  |  |  |
+
+| `(define (domain sws)
+  (:requirements :strips :constraints)
+  (:predicates (on) (off) (lamp) (used) (linked))
+  (:action flip-on :precondition (off) :effect (and (not (off)) (on)))
+  (:action flip-off :precondition (on) :effect (and (not (on)) (off)))
+  (:action light :precondition (on) :effect (and (lamp) (used))))` | str_key | DOMS = "(define (domain sws)
+  (:requirements :strips :constraints)
+  (:predicates (on) (off) (lamp) (used) (linked))
+  (:action flip-on :precondition (off) :effect (and (not (off)) (on)))
+  (:action flip-off :precondition (on) :effect (and (not (on)) (off)))
+  (:action light :precondition (on) :effect (and (lamp) (used))))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/daily_agent_methods_ppddl.rs
+
+| `../../../examples/daily_agent_methods/domain.ppddl` | str_key | DOMAIN = "../../../examples/daily_agent_methods/domain.ppddl" |  |  |  |  |
+
+| `../../../examples/daily_agent_methods/method-catalog.json` | str_key | CATALOG = "../../../examples/daily_agent_methods/method-catalog.json" |  |  |  |  |
+
+| `../../../examples/daily_agent_methods/problem-2026-07-31.ppddl` | str_key | PROBLEM = "../../../examples/daily_agent_methods/problem-2026-07-31.ppddl" |  |  |  |  |
+
+| `../../../examples/daily_agent_methods/receipt-2026-07-31.json` | str_key | RECEIPT = "../../../examples/daily_agent_methods/receipt-2026-07-31.json" |  |  |  |  |
+
+
+### crates/ferroplan/tests/decompose.rs
+
+| `
+(define (domain acc)
+  (:requirements :durative-actions :numeric-fluents)
+  (:functions (x))
+  (:durative-action step :parameters () :duration (= ?duration 1)
+    :condition () :effect (at end (increase (x) 1))))
+` | str_key | SINGLE = "
+(define (domain acc)
+  (:requirements :durative-actions :numeric-fluents)
+  (:functions (x))
+  (:durative-action step :parameters () :duration (= ?duration 1)
+    :condition () :effect (at end (increase (x) 1))))
+" |  |  |  |  |
+
+| `
+(define (domain mk)
+  (:requirements :durative-actions :numeric-fluents)
+  (:functions (a) (b))
+  (:durative-action make-a :parameters () :duration (= ?duration 2)
+    :condition () :effect (at end (increase (a) 1)))
+  (:durative-action make-b :parameters () :duration (= ?duration 3)
+    :condition () :effect (at end (increase (b) 1))))
+` | str_key | TWO_DELIVERABLES = "
+(define (domain mk)
+  (:requirements :durative-actions :numeric-fluents)
+  (:functions (a) (b))
+  (:durative-action make-a :parameters () :duration (= ?duration 2)
+    :condition () :effect (at end (increase (a) 1)))
+  (:durative-action make-b :parameters () :duration (= ?duration 3)
+    :condition () :effect (at end (increase (b) 1))))
+" |  |  |  |  |
+
+| `(define (problem p) (:domain acc) (:init (= (x) 0)) (:goal (>= (x) 3)))` | str_key | SINGLE_PROB = "(define (problem p) (:domain acc) (:init (= (x) 0)) (:goal (>= (x) 3)))" |  |  |  |  |
+
+| `(define (problem p) (:domain mk)
+  (:init (= (a) 0) (= (b) 0))
+  (:goal (and (>= (a) 1) (>= (b) 1))))` | str_key | TWO_PROB = "(define (problem p) (:domain mk)
+  (:init (= (a) 0) (= (b) 0))
+  (:goal (and (>= (a) 1) (>= (b) 1))))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/differential_fuzz.rs
+
+| `DIFFERENTIAL_FUZZ_FRESH` | env_key | std::env::var("DIFFERENTIAL_FUZZ_FRESH") |  |  |  |  |
+
+| `CARGO_MANIFEST_DIR` | str_key | LEDGER_PATH = "CARGO_MANIFEST_DIR" |  |  |  |  |
+
+| `flexible` | str_key | ORACLE_MODE = "flexible" |  |  |  |  |
+
+| `redecomposition` | str_key | KNOWN_DIVERGENCES = "redecomposition" |  |  |  |  |
+
+
+### crates/ferroplan/tests/endgate.rs
+
+| `FF_H_ENDGATE` | env_key | std::env::var("FF_H_ENDGATE") |  |  |  |  |
+
+| `
+(define (domain endgate)
+  (:predicates (ga) (gb))
+  (:action snap-start :parameters () :effect (ga))
+  (:action snap-end   :parameters () :effect (gb)))` | str_key | SNAP_DOM = "
+(define (domain endgate)
+  (:predicates (ga) (gb))
+  (:action snap-start :parameters () :effect (ga))
+  (:action snap-end   :parameters () :effect (gb)))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/enrich.rs
+
+| `ENRICH_CAP` | env_key | std::env::var("ENRICH_CAP") |  |  |  |  |
+
+| `ENRICH_CHILD` | env_key | std::env::var("ENRICH_CHILD") |  |  |  |  |
+
+| `ENRICH_K` | env_key | std::env::var("ENRICH_K") |  |  |  |  |
+
+
+### crates/ferroplan/tests/fluent_fold.rs
+
+| `
+(define (domain adlfold)
+  (:requirements :adl :typing :numeric-fluents)
+  (:types box)
+  (:predicates (open ?b - box) (heavy ?b - box) (moved ?b - box))
+  (:functions (weight ?b - box) (carried))
+  (:action move
+    :parameters (?b - box)
+    :precondition (not (moved ?b))
+    :effect (and (moved ?b)
+                 (when (heavy ?b) (increase (carried) (weight ?b))))))` | str_key | ADL_DOM = "
+(define (domain adlfold)
+  (:requirements :adl :typing :numeric-fluents)
+  (:types box)
+  (:predicates (open ?b - box) (heavy ?b - box) (moved ?b - box))
+  (:functions (weight ?b - box) (carried))
+  (:action move
+    :parameters (?b - box)
+    :precondition (not (moved ?b))
+    :effect (and (moved ?b)
+                 (when (heavy ?b) (increase (carried) (weight ?b))))))" |  |  |  |  |
+
+| `
+(define (domain costfold)
+  (:requirements :strips :typing :action-costs)
+  (:types loc)
+  (:predicates (at ?l - loc) (road ?a ?b - loc) (visited ?l - loc))
+  (:functions (total-cost) (toll ?a ?b - loc))
+  (:action go
+    :parameters (?a ?b - loc)
+    :precondition (and (at ?a) (road ?a ?b))
+    :effect (and (not (at ?a)) (at ?b) (visited ?b)
+                 (increase (total-cost) (toll ?a ?b)))))` | str_key | COSTS_DOM = "
+(define (domain costfold)
+  (:requirements :strips :typing :action-costs)
+  (:types loc)
+  (:predicates (at ?l - loc) (road ?a ?b - loc) (visited ?l - loc))
+  (:functions (total-cost) (toll ?a ?b - loc))
+  (:action go
+    :parameters (?a ?b - loc)
+    :precondition (and (at ?a) (road ?a ?b))
+    :effect (and (not (at ?a)) (at ?b) (visited ?b)
+                 (increase (total-cost) (toll ?a ?b)))))" |  |  |  |  |
+
+| `
+(define (domain durexpr)
+  (:requirements :strips :durative-actions :numeric-fluents)
+  (:predicates (ready) (boosted) (done))
+  (:functions (speed) (progress))
+  (:durative-action boost
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (ready))
+    :effect (and (at start (not (ready)))
+                 (at start (increase (speed) 2))
+                 (at end (boosted))))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration (speed))
+    :condition (at start (boosted))
+    :effect (and (at start (increase (progress) ?duration))
+                 (at end (done)))))` | str_key | DUREXPR_DOM = "
+(define (domain durexpr)
+  (:requirements :strips :durative-actions :numeric-fluents)
+  (:predicates (ready) (boosted) (done))
+  (:functions (speed) (progress))
+  (:durative-action boost
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (ready))
+    :effect (and (at start (not (ready)))
+                 (at start (increase (speed) 2))
+                 (at end (boosted))))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration (speed))
+    :condition (at start (boosted))
+    :effect (and (at start (increase (progress) ?duration))
+                 (at end (done)))))" |  |  |  |  |
+
+| `
+(define (domain minitpp)
+  (:requirements :strips :typing :numeric-fluents)
+  (:types place goods)
+  (:predicates (at ?p - place) (link ?a ?b - place))
+  (:functions (price ?g - goods ?p - place) (bought ?g - goods)
+              (request ?g - goods) (spent))
+  (:action drive
+    :parameters (?a ?b - place)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (not (at ?a)) (at ?b)))
+  (:action buy
+    :parameters (?g - goods ?p - place)
+    :precondition (and (at ?p) (< (bought ?g) (request ?g)))
+    :effect (and (increase (bought ?g) 1)
+                 (increase (spent) (price ?g ?p)))))` | str_key | MINITPP_DOM = "
+(define (domain minitpp)
+  (:requirements :strips :typing :numeric-fluents)
+  (:types place goods)
+  (:predicates (at ?p - place) (link ?a ?b - place))
+  (:functions (price ?g - goods ?p - place) (bought ?g - goods)
+              (request ?g - goods) (spent))
+  (:action drive
+    :parameters (?a ?b - place)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (not (at ?a)) (at ?b)))
+  (:action buy
+    :parameters (?g - goods ?p - place)
+    :precondition (and (at ?p) (< (bought ?g) (request ?g)))
+    :effect (and (increase (bought ?g) 1)
+                 (increase (spent) (price ?g ?p)))))" |  |  |  |  |
+
+| `
+(define (problem adlfold-1) (:domain adlfold)
+  (:objects b1 b2 b3 - box)
+  (:init (heavy b1) (heavy b3)
+         (= (weight b1) 10) (= (weight b2) 1) (= (weight b3) 3)
+         (= (carried) 0))
+  (:goal (and (moved b1) (moved b2) (moved b3))))` | str_key | ADL_PRB = "
+(define (problem adlfold-1) (:domain adlfold)
+  (:objects b1 b2 b3 - box)
+  (:init (heavy b1) (heavy b3)
+         (= (weight b1) 10) (= (weight b2) 1) (= (weight b3) 3)
+         (= (carried) 0))
+  (:goal (and (moved b1) (moved b2) (moved b3))))" |  |  |  |  |
+
+| `
+(define (problem costfold-1) (:domain costfold)
+  (:objects a b c d - loc)
+  (:init (at a) (road a b) (road b c) (road a c) (road c d)
+         (= (toll a b) 1) (= (toll b c) 1) (= (toll a c) 5) (= (toll c d) 2)
+         (= (total-cost) 0))
+  (:goal (visited d))
+  (:metric minimize (total-cost)))` | str_key | COSTS_PRB = "
+(define (problem costfold-1) (:domain costfold)
+  (:objects a b c d - loc)
+  (:init (at a) (road a b) (road b c) (road a c) (road c d)
+         (= (toll a b) 1) (= (toll b c) 1) (= (toll a c) 5) (= (toll c d) 2)
+         (= (total-cost) 0))
+  (:goal (visited d))
+  (:metric minimize (total-cost)))" |  |  |  |  |
+
+| `
+(define (problem durexpr-1) (:domain durexpr)
+  (:init (ready) (= (speed) 1) (= (progress) 0))
+  (:goal (and (done) (>= (progress) 3))))` | str_key | DUREXPR_PRB = "
+(define (problem durexpr-1) (:domain durexpr)
+  (:init (ready) (= (speed) 1) (= (progress) 0))
+  (:goal (and (done) (>= (progress) 3))))" |  |  |  |  |
+
+| `
+(define (problem minitpp-1) (:domain minitpp)
+  (:objects p1 p2 p3 - place g1 g2 - goods)
+  (:init (at p1) (link p1 p2) (link p2 p3) (link p2 p1) (link p3 p2)
+         (= (price g1 p1) 4) (= (price g1 p2) 2) (= (price g1 p3) 7)
+         (= (price g2 p1) 5) (= (price g2 p2) 9) (= (price g2 p3) 1)
+         (= (bought g1) 0) (= (bought g2) 0)
+         (= (request g1) 2) (= (request g2) 1)
+         (= (spent) 0))
+  (:goal (and (>= (bought g1) (request g1)) (>= (bought g2) (request g2)))))` | str_key | MINITPP_PRB = "
+(define (problem minitpp-1) (:domain minitpp)
+  (:objects p1 p2 p3 - place g1 g2 - goods)
+  (:init (at p1) (link p1 p2) (link p2 p3) (link p2 p1) (link p3 p2)
+         (= (price g1 p1) 4) (= (price g1 p2) 2) (= (price g1 p3) 7)
+         (= (price g2 p1) 5) (= (price g2 p2) 9) (= (price g2 p3) 1)
+         (= (bought g1) 0) (= (bought g2) 0)
+         (= (request g1) 2) (= (request g2) 1)
+         (= (spent) 0))
+  (:goal (and (>= (bought g1) (request g1)) (>= (bought g2) (request g2)))))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/fond_flat_oracle.rs
+
+| `strong FOND fixed point` | str_key | STRONG_NOTE = "strong FOND fixed point" |  |  |  |  |
+
+| `strong-cyclic FOND fixpoint` | str_key | STRONG_CYCLIC_NOTE = "strong-cyclic FOND fixpoint" |  |  |  |  |
+
+| `tireworld` | str_key | DOMAINS = "tireworld" |  |  |  |  |
+
+
+### crates/ferroplan/tests/fond_htn_micro.rs
+
+| `drop-retry` | str_key | ALL = "drop-retry" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/both-branches-deadend/domain.hddl` | str_key | BOTH_BRANCHES_DEADEND = "fixtures/fond-htn-micro/both-branches-deadend/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/drop-retry/domain.hddl` | str_key | DROP_RETRY = "fixtures/fond-htn-micro/drop-retry/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/grow-loop/domain.hddl` | str_key | GROW_LOOP = "fixtures/fond-htn-micro/grow-loop/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/plain-chain/domain.hddl` | str_key | PLAIN_CHAIN = "fixtures/fond-htn-micro/plain-chain/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/sense-then-branch/domain.hddl` | str_key | SENSE_THEN_BRANCH = "fixtures/fond-htn-micro/sense-then-branch/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/supervisor-fail/domain.hddl` | str_key | SUPERVISOR_FAIL = "fixtures/fond-htn-micro/supervisor-fail/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/tray-dirty/domain.hddl` | str_key | TRAY_DIRTY = "fixtures/fond-htn-micro/tray-dirty/domain.hddl" |  |  |  |  |
+
+
+### crates/ferroplan/tests/fond_htn_oracle.rs
+
+| `CARGO_MANIFEST_DIR` | str_key | FIXTURE_DIR = "CARGO_MANIFEST_DIR" |  |  |  |  |
+
+| `fixtures/fond-htn/oracle-goldens.json` | str_key | GOLDENS_RAW = "fixtures/fond-htn/oracle-goldens.json" |  |  |  |  |
+
+
+### crates/ferroplan/tests/fond_property.rs
+
+| `ticket floor is 300+ instances` | str_key | _ = "ticket floor is 300+ instances" |  |  |  |  |
+
+
+### crates/ferroplan/tests/fond_threshold.rs
+
+| `drop-retry` | str_key | CASES = "drop-retry" |  |  |  |  |
+
+
+### crates/ferroplan/tests/fond_unsafe_hddl.rs
+
+| `fixtures/fond-unsafe/abyss-avoid-problem.hddl` | str_key | ABYSS_AVOID_PROBLEM = "fixtures/fond-unsafe/abyss-avoid-problem.hddl" |  |  |  |  |
+
+| `fixtures/fond-unsafe/abyss-avoid.hddl` | str_key | ABYSS_AVOID_DOMAIN = "fixtures/fond-unsafe/abyss-avoid.hddl" |  |  |  |  |
+
+| `fixtures/fond-unsafe/abyss-both-problem.hddl` | str_key | ABYSS_BOTH_PROBLEM = "fixtures/fond-unsafe/abyss-both-problem.hddl" |  |  |  |  |
+
+| `fixtures/fond-unsafe/abyss-both.hddl` | str_key | ABYSS_BOTH_DOMAIN = "fixtures/fond-unsafe/abyss-both.hddl" |  |  |  |  |
+
+
+### crates/ferroplan/tests/ground_caps_ipc_addendum.rs
+
+| `freecell_learned_ecai_16` | str_key | CASES = "freecell_learned_ecai_16" |  |  |  |  |
+
+
+### crates/ferroplan/tests/ground_wall.rs
+
+| `GROUND_WALL_CHILD` | env_key | std::env::var("GROUND_WALL_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/grounding_prune_ipc_rerun.rs
+
+| `freecell_learned_ecai_16` | str_key | CASES = "freecell_learned_ecai_16" |  |  |  |  |
+
+
+### crates/ferroplan/tests/hddl_adversarial.rs
+
+| `abstract-task-without-decomposition-domain.hddl` | str_key | CORPUS_ACCEPTED_SCOPE_GAPS = "abstract-task-without-decomposition-domain.hddl" |  |  |  |  |
+
+
+### crates/ferroplan/tests/hddl_fuzz_roundtrip.rs
+
+| `TIMEOUT(normalized)` | str_key | TIMEOUT_TAG = "TIMEOUT(normalized)" |  |  |  |  |
+
+| `solve:TIMEOUT(normalized)` | str_key | TIMEOUT_SOLVE = "solve:TIMEOUT(normalized)" |  |  |  |  |
+
+
+### crates/ferroplan/tests/htn_ipc2023.rs
+
+| `blocksworld_gtohp` | str_key | INSTANCES = "blocksworld_gtohp" |  |  |  |  |
+
+
+### crates/ferroplan/tests/htn_oracle.rs
+
+| `PCP_1` | str_key | KNOWN_MISMATCHES = "PCP_1" |  |  |  |  |
+
+
+### crates/ferroplan/tests/inc_lmcut.rs
+
+| `INC_LMCUT_CHILD` | env_key | std::env::var("INC_LMCUT_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/ipc_sweep.rs
+
+| `assemblyhierarchical` | str_key | DOMAINS = "assemblyhierarchical" |  |  |  |  |
+
+| `lamps` | str_key | SAMPLED = "lamps" |  |  |  |  |
+
+
+### crates/ferroplan/tests/ladder_dedup.rs
+
+| `LADDER_DEDUP_CHILD` | env_key | std::env::var("LADDER_DEDUP_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/ladder_wall.rs
+
+| `LADDER_WALL_CHILD` | env_key | std::env::var("LADDER_WALL_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/landmarks.rs
+
+| `
+(define (domain chain)
+  (:requirements :strips)
+  (:predicates (a) (b) (c))
+  (:action ab :parameters () :precondition (a) :effect (b))
+  (:action bc :parameters () :precondition (b) :effect (c)))
+` | str_key | CHAIN = "
+(define (domain chain)
+  (:requirements :strips)
+  (:predicates (a) (b) (c))
+  (:action ab :parameters () :precondition (a) :effect (b))
+  (:action bc :parameters () :precondition (b) :effect (c)))
+" |  |  |  |  |
+
+
+### crates/ferroplan/tests/mcv_ground.rs
+
+| `MCV_ROUTE_CHILD` | env_key | std::env::var("MCV_ROUTE_CHILD") |  |  |  |  |
+
+| `MCV_STRAT_CHILD` | env_key | std::env::var("MCV_STRAT_CHILD") |  |  |  |  |
+
+| `(define (domain fixroute) (:requirements :typing)
+  (:types item key - object)
+  (:predicates (tok ?a ?b - item ?c - key) (done ?a - item) (seeded))
+  (:action seed :parameters ()
+    :precondition (and) :effect (and (seeded) (tok i1 i2 k1)))
+  (:action reap :parameters (?a ?b - item ?c - key)
+    :precondition (and (seeded) (tok ?a ?b ?c))
+    :effect (done ?a)))` | str_key | ROUTE_DOM = "(define (domain fixroute) (:requirements :typing)
+  (:types item key - object)
+  (:predicates (tok ?a ?b - item ?c - key) (done ?a - item) (seeded))
+  (:action seed :parameters ()
+    :precondition (and) :effect (and (seeded) (tok i1 i2 k1)))
+  (:action reap :parameters (?a ?b - item ?c - key)
+    :precondition (and (seeded) (tok ?a ?b ?c))
+    :effect (done ?a)))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/mem_wall.rs
+
+| `MEM_WALL_CHILD` | env_key | std::env::var("MEM_WALL_CHILD") |  |  |  |  |
+
+| `0.25` | str_key | BUDGET_GB = "0.25" |  |  |  |  |
+
+
+### crates/ferroplan/tests/memory_stress.rs
+
+| `FERROPLAN_MEMORY_STRESS_CHILD` | str_key | CHILD_ENV = "FERROPLAN_MEMORY_STRESS_CHILD" |  |  |  |  |
+
+| `predicates-500` | str_key | SAMPLED_CASES = "predicates-500" |  |  |  |  |
+
+
+### crates/ferroplan/tests/mfw_python_oracle.rs
+
+| `FERROPLAN_REQUIRE_MFW_ORACLE` | env_key | std::env::var_os("FERROPLAN_REQUIRE_MFW_ORACLE") |  |  |  |  |
+
+| `MFW_PLANNER_ORACLE_PYTHONPATH` | env_key | std::env::var("MFW_PLANNER_ORACLE_PYTHONPATH") |  |  |  |  |
+
+
+### crates/ferroplan/tests/netben.rs
+
+| `
+(define (domain nb)
+  (:requirements :strips :action-costs)
+  (:predicates (have-a) (have-b) (blocked))
+  (:functions (total-cost) - number)
+  (:action get-a
+    :parameters ()
+    :precondition ()
+    :effect (and (have-a) (increase (total-cost) 3)))
+  (:action get-b
+    :parameters ()
+    :precondition (blocked)
+    :effect (and (have-b) (increase (total-cost) 1))))
+` | str_key | NB_DOMAIN = "
+(define (domain nb)
+  (:requirements :strips :action-costs)
+  (:predicates (have-a) (have-b) (blocked))
+  (:functions (total-cost) - number)
+  (:action get-a
+    :parameters ()
+    :precondition ()
+    :effect (and (have-a) (increase (total-cost) 3)))
+  (:action get-b
+    :parameters ()
+    :precondition (blocked)
+    :effect (and (have-b) (increase (total-cost) 1))))
+" |  |  |  |  |
+
+| `
+(define (problem nb-1) (:domain nb)
+  (:init (= (total-cost) 0))
+  (:goal (and (preference pa (have-a)) (preference pb (have-b))))
+  (:metric maximize (- 15 (+ (total-cost)
+                             (* (is-violated pa) 10)
+                             (* (is-violated pb) 5)))))
+` | str_key | NB_PROBLEM = "
+(define (problem nb-1) (:domain nb)
+  (:init (= (total-cost) 0))
+  (:goal (and (preference pa (have-a)) (preference pb (have-b))))
+  (:metric maximize (- 15 (+ (total-cost)
+                             (* (is-violated pa) 10)
+                             (* (is-violated pb) 5)))))
+" |  |  |  |  |
+
+
+### crates/ferroplan/tests/node_cap.rs
+
+| `NODE_CAP_RLIMIT_CHILD` | env_key | std::env::var("NODE_CAP_RLIMIT_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/novdriver.rs
+
+| `NOVDRIVER_CHILD` | env_key | std::env::var("NOVDRIVER_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/numfold.rs
+
+| `NUMFOLD_CHILD` | env_key | std::env::var("NUMFOLD_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/numopt_arm.rs
+
+| `NUMOPT_ARM_CHILD` | env_key | std::env::var("NUMOPT_ARM_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/numpre.rs
+
+| `../../../benchmarks/bench/chained-band-domain.pddl` | str_key | CHAIN_DOM = "../../../benchmarks/bench/chained-band-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/chained-band-i1.pddl` | str_key | CHAIN_PRB = "../../../benchmarks/bench/chained-band-i1.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/fo-sailing-domain.pddl` | str_key | FOSAIL_DOM = "../../../benchmarks/bench/fo-sailing-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/fo-sailing-i8.pddl` | str_key | FOSAIL_I8 = "../../../benchmarks/bench/fo-sailing-i8.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/sailing-band-domain.pddl` | str_key | SAIL_DOM = "../../../benchmarks/bench/sailing-band-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/sailing-band-i1.pddl` | str_key | SAIL_PRB = "../../../benchmarks/bench/sailing-band-i1.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/trader-cycle-domain.pddl` | str_key | TRADE_DOM = "../../../benchmarks/bench/trader-cycle-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/trader-cycle-i1.pddl` | str_key | TRADE_PRB = "../../../benchmarks/bench/trader-cycle-i1.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/watering-line-domain.pddl` | str_key | WATER_DOM = "../../../benchmarks/bench/watering-line-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/watering-line-i1.pddl` | str_key | WATER_PRB = "../../../benchmarks/bench/watering-line-i1.pddl" |  |  |  |  |
+
+
+### crates/ferroplan/tests/opt_wall.rs
+
+| `OPT_WALL_CHILD` | env_key | std::env::var("OPT_WALL_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/orbit_classical.rs
+
+| `
+(define (domain fees)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget) (alldone))
+  (:functions (total-cost) (fee ?g - gadget))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (fee ?g))))
+  (:action finish
+    :parameters (?g - gadget)
+    :precondition (done ?g)
+    :effect (alldone)))
+` | str_key | FEE_DOM = "
+(define (domain fees)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget) (alldone))
+  (:functions (total-cost) (fee ?g - gadget))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (fee ?g))))
+  (:action finish
+    :parameters (?g - gadget)
+    :precondition (done ?g)
+    :effect (alldone)))
+" |  |  |  |  |
+
+| `
+(define (domain gadgets)
+  (:requirements :strips :typing :action-costs)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) 1))))
+` | str_key | GADGET_DOM_CONST = "
+(define (domain gadgets)
+  (:requirements :strips :typing :action-costs)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) 1))))
+" |  |  |  |  |
+
+| `
+(define (domain gadgets-dyn)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost) (surcharge))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (surcharge))))
+  (:action bump
+    :parameters ()
+    :precondition (and)
+    :effect (increase (surcharge) 1)))
+` | str_key | GADGET_DOM_DYN = "
+(define (domain gadgets-dyn)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost) (surcharge))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (surcharge))))
+  (:action bump
+    :parameters ()
+    :precondition (and)
+    :effect (increase (surcharge) 1)))
+" |  |  |  |  |
+
+| `
+(define (domain gadgets-static)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost) (surcharge))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (surcharge)))))
+` | str_key | GADGET_DOM_STATIC = "
+(define (domain gadgets-static)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost) (surcharge))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (surcharge)))))
+" |  |  |  |  |
+
+| `
+(define (domain mini-snack)
+  (:requirements :strips :typing)
+  (:types child bread sandwich tray)
+  (:predicates (at-kitchen-bread ?b - bread) (at-kitchen-sandwich ?s - sandwich)
+               (notexist ?s - sandwich) (ontray ?s - sandwich ?t - tray)
+               (served ?c - child) (waiting ?c - child))
+  (:action make
+    :parameters (?s - sandwich ?b - bread)
+    :precondition (and (notexist ?s) (at-kitchen-bread ?b))
+    :effect (and (not (notexist ?s)) (not (at-kitchen-bread ?b))
+                 (at-kitchen-sandwich ?s)))
+  (:action put
+    :parameters (?s - sandwich ?t - tray)
+    :precondition (at-kitchen-sandwich ?s)
+    :effect (and (not (at-kitchen-sandwich ?s)) (ontray ?s ?t)))
+  (:action serve
+    :parameters (?s - sandwich ?t - tray ?c - child)
+    :precondition (and (ontray ?s ?t) (waiting ?c))
+    :effect (and (not (ontray ?s ?t)) (not (waiting ?c)) (served ?c))))
+` | str_key | SNACK_DOM = "
+(define (domain mini-snack)
+  (:requirements :strips :typing)
+  (:types child bread sandwich tray)
+  (:predicates (at-kitchen-bread ?b - bread) (at-kitchen-sandwich ?s - sandwich)
+               (notexist ?s - sandwich) (ontray ?s - sandwich ?t - tray)
+               (served ?c - child) (waiting ?c - child))
+  (:action make
+    :parameters (?s - sandwich ?b - bread)
+    :precondition (and (notexist ?s) (at-kitchen-bread ?b))
+    :effect (and (not (notexist ?s)) (not (at-kitchen-bread ?b))
+                 (at-kitchen-sandwich ?s)))
+  (:action put
+    :parameters (?s - sandwich ?t - tray)
+    :precondition (at-kitchen-sandwich ?s)
+    :effect (and (not (at-kitchen-sandwich ?s)) (ontray ?s ?t)))
+  (:action serve
+    :parameters (?s - sandwich ?t - tray ?c - child)
+    :precondition (and (ontray ?s ?t) (waiting ?c))
+    :effect (and (not (ontray ?s ?t)) (not (waiting ?c)) (served ?c))))
+" |  |  |  |  |
+
+| `
+(define (problem fees-1)
+  (:domain fees)
+  (:objects g1 g2 - gadget)
+  (:init (fresh g1) (fresh g2) (= (total-cost) 0)
+         (= (fee g1) 1) (= (fee g2) 9))
+  (:goal (alldone))
+  (:metric minimize (total-cost)))
+` | str_key | FEE_PRB = "
+(define (problem fees-1)
+  (:domain fees)
+  (:objects g1 g2 - gadget)
+  (:init (fresh g1) (fresh g2) (= (total-cost) 0)
+         (= (fee g1) 1) (= (fee g2) 9))
+  (:goal (alldone))
+  (:metric minimize (total-cost)))
+" |  |  |  |  |
+
+| `
+(define (problem mini-snack-1)
+  (:domain mini-snack)
+  (:objects c1 c2 c3 - child b1 b2 b3 - bread s1 s2 s3 s4 - sandwich t1 - tray)
+  (:init (waiting c1) (waiting c2) (waiting c3)
+         (at-kitchen-bread b1) (at-kitchen-bread b2) (at-kitchen-bread b3)
+         (notexist s1) (notexist s2) (notexist s3) (notexist s4))
+  (:goal (and (served c1) (served c2) (served c3))))
+` | str_key | SNACK_PRB = "
+(define (problem mini-snack-1)
+  (:domain mini-snack)
+  (:objects c1 c2 c3 - child b1 b2 b3 - bread s1 s2 s3 s4 - sandwich t1 - tray)
+  (:init (waiting c1) (waiting c2) (waiting c3)
+         (at-kitchen-bread b1) (at-kitchen-bread b2) (at-kitchen-bread b3)
+         (notexist s1) (notexist s2) (notexist s3) (notexist s4))
+  (:goal (and (served c1) (served c2) (served c3))))
+" |  |  |  |  |
+
+
+### crates/ferroplan/tests/orbit_iso.rs
+
+| `
+    (define (problem iso-paint-uniform)
+      (:domain iso-paint)
+      (:objects b1 b2 b3 b4 - block)
+      (:init (clean b1) (clean b2) (clean b3) (clean b4))
+      (:goal (and (red b1) (red b2) (red b3) (red b4))))
+    ` | str_key | UNIFORM_PRB = "
+    (define (problem iso-paint-uniform)
+      (:domain iso-paint)
+      (:objects b1 b2 b3 b4 - block)
+      (:init (clean b1) (clean b2) (clean b3) (clean b4))
+      (:goal (and (red b1) (red b2) (red b3) (red b4))))
+    " |  |  |  |  |
+
+| `
+(define (domain iso-bake)
+  (:requirements :strips :typing :durative-actions)
+  (:types piece)
+  (:predicates (raw ?p - piece) (made ?p - piece)
+               (fancy ?p - piece) (plain ?p - piece) (free))
+  (:durative-action make
+    :parameters (?p - piece)
+    :duration (= ?duration 2)
+    :condition (and (at start (raw ?p)) (over all (free)))
+    :effect (and (at start (not (raw ?p))) (at end (made ?p))))
+  (:durative-action finish-fancy
+    :parameters (?p - piece)
+    :duration (= ?duration 1)
+    :condition (at start (made ?p))
+    :effect (at end (fancy ?p)))
+  (:durative-action finish-plain
+    :parameters (?p - piece)
+    :duration (= ?duration 1)
+    :condition (at start (made ?p))
+    :effect (at end (plain ?p))))
+` | str_key | BAKE_DOM = "
+(define (domain iso-bake)
+  (:requirements :strips :typing :durative-actions)
+  (:types piece)
+  (:predicates (raw ?p - piece) (made ?p - piece)
+               (fancy ?p - piece) (plain ?p - piece) (free))
+  (:durative-action make
+    :parameters (?p - piece)
+    :duration (= ?duration 2)
+    :condition (and (at start (raw ?p)) (over all (free)))
+    :effect (and (at start (not (raw ?p))) (at end (made ?p))))
+  (:durative-action finish-fancy
+    :parameters (?p - piece)
+    :duration (= ?duration 1)
+    :condition (at start (made ?p))
+    :effect (at end (fancy ?p)))
+  (:durative-action finish-plain
+    :parameters (?p - piece)
+    :duration (= ?duration 1)
+    :condition (at start (made ?p))
+    :effect (at end (plain ?p))))
+" |  |  |  |  |
+
+| `
+(define (domain iso-paint)
+  (:requirements :strips :typing)
+  (:types block)
+  (:predicates (clean ?b - block) (red ?b - block) (blue ?b - block))
+  (:action paint-red
+    :parameters (?b - block)
+    :precondition (clean ?b)
+    :effect (and (not (clean ?b)) (red ?b)))
+  (:action paint-blue
+    :parameters (?b - block)
+    :precondition (clean ?b)
+    :effect (and (not (clean ?b)) (blue ?b))))
+` | str_key | PAINT_DOM = "
+(define (domain iso-paint)
+  (:requirements :strips :typing)
+  (:types block)
+  (:predicates (clean ?b - block) (red ?b - block) (blue ?b - block))
+  (:action paint-red
+    :parameters (?b - block)
+    :precondition (clean ?b)
+    :effect (and (not (clean ?b)) (red ?b)))
+  (:action paint-blue
+    :parameters (?b - block)
+    :precondition (clean ?b)
+    :effect (and (not (clean ?b)) (blue ?b))))
+" |  |  |  |  |
+
+| `
+(define (problem iso-bake-1)
+  (:domain iso-bake)
+  (:objects a b c - piece)
+  (:init (raw a) (raw b) (raw c) (free))
+  (:goal (and (fancy a) (plain b))))
+` | str_key | BAKE_PRB = "
+(define (problem iso-bake-1)
+  (:domain iso-bake)
+  (:objects a b c - piece)
+  (:init (raw a) (raw b) (raw c) (free))
+  (:goal (and (fancy a) (plain b))))
+" |  |  |  |  |
+
+| `
+(define (problem iso-paint-1)
+  (:domain iso-paint)
+  (:objects b1 b2 b3 b4 - block)
+  (:init (clean b1) (clean b2) (clean b3) (clean b4))
+  (:goal (and (red b1) (blue b2))))
+` | str_key | PAINT_PRB = "
+(define (problem iso-paint-1)
+  (:domain iso-paint)
+  (:objects b1 b2 b3 b4 - block)
+  (:init (clean b1) (clean b2) (clean b3) (clean b4))
+  (:goal (and (red b1) (blue b2))))
+" |  |  |  |  |
+
+| `
+(define (problem iso-paint-2)
+  (:domain iso-paint)
+  (:objects b1 b2 b3 b4 - block)
+  (:init (clean b1) (clean b2) (clean b3) (clean b4))
+  (:goal (and (red b1) (blue b3))))
+` | str_key | PAINT_PRB_B3 = "
+(define (problem iso-paint-2)
+  (:domain iso-paint)
+  (:objects b1 b2 b3 b4 - block)
+  (:init (clean b1) (clean b2) (clean b3) (clean b4))
+  (:goal (and (red b1) (blue b3))))
+" |  |  |  |  |
+
+
+### crates/ferroplan/tests/orbits.rs
+
+| `
+(define (domain fuel-gap)
+  (:requirements :typing :durative-actions :numeric-fluents)
+  (:types rig)
+  (:predicates (idle) (hot) (done) (dipped) (refilled))
+  (:functions (level))
+  (:durative-action run
+    :parameters (?r - rig)
+    :duration (= ?duration 10)
+    :condition (and (at start (idle)) (over all (>= (level) 1)))
+    :effect (and (at start (not (idle))) (at start (hot))
+                 (at end (not (hot))) (at end (done))))
+  (:durative-action topup
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (idle))
+    :effect (at start (increase (level) 2)))
+  (:durative-action dip
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (hot))
+    :effect (and (at start (dipped)) (at start (decrease (level) 2))))
+  (:durative-action refill
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (dipped))
+    :effect (and (at start (refilled)) (at start (increase (level) 2)))))
+` | str_key | FUEL_DOM = "
+(define (domain fuel-gap)
+  (:requirements :typing :durative-actions :numeric-fluents)
+  (:types rig)
+  (:predicates (idle) (hot) (done) (dipped) (refilled))
+  (:functions (level))
+  (:durative-action run
+    :parameters (?r - rig)
+    :duration (= ?duration 10)
+    :condition (and (at start (idle)) (over all (>= (level) 1)))
+    :effect (and (at start (not (idle))) (at start (hot))
+                 (at end (not (hot))) (at end (done))))
+  (:durative-action topup
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (idle))
+    :effect (at start (increase (level) 2)))
+  (:durative-action dip
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (hot))
+    :effect (and (at start (dipped)) (at start (decrease (level) 2))))
+  (:durative-action refill
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (dipped))
+    :effect (and (at start (refilled)) (at start (increase (level) 2)))))
+" |  |  |  |  |
+
+| `
+(define (domain kiln-gap)
+  (:requirements :typing :durative-actions :timed-initial-literals)
+  (:types piece)
+  (:predicates (ready) (raw ?p - piece) (prepped ?p - piece) (baked ?p - piece))
+  (:durative-action prep
+    :parameters (?p - piece)
+    :duration (= ?duration 6)
+    :condition (at start (raw ?p))
+    :effect (and (at start (not (raw ?p))) (at end (prepped ?p))))
+  (:durative-action bake
+    :parameters (?p - piece)
+    :duration (= ?duration 3)
+    :condition (and (at start (prepped ?p)) (over all (ready)))
+    :effect (at end (baked ?p))))
+` | str_key | KILN_DOM = "
+(define (domain kiln-gap)
+  (:requirements :typing :durative-actions :timed-initial-literals)
+  (:types piece)
+  (:predicates (ready) (raw ?p - piece) (prepped ?p - piece) (baked ?p - piece))
+  (:durative-action prep
+    :parameters (?p - piece)
+    :duration (= ?duration 6)
+    :condition (at start (raw ?p))
+    :effect (and (at start (not (raw ?p))) (at end (prepped ?p))))
+  (:durative-action bake
+    :parameters (?p - piece)
+    :duration (= ?duration 3)
+    :condition (and (at start (prepped ?p)) (over all (ready)))
+    :effect (at end (baked ?p))))
+" |  |  |  |  |
+
+| `
+(define (domain mini-tms)
+  (:requirements :strips :typing :durative-actions)
+  (:types piece)
+  (:predicates (raw ?p - piece) (made ?p - piece) (glued ?a ?b - piece) (free))
+  (:durative-action make
+    :parameters (?p - piece)
+    :duration (= ?duration 2)
+    :condition (and (at start (raw ?p)) (over all (free)))
+    :effect (and (at start (not (raw ?p))) (at end (made ?p))))
+  (:durative-action glue
+    :parameters (?a ?b - piece)
+    :duration (= ?duration 3)
+    :condition (and (at start (made ?a)) (at start (made ?b)))
+    :effect (at end (glued ?a ?b))))
+` | str_key | MINI_DOM = "
+(define (domain mini-tms)
+  (:requirements :strips :typing :durative-actions)
+  (:types piece)
+  (:predicates (raw ?p - piece) (made ?p - piece) (glued ?a ?b - piece) (free))
+  (:durative-action make
+    :parameters (?p - piece)
+    :duration (= ?duration 2)
+    :condition (and (at start (raw ?p)) (over all (free)))
+    :effect (and (at start (not (raw ?p))) (at end (made ?p))))
+  (:durative-action glue
+    :parameters (?a ?b - piece)
+    :duration (= ?duration 3)
+    :condition (and (at start (made ?a)) (at start (made ?b)))
+    :effect (at end (glued ?a ?b))))
+" |  |  |  |  |
+
+| `
+(define (problem fuel-gap-1)
+  (:domain fuel-gap)
+  (:objects r1 - rig)
+  (:init (idle) (= (level) 2))
+  (:goal (and (done) (dipped) (refilled)))
+  (:metric minimize (total-time)))
+` | str_key | FUEL_PROB = "
+(define (problem fuel-gap-1)
+  (:domain fuel-gap)
+  (:objects r1 - rig)
+  (:init (idle) (= (level) 2))
+  (:goal (and (done) (dipped) (refilled)))
+  (:metric minimize (total-time)))
+" |  |  |  |  |
+
+| `
+(define (problem kiln-gap-1)
+  (:domain kiln-gap)
+  (:objects p1 - piece)
+  (:init (raw p1) (ready)
+         (at 8 (not (ready)))
+         (at 8.001 (ready)))
+  (:goal (baked p1))
+  (:metric minimize (total-time)))
+` | str_key | KILN_PROB = "
+(define (problem kiln-gap-1)
+  (:domain kiln-gap)
+  (:objects p1 - piece)
+  (:init (raw p1) (ready)
+         (at 8 (not (ready)))
+         (at 8.001 (ready)))
+  (:goal (baked p1))
+  (:metric minimize (total-time)))
+" |  |  |  |  |
+
+| `
+(define (problem mini-tms-1)
+  (:domain mini-tms)
+  (:objects a1 b1 a2 b2 - piece)
+  (:init (raw a1) (raw b1) (raw a2) (raw b2) (free))
+  (:goal (and (glued a1 b1) (glued a2 b2))))
+` | str_key | MINI_PROB = "
+(define (problem mini-tms-1)
+  (:domain mini-tms)
+  (:objects a1 b1 a2 b2 - piece)
+  (:init (raw a1) (raw b1) (raw a2) (raw b2) (free))
+  (:goal (and (glued a1 b1) (glued a2 b2))))
+" |  |  |  |  |
+
+
+### crates/ferroplan/tests/parse.rs
+
+| `(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room) (free ?g - gripper))
+  (:functions (cost))
+  (:action move :parameters (?from ?to - room)
+    :precondition (at-robby ?from) :effect (and (not (at-robby ?from)) (at-robby ?to)))
+  (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r)) :effect (not (at ?b ?r))))` | str_key | DOM = "(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room) (free ?g - gripper))
+  (:functions (cost))
+  (:action move :parameters (?from ?to - room)
+    :precondition (at-robby ?from) :effect (and (not (at-robby ?from)) (at-robby ?to)))
+  (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r)) :effect (not (at ?b ?r))))" |  |  |  |  |
+
+| `(define (problem gripper-1) (:domain gripper)
+  (:objects rooma roomb - room b1 b2 - ball left right - gripper)
+  (:init (at-robby rooma) (at b1 rooma) (= (cost) 0))
+  (:goal (at b1 roomb))
+  (:metric minimize (cost)))` | str_key | PROB = "(define (problem gripper-1) (:domain gripper)
+  (:objects rooma roomb - room b1 b2 - ball left right - gripper)
+  (:init (at-robby rooma) (at b1 rooma) (= (cost) 0))
+  (:goal (at b1 roomb))
+  (:metric minimize (cost)))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/pddl3.rs
+
+| `(define (domain mk)
+ (:requirements :strips :typing :adl :fluents)
+ (:types item)
+ (:predicates (special ?x - item) (can ?x - item))
+ (:functions (total-cost))
+ (:action make :parameters (?x - item) :precondition (can ?x) :effect (special ?x)))` | str_key | MARK = "(define (domain mk)
+ (:requirements :strips :typing :adl :fluents)
+ (:types item)
+ (:predicates (special ?x - item) (can ?x - item))
+ (:functions (total-cost))
+ (:action make :parameters (?x - item) :precondition (can ?x) :effect (special ?x)))" |  |  |  |  |
+
+| `(define (domain sp)
+ (:requirements :strips :adl :fluents)
+ (:predicates (ready) (done))
+ (:functions (total-cost))
+ (:action go :parameters ()
+   :precondition (preference want (ready))
+   :effect (done)))` | str_key | SOFTPRE = "(define (domain sp)
+ (:requirements :strips :adl :fluents)
+ (:predicates (ready) (done))
+ (:functions (total-cost))
+ (:action go :parameters ()
+   :precondition (preference want (ready))
+   :effect (done)))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/portfolio.rs
+
+| `(define (domain chain)
+  (:predicates (p0) (p1) (p2) (p3))
+  (:action s1 :precondition (p0) :effect (p1))
+  (:action s2 :precondition (p1) :effect (p2))
+  (:action s3 :precondition (p2) :effect (p3)))` | str_key | DOM = "(define (domain chain)
+  (:predicates (p0) (p1) (p2) (p3))
+  (:action s1 :precondition (p0) :effect (p1))
+  (:action s2 :precondition (p1) :effect (p2))
+  (:action s3 :precondition (p2) :effect (p3)))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/pref_chase_wall.rs
+
+| `PREF_CHASE_WALL_CHILD` | env_key | std::env::var("PREF_CHASE_WALL_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/pref_seed.rs
+
+| `(define (domain corridor)
+ (:requirements :strips :typing :preferences)
+ (:types cell)
+ (:predicates (at ?c - cell) (adj ?a ?b - cell) (lit ?c - cell) (visited ?c - cell))
+ (:action move :parameters (?a ?b - cell)
+   :precondition (and (at ?a) (adj ?a ?b) (preference darkstep (lit ?a)))
+   :effect (and (not (at ?a)) (at ?b) (visited ?b)))
+ (:action light :parameters (?a - cell)
+   :precondition (at ?a)
+   :effect (lit ?a)))` | str_key | CORRIDOR = "(define (domain corridor)
+ (:requirements :strips :typing :preferences)
+ (:types cell)
+ (:predicates (at ?c - cell) (adj ?a ?b - cell) (lit ?c - cell) (visited ?c - cell))
+ (:action move :parameters (?a ?b - cell)
+   :precondition (and (at ?a) (adj ?a ?b) (preference darkstep (lit ?a)))
+   :effect (and (not (at ?a)) (at ?b) (visited ?b)))
+ (:action light :parameters (?a - cell)
+   :precondition (at ?a)
+   :effect (lit ?a)))" |  |  |  |  |
+
+| `(define (problem walk) (:domain corridor)
+ (:objects c0 c1 c2 c3 s1 - cell)
+ (:init (at c0)
+        (adj c0 c1) (adj c1 c2) (adj c2 c3) (adj c1 s1) (adj s1 c1))
+ (:goal (and (at c3) (preference sidetrip (visited s1))))
+ (:metric minimize (+ (is-violated darkstep) (* 5 (is-violated sidetrip)))))` | str_key | WALK = "(define (problem walk) (:domain corridor)
+ (:objects c0 c1 c2 c3 s1 - cell)
+ (:init (at c0)
+        (adj c0 c1) (adj c1 c2) (adj c2 c3) (adj c1 s1) (adj s1 c1))
+ (:goal (and (at c3) (preference sidetrip (visited s1))))
+ (:metric minimize (+ (is-violated darkstep) (* 5 (is-violated sidetrip)))))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/refill.rs
+
+| `REFILL_CHILD` | env_key | std::env::var("REFILL_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/robustness.rs
+
+| `(define (domain d) (:requirements :strips)
+  (:predicates (a) (b))
+  (:action go :parameters () :precondition (a) :effect (and (not (a)) (b))))` | str_key | GOOD_DOM = "(define (domain d) (:requirements :strips)
+  (:predicates (a) (b))
+  (:action go :parameters () :precondition (a) :effect (and (not (a)) (b))))" |  |  |  |  |
+
+| `(define (problem p) (:domain d) (:init (a)) (:goal (b)))` | str_key | GOOD_PROB = "(define (problem p) (:domain d) (:init (a)) (:goal (b)))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/sa2a_goal_set_ruling.rs
+
+| `fixtures/sa2a-v26.9.17/sa2a-v26.9.17-domain.hddl` | str_key | DOMAIN = "fixtures/sa2a-v26.9.17/sa2a-v26.9.17-domain.hddl" |  |  |  |  |
+
+| `fixtures/sa2a-v26.9.17/sa2a-v26.9.17-problem.hddl` | str_key | PROBLEM = "fixtures/sa2a-v26.9.17/sa2a-v26.9.17-problem.hddl" |  |  |  |  |
+
+
+### crates/ferroplan/tests/sat_promo_wall.rs
+
+| `SAT_PROMO_CHILD` | env_key | std::env::var("SAT_PROMO_CHILD") |  |  |  |  |
+
+| `
+(define (domain sat-rc)
+  (:requirements :strips :durative-actions)
+  (:predicates (light) (open) (fresh-shine) (fresh-mend) (fresh-deliver)
+               (fresh-door) (mended) (delivered))
+  (:durative-action shine
+    :parameters ()
+    :duration (= ?duration 20)
+    :condition (at start (fresh-shine))
+    :effect (and (at start (not (fresh-shine)))
+                 (at start (light))
+                 (at end (not (light)))))
+  (:durative-action mend
+    :parameters ()
+    :duration (= ?duration 9)
+    :condition (and (at start (fresh-mend)) (over all (light)))
+    :effect (and (at start (not (fresh-mend))) (at end (mended))))
+  (:durative-action deliver
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (and (at start (fresh-deliver)) (at end (open)))
+    :effect (and (at start (not (fresh-deliver))) (at end (delivered))))
+  (:durative-action door
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-door))
+    :effect (and (at start (not (fresh-door)))
+                 (at start (open))
+                 (at end (not (open))))))
+` | str_key | RC_DOMAIN = "
+(define (domain sat-rc)
+  (:requirements :strips :durative-actions)
+  (:predicates (light) (open) (fresh-shine) (fresh-mend) (fresh-deliver)
+               (fresh-door) (mended) (delivered))
+  (:durative-action shine
+    :parameters ()
+    :duration (= ?duration 20)
+    :condition (at start (fresh-shine))
+    :effect (and (at start (not (fresh-shine)))
+                 (at start (light))
+                 (at end (not (light)))))
+  (:durative-action mend
+    :parameters ()
+    :duration (= ?duration 9)
+    :condition (and (at start (fresh-mend)) (over all (light)))
+    :effect (and (at start (not (fresh-mend))) (at end (mended))))
+  (:durative-action deliver
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (and (at start (fresh-deliver)) (at end (open)))
+    :effect (and (at start (not (fresh-deliver))) (at end (delivered))))
+  (:durative-action door
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-door))
+    :effect (and (at start (not (fresh-door)))
+                 (at start (open))
+                 (at end (not (open))))))
+" |  |  |  |  |
+
+| `
+(define (problem sat-rc-1) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend) (fresh-deliver) (fresh-door))
+  (:goal (and (mended) (delivered))))
+` | str_key | RC_PROBLEM = "
+(define (problem sat-rc-1) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend) (fresh-deliver) (fresh-door))
+  (:goal (and (mended) (delivered))))
+" |  |  |  |  |
+
+| `
+(define (problem sat-rc-env) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend))
+  (:goal (mended)))
+` | str_key | ENVELOPE_PROBLEM = "
+(define (problem sat-rc-env) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend))
+  (:goal (mended)))
+" |  |  |  |  |
+
+
+### crates/ferroplan/tests/sat_wing.rs
+
+| `FERROPLAN_VAL` | env_key | std::env::var("FERROPLAN_VAL") |  |  |  |  |
+
+| `
+(define (domain sat-micro)
+  (:requirements :strips :typing)
+  (:types loc)
+  (:predicates (at ?l - loc) (adj ?a ?b - loc))
+  (:action move
+    :parameters (?a ?b - loc)
+    :precondition (and (at ?a) (adj ?a ?b))
+    :effect (and (not (at ?a)) (at ?b))))
+` | str_key | MICRO_DOMAIN = "
+(define (domain sat-micro)
+  (:requirements :strips :typing)
+  (:types loc)
+  (:predicates (at ?l - loc) (adj ?a ?b - loc))
+  (:action move
+    :parameters (?a ?b - loc)
+    :precondition (and (at ?a) (adj ?a ?b))
+    :effect (and (not (at ?a)) (at ?b))))
+" |  |  |  |  |
+
+| `
+(define (domain sat-rc)
+  (:requirements :strips :durative-actions)
+  (:predicates (light) (open) (fresh-shine) (fresh-mend) (fresh-deliver)
+               (fresh-door) (mended) (delivered))
+  (:durative-action shine
+    :parameters ()
+    :duration (= ?duration 20)
+    :condition (at start (fresh-shine))
+    :effect (and (at start (not (fresh-shine)))
+                 (at start (light))
+                 (at end (not (light)))))
+  (:durative-action mend
+    :parameters ()
+    :duration (= ?duration 9)
+    :condition (and (at start (fresh-mend)) (over all (light)))
+    :effect (and (at start (not (fresh-mend))) (at end (mended))))
+  (:durative-action deliver
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (and (at start (fresh-deliver)) (at end (open)))
+    :effect (and (at start (not (fresh-deliver))) (at end (delivered))))
+  (:durative-action door
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-door))
+    :effect (and (at start (not (fresh-door)))
+                 (at start (open))
+                 (at end (not (open))))))
+` | str_key | RC_DOMAIN = "
+(define (domain sat-rc)
+  (:requirements :strips :durative-actions)
+  (:predicates (light) (open) (fresh-shine) (fresh-mend) (fresh-deliver)
+               (fresh-door) (mended) (delivered))
+  (:durative-action shine
+    :parameters ()
+    :duration (= ?duration 20)
+    :condition (at start (fresh-shine))
+    :effect (and (at start (not (fresh-shine)))
+                 (at start (light))
+                 (at end (not (light)))))
+  (:durative-action mend
+    :parameters ()
+    :duration (= ?duration 9)
+    :condition (and (at start (fresh-mend)) (over all (light)))
+    :effect (and (at start (not (fresh-mend))) (at end (mended))))
+  (:durative-action deliver
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (and (at start (fresh-deliver)) (at end (open)))
+    :effect (and (at start (not (fresh-deliver))) (at end (delivered))))
+  (:durative-action door
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-door))
+    :effect (and (at start (not (fresh-door)))
+                 (at start (open))
+                 (at end (not (open))))))
+" |  |  |  |  |
+
+| `
+(define (problem sat-micro-1) (:domain sat-micro)
+  (:objects l1 l2 l3 - loc)
+  (:init (at l1) (adj l1 l2) (adj l2 l3))
+  (:goal (at l3)))
+` | str_key | MICRO_PROBLEM = "
+(define (problem sat-micro-1) (:domain sat-micro)
+  (:objects l1 l2 l3 - loc)
+  (:init (at l1) (adj l1 l2) (adj l2 l3))
+  (:goal (at l3)))
+" |  |  |  |  |
+
+| `
+(define (problem sat-rc-1) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend) (fresh-deliver) (fresh-door))
+  (:goal (and (mended) (delivered))))
+` | str_key | RC_PROBLEM = "
+(define (problem sat-rc-1) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend) (fresh-deliver) (fresh-door))
+  (:goal (and (mended) (delivered))))
+" |  |  |  |  |
+
+
+### crates/ferroplan/tests/scaling_ladder.rs
+
+| `SCALING_LADDER_RESULTS` | env_key | std::env::var("SCALING_LADDER_RESULTS") |  |  |  |  |
+
+| `SCALING_LADDER_RSS_KB` | env_key | std::env::var("SCALING_LADDER_RSS_KB") |  |  |  |  |
+
+| `| family | n | m | ground_actions | ground_methods | states | transitions | parse_ms | ground_ms | translate_ms | solve_ms | outcome |` | str_key | SWEEP_HEADER = "| family | n | m | ground_actions | ground_methods | states | transitions | parse_ms | ground_ms | translate_ms | solve_ms | outcome |" |  |  |  |  |
+
+
+### crates/ferroplan/tests/tcompress.rs
+
+| `TCOMPRESS_TCONC_CHILD` | env_key | std::env::var("TCOMPRESS_TCONC_CHILD") |  |  |  |  |
+
+| `(define (domain shop)
+ (:requirements :typing :durative-actions)
+ (:types job machine)
+ (:predicates (todo ?j - job) (done ?j - job) (fits ?j - job ?m - machine)
+              (free ?m - machine) (busy ?m - machine))
+ (:durative-action run
+   :parameters (?j - job ?m - machine)
+   :duration (= ?duration 3)
+   :condition (and (at start (todo ?j)) (at start (free ?m))
+                   (over all (fits ?j ?m)) (at end (busy ?m)))
+   :effect (and (at start (not (todo ?j))) (at start (not (free ?m))) (at start (busy ?m))
+                (at end (not (busy ?m))) (at end (free ?m)) (at end (done ?j)))))` | str_key | SHOP = "(define (domain shop)
+ (:requirements :typing :durative-actions)
+ (:types job machine)
+ (:predicates (todo ?j - job) (done ?j - job) (fits ?j - job ?m - machine)
+              (free ?m - machine) (busy ?m - machine))
+ (:durative-action run
+   :parameters (?j - job ?m - machine)
+   :duration (= ?duration 3)
+   :condition (and (at start (todo ?j)) (at start (free ?m))
+                   (over all (fits ?j ?m)) (at end (busy ?m)))
+   :effect (and (at start (not (todo ?j))) (at start (not (free ?m))) (at start (busy ?m))
+                (at end (not (busy ?m))) (at end (free ?m)) (at end (done ?j)))))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/tdemand.rs
+
+| `(define (domain mr)
+  (:requirements :durative-actions :numeric-fluents)
+  (:predicates (ready))
+  (:functions (raw) (mid) (top))
+  (:durative-action gather :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (ready))
+    :effect (at end (increase (raw) 1)))
+  (:durative-action refine :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (>= (raw) 1))
+    :effect (and (at start (decrease (raw) 1)) (at end (increase (mid) 1))))
+  (:durative-action assemble :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (>= (mid) 1))
+    :effect (and (at start (decrease (mid) 1)) (at end (increase (top) 1)))))` | str_key | DOM = "(define (domain mr)
+  (:requirements :durative-actions :numeric-fluents)
+  (:predicates (ready))
+  (:functions (raw) (mid) (top))
+  (:durative-action gather :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (ready))
+    :effect (at end (increase (raw) 1)))
+  (:durative-action refine :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (>= (raw) 1))
+    :effect (and (at start (decrease (raw) 1)) (at end (increase (mid) 1))))
+  (:durative-action assemble :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (>= (mid) 1))
+    :effect (and (at start (decrease (mid) 1)) (at end (increase (top) 1)))))" |  |  |  |  |
+
+| `(define (problem mr3) (:domain mr)
+  (:init (ready) (= (raw) 0) (= (mid) 0) (= (top) 0))
+  (:goal (>= (top) 3)))` | str_key | PROB = "(define (problem mr3) (:domain mr)
+  (:init (ready) (= (raw) 0) (= (mid) 0) (= (top) 0))
+  (:goal (>= (top) 3)))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/temporal.rs
+
+| `ESCALATION_CHILD` | env_key | std::env::var("ESCALATION_CHILD") |  |  |  |  |
+
+| `
+(define (domain crew)
+  (:requirements :typing :durative-actions :numeric-fluents)
+  (:types task)
+  (:predicates (done ?t - task))
+  (:functions (avail))
+  (:durative-action do
+    :parameters (?t - task)
+    :duration (= ?duration 5)
+    :condition (at start (>= (avail) 1))
+    :effect (and (at start (decrease (avail) 1))
+                 (at end (increase (avail) 1))
+                 (at end (done ?t)))))
+` | str_key | RESOURCE_DOM = "
+(define (domain crew)
+  (:requirements :typing :durative-actions :numeric-fluents)
+  (:types task)
+  (:predicates (done ?t - task))
+  (:functions (avail))
+  (:durative-action do
+    :parameters (?t - task)
+    :duration (= ?duration 5)
+    :condition (at start (>= (avail) 1))
+    :effect (and (at start (decrease (avail) 1))
+                 (at end (increase (avail) 1))
+                 (at end (done ?t)))))
+" |  |  |  |  |
+
+| `
+(define (domain gate)
+  (:requirements :durative-actions)
+  (:predicates (open) (through))
+  (:durative-action pass
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (open))
+    :effect (at end (through))))
+` | str_key | TIL_DOM = "
+(define (domain gate)
+  (:requirements :durative-actions)
+  (:predicates (open) (through))
+  (:durative-action pass
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (open))
+    :effect (at end (through))))
+" |  |  |  |  |
+
+| `
+(define (domain ineq)
+  (:requirements :durative-actions)
+  (:predicates (done))
+  (:durative-action work
+    :parameters ()
+    :duration (and (>= ?duration 2) (<= ?duration 5))
+    :condition ()
+    :effect (at end (done))))
+` | str_key | INEQ_DOM = "
+(define (domain ineq)
+  (:requirements :durative-actions)
+  (:predicates (done))
+  (:durative-action work
+    :parameters ()
+    :duration (and (>= ?duration 2) (<= ?duration 5))
+    :condition ()
+    :effect (at end (done))))
+" |  |  |  |  |
+
+| `
+(define (domain t)
+  (:requirements :strips :durative-actions :numeric-fluents)
+  (:predicates (at) (goal) (light))
+  (:durative-action act
+    :parameters ()
+    :duration (= ?duration 3)
+    :condition (and (at start (at)) (over all (light)))
+    :effect (and (at start (not (at))) (at end (goal)))))` | str_key | DUR_DOM = "
+(define (domain t)
+  (:requirements :strips :durative-actions :numeric-fluents)
+  (:predicates (at) (goal) (light))
+  (:durative-action act
+    :parameters ()
+    :duration (= ?duration 3)
+    :condition (and (at start (at)) (over all (light)))
+    :effect (and (at start (not (at))) (at end (goal)))))" |  |  |  |  |
+
+| `
+(define (domain temporal-test)
+  (:requirements :strips :typing :durative-actions :numeric-fluents)
+  (:types location)
+  (:predicates (at ?l - location) (connected ?a ?b - location) (free))
+  (:functions (dist ?a ?b - location))
+  (:durative-action move
+    :parameters (?from ?to - location)
+    :duration (= ?duration (dist ?from ?to))
+    :condition (and (at start (at ?from))
+                    (at start (connected ?from ?to))
+                    (over all (free)))
+    :effect (and (at start (not (at ?from)))
+                 (at end (at ?to)))))
+` | str_key | DOM = "
+(define (domain temporal-test)
+  (:requirements :strips :typing :durative-actions :numeric-fluents)
+  (:types location)
+  (:predicates (at ?l - location) (connected ?a ?b - location) (free))
+  (:functions (dist ?a ?b - location))
+  (:durative-action move
+    :parameters (?from ?to - location)
+    :duration (= ?duration (dist ?from ?to))
+    :condition (and (at start (at ?from))
+                    (at start (connected ?from ?to))
+                    (over all (free)))
+    :effect (and (at start (not (at ?from)))
+                 (at end (at ?to)))))
+" |  |  |  |  |
+
+| `(define (problem g) (:domain gate)
+  (:init (at 5 (open)))
+  (:goal (through)))` | str_key | TIL_PROB = "(define (problem g) (:domain gate)
+  (:init (at 5 (open)))
+  (:goal (through)))" |  |  |  |  |
+
+| `(define (problem p) (:domain t) (:init (at) (light)) (:goal (goal)))` | str_key | DUR_PROB = "(define (problem p) (:domain t) (:init (at) (light)) (:goal (goal)))" |  |  |  |  |
+
+| `(define (problem w) (:domain ineq) (:init) (:goal (done)))` | str_key | INEQ_PROB = "(define (problem w) (:domain ineq) (:init) (:goal (done)))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/temporal_constraints.rs
+
+| `(define (domain tconstr)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (home) (done) (flag))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (home))
+    :effect (at end (done)))
+  (:durative-action raise
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (home))
+    :effect (at end (flag))))` | str_key | ATEND_DOM = "(define (domain tconstr)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (home) (done) (flag))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (home))
+    :effect (at end (done)))
+  (:durative-action raise
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (home))
+    :effect (at end (flag))))" |  |  |  |  |
+
+| `(define (domain tresp)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (idle) (alarm) (handled) (done))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (idle))
+    :effect (and (at start (not (idle))) (at start (alarm)) (at end (done))))
+  (:durative-action quiet-work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (idle))
+    :effect (and (at start (not (idle))) (at end (done))))
+  (:durative-action respond
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (alarm))
+    :effect (at end (handled))))` | str_key | RESPOND_DOM = "(define (domain tresp)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (idle) (alarm) (handled) (done))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (idle))
+    :effect (and (at start (not (idle))) (at start (alarm)) (at end (done))))
+  (:durative-action quiet-work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (idle))
+    :effect (and (at start (not (idle))) (at end (done))))
+  (:durative-action respond
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (alarm))
+    :effect (at end (handled))))" |  |  |  |  |
+
+| `(define (domain twin)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (home) (done) (flag))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (home))
+    :effect (at end (done)))
+  (:durative-action quick-flag
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (home))
+    :effect (at end (flag)))
+  (:durative-action slow-flag
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (at start (home))
+    :effect (at end (flag))))` | str_key | WITHIN_DOM = "(define (domain twin)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (home) (done) (flag))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (home))
+    :effect (at end (done)))
+  (:durative-action quick-flag
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (home))
+    :effect (at end (flag)))
+  (:durative-action slow-flag
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (at start (home))
+    :effect (at end (flag))))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/tground_wall.rs
+
+| `TGROUND_WALL_CHILD` | env_key | std::env::var("TGROUND_WALL_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/think_following.rs
+
+| `(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+               (free ?g - gripper) (carry ?b - ball ?g - gripper))
+  (:action move
+    :parameters (?from - room ?to - room)
+    :precondition (at-robby ?from)
+    :effect (and (at-robby ?to) (not (at-robby ?from))))
+  (:action pick
+    :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+    :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+  (:action drop
+    :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (carry ?b ?g) (at-robby ?r))
+    :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))` | str_key | GRIPPER_DOMAIN = "(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+               (free ?g - gripper) (carry ?b - ball ?g - gripper))
+  (:action move
+    :parameters (?from - room ?to - room)
+    :precondition (at-robby ?from)
+    :effect (and (at-robby ?to) (not (at-robby ?from))))
+  (:action pick
+    :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+    :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+  (:action drop
+    :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (carry ?b ?g) (at-robby ?r))
+    :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))" |  |  |  |  |
+
+| `(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))` | str_key | CORRIDOR_DOMAIN = "(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (problem corridor)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c d))
+  (:goal (at d)))` | str_key | CORRIDOR_PROBLEM = "(define (problem corridor)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c d))
+  (:goal (at d)))" |  |  |  |  |
+
+| `(define (problem dead-end)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c))
+  (:goal (at d)))` | str_key | DEAD_END_PROBLEM = "(define (problem dead-end)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c))
+  (:goal (at d)))" |  |  |  |  |
+
+| `(define (problem gripper-4)
+  (:domain gripper)
+  (:objects rooma roomb - room b1 b2 b3 b4 - ball left right - gripper)
+  (:init (at-robby rooma) (free left) (free right)
+         (at b1 rooma) (at b2 rooma) (at b3 rooma) (at b4 rooma))
+  (:goal (and (at b1 roomb) (at b2 roomb) (at b3 roomb) (at b4 roomb))))` | str_key | GRIPPER_PROBLEM = "(define (problem gripper-4)
+  (:domain gripper)
+  (:objects rooma roomb - room b1 b2 b3 b4 - ball left right - gripper)
+  (:init (at-robby rooma) (free left) (free right)
+         (at b1 rooma) (at b2 rooma) (at b3 rooma) (at b4 rooma))
+  (:goal (and (at b1 roomb) (at b2 roomb) (at b3 roomb) (at b4 roomb))))" |  |  |  |  |
+
+
+### crates/ferroplan/tests/translate_wall_ipc_addendum.rs
+
+| `pcp_1` | str_key | CASES = "pcp_1" |  |  |  |  |
+
+
+### crates/ferroplan/tests/tsearch_wall.rs
+
+| `TSEARCH_WALL_CHILD` | env_key | std::env::var("TSEARCH_WALL_CHILD") |  |  |  |  |
+
+
+### crates/ferroplan/tests/zero_duration.rs
+
+| `
+(define (domain z0)
+  (:requirements :strips :durative-actions)
+  (:predicates (a) (g) (h2))
+  (:durative-action zap
+    :parameters ()
+    :duration (= ?duration 0)
+    :condition (at start (a))
+    :effect (at start (g)))
+  (:durative-action chain
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (g))
+    :effect (at end (h2))))
+` | str_key | DOMAIN = "
+(define (domain z0)
+  (:requirements :strips :durative-actions)
+  (:predicates (a) (g) (h2))
+  (:durative-action zap
+    :parameters ()
+    :duration (= ?duration 0)
+    :condition (at start (a))
+    :effect (at start (g)))
+  (:durative-action chain
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (g))
+    :effect (at end (h2))))
+" |  |  |  |  |
 
 
 
@@ -2840,6 +7133,10 @@
 | `text_input` | function | text_input(mut evr: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>) |  |  |  |  |
 
 | `toggle_editor` | function | toggle_editor( keys: Res<ButtonInput<KeyCode>>, scene: Res<Scene>, mut editor: ResMut<Editor>, ) |  |  |  |  |
+
+| `../demo/domain.pddl` | str_key | DOMAIN = "../demo/domain.pddl" |  |  |  |  |
+
+| `../demo/problem.pddl` | str_key | PROBLEM = "../demo/problem.pddl" |  |  |  |  |
 
 | `Drag` | struct | Drag { held: Option<DragKind>, ghost: Option<Entity> } |  |  |  |  |
 
@@ -2983,6 +7280,8 @@
 
 | `InfoText` | struct |  |  |  |  |  |
 
+| `ferroplan.handoff` | str_key | KEY = "ferroplan.handoff" |  |  |  |  |
+
 | `FF_THREADS` | const | FF_THREADS: usize |  |  |  |  |
 
 | `FF_WEIGHT_G` | const | FF_WEIGHT_G: f64 |  |  |  |  |
@@ -3077,6 +7376,14 @@
 
 | `ReplayState` | enum | ReplayState { NotExecuted, ReplayMatch, ReplayMismatch } |  |  |  |  |
 
+| `ferroplan-harvest-admission/v1` | str_key | ADMISSION_SCHEMA = "ferroplan-harvest-admission/v1" |  |  |  |  |
+
+| `ferroplan-harvest-receipt/v1` | str_key | RECEIPT_SCHEMA = "ferroplan-harvest-receipt/v1" |  |  |  |  |
+
+| `ferroplan-method-catalog/v1` | str_key | CATALOG_SCHEMA = "ferroplan-method-catalog/v1" |  |  |  |  |
+
+| `ferroplan-observation-pack/v1` | str_key | OBSERVATION_SCHEMA = "ferroplan-observation-pack/v1" |  |  |  |  |
+
 | `AdmissionReport` | struct | AdmissionReport { pub schema: String, pub admitted: Vec<AdmittedWork>, pub excluded: Vec<ExcludedWork>, pub unresolved_transport_failures: Vec<TransportFailure> } |  |  |  |  |
 
 | `AdmittedWork` | struct | AdmittedWork { pub identity: String, pub level: AdmissionLevel, pub work: ObservedWorkItem, pub evidence: Vec<EvidenceRef> } |  |  |  |  |
@@ -3114,6 +7421,8 @@
 | `ValidationRecord` | struct | ValidationRecord { pub command: String, pub result: String, pub detail: Option<String> } |  |  |  |  |
 
 | `ValidationSummary` | struct | ValidationSummary { pub parse_ok: bool, pub parse_error: Option<String>, pub solve_attempted: bool, pub solved: Option<bool>, pub initial_value: Option<f64>, pub policy_valid: Option<bool>, pub policy_errors: Vec<String>, pub records: Vec<ValidationRecord> } |  |  |  |  |
+
+| `FIXTURE_F_WALL_SECS` | env_key | std::env::var("FIXTURE_F_WALL_SECS") |  |  |  |  |
 
 | `validate_pair` | function | validate_pair(domain_src: &str, problem_src: &str) -> Result<Summary, String> |  |  |  |  |
 
@@ -3201,6 +7510,22 @@
 
 | `index_objects_by_type` | function | index_objects_by_type( domain: &Domain, problem: &Problem, closure: &BTreeMap<String, BTreeSet<String>>, ) -> BTreeMap<String, Vec<String>> |  |  |  |  |
 
+| `../fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/problem.hddl` | str_key | FIXTURE_C_PROBLEM = "../fixtures/c/problem.hddl" |  |  |  |  |
+
+| `../fixtures/d/domain.hddl` | str_key | FIXTURE_D_DOMAIN = "../fixtures/d/domain.hddl" |  |  |  |  |
+
+| `../fixtures/d/problem.hddl` | str_key | FIXTURE_D_PROBLEM = "../fixtures/d/problem.hddl" |  |  |  |  |
+
+| `../fixtures/e/domain.hddl` | str_key | FIXTURE_E_DOMAIN = "../fixtures/e/domain.hddl" |  |  |  |  |
+
+| `../fixtures/e/problem.hddl` | str_key | FIXTURE_E_PROBLEM = "../fixtures/e/problem.hddl" |  |  |  |  |
+
 | `GroundAction` | struct | GroundAction { pub name: String, pub precondition: GroundGoal, pub outcomes: Vec<GroundEffectBranch> } |  |  |  |  |
 
 | `GroundConditional` | struct | GroundConditional { pub pos_cond: BTreeSet<String>, pub neg_cond: BTreeSet<String>, pub add: BTreeSet<String>, pub del: BTreeSet<String> } |  |  |  |  |
@@ -3233,6 +7558,192 @@
 
 | `parse_problem_with_budget` | function | parse_problem_with_budget(src: &str, max_depth: usize) -> Result<Problem, ParseError> |  |  |  |  |
 
+| `(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (and (p) (oneof (q) (r)))))` | str_key | DOMAIN = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (and (p) (oneof (q) (r)))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (when (r) (p))) (q))))` | str_key | UNDER_AND = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (when (r) (p))) (q))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (when (r) (p)) (q))))` | str_key | DIRECT = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof (when (r) (p)) (q))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (when (r) (oneof (p) (q)))))` | str_key | DOMAIN = "(define (domain bad)
+          (:predicates (p) (q) (r))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (when (r) (oneof (p) (q)))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p) (q))
+          (:action a
+            :parameters ()
+            :precondition (oneof (p) (q))
+            :effect (and (p))))` | str_key | DOMAIN = "(define (domain bad)
+          (:predicates (p) (q))
+          (:action a
+            :parameters ()
+            :precondition (oneof (p) (q))
+            :effect (and (p))))" |  |  |  |  |
+
+| `(define (domain bad)
+          (:predicates (p))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof)))` | str_key | DOMAIN = "(define (domain bad)
+          (:predicates (p))
+          (:action a
+            :parameters ()
+            :precondition ()
+            :effect (oneof)))" |  |  |  |  |
+
+| `(define (domain childsnack-style)
+          (:types child)
+          (:predicates (served ?c - child) (dirty ?c - child))
+          (:action putdown
+            :parameters (?c - child)
+            :precondition ()
+            :effect (oneof
+              (and (served ?c))
+              (and (served ?c) (not (dirty ?c))))))` | str_key | DOMAIN = "(define (domain childsnack-style)
+          (:types child)
+          (:predicates (served ?c - child) (dirty ?c - child))
+          (:action putdown
+            :parameters (?c - child)
+            :precondition ()
+            :effect (oneof
+              (and (served ?c))
+              (and (served ?c) (not (dirty ?c))))))" |  |  |  |  |
+
+| `(define (domain drop-d)
+          (:types loc truck)
+          (:predicates (at ?t - truck ?l - loc))
+          (:action drop
+            :parameters (?t - truck ?from - loc ?to - loc)
+            :precondition (at ?t ?from)
+            :effect (oneof
+              (and (not (at ?t ?from)) (at ?t ?to))
+              ())))` | str_key | DOMAIN = "(define (domain drop-d)
+          (:types loc truck)
+          (:predicates (at ?t - truck ?l - loc))
+          (:action drop
+            :parameters (?t - truck ?from - loc ?to - loc)
+            :precondition (at ?t ?from)
+            :effect (oneof
+              (and (not (at ?t ?from)) (at ?t ?to))
+              ())))" |  |  |  |  |
+
+| `(define (domain one-way)
+          (:predicates (p) (q))
+          (:action once
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (p) (q)))))` | str_key | DOMAIN = "(define (domain one-way)
+          (:predicates (p) (q))
+          (:action once
+            :parameters ()
+            :precondition ()
+            :effect (oneof (and (p) (q)))))" |  |  |  |  |
+
+| `(define (domain ordering-operator)
+          (:types loc)
+          (:predicates (at ?l - loc))
+          (:task deliver :parameters (?l - loc))
+          (:method m-deliver
+            :parameters (?l - loc)
+            :task (deliver ?l)
+            :subtasks (and
+              (t1 (deliver ?l))
+              (t2 (deliver ?l))
+              (t3 (deliver ?l)))
+            :ordering (and
+              (< t1 t2)
+              (t2 < t3))))` | str_key | DOMAIN = "(define (domain ordering-operator)
+          (:types loc)
+          (:predicates (at ?l - loc))
+          (:task deliver :parameters (?l - loc))
+          (:method m-deliver
+            :parameters (?l - loc)
+            :task (deliver ?l)
+            :subtasks (and
+              (t1 (deliver ?l))
+              (t2 (deliver ?l))
+              (t3 (deliver ?l)))
+            :ordering (and
+              (< t1 t2)
+              (t2 < t3))))" |  |  |  |  |
+
+| `(define (domain temporal-d)
+  (:durative-action fly
+    :parameters (?a ?b)
+    :duration (= ?duration 10)
+    :condition (at start (at ?a))
+    :effect (at end (at ?b))))` | str_key | DOMAIN = "(define (domain temporal-d)
+  (:durative-action fly
+    :parameters (?a ?b)
+    :duration (= ?duration 10)
+    :condition (at start (at ?a))
+    :effect (at end (at ?b))))" |  |  |  |  |
+
+| `(define (domain three-way)
+          (:predicates (p) (q) (r))
+          (:action tri
+            :parameters ()
+            :precondition ()
+            :effect (oneof (p) (q) (r))))` | str_key | DOMAIN = "(define (domain three-way)
+          (:predicates (p) (q) (r))
+          (:action tri
+            :parameters ()
+            :precondition ()
+            :effect (oneof (p) (q) (r))))" |  |  |  |  |
+
+| `../fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../fixtures/b/domain.hddl` | str_key | FIXTURE_B_DOMAIN = "../fixtures/b/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/e/domain.hddl` | str_key | FIXTURE_E_DOMAIN = "../fixtures/e/domain.hddl" |  |  |  |  |
+
+| `../fixtures/f/domain.hddl` | str_key | FIXTURE_F_DOMAIN = "../fixtures/f/domain.hddl" |  |  |  |  |
+
+| `../fixtures/f/problem.hddl` | str_key | FIXTURE_F_PROBLEM = "../fixtures/f/problem.hddl" |  |  |  |  |
+
 | `has_probabilistic` | function | has_probabilistic(src: &str) -> bool |  |  |  |  |
 
 | `preprocess` | function | preprocess(src: &str) -> Result<(String, BTreeMap<String, Vec<String>>), ParseError> |  |  |  |  |
@@ -3240,6 +7751,380 @@
 | `TranslateError` | enum | TranslateError { UnsupportedNegativeGoal, UnsupportedGoalConnective(String), MalformedTermEquality { found: usize, }, UnboundVariable(String), TaskNetworkDepthExceeded { addr: String, limit: usize, }, Timeout { elapsed_ms: u128, limit_ms: u128, }, MemoryLimitExceeded { states: usize, limit: usize, }, Ground(GroundError) } |  |  |  |  |
 
 | `translate` | function | translate( ir: &GroundedIR, limits: &TranslateLimits, ) -> Result<PlanningProblem, TranslateError> |  |  |  |  |
+
+| `(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))` | str_key | DOMAIN = "(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))" |  |  |  |  |
+
+| `(define (domain eq-gate)
+  (:requirements :typing :equality :method-preconditions)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action mark-p :parameters () :precondition () :effect (p))
+  (:action mark-q :parameters () :precondition () :effect (q))
+  (:method m-eq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (= ?x a)
+    :ordered-subtasks (and (t1 (mark-p))))
+  (:method m-neq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (not (= ?x a))
+    :ordered-subtasks (and (t1 (mark-q)))))` | str_key | DOMAIN = "(define (domain eq-gate)
+  (:requirements :typing :equality :method-preconditions)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action mark-p :parameters () :precondition () :effect (p))
+  (:action mark-q :parameters () :precondition () :effect (q))
+  (:method m-eq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (= ?x a)
+    :ordered-subtasks (and (t1 (mark-p))))
+  (:method m-neq
+    :parameters (?x - loc)
+    :task (go ?x)
+    :precondition (not (= ?x a))
+    :ordered-subtasks (and (t1 (mark-q)))))" |  |  |  |  |
+
+| `(define (domain eq-goal)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p))
+  (:task go :parameters ())
+  (:method m-go
+    :task (go)
+    :ordered-subtasks ()))` | str_key | DOMAIN = "(define (domain eq-goal)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p))
+  (:task go :parameters ())
+  (:method m-go
+    :task (go)
+    :ordered-subtasks ()))" |  |  |  |  |
+
+| `(define (domain eq-when)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action probe :parameters (?x - loc)
+    :precondition ()
+    :effect (and
+      (when (= ?x a) (and (not (q)) (p)))
+      (when (not (= ?x a)) (and (not (p)) (q)))))
+  (:method m-go
+    :parameters (?x - loc)
+    :task (go ?x)
+    :ordered-subtasks (and (t1 (probe ?x)))))` | str_key | DOMAIN = "(define (domain eq-when)
+  (:types loc)
+  (:constants a b - loc)
+  (:predicates (p) (q))
+  (:task go :parameters (?x - loc))
+  (:action probe :parameters (?x - loc)
+    :precondition ()
+    :effect (and
+      (when (= ?x a) (and (not (q)) (p)))
+      (when (not (= ?x a)) (and (not (p)) (q)))))
+  (:method m-go
+    :parameters (?x - loc)
+    :task (go ?x)
+    :ordered-subtasks (and (t1 (probe ?x)))))" |  |  |  |  |
+
+| `(define (domain gated-tri)
+  (:predicates (ready) (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition (ready)
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))` | str_key | DOMAIN = "(define (domain gated-tri)
+  (:predicates (ready) (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition (ready)
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))" |  |  |  |  |
+
+| `(define (domain method-precond-g)
+  (:predicates (ready) (done-a) (done-b))
+  (:task run :parameters ())
+  (:method use-a
+    :parameters ()
+    :task (run)
+    :precondition (ready)
+    :ordered-subtasks (mark-a))
+  (:method use-b
+    :parameters ()
+    :task (run)
+    :precondition (not (ready))
+    :ordered-subtasks (mark-b))
+  (:action mark-a
+    :effect (done-a))
+  (:action mark-b
+    :effect (done-b)))` | str_key | DOMAIN = "(define (domain method-precond-g)
+  (:predicates (ready) (done-a) (done-b))
+  (:task run :parameters ())
+  (:method use-a
+    :parameters ()
+    :task (run)
+    :precondition (ready)
+    :ordered-subtasks (mark-a))
+  (:method use-b
+    :parameters ()
+    :task (run)
+    :precondition (not (ready))
+    :ordered-subtasks (mark-b))
+  (:action mark-a
+    :effect (done-a))
+  (:action mark-b
+    :effect (done-b)))" |  |  |  |  |
+
+| `(define (domain noop-then-move)
+  (:predicates (at-a) (at-b))
+  (:task go :parameters ())
+  (:action pause
+    :parameters ()
+    :precondition ()
+    :effect (and))
+  (:action move
+    :parameters ()
+    :precondition (at-a)
+    :effect (and (not (at-a)) (at-b)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (pause)) (t2 (move)))))` | str_key | DOMAIN = "(define (domain noop-then-move)
+  (:predicates (at-a) (at-b))
+  (:task go :parameters ())
+  (:action pause
+    :parameters ()
+    :precondition ()
+    :effect (and))
+  (:action move
+    :parameters ()
+    :precondition (at-a)
+    :effect (and (not (at-a)) (at-b)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (pause)) (t2 (move)))))" |  |  |  |  |
+
+| `(define (domain shortcut-g)
+  (:types loc)
+  (:predicates (at ?l - loc) (cheated))
+  (:task run :parameters ())
+  (:action drive
+    :parameters (?a - loc ?b - loc)
+    :precondition (at ?a)
+    :effect (and (not (at ?a)) (at ?b)))
+  (:action special-action
+    :parameters (?a - loc)
+    :precondition (at ?a)
+    :effect (and (cheated)))
+  (:method m-run
+    :parameters ()
+    :task (run)
+    :ordered-subtasks (and (t1 (drive l1 l2)))))` | str_key | DOMAIN = "(define (domain shortcut-g)
+  (:types loc)
+  (:predicates (at ?l - loc) (cheated))
+  (:task run :parameters ())
+  (:action drive
+    :parameters (?a - loc ?b - loc)
+    :precondition (at ?a)
+    :effect (and (not (at ?a)) (at ?b)))
+  (:action special-action
+    :parameters (?a - loc)
+    :precondition (at ?a)
+    :effect (and (cheated)))
+  (:method m-run
+    :parameters ()
+    :task (run)
+    :ordered-subtasks (and (t1 (drive l1 l2)))))" |  |  |  |  |
+
+| `(define (domain three-way)
+  (:predicates (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition ()
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))` | str_key | DOMAIN = "(define (domain three-way)
+  (:predicates (p) (q) (r))
+  (:task go :parameters ())
+  (:action tri
+    :parameters ()
+    :precondition ()
+    :effect (oneof (p) (q) (r)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (tri)))))" |  |  |  |  |
+
+| `(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem eq-when-p)
+  (:domain eq-when)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go a)) (g2 (go b))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem eq-when-p)
+  (:domain eq-when)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go a)) (g2 (go b))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem gated-tri-p1)
+  (:domain gated-tri)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem gated-tri-p1)
+  (:domain gated-tri)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem method-precond-g-p1)
+  (:domain method-precond-g)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (run))))
+  (:init (ready))
+  (:goal (and (done-a))))` | str_key | PROBLEM = "(define (problem method-precond-g-p1)
+  (:domain method-precond-g)
+  (:objects)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (run))))
+  (:init (ready))
+  (:goal (and (done-a))))" |  |  |  |  |
+
+| `(define (problem noop-then-move-p1)
+  (:domain noop-then-move)
+  (:objects)
+  (:init (at-a))
+  (:goal (at-b))
+  (:htn :ordered-subtasks (and (g1 (go)))))` | str_key | PROBLEM = "(define (problem noop-then-move-p1)
+  (:domain noop-then-move)
+  (:objects)
+  (:init (at-a))
+  (:goal (at-b))
+  (:htn :ordered-subtasks (and (g1 (go)))))" |  |  |  |  |
+
+| `(define (problem shortcut-g-p1)
+  (:domain shortcut-g)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (run))))
+  (:init (at l1))
+  (:goal (and (cheated))))` | str_key | PROBLEM = "(define (problem shortcut-g-p1)
+  (:domain shortcut-g)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (g1 (run))))
+  (:init (at l1))
+  (:goal (and (cheated))))" |  |  |  |  |
+
+| `(define (problem three-way-p1)
+  (:domain three-way)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem three-way-p1)
+  (:domain three-way)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem transport-a-p1-neg)
+  (:domain transport-a)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (and (at l2) (not (has-package)))))` | str_key | PROBLEM = "(define (problem transport-a-p1-neg)
+  (:domain transport-a)
+  (:objects l1 l2 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (and (at l2) (not (has-package)))))" |  |  |  |  |
+
+| `(define (problem transport-a-p1-or)
+  (:domain transport-a)
+  (:objects l1 l2 l3 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (or (at l2) (at l3))))` | str_key | PROBLEM = "(define (problem transport-a-p1-or)
+  (:domain transport-a)
+  (:objects l1 l2 l3 - loc)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (m1 (deliver l1 l2))))
+  (:init (at l1) (connected l1 l2))
+  (:goal (or (at l2) (at l3))))" |  |  |  |  |
+
+| `../fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/problem.hddl` | str_key | FIXTURE_C_PROBLEM = "../fixtures/c/problem.hddl" |  |  |  |  |
+
+| `../fixtures/e/domain.hddl` | str_key | FIXTURE_E_DOMAIN = "../fixtures/e/domain.hddl" |  |  |  |  |
+
+| `../fixtures/e/problem.hddl` | str_key | FIXTURE_E_PROBLEM = "../fixtures/e/problem.hddl" |  |  |  |  |
+
+| `../fixtures/f/domain.hddl` | str_key | FIXTURE_F_DOMAIN = "../fixtures/f/domain.hddl" |  |  |  |  |
+
+| `../fixtures/f/problem.hddl` | str_key | FIXTURE_F_PROBLEM = "../fixtures/f/problem.hddl" |  |  |  |  |
 
 | `Goal` | struct | Goal { pub facts: BTreeSet<String> } |  |  |  |  |
 
@@ -3269,6 +8154,116 @@
 
 | `validate_problem_with_warnings` | function | validate_problem_with_warnings( domain: &Domain, problem: &Problem, ) -> Result<Vec<ValidationWarning>, ValidationError> |  |  |  |  |
 
+| `../fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../fixtures/b/domain.hddl` | str_key | FIXTURE_B_DOMAIN = "../fixtures/b/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/d/domain.hddl` | str_key | FIXTURE_D_DOMAIN = "../fixtures/d/domain.hddl" |  |  |  |  |
+
+| `../fixtures/f/domain.hddl` | str_key | FIXTURE_F_DOMAIN = "../fixtures/f/domain.hddl" |  |  |  |  |
+
+| `../fixtures/g/domain.hddl` | str_key | FIXTURE_G_DOMAIN = "../fixtures/g/domain.hddl" |  |  |  |  |
+
+| `../fixtures/g/problem.hddl` | str_key | FIXTURE_G_PROBLEM = "../fixtures/g/problem.hddl" |  |  |  |  |
+
+| `CARGO_MANIFEST_DIR` | str_key | DOMAIN_PATH = "CARGO_MANIFEST_DIR" |  |  |  |  |
+
+| `preserve` | str_key | ORDER = "preserve" |  |  |  |  |
+
+| `../fixtures/c/domain.hddl` | str_key | C_DOMAIN = "../fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../fixtures/c/problem.hddl` | str_key | C_PROBLEM = "../fixtures/c/problem.hddl" |  |  |  |  |
+
+| `canonical_digest` | str_key | RESOURCE_TOOLS = "canonical_digest" |  |  |  |  |
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
+| `urn:chatman:claude-code-admission:v1` | str_key | RECEIPT_DOMAIN = "urn:chatman:claude-code-admission:v1" |  |  |  |  |
+
+| `dx_manifest` | str_key | RESOURCE_TOOLS = "dx_manifest" |  |  |  |  |
+
+| `plugins/chatman-ecosystem/ontology/ferroplan-experience.ttl` | str_key | ONTOLOGY_SOURCE = "plugins/chatman-ecosystem/ontology/ferroplan-experience.ttl" |  |  |  |  |
+
+| `solve` | str_key | CAPABILITIES = "solve" |  |  |  |  |
+
+| `Applies fact and/or fluent observations to a session's belief (via Session::observe for facts, Session::set_fluent per changed fluent), bumping epoch if anything surprised, and reports whether the currently-stored plan is still valid from the current cursor. Fluent comparison against the prior value is an exact to_bits() equality check, not epsilon-tolerant.` | str_key | OBSERVE_ONTOLOGY = "Applies fact and/or fluent observations to a session's belief (via Session::observe for facts, Session::set_fluent per changed fluent), bumping epoch if anything surprised, and reports whether the currently-stored plan is still valid from the current cursor. Fluent comparison against the prior value is an exact to_bits() equality check, not epsilon-tolerant." |  |  |  |  |
+
+| `Apply a bounded heterogeneous session transaction on a staged fork and commit exactly once, or refuse without partial mutation.` | str_key | QOL_BATCH_ONTOLOGY = "Apply a bounded heterogeneous session transaction on a staged fork and commit exactly once, or refuse without partial mutation." |  |  |  |  |
+
+| `Atomically manufacture a ready persistent planning mind from domain, problem, goal, authority scope, and bounded search settings.` | str_key | WIZARD_BOOTSTRAP_ONTOLOGY = "Atomically manufacture a ready persistent planning mind from domain, problem, goal, authority scope, and bounded search settings." |  |  |  |  |
+
+| `Classify a tool or protocol failure into a typed cause with bounded confidence, corrective actions, and refusal-preserving recovery guidance.` | str_key | DOCTOR_EXPLAIN_ONTOLOGY = "Classify a tool or protocol failure into a typed cause with bounded confidence, corrective actions, and refusal-preserving recovery guidance." |  |  |  |  |
+
+| `Compile a high-level operator intent into an ordered, inspectable Ferroplan tool recipe with preflight, rollback, and receipt checkpoints.` | str_key | WIZARD_RECIPE_ONTOLOGY = "Compile a high-level operator intent into an ordered, inspectable Ferroplan tool recipe with preflight, rollback, and receipt checkpoints." |  |  |  |  |
+
+| `Diagnose global or per-session health, assign typed findings, calculate standing, and emit executable remediation hints without mutating state.` | str_key | DOCTOR_SCAN_ONTOLOGY = "Diagnose global or per-session health, assign typed findings, calculate standing, and emit executable remediation hints without mutating state." |  |  |  |  |
+
+| `Enumerate a bounded combinatorial capability lattice, minimal reachability depths, dependency edges, blocked frontiers, and theoretical composition capacity.` | str_key | VISION_LATTICE_ONTOLOGY = "Enumerate a bounded combinatorial capability lattice, minimal reachability depths, dependency edges, blocked frontiers, and theoretical composition capacity." |  |  |  |  |
+
+| `Gall Checkpoint 9 (Recursive Multifractal Allocation): runs cmca_allocate's exact admission law at a root frontier, then descends into zero or more selected admitted nodes, each with a fresh local N=8/F=10 frontier, chaining every depth's payload_digest into the next depth's envelope server-side (never caller-supplied/trusted). Refuses the whole call -- no partial chain -- on: selected_parent_node naming an id that was not an admitted candidate at the immediately preceding depth (ParentNodeUnknown-shaped refusal); selected_parent_node repeating an id already used to enter an earlier depth on the same chain (cyclic-ancestry refusal); or any depth's own admission failing cmca_allocate's underlying candidate/forest/factor law. Same-input calls are byte-identical (deterministic replay) since every depth is a pure function of its own input plus the previous depth's real digest.` | str_key | CMCA_RECURSIVE_ONTOLOGY = "Gall Checkpoint 9 (Recursive Multifractal Allocation): runs cmca_allocate's exact admission law at a root frontier, then descends into zero or more selected admitted nodes, each with a fresh local N=8/F=10 frontier, chaining every depth's payload_digest into the next depth's envelope server-side (never caller-supplied/trusted). Refuses the whole call -- no partial chain -- on: selected_parent_node naming an id that was not an admitted candidate at the immediately preceding depth (ParentNodeUnknown-shaped refusal); selected_parent_node repeating an id already used to enter an earlier depth on the same chain (cyclic-ancestry refusal); or any depth's own admission failing cmca_allocate's underlying candidate/forest/factor law. Same-input calls are byte-identical (deterministic replay) since every depth is a pure function of its own input plus the previous depth's real digest." |  |  |  |  |
+
+| `Inferred: a validation tool beyond plain syntax parsing — most plausibly checking a domain+problem pair grounds successfully (i.e. exercising ferroplan::api's grounding path without necessarily searching for a full plan), used as a pre-flight check before an expensive solve/decompose call. No struct named Validate*/ValidationReport was present in the extracted api.rs public-surface listing, so this tool's exact backing type and field schema is UNVERIFIED against the source excerpts available to this ontology; modeled at the tool-name/purpose level only.` | str_key | VALIDATE_ONTOLOGY = "Inferred: a validation tool beyond plain syntax parsing — most plausibly checking a domain+problem pair grounds successfully (i.e. exercising ferroplan::api's grounding path without necessarily searching for a full plan), used as a pre-flight check before an expensive solve/decompose call. No struct named Validate*/ValidationReport was present in the extracted api.rs public-surface listing, so this tool's exact backing type and field schema is UNVERIFIED against the source excerpts available to this ontology; modeled at the tool-name/purpose level only." |  |  |  |  |
+
+| `Inferred: binds a CMCA/BCINR allocation payload (such as cmca_allocate's output) into a chained receipt, analogous in spirit to the session tools' chain_receipt over SESSION_RECEIPT_DOMAIN, but scoped to allocation payloads rather than session events. Exact input/output field schema not captured at fine grain in the extraction available.` | str_key | BIND_ALLOC_ONTOLOGY = "Inferred: binds a CMCA/BCINR allocation payload (such as cmca_allocate's output) into a chained receipt, analogous in spirit to the session tools' chain_receipt over SESSION_RECEIPT_DOMAIN, but scoped to allocation payloads rather than session events. Exact input/output field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Inferred: binds a ferroplan Plan/Solution payload into a chained receipt, so a downstream actuation broker (per chatman-ecosystem.ttl's ce:BRCE) can require ce:requiresReceipt before treating a candidate plan as admissible. Exact input/output field schema not captured at fine grain in the extraction available.` | str_key | BIND_PLAN_ONTOLOGY = "Inferred: binds a ferroplan Plan/Solution payload into a chained receipt, so a downstream actuation broker (per chatman-ecosystem.ttl's ce:BRCE) can require ce:requiresReceipt before treating a candidate plan as admissible. Exact input/output field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Inferred: computes a canonical (deterministic-serialization) blake3 digest over an arbitrary JSON payload, for use as a stable content-identity input to receipt chaining elsewhere. Exact input/output field schema not captured at fine grain in the extraction available; documented at the tool-name/purpose level only.` | str_key | DIGEST_ONTOLOGY = "Inferred: computes a canonical (deterministic-serialization) blake3 digest over an arbitrary JSON payload, for use as a stable content-identity input to receipt chaining elsewhere. Exact input/output field schema not captured at fine grain in the extraction available; documented at the tool-name/purpose level only." |  |  |  |  |
+
+| `Inferred: verifies a previously-bound receipt (allocation or plan) against its claimed chain head / digest, returning whether the chain is intact. Exact input/output field schema not captured at fine grain in the extraction available.` | str_key | VERIFY_ONTOLOGY = "Inferred: verifies a previously-bound receipt (allocation or plan) against its claimed chain head / digest, returning whether the chain is intact. Exact input/output field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Manufacture a deterministic transport-neutral BLAKE3 integrity envelope with correlation, causation, idempotency, predecessor, and expiry fields; it performs no network operation.` | str_key | TELCO_ENVELOPE_ONTOLOGY = "Manufacture a deterministic transport-neutral BLAKE3 integrity envelope with correlation, causation, idempotency, predecessor, and expiry fields; it performs no network operation." |  |  |  |  |
+
+| `Moves the session's cursor forward by completed_steps against the stored last_plan's length; errors if that would run past the plan's end. Advancing the cursor does not itself apply any world effects — effects still enter belief only via session_observe (or set_fact/elapse on the underlying Session), per the source comment at line 5 and the tool description at line 288.` | str_key | ADVANCE_ONTOLOGY = "Moves the session's cursor forward by completed_steps against the stored last_plan's length; errors if that would run past the plan's end. Advancing the cursor does not itself apply any world effects — effects still enter belief only via session_observe (or set_fact/elapse on the underlying Session), per the source comment at line 5 and the tool description at line 288." |  |  |  |  |
+
+| `Opens (grounds) a new Session under session_id and stores it server-side, chaining an 'opened' receipt. Rejects if the session_id already exists unless replace is true. Rejects non-canonical session_ids (must be alphanumeric/-/_/./:).` | str_key | OPEN_ONTOLOGY = "Opens (grounds) a new Session under session_id and stores it server-side, chaining an 'opened' receipt. Rejects if the session_id already exists unless replace is true. Rejects non-canonical session_ids (must be alphanumeric/-/_/./:)." |  |  |  |  |
+
+| `Read session state, selected facts and fluents, plan standing, diagnostics, memory, lineage, and recent history in one round trip.` | str_key | QOL_SNAPSHOT_ONTOLOGY = "Read session state, selected facts and fluents, plan standing, diagnostics, memory, lineage, and recent history in one round trip." |  |  |  |  |
+
+| `Read-only status snapshot of a session — no receipt is chained (nothing mutated).` | str_key | STATUS_ONTOLOGY = "Read-only status snapshot of a session — no receipt is chained (nothing mutated)." |  |  |  |  |
+
+| `Removes the session from server state (frees its grounded world if no other session shares it). No receipt chaining; no error if the session_id doesn't exist.` | str_key | CLOSE_ONTOLOGY = "Removes the session from server state (frees its grounded world if no other session shares it). No receipt chaining; no error if the session_id doesn't exist." |  |  |  |  |
+
+| `Retargets a session's goal via Session::set_goal, resets cursor to 0, and bumps epoch. remaining_plan_valid in the response checks plan_still_valid(last_plan, 0) — against the just-reset cursor, not whatever cursor held before the call.` | str_key | SET_GOAL_ONTOLOGY = "Retargets a session's goal via Session::set_goal, resets cursor to 0, and bumps epoch. remaining_plan_valid in the response checks plan_still_valid(last_plan, 0) — against the just-reset cursor, not whatever cursor held before the call." |  |  |  |  |
+
+| `Return the complete self-describing Ferroplan capability manifest, including authority categories, contracts, effects, reversibility, receipt behavior, and composition examples.` | str_key | DX_MANIFEST_ONTOLOGY = "Return the complete self-describing Ferroplan capability manifest, including authority categories, contracts, effects, reversibility, receipt behavior, and composition examples." |  |  |  |  |
+
+| `Runs the bcinr_cmca (Chatman Multifractal Cascade Allocator) fixed-size allocation over exactly N=8 candidates, validating each candidate's id (non-empty, unique), parent (forest structure: exactly one root, no cycles), fixed-point factors (F entries, finite, in [0, u32::MAX/65536]), and cost. Note: this tool is CMCA/BCINR allocation surface bundled onto the session server, not itself a Session operation — it is the only tool here with no session_id and no receipt chaining on the ManagedSession scheme (it returns a self-contained payload_digest instead).` | str_key | CMCA_ONTOLOGY = "Runs the bcinr_cmca (Chatman Multifractal Cascade Allocator) fixed-size allocation over exactly N=8 candidates, validating each candidate's id (non-empty, unique), parent (forest structure: exactly one root, no cycles), fixed-point factors (F entries, finite, in [0, u32::MAX/65536]), and cost. Note: this tool is CMCA/BCINR allocation surface bundled onto the session server, not itself a Session operation — it is the only tool here with no session_id and no receipt chaining on the ManagedSession scheme (it returns a self-contained payload_digest instead)." |  |  |  |  |
+
+| `Search the bounded capability graph for a minimal deterministic tool sequence from admitted starting atoms to requested outcome atoms.` | str_key | DX_COMPOSE_ONTOLOGY = "Search the bounded capability graph for a minimal deterministic tool sequence from admitted starting atoms to requested outcome atoms." |  |  |  |  |
+
+| `The think step: if the stored last_plan is still valid from the current cursor, short-circuits to a 'follow' decision (searched:false) without invoking any planner, regardless of prefer_follow. Otherwise searches: prefer_follow only changes behavior when a (now-invalid) prior plan exists — then it chooses between Session::replan_following (bias toward the prior plan's structure) and Session::replan_budgeted (from-scratch bounded search); with no prior plan at all it always uses replan_budgeted regardless of prefer_follow. Cursor is always reset to 0 after any search path (both branches). decision is 'replan' if solved else 'bounded-refusal'.` | str_key | THINK_ONTOLOGY = "The think step: if the stored last_plan is still valid from the current cursor, short-circuits to a 'follow' decision (searched:false) without invoking any planner, regardless of prefer_follow. Otherwise searches: prefer_follow only changes behavior when a (now-invalid) prior plan exists — then it chooses between Session::replan_following (bias toward the prior plan's structure) and Session::replan_budgeted (from-scratch bounded search); with no prior plan at all it always uses replan_budgeted regardless of prefer_follow. Cursor is always reset to 0 after any search path (both branches). decision is 'replan' if solved else 'bounded-refusal'." |  |  |  |  |
+
+| `Verify a transport envelope's schema, payload identity, envelope identity, routing expectations, predecessor, and expiry without treating integrity as authentication.` | str_key | TELCO_VERIFY_ONTOLOGY = "Verify a transport envelope's schema, payload identity, envelope identity, routing expectations, predecessor, and expiry without treating integrity as authentication." |  |  |  |  |
+
+| `Wraps ferroplan::api::decompose(domain_src, problem_src, opts) -> Result<Decomposition, SolveError>: decomposes a temporal goal into solvable contracts, solves and stitches them, and returns the inspectable fp:Decomposition. Inferred: MCP wrapper's exact JSON field schema not captured at fine grain in the extraction available.` | str_key | DECOMPOSE_ONTOLOGY = "Wraps ferroplan::api::decompose(domain_src, problem_src, opts) -> Result<Decomposition, SolveError>: decomposes a temporal goal into solvable contracts, solves and stitches them, and returns the inspectable fp:Decomposition. Inferred: MCP wrapper's exact JSON field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Wraps ferroplan::api::parse(src) -> ParseReport: validates PDDL syntax and returns a structure summary without grounding or solving, auto-detecting domain vs problem. Inferred: MCP wrapper's exact JSON field schema not captured at fine grain in the extraction available.` | str_key | PARSE_ONTOLOGY = "Wraps ferroplan::api::parse(src) -> ParseReport: validates PDDL syntax and returns a structure summary without grounding or solving, auto-detecting domain vs problem. Inferred: MCP wrapper's exact JSON field schema not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `Wraps ferroplan::api::solve(domain_src, problem_src, opts) -> Result<Solution, SolveError>: parses domain+problem PDDL, grounds, and searches for a plan under the given fp:Options, returning the fp:Solution shape. Inferred: field-by-field JSON request/response schema for the MCP wrapper itself (as opposed to the underlying api::solve signature, which is documented in api.rs) was not captured at fine grain in the extraction available.` | str_key | SOLVE_ONTOLOGY = "Wraps ferroplan::api::solve(domain_src, problem_src, opts) -> Result<Solution, SolveError>: parses domain+problem PDDL, grounds, and searches for a plan under the given fp:Options, returning the fp:Solution shape. Inferred: field-by-field JSON request/response schema for the MCP wrapper itself (as opposed to the underlying api::solve signature, which is documented in api.rs) was not captured at fine grain in the extraction available." |  |  |  |  |
+
+| `solve` | str_key | MAIN_RESOURCE_TOOLS = "solve" |  |  |  |  |
+
+| `ferroplan-mcp-plus/1.0` | str_key | PROFILE = "ferroplan-mcp-plus/1.0" |  |  |  |  |
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
+| `session_open` | str_key | RESOURCE_TOOLS = "session_open" |  |  |  |  |
+
+| `urn:chatman:ferroplan-session-chain:v1` | str_key | SESSION_RECEIPT_DOMAIN = "urn:chatman:ferroplan-session-chain:v1" |  |  |  |  |
+
+| `domain_digest` | str_key | KEYS = "domain_digest" |  |  |  |  |
+
+| `session_list` | str_key | RESOURCE_TOOLS = "session_list" |  |  |  |  |
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
 | `DOM` | const | DOM: &str |  |  |  |  |
 
 | `PROB` | const | PROB: &str |  |  |  |  |
@@ -3287,7 +8282,103 @@
 
 | `start` | function | start() -> Client |  |  |  |  |
 
+| `(define (domain d) (:requirements :strips) (:predicates (p) (q) (r)) ` | str_key | DOM = "(define (domain d) (:requirements :strips) (:predicates (p) (q) (r)) " |  |  |  |  |
+
+| `(define (problem pr) (:domain d) (:init (p)) (:goal (r)))` | str_key | PROB = "(define (problem pr) (:domain d) (:init (p)) (:goal (r)))" |  |  |  |  |
+
 | `Client` | struct | Client { child: Child, stdin: Option<ChildStdin>, stdout: BufReader<ChildStdout>, next_id: i64 } |  |  |  |  |
+
+| `(define (domain loc) (:requirements :strips) ` | str_key | DOM = "(define (domain loc) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem locp) (:domain loc) (:init (at-a)) (:goal (at-c)))` | str_key | PROB = "(define (problem locp) (:domain loc) (:init (at-a)) (:goal (at-c)))" |  |  |  |  |
+
+| `../../plugins/chatman-ecosystem/ontology/ferroplan-domain.ttl` | str_key | ONTOLOGIES = "../../plugins/chatman-ecosystem/ontology/ferroplan-domain.ttl" |  |  |  |  |
+
+| `solve` | str_key | MAIN_STRUCTS = "solve" |  |  |  |  |
+
+| `src/generated/tool_ontology.rs` | str_key | GENERATED_REL = "src/generated/tool_ontology.rs" |  |  |  |  |
+
+| `src/main.rs` | str_key | ROUTER_SOURCES = "src/main.rs" |  |  |  |  |
+
+| `solve` | str_key | ALL_42_TOOLS = "solve" |  |  |  |  |
+
+| `fb9321d27882169acc83aaca0639b319cd3b7900` | str_key | BCINR_REVISION = "fb9321d27882169acc83aaca0639b319cd3b7900" |  |  |  |  |
+
+| `
+(define (domain farm) (:requirements :strips :typing :numeric-fluents)
+  (:types agent place)
+  (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+  (:functions (grain))
+  (:action walk :parameters (?a - agent ?from ?to - place)
+    :precondition (and (at ?a ?from) (road ?from ?to))
+    :effect (and (not (at ?a ?from)) (at ?a ?to)))
+  (:action harvest :parameters (?a - agent ?p - place)
+    :precondition (and (at ?a ?p) (fertile ?p))
+    :effect (increase (grain) 1)))` | str_key | FARM_DOM = "
+(define (domain farm) (:requirements :strips :typing :numeric-fluents)
+  (:types agent place)
+  (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+  (:functions (grain))
+  (:action walk :parameters (?a - agent ?from ?to - place)
+    :precondition (and (at ?a ?from) (road ?from ?to))
+    :effect (and (not (at ?a ?from)) (at ?a ?to)))
+  (:action harvest :parameters (?a - agent ?p - place)
+    :precondition (and (at ?a ?p) (fertile ?p))
+    :effect (increase (grain) 1)))" |  |  |  |  |
+
+| `
+(define (domain rollers) (:requirements :strips :typing)
+  (:types ball room)
+  (:predicates (at ?b - ball ?r - room) (link ?x ?y - room)
+               (goal-room ?r - room) (home ?b - ball))
+  (:action roll :parameters (?b - ball ?from ?to - room)
+    :precondition (and (at ?b ?from) (link ?from ?to))
+    :effect (and (not (at ?b ?from)) (at ?b ?to)))
+  (:action park :parameters (?b - ball ?r - room)
+    :precondition (and (at ?b ?r) (goal-room ?r))
+    :effect (home ?b)))` | str_key | ORB_DOM = "
+(define (domain rollers) (:requirements :strips :typing)
+  (:types ball room)
+  (:predicates (at ?b - ball ?r - room) (link ?x ?y - room)
+               (goal-room ?r - room) (home ?b - ball))
+  (:action roll :parameters (?b - ball ?from ?to - room)
+    :precondition (and (at ?b ?from) (link ?from ?to))
+    :effect (and (not (at ?b ?from)) (at ?b ?to)))
+  (:action park :parameters (?b - ball ?r - room)
+    :precondition (and (at ?b ?r) (goal-room ?r))
+    :effect (home ?b)))" |  |  |  |  |
+
+| `
+(define (problem p) (:domain farm)
+  (:objects v1 - agent hut field - place)
+  (:init (at v1 hut) (road hut field) (road field hut) (fertile field) (= (grain) 0))
+  (:goal (>= (grain) 2)))` | str_key | FARM_PRB = "
+(define (problem p) (:domain farm)
+  (:objects v1 - agent hut field - place)
+  (:init (at v1 hut) (road hut field) (road field hut) (fertile field) (= (grain) 0))
+  (:goal (>= (grain) 2)))" |  |  |  |  |
+
+| `
+(define (problem p) (:domain rollers)
+  (:objects b1 b2 - ball ra rb - room)
+  (:init (at b1 ra) (at b2 ra) (link ra rb) (link rb ra) (goal-room rb))
+  (:goal (and (home b1) (home b2))))` | str_key | ORB_PRB = "
+(define (problem p) (:domain rollers)
+  (:objects b1 b2 - ball ra rb - room)
+  (:init (at b1 ra) (at b2 ra) (link ra rb) (link rb ra) (goal-room rb))
+  (:goal (and (home b1) (home b2))))" |  |  |  |  |
+
+| `(define (domain d3) (:requirements :strips) ` | str_key | DOM = "(define (domain d3) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem pr3) (:domain d3) (:init (p)) (:goal (s)))` | str_key | PROB = "(define (problem pr3) (:domain d3) (:init (p)) (:goal (s)))" |  |  |  |  |
+
+| `(define (domain d) (:requirements :strips) (:predicates (p) (q)) ` | str_key | DOM = "(define (domain d) (:requirements :strips) (:predicates (p) (q)) " |  |  |  |  |
+
+| `(define (problem pr) (:domain d) (:init (p)) (:goal (q)))` | str_key | PROB = "(define (problem pr) (:domain d) (:init (p)) (:goal (q)))" |  |  |  |  |
+
+| `(define (domain d) (:requirements :strips) (:predicates (p) (q)) ` | str_key | DOM = "(define (domain d) (:requirements :strips) (:predicates (p) (q)) " |  |  |  |  |
+
+| `(define (problem pr) (:domain d) (:init (p)) (:goal (q)))` | str_key | PROB = "(define (problem pr) (:domain d) (:init (p)) (:goal (q)))" |  |  |  |  |
 
 | `Authority` | enum | Authority { Observe, Select, Construct, Do } |  |  |  |  |
 
@@ -4037,11 +9128,277 @@
 
 | `fp_dealloc` | function | fp_dealloc(ptr: *mut u8, len: usize) |  |  |  |  |
 
+| `(define (domain rooms)
+      (:requirements :strips :typing)
+      (:types room)
+      (:predicates (at ?r - room) (link ?a - room ?b - room))
+      (:action go
+        :parameters (?a - room ?b - room)
+        :precondition (and (at ?a) (link ?a ?b))
+        :effect (and (at ?b) (not (at ?a)))))` | str_key | CORRIDOR_DOMAIN = "(define (domain rooms)
+      (:requirements :strips :typing)
+      (:types room)
+      (:predicates (at ?r - room) (link ?a - room ?b - room))
+      (:action go
+        :parameters (?a - room ?b - room)
+        :precondition (and (at ?a) (link ?a ?b))
+        :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (problem corridor)
+      (:domain rooms)
+      (:objects a b c d - room)
+      (:init (at a) (link a b) (link b c) (link c d))
+      (:goal (at d)))` | str_key | CORRIDOR_PROBLEM = "(define (problem corridor)
+      (:domain rooms)
+      (:objects a b c d - room)
+      (:init (at a) (link a b) (link b c) (link c d))
+      (:goal (at d)))" |  |  |  |  |
+
+| `(define (problem dead-end)
+      (:domain rooms)
+      (:objects a b c d - room)
+      (:init (at a) (link a b) (link b c))
+      (:goal (at d)))` | str_key | CORRIDOR_DEAD_END_PROBLEM = "(define (problem dead-end)
+      (:domain rooms)
+      (:objects a b c d - room)
+      (:init (at a) (link a b) (link b c))
+      (:goal (at d)))" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../../ferroplan-hddl/fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/c/problem.hddl` | str_key | FIXTURE_C_PROBLEM = "../../ferroplan-hddl/fixtures/c/problem.hddl" |  |  |  |  |
+
+| `../../ontology/ferroplan-wasm.ttl` | str_key | ONTOLOGY_REL = "../../ontology/ferroplan-wasm.ttl" |  |  |  |  |
+
+| `fp_alloc` | str_key | EXPECTED_EXPORTS = "fp_alloc" |  |  |  |  |
+
+| `fp_dealloc` | str_key | FREE_SYMBOL = "fp_dealloc" |  |  |  |  |
+
+| `ontology/contract.ttl` | str_key | CONTRACTS_REL = "ontology/contract.ttl" |  |  |  |  |
+
+| `registry/capability-registry.json` | str_key | REGISTRY_REL = "registry/capability-registry.json" |  |  |  |  |
+
+| `src/wasi_abi.rs` | str_key | WASI_ABI_REL = "src/wasi_abi.rs" |  |  |  |  |
+
+| `(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))` | str_key | DOMAIN = "(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (problem two-room)
+  (:domain rooms)
+  (:objects a b - room)
+  (:init (at a) (link a b))
+  (:goal (at b)))` | str_key | PROBLEM = "(define (problem two-room)
+  (:domain rooms)
+  (:objects a b - room)
+  (:init (at a) (link a b))
+  (:goal (at b)))" |  |  |  |  |
+
+| `../../../ggen-marketplace/packs/qri-qualification-profile-pack` | str_key | PACK_REL = "../../../ggen-marketplace/packs/qri-qualification-profile-pack" |  |  |  |  |
+
+| `(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))` | str_key | DOMAIN = "(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (problem repair)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c b))
+  (:goal (at b)))` | str_key | PROBLEM = "(define (problem repair)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c b))
+  (:goal (at b)))" |  |  |  |  |
+
+| `# c` | str_key | REG = "# c" |  |  |  |  |
+
+| `x` | str_key | ONT = "x" |  |  |  |  |
+
+| `drop-retry` | str_key | DIRS = "drop-retry" |  |  |  |  |
+
+| `(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))` | str_key | DOMAIN = "(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain-domain.pddl` | str_key | DOM = "../../../benchmarks/bench/bazaar-chain-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain-x2m.pddl` | str_key | PRB_X2M = "../../../benchmarks/bench/bazaar-chain-x2m.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain.pddl` | str_key | PRB = "../../../benchmarks/bench/bazaar-chain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain-domain.pddl` | str_key | DOM = "../../../benchmarks/bench/bazaar-chain-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain-x2.pddl` | str_key | PRB_X2 = "../../../benchmarks/bench/bazaar-chain-x2.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-chain.pddl` | str_key | PRB = "../../../benchmarks/bench/bazaar-chain.pddl" |  |  |  |  |
+
+| `
+(define (domain homestead) (:requirements :strips :typing :numeric-fluents)
+  (:types agent place)
+  (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+  (:functions (grain))
+  (:action walk :parameters (?a - agent ?from ?to - place)
+    :precondition (and (at ?a ?from) (road ?from ?to))
+    :effect (and (not (at ?a ?from)) (at ?a ?to)))
+  (:action harvest :parameters (?a - agent ?p - place)
+    :precondition (and (at ?a ?p) (fertile ?p))
+    :effect (increase (grain) 1)))` | str_key | DOM = "
+(define (domain homestead) (:requirements :strips :typing :numeric-fluents)
+  (:types agent place)
+  (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+  (:functions (grain))
+  (:action walk :parameters (?a - agent ?from ?to - place)
+    :precondition (and (at ?a ?from) (road ?from ?to))
+    :effect (and (not (at ?a ?from)) (at ?a ?to)))
+  (:action harvest :parameters (?a - agent ?p - place)
+    :precondition (and (at ?a ?p) (fertile ?p))
+    :effect (increase (grain) 1)))" |  |  |  |  |
+
+| `
+(define (problem morning) (:domain homestead)
+  (:objects vera - agent hut field barn - place)
+  (:init (at vera hut) (road hut field) (road field hut)
+         (road field barn) (road barn field) (fertile field) (= (grain) 0))
+  (:goal (>= (grain) 3)))` | str_key | PRB = "
+(define (problem morning) (:domain homestead)
+  (:objects vera - agent hut field barn - place)
+  (:init (at vera hut) (road hut field) (road field hut)
+         (road field barn) (road barn field) (fertile field) (= (grain) 0))
+  (:goal (>= (grain) 3)))" |  |  |  |  |
+
+| `(define (domain gripper)
+ (:requirements :strips :typing)
+ (:types room ball gripper)
+ (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+              (free ?g - gripper) (carry ?b - ball ?g - gripper))
+ (:action move :parameters (?from ?to - room)
+   :precondition (at-robby ?from) :effect (and (at-robby ?to) (not (at-robby ?from))))
+ (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+   :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+   :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+ (:action drop :parameters (?b - ball ?r - room ?g - gripper)
+   :precondition (and (carry ?b ?g) (at-robby ?r))
+   :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))` | str_key | DOMAIN = "(define (domain gripper)
+ (:requirements :strips :typing)
+ (:types room ball gripper)
+ (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+              (free ?g - gripper) (carry ?b - ball ?g - gripper))
+ (:action move :parameters (?from ?to - room)
+   :precondition (at-robby ?from) :effect (and (at-robby ?to) (not (at-robby ?from))))
+ (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+   :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+   :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+ (:action drop :parameters (?b - ball ?r - room ?g - gripper)
+   :precondition (and (carry ?b ?g) (at-robby ?r))
+   :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))" |  |  |  |  |
+
+| `(define (problem g1) (:domain gripper)
+ (:objects rooma roomb - room  ball1 ball2 - ball  left right - gripper)
+ (:init (at-robby rooma) (free left) (free right)
+        (at ball1 rooma) (at ball2 rooma))
+ (:goal (and (at ball1 roomb) (at ball2 roomb))))` | str_key | PROBLEM = "(define (problem g1) (:domain gripper)
+ (:objects rooma roomb - room  ball1 ball2 - ball  left right - gripper)
+ (:init (at-robby rooma) (free left) (free right)
+        (at ball1 rooma) (at ball2 rooma))
+ (:goal (and (at ball1 roomb) (at ball2 roomb))))" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar-redistribution.pddl` | str_key | PRB = "../../../benchmarks/bench/bazaar-redistribution.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/bazaar.pddl` | str_key | DOM = "../../../benchmarks/bench/bazaar.pddl" |  |  |  |  |
+
+| `(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+               (free ?g - gripper) (carry ?b - ball ?g - gripper))
+  (:action move :parameters (?from ?to - room)
+    :precondition (at-robby ?from)
+    :effect (and (not (at-robby ?from)) (at-robby ?to)))
+  (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+    :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+  (:action drop :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (carry ?b ?g) (at-robby ?r))
+    :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))` | str_key | DOMAIN = "(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+               (free ?g - gripper) (carry ?b - ball ?g - gripper))
+  (:action move :parameters (?from ?to - room)
+    :precondition (at-robby ?from)
+    :effect (and (not (at-robby ?from)) (at-robby ?to)))
+  (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+    :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+  (:action drop :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (carry ?b ?g) (at-robby ?r))
+    :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))" |  |  |  |  |
+
+| `(define (problem gripper-1) (:domain gripper)
+  (:objects rooma roomb - room b1 - ball left - gripper)
+  (:init (at-robby rooma) (at b1 rooma) (free left))
+  (:goal (at b1 roomb)))` | str_key | PROBLEM = "(define (problem gripper-1) (:domain gripper)
+  (:objects rooma roomb - room b1 - ball left - gripper)
+  (:init (at-robby rooma) (at b1 rooma) (free left))
+  (:goal (at b1 roomb)))" |  |  |  |  |
+
+| `THINK_EVALS` | env_key | std::env::var("THINK_EVALS") |  |  |  |  |
+
+| `../../../benchmarks/village/domain.pddl` | str_key | DOM = "../../../benchmarks/village/domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/village/pair.pddl` | str_key | PRB = "../../../benchmarks/village/pair.pddl" |  |  |  |  |
+
+| `../../../benchmarks/village/domain.pddl` | str_key | DOM = "../../../benchmarks/village/domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/village/pair.pddl` | str_key | PRB = "../../../benchmarks/village/pair.pddl" |  |  |  |  |
+
 | `Mode` | enum | Mode { Auto, Ff, Partition, Pddl3, Temporal, Portfolio, Optimal, Sat } |  |  |  |  |
 
 | `Search` | enum | Search { Auto, Ehc, BestFirst, EhcThenBestFirst } |  |  |  |  |
 
 | `SolveError` | enum | SolveError { DomainParse(crate::types::ParseError), ProblemParse(crate::types::ParseError), EmptyType { kind: String, pred: String, ty: String, }, Derived(String), Unsupported(String) } |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_SAT_CLASSICAL` | env_key | std::env::var("FF_SAT_CLASSICAL") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `decompose` | function | decompose( domain_src: &str, problem_src: &str, opts: &Options, ) -> Result<Decomposition, SolveError> |  |  |  |  |
 
@@ -4093,6 +9450,16 @@
 
 | `Traj` | enum | Traj { Always(Formula), Sometime(Formula), AtMostOnce(Formula), SometimeAfter(Formula, Formula), SometimeBefore(Formula, Formula), AtEnd(Formula), Within(f64, Formula), AlwaysWithin(f64, Formula, Formula) } |  |  |  |  |
 
+| `FF_CONSTRAINTS_REJECT` | env_key | std::env::var("FF_CONSTRAINTS_REJECT") |  |  |  |  |
+
+| `FF_NO_COND_SHARE` | env_key | std::env::var("FF_NO_COND_SHARE") |  |  |  |  |
+
+| `FF_NO_TRAJ_END` | env_key | std::env::var("FF_NO_TRAJ_END") |  |  |  |  |
+
+| `FF_PREF_NO_STATIC` | env_key | std::env::var("FF_PREF_NO_STATIC") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
 | `accepted` | function | accepted(&self) -> bool |  |  |  |  |
 
 | `compile` | function | compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> |  |  |  |  |
@@ -4111,9 +9478,17 @@
 
 | `step_at` | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) -> bool) |  |  |  |  |
 
+| `TRAJ-CLOCK` | str_key | CLOCK_FLUENT = "TRAJ-CLOCK" |  |  |  |  |
+
+| `TRAJ-END` | str_key | END_ACTION = "TRAJ-END" |  |  |  |  |
+
 | `Expanded` | struct | Expanded { pub hard: Vec<Traj>, pub soft: Vec<(String, Vec<Traj>)> } |  |  |  |  |
 
 | `Fold` | struct | Fold { traj: &'a Traj, ok: bool, seen: bool, holding: bool, pending: bool, safe: bool, last: bool, due: f64 } |  |  |  |  |
+
+| `FF_COST_SWEEP_EVALS` | env_key | std::env::var("FF_COST_SWEEP_EVALS") |  |  |  |  |
+
+| `FF_LEN_SWEEP_EVALS` | env_key | std::env::var("FF_LEN_SWEEP_EVALS") |  |  |  |  |
 
 | `improve` | function | improve( task: &PackedTask, cf: usize, ops: Vec<usize>, first_cost: f64, threads: usize, base: SearchCfg, spent: usize, orbit: Option<&crate::orbits::OrbitMap>, ) -> CostOutcome |  |  |  |  |
 
@@ -4128,6 +9503,30 @@
 | `CostOutcome` | struct | CostOutcome { pub ops: Vec<usize>, pub cost: f64, pub improved: bool, pub proven: bool, pub evaluated: usize } |  |  |  |  |
 
 | `compile` | function | compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> |  |  |  |  |
+
+| `(define (domain g) (:requirements :typing :adl)
+      (:types node)
+      (:predicates (link ?a ?b - node) (reachable ?a ?b - node) (at ?n - node) (visited ?n - node))
+      (:derived (reachable ?a ?b - node)
+        (or (link ?a ?b)
+            (exists (?c - node) (and (link ?a ?c) (reachable ?c ?b)))))
+      (:action go :parameters (?from ?to - node)
+        :precondition (and (at ?from) (reachable ?from ?to))
+        :effect (and (not (at ?from)) (at ?to) (visited ?to))))` | str_key | DOM = "(define (domain g) (:requirements :typing :adl)
+      (:types node)
+      (:predicates (link ?a ?b - node) (reachable ?a ?b - node) (at ?n - node) (visited ?n - node))
+      (:derived (reachable ?a ?b - node)
+        (or (link ?a ?b)
+            (exists (?c - node) (and (link ?a ?c) (reachable ?c ?b)))))
+      (:action go :parameters (?from ?to - node)
+        :precondition (and (at ?from) (reachable ?from ?to))
+        :effect (and (not (at ?from)) (at ?to) (visited ?to))))" |  |  |  |  |
+
+| `FF_ESPC_MONO` | env_key | std::env::var("FF_ESPC_MONO") |  |  |  |  |
+
+| `FF_ESPC_TIME_MS` | env_key | std::env::var("FF_ESPC_TIME_MS") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
 
 | `espc_optimize` | function | espc_optimize( task: &PackedTask, cost_fluent: usize, sat: &mut SatGuidance, seed: Option<(Vec<usize>, f64)>, part: Option<EspcPartition>, threads: usize, cfg: SearchCfg, ) -> Option<EspcResult> |  |  |  |  |
 
@@ -4144,6 +9543,8 @@
 | `PlanningRegime` | enum | PlanningRegime { Deterministic, Probabilistic } |  |  |  |  |
 
 | `enter` | function | enter(request: EveRequest) -> Result<EveHandoff, EveError> |  |  |  |  |
+
+| `ferroplan.eve-genesis.v1` | str_key | EVE_PROTOCOL = "ferroplan.eve-genesis.v1" |  |  |  |  |
 
 | `Activator` | struct | Activator { pub name: String, pub value: String } |  |  |  |  |
 
@@ -4183,6 +9584,18 @@
 
 | `DemandMode` | enum | DemandMode { Off, Numeric, Full } |  |  |  |  |
 
+| `FF_NO_ESCALATE` | env_key | std::env::var("FF_NO_ESCALATE") |  |  |  |  |
+
+| `FF_NO_ESPC` | env_key | std::env::var("FF_NO_ESPC") |  |  |  |  |
+
+| `FF_NO_TDEMAND` | env_key | std::env::var("FF_NO_TDEMAND") |  |  |  |  |
+
+| `FF_TCONC` | env_key | std::env::var("FF_TCONC") |  |  |  |  |
+
+| `FF_TDECOMP` | env_key | std::env::var("FF_TDECOMP") |  |  |  |  |
+
+| `FF_TDEMAND` | env_key | std::env::var("FF_TDEMAND") |  |  |  |  |
+
 | `clear_overrides` | function | clear_overrides() |  |  |  |  |
 
 | `demand_mode` | function | demand_mode() -> DemandMode |  |  |  |  |
@@ -4204,6 +9617,30 @@
 | `tdemand` | function | tdemand() -> bool |  |  |  |  |
 
 | `Outcome` | enum | Outcome { Task(PackedTask), GoalTrue, GoalFalse(String), GoalUndefinedFluent(String), EmptyType { kind: &'static str, pred: String, ty: String, }, WallExhausted(String) } |  |  |  |  |
+
+| `FF_GROUND_PHASES` | env_key | std::env::var("FF_GROUND_PHASES") |  |  |  |  |
+
+| `FF_NO_DNF_STATIC` | env_key | std::env::var("FF_NO_DNF_STATIC") |  |  |  |  |
+
+| `FF_NO_FACT_COMPACT` | env_key | std::env::var("FF_NO_FACT_COMPACT") |  |  |  |  |
+
+| `FF_NO_FIXPOINT_GROUND` | env_key | std::env::var("FF_NO_FIXPOINT_GROUND") |  |  |  |  |
+
+| `FF_NO_FLUENT_COMPACT` | env_key | std::env::var("FF_NO_FLUENT_COMPACT") |  |  |  |  |
+
+| `FF_NO_FLUENT_FOLD` | env_key | std::env::var("FF_NO_FLUENT_FOLD") |  |  |  |  |
+
+| `FF_NO_GOAL_FACTOR` | env_key | std::env::var("FF_NO_GOAL_FACTOR") |  |  |  |  |
+
+| `FF_NO_JOIN_INDEX` | env_key | std::env::var("FF_NO_JOIN_INDEX") |  |  |  |  |
+
+| `FF_NO_MCV_JOIN` | env_key | std::env::var("FF_NO_MCV_JOIN") |  |  |  |  |
+
+| `FF_NO_STRAT_GROUND` | env_key | std::env::var("FF_NO_STRAT_GROUND") |  |  |  |  |
+
+| `FF_NUMPRE_TEMPORAL` | env_key | std::env::var("FF_NUMPRE_TEMPORAL") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `ground` | function | ground(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
@@ -4231,11 +9668,99 @@
 
 | `solve_hddl_from_eve` | function | solve_hddl_from_eve( handoff: &EveHandoff, limits: &PlannerLimits, ) -> Result<UniversalPlan, HddlError> |  |  |  |  |
 
+| `(define (domain coin)
+  (:predicates (heads) (tails))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof (heads) (tails)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))` | str_key | DOMAIN = "(define (domain coin)
+  (:predicates (heads) (tails))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof (heads) (tails)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))" |  |  |  |  |
+
+| `(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))` | str_key | DOMAIN = "(define (domain coin-empty)
+  (:predicates (heads))
+  (:task go :parameters ())
+  (:action toss
+    :parameters ()
+    :precondition ()
+    :effect (oneof () (heads)))
+  (:method m-go
+    :task (go)
+    :ordered-subtasks (and (t1 (toss)))))" |  |  |  |  |
+
+| `(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))` | str_key | PROBLEM = "(define (problem coin-empty-p1)
+  (:domain coin-empty)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal ()))" |  |  |  |  |
+
+| `(define (problem coin-p1)
+  (:domain coin)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal (or (heads) (tails))))` | str_key | PROBLEM = "(define (problem coin-p1)
+  (:domain coin)
+  (:objects)
+  (:htn :parameters () :ordered-subtasks (and (g1 (go))))
+  (:init)
+  (:goal (or (heads) (tails))))" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/a/domain.hddl` | str_key | FIXTURE_A_DOMAIN = "../../ferroplan-hddl/fixtures/a/domain.hddl" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/a/problem.hddl` | str_key | FIXTURE_A_PROBLEM = "../../ferroplan-hddl/fixtures/a/problem.hddl" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/c/domain.hddl` | str_key | FIXTURE_C_DOMAIN = "../../ferroplan-hddl/fixtures/c/domain.hddl" |  |  |  |  |
+
+| `../../ferroplan-hddl/fixtures/c/problem.hddl` | str_key | FIXTURE_C_PROBLEM = "../../ferroplan-hddl/fixtures/c/problem.hddl" |  |  |  |  |
+
 | `T_BUILD` | const | T_BUILD: std::sync::atomic::AtomicU64 |  |  |  |  |
 
 | `T_EXTRACT` | const | T_EXTRACT: std::sync::atomic::AtomicU64 |  |  |  |  |
 
 | `T_RESET` | const | T_RESET: std::sync::atomic::AtomicU64 |  |  |  |  |
+
+| `FF_NO_NEED_DIRS` | env_key | std::env::var("FF_NO_NEED_DIRS") |  |  |  |  |
+
+| `FF_NO_NUMH` | env_key | std::env::var("FF_NO_NUMH") |  |  |  |  |
+
+| `FF_NO_NUMPRE` | env_key | std::env::var("FF_NO_NUMPRE") |  |  |  |  |
+
+| `FF_NO_NUMPRE_CHAIN` | env_key | std::env::var("FF_NO_NUMPRE_CHAIN") |  |  |  |  |
+
+| `FF_NUMPRE_DEPTH` | env_key | std::env::var("FF_NUMPRE_DEPTH") |  |  |  |  |
+
+| `FF_NUMPRE_NODAMP` | env_key | std::env::var("FF_NUMPRE_NODAMP") |  |  |  |  |
+
+| `FF_NUMPRE_NOSKIP` | env_key | std::env::var("FF_NUMPRE_NOSKIP") |  |  |  |  |
+
+| `FF_NUMPRE_NOSUM` | env_key | std::env::var("FF_NUMPRE_NOSUM") |  |  |  |  |
 
 | `extraction_need_facts` | function | extraction_need_facts(sc: &Scratch) -> Vec<(u32, u32)> |  |  |  |  |
 
@@ -4255,6 +9780,74 @@
 
 | `relaxed_to` | function | relaxed_to( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], ) -> Option<i32> |  |  |  |  |
 
+| `
+    (define (domain watering-mini)
+      (:requirements :typing :numeric-fluents)
+      (:types agent plant - object)
+      (:functions (x ?o - object) (carrying ?a - agent)
+                  (poured ?p - plant) (maxx))
+      (:action move_right :parameters (?a - agent)
+        :precondition (<= (+ (x ?a) 1) (maxx))
+        :effect (increase (x ?a) 1))
+      (:action move_left :parameters (?a - agent)
+        :precondition (>= (- (x ?a) 1) 0)
+        :effect (decrease (x ?a) 1))
+      (:action pour :parameters (?a - agent ?p - plant)
+        :precondition (and (= (x ?a) (x ?p)) (>= (carrying ?a) 1))
+        :effect (and (decrease (carrying ?a) 1) (increase (poured ?p) 1))))` | str_key | WATER_DOM = "
+    (define (domain watering-mini)
+      (:requirements :typing :numeric-fluents)
+      (:types agent plant - object)
+      (:functions (x ?o - object) (carrying ?a - agent)
+                  (poured ?p - plant) (maxx))
+      (:action move_right :parameters (?a - agent)
+        :precondition (<= (+ (x ?a) 1) (maxx))
+        :effect (increase (x ?a) 1))
+      (:action move_left :parameters (?a - agent)
+        :precondition (>= (- (x ?a) 1) 0)
+        :effect (decrease (x ?a) 1))
+      (:action pour :parameters (?a - agent ?p - plant)
+        :precondition (and (= (x ?a) (x ?p)) (>= (carrying ?a) 1))
+        :effect (and (decrease (carrying ?a) 1) (increase (poured ?p) 1))))" |  |  |  |  |
+
+| `
+    (define (problem watering-mini-1) (:domain watering-mini)
+      (:objects a1 - agent pa pb - plant)
+      (:init (= (x a1) 0) (= (x pa) 1) (= (x pb) 9)
+             (= (carrying a1) 5) (= (poured pa) 0) (= (poured pb) 0)
+             (= (maxx) 12))
+      (:goal (and (= (poured pa) 1) (= (poured pb) 1))))` | str_key | WATER_PRB = "
+    (define (problem watering-mini-1) (:domain watering-mini)
+      (:objects a1 - agent pa pb - plant)
+      (:init (= (x a1) 0) (= (x pa) 1) (= (x pb) 9)
+             (= (carrying a1) 5) (= (poured pa) 0) (= (poured pb) 0)
+             (= (maxx) 12))
+      (:goal (and (= (poured pa) 1) (= (poured pb) 1))))" |  |  |  |  |
+
+| `(define (domain drain)
+      (:requirements :fluents)
+      (:predicates (there) (idle))
+      (:functions (energy))
+      (:action drive :parameters ()
+        :precondition (>= (energy) 8)
+        :effect (and (there) (decrease (energy) 8)))
+      (:action wander :parameters ()
+        :precondition (idle)
+        :effect (decrease (energy) 1)))` | str_key | DRAIN_DOM = "(define (domain drain)
+      (:requirements :fluents)
+      (:predicates (there) (idle))
+      (:functions (energy))
+      (:action drive :parameters ()
+        :precondition (>= (energy) 8)
+        :effect (and (there) (decrease (energy) 8)))
+      (:action wander :parameters ()
+        :precondition (idle)
+        :effect (decrease (energy) 1)))" |  |  |  |  |
+
+| `(define (problem d1) (:domain drain)
+      (:init (idle) (= (energy) 5)) (:goal (there)))` | str_key | DRAIN_PRB = "(define (problem d1) (:domain drain)
+      (:init (idle) (= (energy) 5)) (:goal (there)))" |  |  |  |  |
+
 | `Scratch` | struct | Scratch { reached: Vec<bool>, fact_layer: Vec<u32>, op_layer: Vec<u32>, gen: u32, op_stamp: Vec<u32>, applicable: Vec<u32>, lb: Vec<f64>, ub: Vec<f64>, selected: Vec<u32>, need_fact: Vec<u32>, queue: Vec<u32>, num_applied: Vec<u32>, cond_ops: Vec<u32>, helpful: Vec<u32>, fact_time: Vec<f64>, op_time: Vec<f64> } |  |  |  |  |
 
 | `TrpgInfo` | struct | TrpgInfo { pub start_of: Vec<u32>, pub lag: Vec<f64>, pub floor: Vec<f64>, pub windows: Vec<Vec<TrpgWindow>> } |  |  |  |  |
@@ -4262,6 +9855,20 @@
 | `TrpgWindow` | struct | TrpgWindow { pub fact: u32, pub providers: Vec<(u32, f64)>, pub close: f64 } |  |  |  |  |
 
 | `explain` | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) -> Result<Explanation, String> |  |  |  |  |
+
+| `(define (domain chain)
+      (:requirements :strips)
+      (:predicates (a) (b) (c) (d))
+      (:action MK-B :parameters () :precondition (a) :effect (b))
+      (:action MK-C :parameters () :precondition (b) :effect (c)))` | str_key | CHAIN_DOM = "(define (domain chain)
+      (:requirements :strips)
+      (:predicates (a) (b) (c) (d))
+      (:action MK-B :parameters () :precondition (a) :effect (b))
+      (:action MK-C :parameters () :precondition (b) :effect (c)))" |  |  |  |  |
+
+| `(define (problem chain-1) (:domain chain)
+      (:init (a)) (:goal (c)))` | str_key | CHAIN_PRB = "(define (problem chain-1) (:domain chain)
+      (:init (a)) (:goal (c)))" |  |  |  |  |
 
 | `CausalLink` | struct | CausalLink { pub provider: Option<usize>, pub consumer: usize, pub fact: String } |  |  |  |  |
 
@@ -4272,6 +9879,124 @@
 | `PrefReport` | struct | PrefReport { pub name: String, pub satisfied: bool, pub weight: f64 } |  |  |  |  |
 
 | `synthesize` | function | synthesize(domain: &Domain, task: &PackedTask) -> Vec<Vec<u32>> |  |  |  |  |
+
+| `(define (domain blocks)
+      (:requirements :strips :typing)
+      (:types block)
+      (:predicates (on ?x ?y - block) (ontable ?x - block) (clear ?x - block)
+                   (handempty) (holding ?x - block))
+      (:action pickup :parameters (?x - block)
+        :precondition (and (clear ?x) (ontable ?x) (handempty))
+        :effect (and (not (ontable ?x)) (not (clear ?x)) (not (handempty)) (holding ?x)))
+      (:action putdown :parameters (?x - block)
+        :precondition (holding ?x)
+        :effect (and (not (holding ?x)) (clear ?x) (handempty) (ontable ?x)))
+      (:action stack :parameters (?x ?y - block)
+        :precondition (and (holding ?x) (clear ?y))
+        :effect (and (not (holding ?x)) (not (clear ?y)) (clear ?x) (handempty) (on ?x ?y)))
+      (:action unstack :parameters (?x ?y - block)
+        :precondition (and (on ?x ?y) (clear ?x) (handempty))
+        :effect (and (holding ?x) (clear ?y) (not (clear ?x)) (not (on ?x ?y)) (not (handempty)))))` | str_key | BLOCKS = "(define (domain blocks)
+      (:requirements :strips :typing)
+      (:types block)
+      (:predicates (on ?x ?y - block) (ontable ?x - block) (clear ?x - block)
+                   (handempty) (holding ?x - block))
+      (:action pickup :parameters (?x - block)
+        :precondition (and (clear ?x) (ontable ?x) (handempty))
+        :effect (and (not (ontable ?x)) (not (clear ?x)) (not (handempty)) (holding ?x)))
+      (:action putdown :parameters (?x - block)
+        :precondition (holding ?x)
+        :effect (and (not (holding ?x)) (clear ?x) (handempty) (ontable ?x)))
+      (:action stack :parameters (?x ?y - block)
+        :precondition (and (holding ?x) (clear ?y))
+        :effect (and (not (holding ?x)) (not (clear ?y)) (clear ?x) (handempty) (on ?x ?y)))
+      (:action unstack :parameters (?x ?y - block)
+        :precondition (and (on ?x ?y) (clear ?x) (handempty))
+        :effect (and (holding ?x) (clear ?y) (not (clear ?x)) (not (on ?x ?y)) (not (handempty)))))" |  |  |  |  |
+
+| `(define (domain gripper)
+      (:requirements :strips :typing)
+      (:types room ball)
+      (:predicates (at-robby ?r - room) (ball-at ?b - ball ?r - room) (carry ?b - ball))
+      (:action move :parameters (?from ?to - room)
+        :precondition (at-robby ?from)
+        :effect (and (not (at-robby ?from)) (at-robby ?to)))
+      (:action pick :parameters (?b - ball ?r - room)
+        :precondition (and (ball-at ?b ?r) (at-robby ?r))
+        :effect (and (not (ball-at ?b ?r)) (carry ?b)))
+      (:action drop :parameters (?b - ball ?r - room)
+        :precondition (and (carry ?b) (at-robby ?r))
+        :effect (and (not (carry ?b)) (ball-at ?b ?r))))` | str_key | GRIPPER = "(define (domain gripper)
+      (:requirements :strips :typing)
+      (:types room ball)
+      (:predicates (at-robby ?r - room) (ball-at ?b - ball ?r - room) (carry ?b - ball))
+      (:action move :parameters (?from ?to - room)
+        :precondition (at-robby ?from)
+        :effect (and (not (at-robby ?from)) (at-robby ?to)))
+      (:action pick :parameters (?b - ball ?r - room)
+        :precondition (and (ball-at ?b ?r) (at-robby ?r))
+        :effect (and (not (ball-at ?b ?r)) (carry ?b)))
+      (:action drop :parameters (?b - ball ?r - room)
+        :precondition (and (carry ?b) (at-robby ?r))
+        :effect (and (not (carry ?b)) (ball-at ?b ?r))))" |  |  |  |  |
+
+| `(define (domain log)
+      (:requirements :strips :typing)
+      (:types vehicle package location)
+      (:predicates (at ?x - object ?l - location) (in ?p - package ?v - vehicle)
+                   (road ?a ?b - location))
+      (:action drive :parameters (?v - vehicle ?from ?to - location)
+        :precondition (and (at ?v ?from) (road ?from ?to))
+        :effect (and (not (at ?v ?from)) (at ?v ?to)))
+      (:action load :parameters (?p - package ?v - vehicle ?l - location)
+        :precondition (and (at ?p ?l) (at ?v ?l))
+        :effect (and (not (at ?p ?l)) (in ?p ?v)))
+      (:action unload :parameters (?p - package ?v - vehicle ?l - location)
+        :precondition (and (in ?p ?v) (at ?v ?l))
+        :effect (and (not (in ?p ?v)) (at ?p ?l))))` | str_key | LOGISTICS = "(define (domain log)
+      (:requirements :strips :typing)
+      (:types vehicle package location)
+      (:predicates (at ?x - object ?l - location) (in ?p - package ?v - vehicle)
+                   (road ?a ?b - location))
+      (:action drive :parameters (?v - vehicle ?from ?to - location)
+        :precondition (and (at ?v ?from) (road ?from ?to))
+        :effect (and (not (at ?v ?from)) (at ?v ?to)))
+      (:action load :parameters (?p - package ?v - vehicle ?l - location)
+        :precondition (and (at ?p ?l) (at ?v ?l))
+        :effect (and (not (at ?p ?l)) (in ?p ?v)))
+      (:action unload :parameters (?p - package ?v - vehicle ?l - location)
+        :precondition (and (in ?p ?v) (at ?v ?l))
+        :effect (and (not (in ?p ?v)) (at ?p ?l))))" |  |  |  |  |
+
+| `(define (problem p) (:domain blocks)
+      (:objects a b c - block)
+      (:init (ontable a) (on b a) (on c b) (clear c) (handempty))
+      (:goal (on a b)))` | str_key | BLOCKS_PROB = "(define (problem p) (:domain blocks)
+      (:objects a b c - block)
+      (:init (ontable a) (on b a) (on c b) (clear c) (handempty))
+      (:goal (on a b)))" |  |  |  |  |
+
+| `(define (problem p) (:domain gripper)
+      (:objects ra rb - room b1 - ball)
+      (:init (at-robby ra) (ball-at b1 ra))
+      (:goal (at-robby rb)))` | str_key | GRIP_PROB = "(define (problem p) (:domain gripper)
+      (:objects ra rb - room b1 - ball)
+      (:init (at-robby ra) (ball-at b1 ra))
+      (:goal (at-robby rb)))" |  |  |  |  |
+
+| `(define (problem p) (:domain log)
+      (:objects v1 - vehicle pk1 - package a b c - location)
+      (:init (at v1 a) (at pk1 b) (road a b) (road b c) (road a c))
+      (:goal (at pk1 c)))` | str_key | LOG_PROB = "(define (problem p) (:domain log)
+      (:objects v1 - vehicle pk1 - package a b c - location)
+      (:init (at v1 a) (at pk1 b) (road a b) (road b c) (road a c))
+      (:goal (at pk1 c)))" |  |  |  |  |
+
+| `FF_LAMA_EXT_ARRIVAL` | env_key | std::env::var("FF_LAMA_EXT_ARRIVAL") |  |  |  |  |
+
+| `FF_LEN_ANYTIME` | env_key | std::env::var("FF_LEN_ANYTIME") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `search` | function | search( task: &PackedTask, threads: usize, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
@@ -4315,6 +10040,12 @@
 
 | `types::ParseError` | use | types::ParseError |  |  |  |  |
 
+| `FF_MEM_BUDGET_GB` | env_key | std::env::var("FF_MEM_BUDGET_GB") |  |  |  |  |
+
+| `FF_MEM_TRIP_FRAC` | env_key | std::env::var("FF_MEM_TRIP_FRAC") |  |  |  |  |
+
+| `FF_NO_MEM_WALL` | env_key | std::env::var("FF_NO_MEM_WALL") |  |  |  |  |
+
 | `arm` | function | arm() -> Self |  |  |  |  |
 
 | `armed` | function | armed(&self) -> bool |  |  |  |  |
@@ -4334,6 +10065,14 @@
 | `unarmed` | function | unarmed() -> Self |  |  |  |  |
 
 | `MemWall` | struct | MemWall { trip_at: Option<u64> } |  |  |  |  |
+
+| `FF_NOV_R_CAP` | env_key | std::env::var("FF_NOV_R_CAP") |  |  |  |  |
+
+| `FF_NUMNOV` | env_key | std::env::var("FF_NUMNOV") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `from_env` | function | from_env() -> Self |  |  |  |  |
 
@@ -4359,9 +10098,37 @@
 
 | `OperatorSpec` | struct | OperatorSpec { pub name: String, pub preconditions: BTreeSet<String>, pub effects: OperatorEffects, pub cost: u64 } |  |  |  |  |
 
+| `FF_NO_HMAX_SPRINT` | env_key | std::env::var("FF_NO_HMAX_SPRINT") |  |  |  |  |
+
+| `FF_NO_INC_LMCUT` | env_key | std::env::var("FF_NO_INC_LMCUT") |  |  |  |  |
+
+| `FF_NO_LMCUT` | env_key | std::env::var("FF_NO_LMCUT") |  |  |  |  |
+
+| `FF_NO_NODECAP_REFILL` | env_key | std::env::var("FF_NO_NODECAP_REFILL") |  |  |  |  |
+
+| `FF_OPT_GATE_MARGIN` | env_key | std::env::var("FF_OPT_GATE_MARGIN") |  |  |  |  |
+
+| `FF_OPT_NO_NUMFOLD` | env_key | std::env::var("FF_OPT_NO_NUMFOLD") |  |  |  |  |
+
+| `FF_OPT_NO_NUMH` | env_key | std::env::var("FF_OPT_NO_NUMH") |  |  |  |  |
+
+| `FF_OPT_NO_RESUME` | env_key | std::env::var("FF_OPT_NO_RESUME") |  |  |  |  |
+
+| `FF_OPT_NO_ROOTGATE` | env_key | std::env::var("FF_OPT_NO_ROOTGATE") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
+
 | `solve` | function | solve( task: &PackedTask, cf: Option<usize>, max_nodes: usize, orbit: Option<&crate::orbits::OrbitMap>, ) -> OptOutcome |  |  |  |  |
 
 | `OptOutcome` | struct | OptOutcome { pub ops: Option<Vec<usize>>, pub cost: f64, pub expanded: usize, pub evaluated: usize, pub proven: bool, pub reject: Option<String>, pub heuristic: &'static str, pub clock_tripped: bool } |  |  |  |  |
+
+| `FF_NO_ORBIT` | env_key | std::env::var("FF_NO_ORBIT") |  |  |  |  |
+
+| `FF_NO_ORBIT_CLASSICAL` | env_key | std::env::var("FF_NO_ORBIT_CLASSICAL") |  |  |  |  |
+
+| `FF_ORBIT_DEBUG` | env_key | std::env::var("FF_ORBIT_DEBUG") |  |  |  |  |
+
+| `FF_ORBIT_ISO` | env_key | std::env::var("FF_ORBIT_ISO") |  |  |  |  |
 
 | `canonical_key` | function | canonical_key( &self, task: &PackedTask, state: &State, agenda: &[(i64, usize)], ) -> (crate::packed::StateKey, Vec<(i64, usize)>) |  |  |  |  |
 
@@ -4455,6 +10222,8 @@
 
 | `MIN_PAR` | const | MIN_PAR: usize |  |  |  |  |
 
+| `FFDP_THREADS` | env_key | std::env::var("FFDP_THREADS") |  |  |  |  |
+
 | `num_threads` | function | num_threads() -> usize |  |  |  |  |
 
 | `par_map` | function | par_map(items: &[T], threads: usize, f: F) -> Vec<R> |  |  |  |  |
@@ -4464,6 +10233,8 @@
 | `parse_domain` | function | parse_domain(src: &str) -> Result<Domain, ParseError> |  |  |  |  |
 
 | `parse_problem` | function | parse_problem(src: &str) -> Result<Problem, ParseError> |  |  |  |  |
+
+| `:STRIPS` | str_key | SUPPORTED = ":STRIPS" |  |  |  |  |
 
 | `interaction_partition` | function | interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) -> Vec<Subgoal> |  |  |  |  |
 
@@ -4477,11 +10248,67 @@
 
 | `partition` | function | partition(task: &PackedTask) -> Vec<Subgoal> |  |  |  |  |
 
+| `
+    (define (domain t) (:requirements :strips)
+      (:predicates (done1) (tok-a) (tok-b))
+      (:action grab :precondition (tok-a)
+        :effect (and (done1) (not (tok-a)) (tok-b)))
+      (:action swap :precondition (tok-b)
+        :effect (and (not (tok-b)) (tok-a))))` | str_key | DOM = "
+    (define (domain t) (:requirements :strips)
+      (:predicates (done1) (tok-a) (tok-b))
+      (:action grab :precondition (tok-a)
+        :effect (and (done1) (not (tok-a)) (tok-b)))
+      (:action swap :precondition (tok-b)
+        :effect (and (not (tok-b)) (tok-a))))" |  |  |  |  |
+
+| `(define (problem p) (:domain t)
+      (:init (tok-a)) (:goal (and (done1) (tok-b))))` | str_key | PRB = "(define (problem p) (:domain t)
+      (:init (tok-a)) (:goal (and (done1) (tok-b))))" |  |  |  |  |
+
 | `Subgoal` | struct | Subgoal { pub pos: Vec<u32>, pub num: Vec<NumPre> } |  |  |  |  |
 
 | `COST` | const | COST: &str |  |  |  |  |
 
 | `COST_DISP` | const | COST_DISP: &str |  |  |  |  |
+
+| `FF_DEADLINE_WEIGHT` | env_key | std::env::var("FF_DEADLINE_WEIGHT") |  |  |  |  |
+
+| `FF_ESPC_TRAJ_PAIRS` | env_key | std::env::var("FF_ESPC_TRAJ_PAIRS") |  |  |  |  |
+
+| `FF_PREF_COMPILED` | env_key | std::env::var("FF_PREF_COMPILED") |  |  |  |  |
+
+| `FF_PREF_COST_WEIGHT` | env_key | std::env::var("FF_PREF_COST_WEIGHT") |  |  |  |  |
+
+| `FF_PREF_EVAL_BUDGET` | env_key | std::env::var("FF_PREF_EVAL_BUDGET") |  |  |  |  |
+
+| `FF_PREF_GREEDY` | env_key | std::env::var("FF_PREF_GREEDY") |  |  |  |  |
+
+| `FF_PREF_NO_BARRIER` | env_key | std::env::var("FF_PREF_NO_BARRIER") |  |  |  |  |
+
+| `FF_PREF_NO_ESCALATE` | env_key | std::env::var("FF_PREF_NO_ESCALATE") |  |  |  |  |
+
+| `FF_PREF_NO_RESTARTS` | env_key | std::env::var("FF_PREF_NO_RESTARTS") |  |  |  |  |
+
+| `FF_PREF_NO_SEED` | env_key | std::env::var("FF_PREF_NO_SEED") |  |  |  |  |
+
+| `FF_PREF_NO_SELECT` | env_key | std::env::var("FF_PREF_NO_SELECT") |  |  |  |  |
+
+| `FF_PREF_NO_STATIC` | env_key | std::env::var("FF_PREF_NO_STATIC") |  |  |  |  |
+
+| `FF_PREF_NUMLEGACY` | env_key | std::env::var("FF_PREF_NUMLEGACY") |  |  |  |  |
+
+| `FF_PREF_SEED` | env_key | std::env::var("FF_PREF_SEED") |  |  |  |  |
+
+| `FF_PREF_SEED3` | env_key | std::env::var("FF_PREF_SEED3") |  |  |  |  |
+
+| `FF_PREF_SEED_BOUND` | env_key | std::env::var("FF_PREF_SEED_BOUND") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_RES_THRESH` | env_key | std::env::var("FF_RES_THRESH") |  |  |  |  |
+
+| `FF_RES_WEIGHT` | env_key | std::env::var("FF_RES_WEIGHT") |  |  |  |  |
 
 | `close_seed` | function | close_seed( task: &PackedTask, cost_fluent: usize, forgos: &[(usize, f64)], prefix: &[usize], ) -> Option<(Vec<usize>, f64)> |  |  |  |  |
 
@@ -4507,6 +10334,14 @@
 
 | `preferences` | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) -> Vec<(String, Formula)> |  |  |  |  |
 
+| `(TOTAL-COST)` | str_key | COST_DISP = "(TOTAL-COST)" |  |  |  |  |
+
+| `P3ENDED` | str_key | ENDED = "P3ENDED" |  |  |  |  |
+
+| `P3PLANNING` | str_key | PLANNING = "P3PLANNING" |  |  |  |  |
+
+| `TOTAL-COST` | str_key | COST = "TOTAL-COST" |  |  |  |  |
+
 | `Compiled` | struct | Compiled { pub domain: Domain, pub problem: Problem, pub minimize: bool, pub maximized: bool, pub metric_konst: f64, pub n_prefs: usize, pub warn_other: bool, pub unsupported: Option<String>, pub synthetic: HashSet<String>, pub forgos: Vec<(String, f64)>, pub folded_metric: bool } |  |  |  |  |
 
 | `MetricResult` | struct | MetricResult { pub ops: Vec<usize>, pub cost: f64, pub iterations: usize, pub proven: bool } |  |  |  |  |
@@ -4523,9 +10358,19 @@
 
 | `validate_plan` | function | validate_plan( domain_src: &str, problem_src: &str, plan_src: &str, ) -> Result<Validity, String> |  |  |  |  |
 
+| `(define (domain c)` | str_key | CLASSICAL_DOMAIN = "(define (domain c)" |  |  |  |  |
+
+| `(define (domain ct)` | str_key | TEMPORAL_DOMAIN = "(define (domain ct)" |  |  |  |  |
+
+| `(define (problem p) (:domain c)` | str_key | CLASSICAL_PROBLEM = "(define (problem p) (:domain c)" |  |  |  |  |
+
+| `FF_SAT_CLASSICAL` | env_key | std::env::var("FF_SAT_CLASSICAL") |  |  |  |  |
+
 | `run_ff` | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) -> (String, i32) |  |  |  |  |
 
 | `run_planner` | function | run_planner( domain_src: &str, problem_src: &str, opts: &crate::Options, ipc: bool, ) -> (String, i32) |  |  |  |  |
+
+| `grounding budget reached! no plan found within budget (grounding NOT finished).` | str_key | GROUNDING_WALL_LINE = "grounding budget reached! no plan found within budget (grounding NOT finished)." |  |  |  |  |
 
 | `PlannerError` | enum | PlannerError { EmptyInitialState, UnknownState { state: String, }, InvalidProbabilityMass { state: String, action: String, mass: u64, }, ResourceBound { resource: String, limit: usize, }, NoPlan, HierarchyCycle { task: String, }, UnknownTask { task: String, }, NoMethod { task: String, }, WorkflowCycle, WipBoundExceeded { queue: String, current: u64, max: u64, }, CapabilityUncovered { item: String, missing: BTreeSet<String>, }, AuthorityUnbound { tool: String, }, VerifierUnbound { tool: String, }, ReceiptUnbound { tool: String, }, InvalidRdfProjection { reason: String, }, Timeout { elapsed_ms: u128, limit_ms: u128, } } |  |  |  |  |
 
@@ -4595,6 +10440,8 @@
 
 | `PolicyValidationReport` | struct | PolicyValidationReport { pub valid: bool, pub guarantee: PolicyGuarantee, pub reachable_states: Vec<String>, pub reachable_goals: Vec<String>, pub issues: Vec<PolicyIssue> } |  |  |  |  |
 
+| `FF_PORTFOLIO_SLICED` | env_key | std::env::var("FF_PORTFOLIO_SLICED") |  |  |  |  |
+
 | `solve` | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) -> Outcome |  |  |  |  |
 
 | `Outcome` | struct | Outcome { pub ops: Option<Vec<usize>>, pub evaluated: usize, pub winner: Option<&'static str> } |  |  |  |  |
@@ -4602,6 +10449,18 @@
 | `PpddlError` | enum | PpddlError { Syntax(String), DomainParse(ParseError), ProblemParse(ParseError), Derived(String), Unsupported(String), InvalidProbability(String), InvalidOptions(String), OutcomeLimit { action: String, limit: usize }, StateLimit { limit: usize }, TransitionLimit { limit: usize }, GroundingFailed, GroundingDivergence { action: String, expected: usize, observed: usize, }, InitialOutcomeLimit { limit: usize }, RewardViolation(String), PolicyLimit { limit: usize }, ValueTableLimit { limit: usize } } |  |  |  |  |
 
 | `ProbabilisticObjective` | enum | ProbabilisticObjective { Auto, MaximizeGoalProbability, MinimizeGoalProbability, MaximizeExpectedReward, MinimizeExpectedReward, MaximizeExpectedMetric, MinimizeExpectedMetric } |  |  |  |  |
+
+| `:PROBABILISTIC-EFFECTS` | str_key | PROB_REQ = ":PROBABILISTIC-EFFECTS" |  |  |  |  |
+
+| `:REWARDS` | str_key | REWARD_REQ = ":REWARDS" |  |  |  |  |
+
+| `PPDDL-A` | str_key | VARIANT_PREFIX = "PPDDL-A" |  |  |  |  |
+
+| `PPDDL-INIT-PENDING` | str_key | INIT_PENDING = "PPDDL-INIT-PENDING" |  |  |  |  |
+
+| `PPDDL-INITIALIZE` | str_key | INIT_ACTION = "PPDDL-INITIALIZE" |  |  |  |  |
+
+| `PPDDL-MARKER-A` | str_key | MARKER_PREFIX = "PPDDL-MARKER-A" |  |  |  |  |
 
 | `InitialStateProbability` | struct | InitialStateProbability { pub state: usize, pub probability: f64, pub goal: bool } |  |  |  |  |
 
@@ -4651,6 +10510,12 @@
 
 | `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
+| `(define (domain smoke) (:requirements :strips) ` | str_key | DOMAIN = "(define (domain smoke) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem smoke-p) (:domain smoke) ` | str_key | PROBLEM = "(define (problem smoke-p) (:domain smoke) " |  |  |  |  |
+
+| `ferroplan.production-surface.v1` | str_key | PRODUCTION_SURFACE_HASH_DOMAIN = "ferroplan.production-surface.v1" |  |  |  |  |
+
 | `PlanValidationEvidence` | struct | PlanValidationEvidence { pub valid: bool, pub reason: Option<String> } |  |  |  |  |
 
 | `ProductionSession` | struct | ProductionSession { inner: Session, domain: String, problem: String, limits: ProductionLimits, input_fingerprint: String } |  |  |  |  |
@@ -4658,6 +10523,14 @@
 | `decompose_production` | function | decompose_production( domain: &str, problem: &str, options: &Options, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Decomposition> |  |  |  |  |
 
 | `explain_production` | function | explain_production( domain: &str, problem: &str, plan: &Plan, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Explanation> |  |  |  |  |
+
+| `(define (domain smoke) (:requirements :strips) ` | str_key | DOMAIN = "(define (domain smoke) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem smoke-p) (:domain smoke) ` | str_key | PROBLEM = "(define (problem smoke-p) (:domain smoke) " |  |  |  |  |
+
+| `ferroplan.production-decompose.v1` | str_key | DECOMPOSE_HASH_DOMAIN = "ferroplan.production-decompose.v1" |  |  |  |  |
+
+| `ferroplan.production-explain.v1` | str_key | EXPLAIN_HASH_DOMAIN = "ferroplan.production-explain.v1" |  |  |  |  |
 
 | `depth_reached` | function | depth_reached(&self) -> u32 |  |  |  |  |
 
@@ -4713,6 +10586,20 @@
 
 | `validate` | function | validate(&self) -> Result<(), ManifestError> |  |  |  |  |
 
+| `(define (domain smoke) (:requirements :strips) ` | str_key | DOMAIN = "(define (domain smoke) (:requirements :strips) " |  |  |  |  |
+
+| `(define (problem smoke-p) (:domain smoke) ` | str_key | PROBLEM = "(define (problem smoke-p) (:domain smoke) " |  |  |  |  |
+
+| `candidate_only` | str_key | CANDIDATE_AUTHORITY = "candidate_only" |  |  |  |  |
+
+| `ferroplan.capabilities.v1` | str_key | CAPABILITY_MANIFEST_SCHEMA = "ferroplan.capabilities.v1" |  |  |  |  |
+
+| `ferroplan.capability-manifest.v1` | str_key | MANIFEST_HASH_DOMAIN = "ferroplan.capability-manifest.v1" |  |  |  |  |
+
+| `ferroplan.operation.v1` | str_key | OPERATION_ENVELOPE_SCHEMA = "ferroplan.operation.v1" |  |  |  |  |
+
+| `ferroplan.production-input.v1` | str_key | INPUT_HASH_DOMAIN = "ferroplan.production-input.v1" |  |  |  |  |
+
 | `BuildIdentity` | struct | BuildIdentity { pub product_version: String, pub source_revision: Option<String>, pub manifest_fingerprint: Option<String> } |  |  |  |  |
 
 | `CapabilityContract` | struct | CapabilityContract { pub id: String, pub version: String, pub owner: String, pub component: String, pub interface: InterfaceKind, pub authority: AuthorityClass, pub determinism: DeterminismClass, pub replay: ReplayClass, pub input_schema: String, pub output_schema: String, pub resource_profile: String, pub failure_contract: String, pub telemetry_contract: String, pub compatibility: CompatibilityClass, pub security: SecurityClass, pub shipped: bool, pub required_evidence: Vec<String> } |  |  |  |  |
@@ -4741,6 +10628,14 @@
 
 | `Solved` | enum | Solved { Plan(Vec<usize>, Stats), Unsolvable { capped: bool, } } |  |  |  |  |
 
+| `FF_NO_LAMA` | env_key | std::env::var("FF_NO_LAMA") |  |  |  |  |
+
+| `FF_RESLM` | env_key | std::env::var("FF_RESLM") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
+
 | `solve` | function | solve( task: &PackedTask, threads: usize, cfg: crate::search::SearchCfg, mutex_groups: &[Vec<u32>], orbit: Option<&crate::orbits::OrbitMap>, ) -> Solved |  |  |  |  |
 
 | `Stats` | struct | Stats { pub init_groups: usize, pub final_groups: usize, pub merges: usize, pub fallback: bool } |  |  |  |  |
@@ -4753,9 +10648,79 @@
 
 | `trips` | function | trips(&self, bits: &[u64]) -> i64 |  |  |  |  |
 
+| `(define (domain ctr) (:requirements :typing)
+      (:types count)
+      (:predicates (avail ?s - count) (nxt ?lo ?hi - count))
+      (:action consume :parameters (?a ?b - count)
+        :precondition (and (avail ?a) (nxt ?b ?a))
+        :effect (and (not (avail ?a)) (avail ?b)))
+      (:action restore :parameters (?a ?b - count)
+        :precondition (and (avail ?a) (nxt ?a ?b))
+        :effect (and (not (avail ?a)) (avail ?b))))` | str_key | DOM = "(define (domain ctr) (:requirements :typing)
+      (:types count)
+      (:predicates (avail ?s - count) (nxt ?lo ?hi - count))
+      (:action consume :parameters (?a ?b - count)
+        :precondition (and (avail ?a) (nxt ?b ?a))
+        :effect (and (not (avail ?a)) (avail ?b)))
+      (:action restore :parameters (?a ?b - count)
+        :precondition (and (avail ?a) (nxt ?a ?b))
+        :effect (and (not (avail ?a)) (avail ?b))))" |  |  |  |  |
+
+| `(define (domain tinytrans)
+      (:requirements :strips :typing)
+      (:types loc pkg cap)
+      (:predicates (tat ?l - loc) (pat ?p - pkg ?l - loc) (pin ?p - pkg)
+                   (cap ?c - cap) (nxt ?a ?b - cap))
+      (:action mv :parameters (?a ?b - loc)
+        :precondition (tat ?a) :effect (and (not (tat ?a)) (tat ?b)))
+      (:action pick :parameters (?p - pkg ?l - loc ?a ?b - cap)
+        :precondition (and (tat ?l) (pat ?p ?l) (nxt ?a ?b) (cap ?b))
+        :effect (and (not (pat ?p ?l)) (pin ?p) (cap ?a) (not (cap ?b))))
+      (:action drop :parameters (?p - pkg ?l - loc ?a ?b - cap)
+        :precondition (and (tat ?l) (pin ?p) (nxt ?a ?b) (cap ?a))
+        :effect (and (not (pin ?p)) (pat ?p ?l) (cap ?b) (not (cap ?a)))))` | str_key | TDOM = "(define (domain tinytrans)
+      (:requirements :strips :typing)
+      (:types loc pkg cap)
+      (:predicates (tat ?l - loc) (pat ?p - pkg ?l - loc) (pin ?p - pkg)
+                   (cap ?c - cap) (nxt ?a ?b - cap))
+      (:action mv :parameters (?a ?b - loc)
+        :precondition (tat ?a) :effect (and (not (tat ?a)) (tat ?b)))
+      (:action pick :parameters (?p - pkg ?l - loc ?a ?b - cap)
+        :precondition (and (tat ?l) (pat ?p ?l) (nxt ?a ?b) (cap ?b))
+        :effect (and (not (pat ?p ?l)) (pin ?p) (cap ?a) (not (cap ?b))))
+      (:action drop :parameters (?p - pkg ?l - loc ?a ?b - cap)
+        :precondition (and (tat ?l) (pin ?p) (nxt ?a ?b) (cap ?a))
+        :effect (and (not (pin ?p)) (pat ?p ?l) (cap ?b) (not (cap ?a)))))" |  |  |  |  |
+
+| `(define (problem ctr1) (:domain ctr)
+      (:objects c0 c1 c2 c3 - count)
+      (:init (avail c3) (nxt c0 c1) (nxt c1 c2) (nxt c2 c3))
+      (:goal (avail c0)))` | str_key | PROB = "(define (problem ctr1) (:domain ctr)
+      (:objects c0 c1 c2 c3 - count)
+      (:init (avail c3) (nxt c0 c1) (nxt c1 c2) (nxt c2 c3))
+      (:goal (avail c0)))" |  |  |  |  |
+
+| `(define (problem tt1) (:domain tinytrans)
+      (:objects l1 l2 l3 - loc p1 p2 p3 - pkg c0 c1 c2 - cap)
+      (:init (tat l1) (pat p1 l1) (pat p2 l1) (pat p3 l1)
+             (cap c2) (nxt c0 c1) (nxt c1 c2))
+      (:goal (and (pat p1 l2) (pat p2 l2) (pat p3 l3))))` | str_key | TPROB = "(define (problem tt1) (:domain tinytrans)
+      (:objects l1 l2 l3 - loc p1 p2 p3 - pkg c0 c1 c2 - cap)
+      (:init (tat l1) (pat p1 l1) (pat p2 l1) (pat p3 l1)
+             (cap c2) (nxt c0 c1) (nxt c1 c2))
+      (:goal (and (pat p1 l2) (pat p2 l2) (pat p3 l3))))" |  |  |  |  |
+
 | `ResourceVar` | struct | ResourceVar { pub members: Vec<(u32, u32)> } |  |  |  |  |
 
 | `TripBound` | struct | TripBound { pub goals: Vec<u32>, pub pool: i64 } |  |  |  |  |
+
+| `FF_NO_SAT_LAYERGEN` | env_key | std::env::var("FF_NO_SAT_LAYERGEN") |  |  |  |  |
+
+| `FF_NO_SAT_RATEBAIL` | env_key | std::env::var("FF_NO_SAT_RATEBAIL") |  |  |  |  |
+
+| `FF_SAT_BRANCH` | env_key | std::env::var("FF_SAT_BRANCH") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `from_env` | function | from_env() -> Self |  |  |  |  |
 
@@ -4774,6 +10739,54 @@
 | `DEFAULT_MAX_EVAL` | const | DEFAULT_MAX_EVAL: usize |  |  |  |  |
 
 | `PlanResult` | enum | PlanResult { Plan { ops: Vec<usize>, advance: Vec<i32>, evaluated: usize, max_g: usize, }, Unsolvable { evaluated: usize, capped: bool, } } |  |  |  |  |
+
+| `FF_CLM` | env_key | std::env::var("FF_CLM") |  |  |  |  |
+
+| `FF_HTRACE` | env_key | std::env::var("FF_HTRACE") |  |  |  |  |
+
+| `FF_LEN_ANYTIME` | env_key | std::env::var("FF_LEN_ANYTIME") |  |  |  |  |
+
+| `FF_MEM_BUDGET_GB` | env_key | std::env::var("FF_MEM_BUDGET_GB") |  |  |  |  |
+
+| `FF_NOVDRIVER_ONLY` | env_key | std::env::var("FF_NOVDRIVER_ONLY") |  |  |  |  |
+
+| `FF_NOVELTY` | env_key | std::env::var("FF_NOVELTY") |  |  |  |  |
+
+| `FF_NOVELTY_ONLY` | env_key | std::env::var("FF_NOVELTY_ONLY") |  |  |  |  |
+
+| `FF_NOVLIGHT` | env_key | std::env::var("FF_NOVLIGHT") |  |  |  |  |
+
+| `FF_NOVLIGHT_ONLY` | env_key | std::env::var("FF_NOVLIGHT_ONLY") |  |  |  |  |
+
+| `FF_NOV_OLD` | env_key | std::env::var("FF_NOV_OLD") |  |  |  |  |
+
+| `FF_NO_EHC_WALLCAP` | env_key | std::env::var("FF_NO_EHC_WALLCAP") |  |  |  |  |
+
+| `FF_NO_ENRICH` | env_key | std::env::var("FF_NO_ENRICH") |  |  |  |  |
+
+| `FF_NO_LAMA` | env_key | std::env::var("FF_NO_LAMA") |  |  |  |  |
+
+| `FF_NO_NODECAP_REFILL` | env_key | std::env::var("FF_NO_NODECAP_REFILL") |  |  |  |  |
+
+| `FF_NO_NOVELTY` | env_key | std::env::var("FF_NO_NOVELTY") |  |  |  |  |
+
+| `FF_NO_NOVLIGHT` | env_key | std::env::var("FF_NO_NOVLIGHT") |  |  |  |  |
+
+| `FF_NO_REFILL` | env_key | std::env::var("FF_NO_REFILL") |  |  |  |  |
+
+| `FF_NO_RUNG_WALLCAP` | env_key | std::env::var("FF_NO_RUNG_WALLCAP") |  |  |  |  |
+
+| `FF_REPORT_RESERVE_SECS` | env_key | std::env::var("FF_REPORT_RESERVE_SECS") |  |  |  |  |
+
+| `FF_RESLM` | env_key | std::env::var("FF_RESLM") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_SEARCH_NODE_CAP` | env_key | std::env::var("FF_SEARCH_NODE_CAP") |  |  |  |  |
+
+| `FF_TIME_LIMIT` | env_key | std::env::var("FF_TIME_LIMIT") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `arm_wall_limit` | function | arm_wall_limit() |  |  |  |  |
 
@@ -4867,6 +10880,250 @@
 
 | `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
+| `
+        (define (domain gate) (:requirements :strips :numeric-fluents)
+          (:predicates (done))
+          (:functions (permit))
+          (:action act :precondition (>= (permit) 1) :effect (done)))` | str_key | GDOM = "
+        (define (domain gate) (:requirements :strips :numeric-fluents)
+          (:predicates (done))
+          (:functions (permit))
+          (:action act :precondition (>= (permit) 1) :effect (done)))" |  |  |  |  |
+
+| `
+        (define (domain shop)
+          (:requirements :strips :typing :durative-actions :numeric-fluents)
+          (:types worker)
+          (:predicates (idle ?w - worker) (built ?w - worker))
+          (:functions (build-time ?w - worker))
+          (:durative-action build
+            :parameters (?w - worker)
+            :duration (= ?duration (build-time ?w))
+            :condition (at start (idle ?w))
+            :effect (and (at start (not (idle ?w))) (at end (built ?w)))))` | str_key | DDOM = "
+        (define (domain shop)
+          (:requirements :strips :typing :durative-actions :numeric-fluents)
+          (:types worker)
+          (:predicates (idle ?w - worker) (built ?w - worker))
+          (:functions (build-time ?w - worker))
+          (:durative-action build
+            :parameters (?w - worker)
+            :duration (= ?duration (build-time ?w))
+            :condition (at start (idle ?w))
+            :effect (and (at start (not (idle ?w))) (at end (built ?w)))))" |  |  |  |  |
+
+| `
+        (define (problem g) (:domain gate)
+          (:init (= (permit) 0))
+          (:goal (done)))` | str_key | GPRB = "
+        (define (problem g) (:domain gate)
+          (:init (= (permit) 0))
+          (:goal (done)))" |  |  |  |  |
+
+| `
+        (define (problem job) (:domain shop)
+          (:objects w1 - worker)
+          (:init (idle w1) (= (build-time w1) 5))
+          (:goal (built w1)))` | str_key | DPRB = "
+        (define (problem job) (:domain shop)
+          (:objects w1 - worker)
+          (:init (idle w1) (= (build-time w1) 5))
+          (:goal (built w1)))" |  |  |  |  |
+
+| `
+    (define (domain farm) (:requirements :strips :typing :numeric-fluents)
+      (:types agent place)
+      (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+      (:functions (grain))
+      (:action walk :parameters (?a - agent ?from ?to - place)
+        :precondition (and (at ?a ?from) (road ?from ?to))
+        :effect (and (not (at ?a ?from)) (at ?a ?to)))
+      (:action harvest :parameters (?a - agent ?p - place)
+        :precondition (and (at ?a ?p) (fertile ?p))
+        :effect (increase (grain) 1)))` | str_key | DOM = "
+    (define (domain farm) (:requirements :strips :typing :numeric-fluents)
+      (:types agent place)
+      (:predicates (at ?a - agent ?p - place) (road ?x ?y - place) (fertile ?p - place))
+      (:functions (grain))
+      (:action walk :parameters (?a - agent ?from ?to - place)
+        :precondition (and (at ?a ?from) (road ?from ?to))
+        :effect (and (not (at ?a ?from)) (at ?a ?to)))
+      (:action harvest :parameters (?a - agent ?p - place)
+        :precondition (and (at ?a ?p) (fertile ?p))
+        :effect (increase (grain) 1)))" |  |  |  |  |
+
+| `
+    (define (domain lamp) (:requirements :strips :negative-preconditions)
+      (:predicates (on) (broken))
+      (:action switch-on :precondition (and (not (on)) (not (broken))) :effect (on))
+      (:action switch-off :precondition (on) :effect (not (on))))` | str_key | NEG_DOM = "
+    (define (domain lamp) (:requirements :strips :negative-preconditions)
+      (:predicates (on) (broken))
+      (:action switch-on :precondition (and (not (on)) (not (broken))) :effect (on))
+      (:action switch-off :precondition (on) :effect (not (on))))" |  |  |  |  |
+
+| `
+    (define (domain rollers) (:requirements :strips :typing)
+      (:types ball room)
+      (:predicates (at ?b - ball ?r - room) (link ?x ?y - room)
+                   (goal-room ?r - room) (home ?b - ball))
+      (:action roll :parameters (?b - ball ?from ?to - room)
+        :precondition (and (at ?b ?from) (link ?from ?to))
+        :effect (and (not (at ?b ?from)) (at ?b ?to)))
+      (:action park :parameters (?b - ball ?r - room)
+        :precondition (and (at ?b ?r) (goal-room ?r))
+        :effect (home ?b)))` | str_key | ORB_DOM = "
+    (define (domain rollers) (:requirements :strips :typing)
+      (:types ball room)
+      (:predicates (at ?b - ball ?r - room) (link ?x ?y - room)
+                   (goal-room ?r - room) (home ?b - ball))
+      (:action roll :parameters (?b - ball ?from ?to - room)
+        :precondition (and (at ?b ?from) (link ?from ?to))
+        :effect (and (not (at ?b ?from)) (at ?b ?to)))
+      (:action park :parameters (?b - ball ?r - room)
+        :precondition (and (at ?b ?r) (goal-room ?r))
+        :effect (home ?b)))" |  |  |  |  |
+
+| `
+    (define (domain seqshop) (:requirements :strips :typing :durative-actions)
+      (:types w)
+      (:predicates (idle ?x - w) (staged ?x - w) (built ?x - w) (power))
+      (:durative-action stage1 :parameters (?x - w) :duration (= ?duration 5)
+        :condition (at start (idle ?x))
+        :effect (and (at start (not (idle ?x))) (at end (staged ?x))))
+      (:durative-action stage2 :parameters (?x - w) :duration (= ?duration 5)
+        :condition (and (at start (staged ?x)) (at start (power)))
+        :effect (at end (built ?x)))
+      (:durative-action grid :parameters () :duration (= ?duration 1)
+        :condition (at start (power))
+        :effect (and (at start (not (power))) (at end (power)))))` | str_key | SEQ_DOM = "
+    (define (domain seqshop) (:requirements :strips :typing :durative-actions)
+      (:types w)
+      (:predicates (idle ?x - w) (staged ?x - w) (built ?x - w) (power))
+      (:durative-action stage1 :parameters (?x - w) :duration (= ?duration 5)
+        :condition (at start (idle ?x))
+        :effect (and (at start (not (idle ?x))) (at end (staged ?x))))
+      (:durative-action stage2 :parameters (?x - w) :duration (= ?duration 5)
+        :condition (and (at start (staged ?x)) (at start (power)))
+        :effect (at end (built ?x)))
+      (:durative-action grid :parameters () :duration (= ?duration 1)
+        :condition (at start (power))
+        :effect (and (at start (not (power))) (at end (power)))))" |  |  |  |  |
+
+| `
+    (define (domain shop) (:requirements :strips :typing :durative-actions)
+      (:types job machine)
+      (:predicates (todo ?j - job) (done ?j - job) (up ?m - machine) (fast ?m - machine)
+                   (slow ?m - machine))
+      (:durative-action run-fast :parameters (?j - job ?m - machine)
+        :duration (= ?duration 2)
+        :condition (and (at start (todo ?j)) (at start (up ?m)) (at start (fast ?m))
+                        (over all (up ?m)))
+        :effect (and (at start (not (todo ?j))) (at end (done ?j))))
+      (:durative-action run-slow :parameters (?j - job ?m - machine)
+        :duration (= ?duration 8)
+        :condition (and (at start (todo ?j)) (at start (up ?m)) (at start (slow ?m))
+                        (over all (up ?m)))
+        :effect (and (at start (not (todo ?j))) (at end (done ?j))))
+      (:durative-action maintain :parameters (?m - machine)
+        :duration (= ?duration 1)
+        :condition (at start (up ?m))
+        :effect (and (at start (not (up ?m))) (at end (up ?m)))))` | str_key | SHOP_DOM = "
+    (define (domain shop) (:requirements :strips :typing :durative-actions)
+      (:types job machine)
+      (:predicates (todo ?j - job) (done ?j - job) (up ?m - machine) (fast ?m - machine)
+                   (slow ?m - machine))
+      (:durative-action run-fast :parameters (?j - job ?m - machine)
+        :duration (= ?duration 2)
+        :condition (and (at start (todo ?j)) (at start (up ?m)) (at start (fast ?m))
+                        (over all (up ?m)))
+        :effect (and (at start (not (todo ?j))) (at end (done ?j))))
+      (:durative-action run-slow :parameters (?j - job ?m - machine)
+        :duration (= ?duration 8)
+        :condition (and (at start (todo ?j)) (at start (up ?m)) (at start (slow ?m))
+                        (over all (up ?m)))
+        :effect (and (at start (not (todo ?j))) (at end (done ?j))))
+      (:durative-action maintain :parameters (?m - machine)
+        :duration (= ?duration 1)
+        :condition (at start (up ?m))
+        :effect (and (at start (not (up ?m))) (at end (up ?m)))))" |  |  |  |  |
+
+| `
+    (define (domain workshop) (:requirements :strips :typing :durative-actions)
+      (:types worker)
+      (:predicates (idle ?w - worker) (built ?w - worker))
+      (:durative-action build
+        :parameters (?w - worker)
+        :duration (= ?duration 5)
+        :condition (at start (idle ?w))
+        :effect (and (at start (not (idle ?w))) (at end (built ?w)))))` | str_key | TDOM = "
+    (define (domain workshop) (:requirements :strips :typing :durative-actions)
+      (:types worker)
+      (:predicates (idle ?w - worker) (built ?w - worker))
+      (:durative-action build
+        :parameters (?w - worker)
+        :duration (= ?duration 5)
+        :condition (at start (idle ?w))
+        :effect (and (at start (not (idle ?w))) (at end (built ?w)))))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain farm)
+      (:objects v1 - agent hut field - place)
+      (:init (at v1 hut) (road hut field) (road field hut) (fertile field) (= (grain) 0))
+      (:goal (>= (grain) 2)))` | str_key | PRB = "
+    (define (problem p) (:domain farm)
+      (:objects v1 - agent hut field - place)
+      (:init (at v1 hut) (road hut field) (road field hut) (fertile field) (= (grain) 0))
+      (:goal (>= (grain) 2)))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain lamp)
+      (:init) (:goal (on)))` | str_key | NEG_PRB = "
+    (define (problem p) (:domain lamp)
+      (:init) (:goal (on)))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain rollers)
+      (:objects b1 b2 - ball ra rb - room)
+      (:init (at b1 ra) (at b2 ra) (link ra rb) (link rb ra) (goal-room rb))
+      (:goal (and (home b1) (home b2))))` | str_key | ORB_PRB = "
+    (define (problem p) (:domain rollers)
+      (:objects b1 b2 - ball ra rb - room)
+      (:init (at b1 ra) (at b2 ra) (link ra rb) (link rb ra) (goal-room rb))
+      (:goal (and (home b1) (home b2))))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain seqshop)
+      (:objects w1 - w)
+      (:init (idle w1) (power))
+      (:goal (built w1)))` | str_key | SEQ_PRB = "
+    (define (problem p) (:domain seqshop)
+      (:objects w1 - w)
+      (:init (idle w1) (power))
+      (:goal (built w1)))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain shop)
+      (:objects j1 j2 - job f s - machine)
+      (:init (todo j1) (todo j2) (up f) (up s) (fast f) (slow s))
+      (:goal (and (done j1) (done j2))))` | str_key | SHOP_PRB = "
+    (define (problem p) (:domain shop)
+      (:objects j1 j2 - job f s - machine)
+      (:init (todo j1) (todo j2) (up f) (up s) (fast f) (slow s))
+      (:goal (and (done j1) (done j2))))" |  |  |  |  |
+
+| `
+    (define (problem shift) (:domain workshop)
+      (:objects w1 w2 - worker)
+      (:init (idle w1) (idle w2))
+      (:goal (and (built w1) (built w2))))` | str_key | TPRB = "
+    (define (problem shift) (:domain workshop)
+      (:objects w1 w2 - worker)
+      (:init (idle w1) (idle w2))
+      (:goal (and (built w1) (built w2))))" |  |  |  |  |
+
+| `urn:ferroplan:session-state:v1` | str_key | DOMAIN = "urn:ferroplan:session-state:v1" |  |  |  |  |
+
 | `Session` | struct | Session { task: PackedTask, threads: usize, weight_g: f64, weight_h: f64, max_evaluated: Option<usize>, ehc_first: bool, fact_ids: Arc<FxHashMap<String, u32>>, dynamic: Arc<[bool]>, fluent_ids: Arc<FxHashMap<String, u32>>, temporal: Option<Arc<crate::temporal::TemporalCompiled>>, tier: crate::features::DemandMode, running_preds: Vec<String>, op_ids: Arc<FxHashMap<String, usize>>, mirror: Arc<FxHashMap<u32, u32>>, forbidden: Vec<bool>, timed: Vec<(f64, u32, bool)>, til_setters: Arc<FxHashMap<(u32, bool), usize>>, running: Vec<(f64, usize)>, lifted: Option<Arc<(crate::types::Domain, crate::types::Problem)>>, goal_formula: Formula } |  |  |  |  |
 
 | `Think` | struct | Think { pub solution: Solution, pub capped: bool, pub spent_ms: u64, pub spent_evals: usize, pub verdict: ThinkVerdict } |  |  |  |  |
@@ -4879,6 +11136,10 @@
 
 | `Bet` | enum | Bet { First, Rest } |  |  |  |  |
 
+| `FF_NO_TCOMPRESS` | env_key | std::env::var("FF_NO_TCOMPRESS") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
+
 | `compile` | function | compile(domain: &Domain, problem: &Problem) -> (Domain, Problem) |  |  |  |  |
 
 | `declines` | function | declines(domain: &Domain, problem: &Problem) -> Option<&'static str> |  |  |  |  |
@@ -4886,6 +11147,48 @@
 | `lay_out` | function | lay_out( domain: &Domain, task: &PackedTask, ops: &[usize], shift: bool, ) -> Option<TimedPlan> |  |  |  |  |
 
 | `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize, bet: Bet) -> Option<TimedPlan> |  |  |  |  |
+
+| `FF_H_ENDGATE` | env_key | std::env::var("FF_H_ENDGATE") |  |  |  |  |
+
+| `FF_LAX_HELPFUL` | env_key | std::env::var("FF_LAX_HELPFUL") |  |  |  |  |
+
+| `FF_NOREL` | env_key | std::env::var("FF_NOREL") |  |  |  |  |
+
+| `FF_NO_LADDER_DEDUP` | env_key | std::env::var("FF_NO_LADDER_DEDUP") |  |  |  |  |
+
+| `FF_NO_SAT` | env_key | std::env::var("FF_NO_SAT") |  |  |  |  |
+
+| `FF_NO_TSUCC` | env_key | std::env::var("FF_NO_TSUCC") |  |  |  |  |
+
+| `FF_NO_TSYMM` | env_key | std::env::var("FF_NO_TSYMM") |  |  |  |  |
+
+| `FF_ORBIT_DEBUG` | env_key | std::env::var("FF_ORBIT_DEBUG") |  |  |  |  |
+
+| `FF_ORBIT_GEN` | env_key | std::env::var("FF_ORBIT_GEN") |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
+
+| `FF_TAGENDA_W` | env_key | std::env::var("FF_TAGENDA_W") |  |  |  |  |
+
+| `FF_TAGENDA_W_PRUNE` | env_key | std::env::var("FF_TAGENDA_W_PRUNE") |  |  |  |  |
+
+| `FF_TB_FREE_G` | env_key | std::env::var("FF_TB_FREE_G") |  |  |  |  |
+
+| `FF_TDEMAND_W` | env_key | std::env::var("FF_TDEMAND_W") |  |  |  |  |
+
+| `FF_TEMPORAL_ABS_KEY` | env_key | std::env::var("FF_TEMPORAL_ABS_KEY") |  |  |  |  |
+
+| `FF_TEMPORAL_NODE_CAP` | env_key | std::env::var("FF_TEMPORAL_NODE_CAP") |  |  |  |  |
+
+| `FF_TEVAL_BUDGET` | env_key | std::env::var("FF_TEVAL_BUDGET") |  |  |  |  |
+
+| `FF_TLAMA` | env_key | std::env::var("FF_TLAMA") |  |  |  |  |
+
+| `FF_TLIFO` | env_key | std::env::var("FF_TLIFO") |  |  |  |  |
+
+| `FF_TRPG` | env_key | std::env::var("FF_TRPG") |  |  |  |  |
+
+| `FF_WALL_DEBUG` | env_key | std::env::var("FF_WALL_DEBUG") |  |  |  |  |
 
 | `compile` | function | compile(domain: &Domain, problem: &Problem) -> TemporalCompiled |  |  |  |  |
 
@@ -4921,7 +11224,33 @@
 
 | `trace` | function | trace( domain_src: &str, problem_src: &str, plan: &[(String, Vec<String>)], ) -> Result<Vec<StateSnapshot>, String> |  |  |  |  |
 
+| `
+    (define (domain logi) (:requirements :typing)
+      (:types location truck)
+      (:predicates (at ?t - truck ?l - location) (road ?a ?b - location))
+      (:action drive :parameters (?t - truck ?from ?to - location)
+        :precondition (and (at ?t ?from) (road ?from ?to))
+        :effect (and (not (at ?t ?from)) (at ?t ?to))))` | str_key | DOM = "
+    (define (domain logi) (:requirements :typing)
+      (:types location truck)
+      (:predicates (at ?t - truck ?l - location) (road ?a ?b - location))
+      (:action drive :parameters (?t - truck ?from ?to - location)
+        :precondition (and (at ?t ?from) (road ?from ?to))
+        :effect (and (not (at ?t ?from)) (at ?t ?to))))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain logi)
+      (:objects a b - location  t1 - truck)
+      (:init (at t1 a) (road a b))
+      (:goal (at t1 b)))` | str_key | PRB = "
+    (define (problem p) (:domain logi)
+      (:objects a b - location  t1 - truck)
+      (:init (at t1 a) (road a b))
+      (:goal (at t1 b)))" |  |  |  |  |
+
 | `StateSnapshot` | struct | StateSnapshot { pub facts: Vec<String>, pub fluents: Vec<(String, f64)> } |  |  |  |  |
+
+| `FF_RES_DEBUG` | env_key | std::env::var("FF_RES_DEBUG") |  |  |  |  |
 
 | `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> |  |  |  |  |
 
@@ -4965,6 +11294,8 @@
 
 | `new` | function | new(line: u32, message: impl Into<String>) -> Self |  |  |  |  |
 
+| `?DURATION` | str_key | DURATION_PSEUDO = "?DURATION" |  |  |  |  |
+
 | `Action` | struct | Action { pub name: Sym, pub params: Vec<(Sym, Sym)>, pub precond: Formula, pub effect: Effect, pub monitored: bool } |  |  |  |  |
 
 | `DerivedRule` | struct | DerivedRule { pub head: Sym, pub params: Vec<(Sym, Sym)>, pub body: Formula } |  |  |  |  |
@@ -5003,6 +11334,36 @@
 
 | `to_pddl` | function | to_pddl( name: &str, domain_name: &str, objects: &[(String, String)], init: &[(String, Vec<String>)], goal: &[(String, Vec<String>)], ) -> String |  |  |  |  |
 
+| `
+    (define (domain logi) (:requirements :typing)
+      (:types location truck package)
+      (:predicates (at ?x - truck ?l - location) (road ?a ?b - location)
+                   (in ?p - package ?t - truck) (delivered ?p - package))
+      (:action drive :parameters (?t - truck ?from ?to - location)
+        :precondition (and (at ?t ?from) (road ?from ?to))
+        :effect (and (not (at ?t ?from)) (at ?t ?to))))` | str_key | DOM = "
+    (define (domain logi) (:requirements :typing)
+      (:types location truck package)
+      (:predicates (at ?x - truck ?l - location) (road ?a ?b - location)
+                   (in ?p - package ?t - truck) (delivered ?p - package))
+      (:action drive :parameters (?t - truck ?from ?to - location)
+        :precondition (and (at ?t ?from) (road ?from ?to))
+        :effect (and (not (at ?t ?from)) (at ?t ?to))))" |  |  |  |  |
+
+| `
+    (define (problem p) (:domain logi)
+      (:objects a b c - location  t1 - truck  p1 - package)
+      (:init (at t1 a) (road a b) (road b c) (in p1 t1))
+      (:goal (delivered p1)))` | str_key | PRB = "
+    (define (problem p) (:domain logi)
+      (:objects a b c - location  t1 - truck  p1 - package)
+      (:init (at t1 a) (road a b) (road b c) (in p1 t1))
+      (:goal (delivered p1)))" |  |  |  |  |
+
+| `AT` | str_key | POSITION_NAMES = "AT" |  |  |  |  |
+
+| `ROAD` | str_key | EDGE_NAMES = "ROAD" |  |  |  |  |
+
 | `VizEdge` | struct | VizEdge { pub a: String, pub b: String, pub pred: String } |  |  |  |  |
 
 | `VizGraph` | struct | VizGraph { pub nodes: Vec<VizNode>, pub edges: Vec<VizEdge>, pub mobiles: Vec<VizMobile>, pub props_by_object: BTreeMap<String, Vec<String>>, pub goal_by_object: BTreeMap<String, Vec<String>>, pub pred_kind: BTreeMap<String, PredKind>, pub location_types: BTreeSet<String> } |  |  |  |  |
@@ -5010,6 +11371,170 @@
 | `VizMobile` | struct | VizMobile { pub object: String, pub ty: String, pub at: Option<String>, pub at_raw: Option<String> } |  |  |  |  |
 
 | `VizNode` | struct | VizNode { pub object: String, pub ty: String } |  |  |  |  |
+
+| `
+(define (domain roads)
+  (:requirements :strips :typing :action-costs)
+  (:types loc)
+  (:constants a b c - loc)
+  (:predicates (at ?l - loc))
+  (:functions (total-cost) - number)
+  (:action hop
+    :parameters ()
+    :precondition (at a)
+    :effect (and (not (at a)) (at c) (increase (total-cost) 10)))
+  (:action step1
+    :parameters ()
+    :precondition (at a)
+    :effect (and (not (at a)) (at b) (increase (total-cost) 1)))
+  (:action step2
+    :parameters ()
+    :precondition (at b)
+    :effect (and (not (at b)) (at c) (increase (total-cost) 1))))
+` | str_key | ROADS_DOMAIN = "
+(define (domain roads)
+  (:requirements :strips :typing :action-costs)
+  (:types loc)
+  (:constants a b c - loc)
+  (:predicates (at ?l - loc))
+  (:functions (total-cost) - number)
+  (:action hop
+    :parameters ()
+    :precondition (at a)
+    :effect (and (not (at a)) (at c) (increase (total-cost) 10)))
+  (:action step1
+    :parameters ()
+    :precondition (at a)
+    :effect (and (not (at a)) (at b) (increase (total-cost) 1)))
+  (:action step2
+    :parameters ()
+    :precondition (at b)
+    :effect (and (not (at b)) (at c) (increase (total-cost) 1))))
+" |  |  |  |  |
+
+| `
+(define (problem roads-1) (:domain roads)
+  (:init (at a) (= (total-cost) 0))
+  (:goal (at c))
+  (:metric minimize (total-cost)))
+` | str_key | ROADS_PROBLEM = "
+(define (problem roads-1) (:domain roads)
+  (:init (at a) (= (total-cost) 0))
+  (:goal (at c))
+  (:metric minimize (total-cost)))
+" |  |  |  |  |
+
+| `(define (domain adl1)
+ (:requirements :typing :adl :negative-preconditions)
+ (:types item)
+ (:predicates (tagged ?x - item) (done) (linked ?a - item ?b - item))
+ (:action tag :parameters (?x - item) :precondition (not (tagged ?x)) :effect (tagged ?x))
+ (:action link :parameters (?a - item ?b - item)
+   :precondition (and (not (= ?a ?b)) (tagged ?a) (tagged ?b))
+   :effect (linked ?a ?b))
+ (:action finish :parameters ()
+   :precondition (and (forall (?x - item) (tagged ?x))
+                      (exists (?a - item ?b - item) (linked ?a ?b)))
+   :effect (done)))` | str_key | DOM = "(define (domain adl1)
+ (:requirements :typing :adl :negative-preconditions)
+ (:types item)
+ (:predicates (tagged ?x - item) (done) (linked ?a - item ?b - item))
+ (:action tag :parameters (?x - item) :precondition (not (tagged ?x)) :effect (tagged ?x))
+ (:action link :parameters (?a - item ?b - item)
+   :precondition (and (not (= ?a ?b)) (tagged ?a) (tagged ?b))
+   :effect (linked ?a ?b))
+ (:action finish :parameters ()
+   :precondition (and (forall (?x - item) (tagged ?x))
+                      (exists (?a - item ?b - item) (linked ?a ?b)))
+   :effect (done)))" |  |  |  |  |
+
+| `(define (domain briefcase)
+ (:requirements :typing :adl)
+ (:types obj loc)
+ (:predicates (at-bc ?l - loc) (inbc ?o - obj) (at ?o - obj ?l - loc))
+ (:action move :parameters (?from ?to - loc)
+   :precondition (at-bc ?from)
+   :effect (and (at-bc ?to) (not (at-bc ?from))
+                (forall (?o - obj)
+                  (when (inbc ?o) (and (at ?o ?to) (not (at ?o ?from)))))))
+ (:action putin :parameters (?o - obj ?l - loc)
+   :precondition (and (at-bc ?l) (at ?o ?l))
+   :effect (inbc ?o))
+ (:action takeout :parameters (?o - obj)
+   :precondition (inbc ?o)
+   :effect (not (inbc ?o))))` | str_key | BRIEFCASE = "(define (domain briefcase)
+ (:requirements :typing :adl)
+ (:types obj loc)
+ (:predicates (at-bc ?l - loc) (inbc ?o - obj) (at ?o - obj ?l - loc))
+ (:action move :parameters (?from ?to - loc)
+   :precondition (at-bc ?from)
+   :effect (and (at-bc ?to) (not (at-bc ?from))
+                (forall (?o - obj)
+                  (when (inbc ?o) (and (at ?o ?to) (not (at ?o ?from)))))))
+ (:action putin :parameters (?o - obj ?l - loc)
+   :precondition (and (at-bc ?l) (at ?o ?l))
+   :effect (inbc ?o))
+ (:action takeout :parameters (?o - obj)
+   :precondition (inbc ?o)
+   :effect (not (inbc ?o))))" |  |  |  |  |
+
+| `(define (domain toggle)
+ (:requirements :adl)
+ (:predicates (on) (marker))
+ (:action flip :parameters ()
+   :precondition (marker)
+   :effect (and (when (on) (not (on))) (when (not (on)) (on)))))` | str_key | TOGGLE = "(define (domain toggle)
+ (:requirements :adl)
+ (:predicates (on) (marker))
+ (:action flip :parameters ()
+   :precondition (marker)
+   :effect (and (when (on) (not (on))) (when (not (on)) (on)))))" |  |  |  |  |
+
+| `(define (domain g)
+ (:requirements :strips :typing)
+ (:types loc)
+ (:predicates (at ?l - loc) (link ?a - loc ?b - loc))
+ (:action move :parameters (?a ?b - loc)
+   :precondition (and (at ?a) (link ?a ?b)) :effect (and (at ?b) (not (at ?a)))))` | str_key | GRID = "(define (domain g)
+ (:requirements :strips :typing)
+ (:types loc)
+ (:predicates (at ?l - loc) (link ?a - loc ?b - loc))
+ (:action move :parameters (?a ?b - loc)
+   :precondition (and (at ?a) (link ?a ?b)) :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (domain t)
+ (:requirements :strips :typing)
+ (:types loc pkg)
+ (:predicates (truck-at ?l - loc) (pkg-at ?p - pkg ?l - loc) (in ?p - pkg) (road ?a ?b - loc))
+ (:action drive :parameters (?a ?b - loc)
+   :precondition (and (truck-at ?a) (road ?a ?b)) :effect (and (truck-at ?b) (not (truck-at ?a))))
+ (:action load :parameters (?p - pkg ?l - loc)
+   :precondition (and (pkg-at ?p ?l) (truck-at ?l)) :effect (and (in ?p) (not (pkg-at ?p ?l))))
+ (:action unload :parameters (?p - pkg ?l - loc)
+   :precondition (and (in ?p) (truck-at ?l)) :effect (and (pkg-at ?p ?l) (not (in ?p)))))` | str_key | TRANSPORT = "(define (domain t)
+ (:requirements :strips :typing)
+ (:types loc pkg)
+ (:predicates (truck-at ?l - loc) (pkg-at ?p - pkg ?l - loc) (in ?p - pkg) (road ?a ?b - loc))
+ (:action drive :parameters (?a ?b - loc)
+   :precondition (and (truck-at ?a) (road ?a ?b)) :effect (and (truck-at ?b) (not (truck-at ?a))))
+ (:action load :parameters (?p - pkg ?l - loc)
+   :precondition (and (pkg-at ?p ?l) (truck-at ?l)) :effect (and (in ?p) (not (pkg-at ?p ?l))))
+ (:action unload :parameters (?p - pkg ?l - loc)
+   :precondition (and (in ?p) (truck-at ?l)) :effect (and (pkg-at ?p ?l) (not (in ?p)))))" |  |  |  |  |
+
+| `parse_domain` | str_key | TARGETS_PARSER = "parse_domain" |  |  |  |  |
+
+| `preprocess` | str_key | TARGETS_PREPROCESS = "preprocess" |  |  |  |  |
+
+| `CALL_BUDGET_CHILD` | env_key | std::env::var("CALL_BUDGET_CHILD") |  |  |  |  |
+
+| `FERROPLAN_CORPUS_DIR` | env_key | std::env::var_os("FERROPLAN_CORPUS_DIR") |  |  |  |  |
+
+| `FERROPLAN_ORACLE_DIR` | env_key | std::env::var_os("FERROPLAN_ORACLE_DIR") |  |  |  |  |
+
+| `FERROPLAN_RUN_DIR` | env_key | std::env::var_os("FERROPLAN_RUN_DIR") |  |  |  |  |
+
+| `HOME` | env_key | std::env::var_os("HOME") |  |  |  |  |
 
 | `corpus_dir` | function | corpus_dir() -> PathBuf |  |  |  |  |
 
@@ -5061,11 +11586,1769 @@
 
 | `sizes_for` | function | sizes_for(seed: u64) -> Sizes |  |  |  |  |
 
+| `;; differential-fuzz: self-authored seeded VALID draw (ticket fond-htn-61,` | str_key | PROVENANCE_DIFF_T61 = ";; differential-fuzz: self-authored seeded VALID draw (ticket fond-htn-61," |  |  |  |  |
+
+| `;; fuzz-found: self-authored seeded draw (ticket fond-htn-31,` | str_key | PROVENANCE_FUZZ_T31 = ";; fuzz-found: self-authored seeded draw (ticket fond-htn-31," |  |  |  |  |
+
 | `Model` | struct | Model { types: Vec<String>, preds: Vec<(String, Vec<usize>)>, actions: Vec<ActionM>, tasks: Vec<(String, Vec<(String, usize)>)>, methods: Vec<MethodM>, objects: Vec<(String, usize)>, init: Vec<LitO>, goal: Vec<LitO>, root: Vec<(String, CallM)> } |  |  |  |  |
 
 | `Rng` | struct | Rng { u64 } |  |  |  |  |
 
 | `Sizes` | struct | Sizes { pub types: usize, pub preds: usize, pub tasks: usize, pub actions: usize, pub objects: usize, pub subs: usize, pub root_subs: usize } |  |  |  |  |
+
+| `
+(define (domain cond-pref)
+  (:requirements :typing :durative-actions :preferences)
+  (:types thing)
+  (:predicates (clean ?x - thing) (ready ?x - thing) (moved ?x - thing) (quiet))
+  (:durative-action move
+    :parameters (?x - thing)
+    :duration (= ?duration 1)
+    :condition (and (preference pc (at start (clean ?x)))
+                    (preference pall (at start (forall (?y - thing) (clean ?y))))
+                    (at start (ready ?x))
+                    (at start (preference pq (quiet)))
+                    (preference po (over all (quiet))))
+    :effect (and (at start (not (ready ?x))) (at end (moved ?x)))))
+` | str_key | COND_DOMAIN = "
+(define (domain cond-pref)
+  (:requirements :typing :durative-actions :preferences)
+  (:types thing)
+  (:predicates (clean ?x - thing) (ready ?x - thing) (moved ?x - thing) (quiet))
+  (:durative-action move
+    :parameters (?x - thing)
+    :duration (= ?duration 1)
+    :condition (and (preference pc (at start (clean ?x)))
+                    (preference pall (at start (forall (?y - thing) (clean ?y))))
+                    (at start (ready ?x))
+                    (at start (preference pq (quiet)))
+                    (preference po (over all (quiet))))
+    :effect (and (at start (not (ready ?x))) (at end (moved ?x)))))
+" |  |  |  |  |
+
+| `
+(define (domain cp-mini)
+  (:requirements :strips :durative-actions :constraints :preferences)
+  (:predicates (fresh-work) (fresh-wave) (done) (waved) (never-obtainable))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 5)
+    :condition (at start (fresh-work))
+    :effect (and (at start (not (fresh-work))) (at end (done))))
+  (:durative-action wave
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-wave))
+    :effect (and (at start (not (fresh-wave))) (at end (waved)))))
+` | str_key | DOMAIN = "
+(define (domain cp-mini)
+  (:requirements :strips :durative-actions :constraints :preferences)
+  (:predicates (fresh-work) (fresh-wave) (done) (waved) (never-obtainable))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 5)
+    :condition (at start (fresh-work))
+    :effect (and (at start (not (fresh-work))) (at end (done))))
+  (:durative-action wave
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-wave))
+    :effect (and (at start (not (fresh-wave))) (at end (waved)))))
+" |  |  |  |  |
+
+| `
+(define (problem cond-pref-1) (:domain cond-pref)
+  (:objects a b - thing)
+  (:init (clean a) (ready a) (ready b) (quiet))
+  (:goal (and (moved a) (moved b)))
+  (:metric minimize (+ (* 1 (is-violated pc)) (* 10 (is-violated pall))
+                       (* 100 (is-violated pq)) (* 1000 (is-violated po)))))
+` | str_key | COND_PROBLEM = "
+(define (problem cond-pref-1) (:domain cond-pref)
+  (:objects a b - thing)
+  (:init (clean a) (ready a) (ready b) (quiet))
+  (:goal (and (moved a) (moved b)))
+  (:metric minimize (+ (* 1 (is-violated pc)) (* 10 (is-violated pall))
+                       (* 100 (is-violated pq)) (* 1000 (is-violated po)))))
+" |  |  |  |  |
+
+| `
+(define (problem cp-mixed) (:domain cp-mini)
+  (:init (fresh-work) (fresh-wave))
+  (:goal (and (done) (preference gp (waved))))
+  (:constraints (and (preference cp (sometime (waved)))
+                     (preference cq (sometime (never-obtainable)))))
+  (:metric minimize (+ (* 2 (is-violated gp))
+                       (* 3 (is-violated cp))
+                       (* 5 (is-violated cq)))))
+` | str_key | P_MIXED = "
+(define (problem cp-mixed) (:domain cp-mini)
+  (:init (fresh-work) (fresh-wave))
+  (:goal (and (done) (preference gp (waved))))
+  (:constraints (and (preference cp (sometime (waved)))
+                     (preference cq (sometime (never-obtainable)))))
+  (:metric minimize (+ (* 2 (is-violated gp))
+                       (* 3 (is-violated cp))
+                       (* 5 (is-violated cq)))))
+" |  |  |  |  |
+
+| `
+(define (problem cp-sat) (:domain cp-mini)
+  (:init (fresh-work) (fresh-wave))
+  (:goal (and (done) (preference gp (waved))))
+  (:constraints (preference cp (sometime (waved))))
+  (:metric minimize (+ (* 2 (is-violated gp)) (* 3 (is-violated cp)))))
+` | str_key | P_SATISFIABLE = "
+(define (problem cp-sat) (:domain cp-mini)
+  (:init (fresh-work) (fresh-wave))
+  (:goal (and (done) (preference gp (waved))))
+  (:constraints (preference cp (sometime (waved))))
+  (:metric minimize (+ (* 2 (is-violated gp)) (* 3 (is-violated cp)))))
+" |  |  |  |  |
+
+| `(define (domain sw)
+  (:requirements :strips :constraints)
+  (:predicates (on) (off) (lamp) (used))
+  (:action flip-on :precondition (off) :effect (and (not (off)) (on)))
+  (:action flip-off :precondition (on) :effect (and (not (on)) (off)))
+  (:action light :precondition (on) :effect (and (lamp) (used))))` | str_key | DOM = "(define (domain sw)
+  (:requirements :strips :constraints)
+  (:predicates (on) (off) (lamp) (used))
+  (:action flip-on :precondition (off) :effect (and (not (off)) (on)))
+  (:action flip-off :precondition (on) :effect (and (not (on)) (off)))
+  (:action light :precondition (on) :effect (and (lamp) (used))))" |  |  |  |  |
+
+| `(define (domain sws)
+  (:requirements :strips :constraints)
+  (:predicates (on) (off) (lamp) (used) (linked))
+  (:action flip-on :precondition (off) :effect (and (not (off)) (on)))
+  (:action flip-off :precondition (on) :effect (and (not (on)) (off)))
+  (:action light :precondition (on) :effect (and (lamp) (used))))` | str_key | DOMS = "(define (domain sws)
+  (:requirements :strips :constraints)
+  (:predicates (on) (off) (lamp) (used) (linked))
+  (:action flip-on :precondition (off) :effect (and (not (off)) (on)))
+  (:action flip-off :precondition (on) :effect (and (not (on)) (off)))
+  (:action light :precondition (on) :effect (and (lamp) (used))))" |  |  |  |  |
+
+| `../../../examples/daily_agent_methods/domain.ppddl` | str_key | DOMAIN = "../../../examples/daily_agent_methods/domain.ppddl" |  |  |  |  |
+
+| `../../../examples/daily_agent_methods/method-catalog.json` | str_key | CATALOG = "../../../examples/daily_agent_methods/method-catalog.json" |  |  |  |  |
+
+| `../../../examples/daily_agent_methods/problem-2026-07-31.ppddl` | str_key | PROBLEM = "../../../examples/daily_agent_methods/problem-2026-07-31.ppddl" |  |  |  |  |
+
+| `../../../examples/daily_agent_methods/receipt-2026-07-31.json` | str_key | RECEIPT = "../../../examples/daily_agent_methods/receipt-2026-07-31.json" |  |  |  |  |
+
+| `
+(define (domain acc)
+  (:requirements :durative-actions :numeric-fluents)
+  (:functions (x))
+  (:durative-action step :parameters () :duration (= ?duration 1)
+    :condition () :effect (at end (increase (x) 1))))
+` | str_key | SINGLE = "
+(define (domain acc)
+  (:requirements :durative-actions :numeric-fluents)
+  (:functions (x))
+  (:durative-action step :parameters () :duration (= ?duration 1)
+    :condition () :effect (at end (increase (x) 1))))
+" |  |  |  |  |
+
+| `
+(define (domain mk)
+  (:requirements :durative-actions :numeric-fluents)
+  (:functions (a) (b))
+  (:durative-action make-a :parameters () :duration (= ?duration 2)
+    :condition () :effect (at end (increase (a) 1)))
+  (:durative-action make-b :parameters () :duration (= ?duration 3)
+    :condition () :effect (at end (increase (b) 1))))
+` | str_key | TWO_DELIVERABLES = "
+(define (domain mk)
+  (:requirements :durative-actions :numeric-fluents)
+  (:functions (a) (b))
+  (:durative-action make-a :parameters () :duration (= ?duration 2)
+    :condition () :effect (at end (increase (a) 1)))
+  (:durative-action make-b :parameters () :duration (= ?duration 3)
+    :condition () :effect (at end (increase (b) 1))))
+" |  |  |  |  |
+
+| `(define (problem p) (:domain acc) (:init (= (x) 0)) (:goal (>= (x) 3)))` | str_key | SINGLE_PROB = "(define (problem p) (:domain acc) (:init (= (x) 0)) (:goal (>= (x) 3)))" |  |  |  |  |
+
+| `(define (problem p) (:domain mk)
+  (:init (= (a) 0) (= (b) 0))
+  (:goal (and (>= (a) 1) (>= (b) 1))))` | str_key | TWO_PROB = "(define (problem p) (:domain mk)
+  (:init (= (a) 0) (= (b) 0))
+  (:goal (and (>= (a) 1) (>= (b) 1))))" |  |  |  |  |
+
+| `DIFFERENTIAL_FUZZ_FRESH` | env_key | std::env::var("DIFFERENTIAL_FUZZ_FRESH") |  |  |  |  |
+
+| `CARGO_MANIFEST_DIR` | str_key | LEDGER_PATH = "CARGO_MANIFEST_DIR" |  |  |  |  |
+
+| `flexible` | str_key | ORACLE_MODE = "flexible" |  |  |  |  |
+
+| `redecomposition` | str_key | KNOWN_DIVERGENCES = "redecomposition" |  |  |  |  |
+
+| `FF_H_ENDGATE` | env_key | std::env::var("FF_H_ENDGATE") |  |  |  |  |
+
+| `
+(define (domain endgate)
+  (:predicates (ga) (gb))
+  (:action snap-start :parameters () :effect (ga))
+  (:action snap-end   :parameters () :effect (gb)))` | str_key | SNAP_DOM = "
+(define (domain endgate)
+  (:predicates (ga) (gb))
+  (:action snap-start :parameters () :effect (ga))
+  (:action snap-end   :parameters () :effect (gb)))" |  |  |  |  |
+
+| `ENRICH_CAP` | env_key | std::env::var("ENRICH_CAP") |  |  |  |  |
+
+| `ENRICH_CHILD` | env_key | std::env::var("ENRICH_CHILD") |  |  |  |  |
+
+| `ENRICH_K` | env_key | std::env::var("ENRICH_K") |  |  |  |  |
+
+| `
+(define (domain adlfold)
+  (:requirements :adl :typing :numeric-fluents)
+  (:types box)
+  (:predicates (open ?b - box) (heavy ?b - box) (moved ?b - box))
+  (:functions (weight ?b - box) (carried))
+  (:action move
+    :parameters (?b - box)
+    :precondition (not (moved ?b))
+    :effect (and (moved ?b)
+                 (when (heavy ?b) (increase (carried) (weight ?b))))))` | str_key | ADL_DOM = "
+(define (domain adlfold)
+  (:requirements :adl :typing :numeric-fluents)
+  (:types box)
+  (:predicates (open ?b - box) (heavy ?b - box) (moved ?b - box))
+  (:functions (weight ?b - box) (carried))
+  (:action move
+    :parameters (?b - box)
+    :precondition (not (moved ?b))
+    :effect (and (moved ?b)
+                 (when (heavy ?b) (increase (carried) (weight ?b))))))" |  |  |  |  |
+
+| `
+(define (domain costfold)
+  (:requirements :strips :typing :action-costs)
+  (:types loc)
+  (:predicates (at ?l - loc) (road ?a ?b - loc) (visited ?l - loc))
+  (:functions (total-cost) (toll ?a ?b - loc))
+  (:action go
+    :parameters (?a ?b - loc)
+    :precondition (and (at ?a) (road ?a ?b))
+    :effect (and (not (at ?a)) (at ?b) (visited ?b)
+                 (increase (total-cost) (toll ?a ?b)))))` | str_key | COSTS_DOM = "
+(define (domain costfold)
+  (:requirements :strips :typing :action-costs)
+  (:types loc)
+  (:predicates (at ?l - loc) (road ?a ?b - loc) (visited ?l - loc))
+  (:functions (total-cost) (toll ?a ?b - loc))
+  (:action go
+    :parameters (?a ?b - loc)
+    :precondition (and (at ?a) (road ?a ?b))
+    :effect (and (not (at ?a)) (at ?b) (visited ?b)
+                 (increase (total-cost) (toll ?a ?b)))))" |  |  |  |  |
+
+| `
+(define (domain durexpr)
+  (:requirements :strips :durative-actions :numeric-fluents)
+  (:predicates (ready) (boosted) (done))
+  (:functions (speed) (progress))
+  (:durative-action boost
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (ready))
+    :effect (and (at start (not (ready)))
+                 (at start (increase (speed) 2))
+                 (at end (boosted))))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration (speed))
+    :condition (at start (boosted))
+    :effect (and (at start (increase (progress) ?duration))
+                 (at end (done)))))` | str_key | DUREXPR_DOM = "
+(define (domain durexpr)
+  (:requirements :strips :durative-actions :numeric-fluents)
+  (:predicates (ready) (boosted) (done))
+  (:functions (speed) (progress))
+  (:durative-action boost
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (ready))
+    :effect (and (at start (not (ready)))
+                 (at start (increase (speed) 2))
+                 (at end (boosted))))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration (speed))
+    :condition (at start (boosted))
+    :effect (and (at start (increase (progress) ?duration))
+                 (at end (done)))))" |  |  |  |  |
+
+| `
+(define (domain minitpp)
+  (:requirements :strips :typing :numeric-fluents)
+  (:types place goods)
+  (:predicates (at ?p - place) (link ?a ?b - place))
+  (:functions (price ?g - goods ?p - place) (bought ?g - goods)
+              (request ?g - goods) (spent))
+  (:action drive
+    :parameters (?a ?b - place)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (not (at ?a)) (at ?b)))
+  (:action buy
+    :parameters (?g - goods ?p - place)
+    :precondition (and (at ?p) (< (bought ?g) (request ?g)))
+    :effect (and (increase (bought ?g) 1)
+                 (increase (spent) (price ?g ?p)))))` | str_key | MINITPP_DOM = "
+(define (domain minitpp)
+  (:requirements :strips :typing :numeric-fluents)
+  (:types place goods)
+  (:predicates (at ?p - place) (link ?a ?b - place))
+  (:functions (price ?g - goods ?p - place) (bought ?g - goods)
+              (request ?g - goods) (spent))
+  (:action drive
+    :parameters (?a ?b - place)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (not (at ?a)) (at ?b)))
+  (:action buy
+    :parameters (?g - goods ?p - place)
+    :precondition (and (at ?p) (< (bought ?g) (request ?g)))
+    :effect (and (increase (bought ?g) 1)
+                 (increase (spent) (price ?g ?p)))))" |  |  |  |  |
+
+| `
+(define (problem adlfold-1) (:domain adlfold)
+  (:objects b1 b2 b3 - box)
+  (:init (heavy b1) (heavy b3)
+         (= (weight b1) 10) (= (weight b2) 1) (= (weight b3) 3)
+         (= (carried) 0))
+  (:goal (and (moved b1) (moved b2) (moved b3))))` | str_key | ADL_PRB = "
+(define (problem adlfold-1) (:domain adlfold)
+  (:objects b1 b2 b3 - box)
+  (:init (heavy b1) (heavy b3)
+         (= (weight b1) 10) (= (weight b2) 1) (= (weight b3) 3)
+         (= (carried) 0))
+  (:goal (and (moved b1) (moved b2) (moved b3))))" |  |  |  |  |
+
+| `
+(define (problem costfold-1) (:domain costfold)
+  (:objects a b c d - loc)
+  (:init (at a) (road a b) (road b c) (road a c) (road c d)
+         (= (toll a b) 1) (= (toll b c) 1) (= (toll a c) 5) (= (toll c d) 2)
+         (= (total-cost) 0))
+  (:goal (visited d))
+  (:metric minimize (total-cost)))` | str_key | COSTS_PRB = "
+(define (problem costfold-1) (:domain costfold)
+  (:objects a b c d - loc)
+  (:init (at a) (road a b) (road b c) (road a c) (road c d)
+         (= (toll a b) 1) (= (toll b c) 1) (= (toll a c) 5) (= (toll c d) 2)
+         (= (total-cost) 0))
+  (:goal (visited d))
+  (:metric minimize (total-cost)))" |  |  |  |  |
+
+| `
+(define (problem durexpr-1) (:domain durexpr)
+  (:init (ready) (= (speed) 1) (= (progress) 0))
+  (:goal (and (done) (>= (progress) 3))))` | str_key | DUREXPR_PRB = "
+(define (problem durexpr-1) (:domain durexpr)
+  (:init (ready) (= (speed) 1) (= (progress) 0))
+  (:goal (and (done) (>= (progress) 3))))" |  |  |  |  |
+
+| `
+(define (problem minitpp-1) (:domain minitpp)
+  (:objects p1 p2 p3 - place g1 g2 - goods)
+  (:init (at p1) (link p1 p2) (link p2 p3) (link p2 p1) (link p3 p2)
+         (= (price g1 p1) 4) (= (price g1 p2) 2) (= (price g1 p3) 7)
+         (= (price g2 p1) 5) (= (price g2 p2) 9) (= (price g2 p3) 1)
+         (= (bought g1) 0) (= (bought g2) 0)
+         (= (request g1) 2) (= (request g2) 1)
+         (= (spent) 0))
+  (:goal (and (>= (bought g1) (request g1)) (>= (bought g2) (request g2)))))` | str_key | MINITPP_PRB = "
+(define (problem minitpp-1) (:domain minitpp)
+  (:objects p1 p2 p3 - place g1 g2 - goods)
+  (:init (at p1) (link p1 p2) (link p2 p3) (link p2 p1) (link p3 p2)
+         (= (price g1 p1) 4) (= (price g1 p2) 2) (= (price g1 p3) 7)
+         (= (price g2 p1) 5) (= (price g2 p2) 9) (= (price g2 p3) 1)
+         (= (bought g1) 0) (= (bought g2) 0)
+         (= (request g1) 2) (= (request g2) 1)
+         (= (spent) 0))
+  (:goal (and (>= (bought g1) (request g1)) (>= (bought g2) (request g2)))))" |  |  |  |  |
+
+| `strong FOND fixed point` | str_key | STRONG_NOTE = "strong FOND fixed point" |  |  |  |  |
+
+| `strong-cyclic FOND fixpoint` | str_key | STRONG_CYCLIC_NOTE = "strong-cyclic FOND fixpoint" |  |  |  |  |
+
+| `tireworld` | str_key | DOMAINS = "tireworld" |  |  |  |  |
+
+| `drop-retry` | str_key | ALL = "drop-retry" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/both-branches-deadend/domain.hddl` | str_key | BOTH_BRANCHES_DEADEND = "fixtures/fond-htn-micro/both-branches-deadend/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/drop-retry/domain.hddl` | str_key | DROP_RETRY = "fixtures/fond-htn-micro/drop-retry/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/grow-loop/domain.hddl` | str_key | GROW_LOOP = "fixtures/fond-htn-micro/grow-loop/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/plain-chain/domain.hddl` | str_key | PLAIN_CHAIN = "fixtures/fond-htn-micro/plain-chain/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/sense-then-branch/domain.hddl` | str_key | SENSE_THEN_BRANCH = "fixtures/fond-htn-micro/sense-then-branch/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/supervisor-fail/domain.hddl` | str_key | SUPERVISOR_FAIL = "fixtures/fond-htn-micro/supervisor-fail/domain.hddl" |  |  |  |  |
+
+| `fixtures/fond-htn-micro/tray-dirty/domain.hddl` | str_key | TRAY_DIRTY = "fixtures/fond-htn-micro/tray-dirty/domain.hddl" |  |  |  |  |
+
+| `CARGO_MANIFEST_DIR` | str_key | FIXTURE_DIR = "CARGO_MANIFEST_DIR" |  |  |  |  |
+
+| `fixtures/fond-htn/oracle-goldens.json` | str_key | GOLDENS_RAW = "fixtures/fond-htn/oracle-goldens.json" |  |  |  |  |
+
+| `ticket floor is 300+ instances` | str_key | _ = "ticket floor is 300+ instances" |  |  |  |  |
+
+| `drop-retry` | str_key | CASES = "drop-retry" |  |  |  |  |
+
+| `fixtures/fond-unsafe/abyss-avoid-problem.hddl` | str_key | ABYSS_AVOID_PROBLEM = "fixtures/fond-unsafe/abyss-avoid-problem.hddl" |  |  |  |  |
+
+| `fixtures/fond-unsafe/abyss-avoid.hddl` | str_key | ABYSS_AVOID_DOMAIN = "fixtures/fond-unsafe/abyss-avoid.hddl" |  |  |  |  |
+
+| `fixtures/fond-unsafe/abyss-both-problem.hddl` | str_key | ABYSS_BOTH_PROBLEM = "fixtures/fond-unsafe/abyss-both-problem.hddl" |  |  |  |  |
+
+| `fixtures/fond-unsafe/abyss-both.hddl` | str_key | ABYSS_BOTH_DOMAIN = "fixtures/fond-unsafe/abyss-both.hddl" |  |  |  |  |
+
+| `freecell_learned_ecai_16` | str_key | CASES = "freecell_learned_ecai_16" |  |  |  |  |
+
+| `GROUND_WALL_CHILD` | env_key | std::env::var("GROUND_WALL_CHILD") |  |  |  |  |
+
+| `freecell_learned_ecai_16` | str_key | CASES = "freecell_learned_ecai_16" |  |  |  |  |
+
+| `abstract-task-without-decomposition-domain.hddl` | str_key | CORPUS_ACCEPTED_SCOPE_GAPS = "abstract-task-without-decomposition-domain.hddl" |  |  |  |  |
+
+| `TIMEOUT(normalized)` | str_key | TIMEOUT_TAG = "TIMEOUT(normalized)" |  |  |  |  |
+
+| `solve:TIMEOUT(normalized)` | str_key | TIMEOUT_SOLVE = "solve:TIMEOUT(normalized)" |  |  |  |  |
+
+| `blocksworld_gtohp` | str_key | INSTANCES = "blocksworld_gtohp" |  |  |  |  |
+
+| `PCP_1` | str_key | KNOWN_MISMATCHES = "PCP_1" |  |  |  |  |
+
+| `INC_LMCUT_CHILD` | env_key | std::env::var("INC_LMCUT_CHILD") |  |  |  |  |
+
+| `assemblyhierarchical` | str_key | DOMAINS = "assemblyhierarchical" |  |  |  |  |
+
+| `lamps` | str_key | SAMPLED = "lamps" |  |  |  |  |
+
+| `LADDER_DEDUP_CHILD` | env_key | std::env::var("LADDER_DEDUP_CHILD") |  |  |  |  |
+
+| `LADDER_WALL_CHILD` | env_key | std::env::var("LADDER_WALL_CHILD") |  |  |  |  |
+
+| `
+(define (domain chain)
+  (:requirements :strips)
+  (:predicates (a) (b) (c))
+  (:action ab :parameters () :precondition (a) :effect (b))
+  (:action bc :parameters () :precondition (b) :effect (c)))
+` | str_key | CHAIN = "
+(define (domain chain)
+  (:requirements :strips)
+  (:predicates (a) (b) (c))
+  (:action ab :parameters () :precondition (a) :effect (b))
+  (:action bc :parameters () :precondition (b) :effect (c)))
+" |  |  |  |  |
+
+| `MCV_ROUTE_CHILD` | env_key | std::env::var("MCV_ROUTE_CHILD") |  |  |  |  |
+
+| `MCV_STRAT_CHILD` | env_key | std::env::var("MCV_STRAT_CHILD") |  |  |  |  |
+
+| `(define (domain fixroute) (:requirements :typing)
+  (:types item key - object)
+  (:predicates (tok ?a ?b - item ?c - key) (done ?a - item) (seeded))
+  (:action seed :parameters ()
+    :precondition (and) :effect (and (seeded) (tok i1 i2 k1)))
+  (:action reap :parameters (?a ?b - item ?c - key)
+    :precondition (and (seeded) (tok ?a ?b ?c))
+    :effect (done ?a)))` | str_key | ROUTE_DOM = "(define (domain fixroute) (:requirements :typing)
+  (:types item key - object)
+  (:predicates (tok ?a ?b - item ?c - key) (done ?a - item) (seeded))
+  (:action seed :parameters ()
+    :precondition (and) :effect (and (seeded) (tok i1 i2 k1)))
+  (:action reap :parameters (?a ?b - item ?c - key)
+    :precondition (and (seeded) (tok ?a ?b ?c))
+    :effect (done ?a)))" |  |  |  |  |
+
+| `MEM_WALL_CHILD` | env_key | std::env::var("MEM_WALL_CHILD") |  |  |  |  |
+
+| `0.25` | str_key | BUDGET_GB = "0.25" |  |  |  |  |
+
+| `FERROPLAN_MEMORY_STRESS_CHILD` | str_key | CHILD_ENV = "FERROPLAN_MEMORY_STRESS_CHILD" |  |  |  |  |
+
+| `predicates-500` | str_key | SAMPLED_CASES = "predicates-500" |  |  |  |  |
+
+| `FERROPLAN_REQUIRE_MFW_ORACLE` | env_key | std::env::var_os("FERROPLAN_REQUIRE_MFW_ORACLE") |  |  |  |  |
+
+| `MFW_PLANNER_ORACLE_PYTHONPATH` | env_key | std::env::var("MFW_PLANNER_ORACLE_PYTHONPATH") |  |  |  |  |
+
+| `
+(define (domain nb)
+  (:requirements :strips :action-costs)
+  (:predicates (have-a) (have-b) (blocked))
+  (:functions (total-cost) - number)
+  (:action get-a
+    :parameters ()
+    :precondition ()
+    :effect (and (have-a) (increase (total-cost) 3)))
+  (:action get-b
+    :parameters ()
+    :precondition (blocked)
+    :effect (and (have-b) (increase (total-cost) 1))))
+` | str_key | NB_DOMAIN = "
+(define (domain nb)
+  (:requirements :strips :action-costs)
+  (:predicates (have-a) (have-b) (blocked))
+  (:functions (total-cost) - number)
+  (:action get-a
+    :parameters ()
+    :precondition ()
+    :effect (and (have-a) (increase (total-cost) 3)))
+  (:action get-b
+    :parameters ()
+    :precondition (blocked)
+    :effect (and (have-b) (increase (total-cost) 1))))
+" |  |  |  |  |
+
+| `
+(define (problem nb-1) (:domain nb)
+  (:init (= (total-cost) 0))
+  (:goal (and (preference pa (have-a)) (preference pb (have-b))))
+  (:metric maximize (- 15 (+ (total-cost)
+                             (* (is-violated pa) 10)
+                             (* (is-violated pb) 5)))))
+` | str_key | NB_PROBLEM = "
+(define (problem nb-1) (:domain nb)
+  (:init (= (total-cost) 0))
+  (:goal (and (preference pa (have-a)) (preference pb (have-b))))
+  (:metric maximize (- 15 (+ (total-cost)
+                             (* (is-violated pa) 10)
+                             (* (is-violated pb) 5)))))
+" |  |  |  |  |
+
+| `NODE_CAP_RLIMIT_CHILD` | env_key | std::env::var("NODE_CAP_RLIMIT_CHILD") |  |  |  |  |
+
+| `NOVDRIVER_CHILD` | env_key | std::env::var("NOVDRIVER_CHILD") |  |  |  |  |
+
+| `NUMFOLD_CHILD` | env_key | std::env::var("NUMFOLD_CHILD") |  |  |  |  |
+
+| `NUMOPT_ARM_CHILD` | env_key | std::env::var("NUMOPT_ARM_CHILD") |  |  |  |  |
+
+| `../../../benchmarks/bench/chained-band-domain.pddl` | str_key | CHAIN_DOM = "../../../benchmarks/bench/chained-band-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/chained-band-i1.pddl` | str_key | CHAIN_PRB = "../../../benchmarks/bench/chained-band-i1.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/fo-sailing-domain.pddl` | str_key | FOSAIL_DOM = "../../../benchmarks/bench/fo-sailing-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/fo-sailing-i8.pddl` | str_key | FOSAIL_I8 = "../../../benchmarks/bench/fo-sailing-i8.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/sailing-band-domain.pddl` | str_key | SAIL_DOM = "../../../benchmarks/bench/sailing-band-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/sailing-band-i1.pddl` | str_key | SAIL_PRB = "../../../benchmarks/bench/sailing-band-i1.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/trader-cycle-domain.pddl` | str_key | TRADE_DOM = "../../../benchmarks/bench/trader-cycle-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/trader-cycle-i1.pddl` | str_key | TRADE_PRB = "../../../benchmarks/bench/trader-cycle-i1.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/watering-line-domain.pddl` | str_key | WATER_DOM = "../../../benchmarks/bench/watering-line-domain.pddl" |  |  |  |  |
+
+| `../../../benchmarks/bench/watering-line-i1.pddl` | str_key | WATER_PRB = "../../../benchmarks/bench/watering-line-i1.pddl" |  |  |  |  |
+
+| `OPT_WALL_CHILD` | env_key | std::env::var("OPT_WALL_CHILD") |  |  |  |  |
+
+| `
+(define (domain fees)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget) (alldone))
+  (:functions (total-cost) (fee ?g - gadget))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (fee ?g))))
+  (:action finish
+    :parameters (?g - gadget)
+    :precondition (done ?g)
+    :effect (alldone)))
+` | str_key | FEE_DOM = "
+(define (domain fees)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget) (alldone))
+  (:functions (total-cost) (fee ?g - gadget))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (fee ?g))))
+  (:action finish
+    :parameters (?g - gadget)
+    :precondition (done ?g)
+    :effect (alldone)))
+" |  |  |  |  |
+
+| `
+(define (domain gadgets)
+  (:requirements :strips :typing :action-costs)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) 1))))
+` | str_key | GADGET_DOM_CONST = "
+(define (domain gadgets)
+  (:requirements :strips :typing :action-costs)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) 1))))
+" |  |  |  |  |
+
+| `
+(define (domain gadgets-dyn)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost) (surcharge))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (surcharge))))
+  (:action bump
+    :parameters ()
+    :precondition (and)
+    :effect (increase (surcharge) 1)))
+` | str_key | GADGET_DOM_DYN = "
+(define (domain gadgets-dyn)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost) (surcharge))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (surcharge))))
+  (:action bump
+    :parameters ()
+    :precondition (and)
+    :effect (increase (surcharge) 1)))
+" |  |  |  |  |
+
+| `
+(define (domain gadgets-static)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost) (surcharge))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (surcharge)))))
+` | str_key | GADGET_DOM_STATIC = "
+(define (domain gadgets-static)
+  (:requirements :strips :typing :action-costs :numeric-fluents)
+  (:types gadget)
+  (:predicates (fresh ?g - gadget) (done ?g - gadget))
+  (:functions (total-cost) (surcharge))
+  (:action prep
+    :parameters (?g - gadget)
+    :precondition (fresh ?g)
+    :effect (and (not (fresh ?g)) (done ?g) (increase (total-cost) (surcharge)))))
+" |  |  |  |  |
+
+| `
+(define (domain mini-snack)
+  (:requirements :strips :typing)
+  (:types child bread sandwich tray)
+  (:predicates (at-kitchen-bread ?b - bread) (at-kitchen-sandwich ?s - sandwich)
+               (notexist ?s - sandwich) (ontray ?s - sandwich ?t - tray)
+               (served ?c - child) (waiting ?c - child))
+  (:action make
+    :parameters (?s - sandwich ?b - bread)
+    :precondition (and (notexist ?s) (at-kitchen-bread ?b))
+    :effect (and (not (notexist ?s)) (not (at-kitchen-bread ?b))
+                 (at-kitchen-sandwich ?s)))
+  (:action put
+    :parameters (?s - sandwich ?t - tray)
+    :precondition (at-kitchen-sandwich ?s)
+    :effect (and (not (at-kitchen-sandwich ?s)) (ontray ?s ?t)))
+  (:action serve
+    :parameters (?s - sandwich ?t - tray ?c - child)
+    :precondition (and (ontray ?s ?t) (waiting ?c))
+    :effect (and (not (ontray ?s ?t)) (not (waiting ?c)) (served ?c))))
+` | str_key | SNACK_DOM = "
+(define (domain mini-snack)
+  (:requirements :strips :typing)
+  (:types child bread sandwich tray)
+  (:predicates (at-kitchen-bread ?b - bread) (at-kitchen-sandwich ?s - sandwich)
+               (notexist ?s - sandwich) (ontray ?s - sandwich ?t - tray)
+               (served ?c - child) (waiting ?c - child))
+  (:action make
+    :parameters (?s - sandwich ?b - bread)
+    :precondition (and (notexist ?s) (at-kitchen-bread ?b))
+    :effect (and (not (notexist ?s)) (not (at-kitchen-bread ?b))
+                 (at-kitchen-sandwich ?s)))
+  (:action put
+    :parameters (?s - sandwich ?t - tray)
+    :precondition (at-kitchen-sandwich ?s)
+    :effect (and (not (at-kitchen-sandwich ?s)) (ontray ?s ?t)))
+  (:action serve
+    :parameters (?s - sandwich ?t - tray ?c - child)
+    :precondition (and (ontray ?s ?t) (waiting ?c))
+    :effect (and (not (ontray ?s ?t)) (not (waiting ?c)) (served ?c))))
+" |  |  |  |  |
+
+| `
+(define (problem fees-1)
+  (:domain fees)
+  (:objects g1 g2 - gadget)
+  (:init (fresh g1) (fresh g2) (= (total-cost) 0)
+         (= (fee g1) 1) (= (fee g2) 9))
+  (:goal (alldone))
+  (:metric minimize (total-cost)))
+` | str_key | FEE_PRB = "
+(define (problem fees-1)
+  (:domain fees)
+  (:objects g1 g2 - gadget)
+  (:init (fresh g1) (fresh g2) (= (total-cost) 0)
+         (= (fee g1) 1) (= (fee g2) 9))
+  (:goal (alldone))
+  (:metric minimize (total-cost)))
+" |  |  |  |  |
+
+| `
+(define (problem mini-snack-1)
+  (:domain mini-snack)
+  (:objects c1 c2 c3 - child b1 b2 b3 - bread s1 s2 s3 s4 - sandwich t1 - tray)
+  (:init (waiting c1) (waiting c2) (waiting c3)
+         (at-kitchen-bread b1) (at-kitchen-bread b2) (at-kitchen-bread b3)
+         (notexist s1) (notexist s2) (notexist s3) (notexist s4))
+  (:goal (and (served c1) (served c2) (served c3))))
+` | str_key | SNACK_PRB = "
+(define (problem mini-snack-1)
+  (:domain mini-snack)
+  (:objects c1 c2 c3 - child b1 b2 b3 - bread s1 s2 s3 s4 - sandwich t1 - tray)
+  (:init (waiting c1) (waiting c2) (waiting c3)
+         (at-kitchen-bread b1) (at-kitchen-bread b2) (at-kitchen-bread b3)
+         (notexist s1) (notexist s2) (notexist s3) (notexist s4))
+  (:goal (and (served c1) (served c2) (served c3))))
+" |  |  |  |  |
+
+| `
+    (define (problem iso-paint-uniform)
+      (:domain iso-paint)
+      (:objects b1 b2 b3 b4 - block)
+      (:init (clean b1) (clean b2) (clean b3) (clean b4))
+      (:goal (and (red b1) (red b2) (red b3) (red b4))))
+    ` | str_key | UNIFORM_PRB = "
+    (define (problem iso-paint-uniform)
+      (:domain iso-paint)
+      (:objects b1 b2 b3 b4 - block)
+      (:init (clean b1) (clean b2) (clean b3) (clean b4))
+      (:goal (and (red b1) (red b2) (red b3) (red b4))))
+    " |  |  |  |  |
+
+| `
+(define (domain iso-bake)
+  (:requirements :strips :typing :durative-actions)
+  (:types piece)
+  (:predicates (raw ?p - piece) (made ?p - piece)
+               (fancy ?p - piece) (plain ?p - piece) (free))
+  (:durative-action make
+    :parameters (?p - piece)
+    :duration (= ?duration 2)
+    :condition (and (at start (raw ?p)) (over all (free)))
+    :effect (and (at start (not (raw ?p))) (at end (made ?p))))
+  (:durative-action finish-fancy
+    :parameters (?p - piece)
+    :duration (= ?duration 1)
+    :condition (at start (made ?p))
+    :effect (at end (fancy ?p)))
+  (:durative-action finish-plain
+    :parameters (?p - piece)
+    :duration (= ?duration 1)
+    :condition (at start (made ?p))
+    :effect (at end (plain ?p))))
+` | str_key | BAKE_DOM = "
+(define (domain iso-bake)
+  (:requirements :strips :typing :durative-actions)
+  (:types piece)
+  (:predicates (raw ?p - piece) (made ?p - piece)
+               (fancy ?p - piece) (plain ?p - piece) (free))
+  (:durative-action make
+    :parameters (?p - piece)
+    :duration (= ?duration 2)
+    :condition (and (at start (raw ?p)) (over all (free)))
+    :effect (and (at start (not (raw ?p))) (at end (made ?p))))
+  (:durative-action finish-fancy
+    :parameters (?p - piece)
+    :duration (= ?duration 1)
+    :condition (at start (made ?p))
+    :effect (at end (fancy ?p)))
+  (:durative-action finish-plain
+    :parameters (?p - piece)
+    :duration (= ?duration 1)
+    :condition (at start (made ?p))
+    :effect (at end (plain ?p))))
+" |  |  |  |  |
+
+| `
+(define (domain iso-paint)
+  (:requirements :strips :typing)
+  (:types block)
+  (:predicates (clean ?b - block) (red ?b - block) (blue ?b - block))
+  (:action paint-red
+    :parameters (?b - block)
+    :precondition (clean ?b)
+    :effect (and (not (clean ?b)) (red ?b)))
+  (:action paint-blue
+    :parameters (?b - block)
+    :precondition (clean ?b)
+    :effect (and (not (clean ?b)) (blue ?b))))
+` | str_key | PAINT_DOM = "
+(define (domain iso-paint)
+  (:requirements :strips :typing)
+  (:types block)
+  (:predicates (clean ?b - block) (red ?b - block) (blue ?b - block))
+  (:action paint-red
+    :parameters (?b - block)
+    :precondition (clean ?b)
+    :effect (and (not (clean ?b)) (red ?b)))
+  (:action paint-blue
+    :parameters (?b - block)
+    :precondition (clean ?b)
+    :effect (and (not (clean ?b)) (blue ?b))))
+" |  |  |  |  |
+
+| `
+(define (problem iso-bake-1)
+  (:domain iso-bake)
+  (:objects a b c - piece)
+  (:init (raw a) (raw b) (raw c) (free))
+  (:goal (and (fancy a) (plain b))))
+` | str_key | BAKE_PRB = "
+(define (problem iso-bake-1)
+  (:domain iso-bake)
+  (:objects a b c - piece)
+  (:init (raw a) (raw b) (raw c) (free))
+  (:goal (and (fancy a) (plain b))))
+" |  |  |  |  |
+
+| `
+(define (problem iso-paint-1)
+  (:domain iso-paint)
+  (:objects b1 b2 b3 b4 - block)
+  (:init (clean b1) (clean b2) (clean b3) (clean b4))
+  (:goal (and (red b1) (blue b2))))
+` | str_key | PAINT_PRB = "
+(define (problem iso-paint-1)
+  (:domain iso-paint)
+  (:objects b1 b2 b3 b4 - block)
+  (:init (clean b1) (clean b2) (clean b3) (clean b4))
+  (:goal (and (red b1) (blue b2))))
+" |  |  |  |  |
+
+| `
+(define (problem iso-paint-2)
+  (:domain iso-paint)
+  (:objects b1 b2 b3 b4 - block)
+  (:init (clean b1) (clean b2) (clean b3) (clean b4))
+  (:goal (and (red b1) (blue b3))))
+` | str_key | PAINT_PRB_B3 = "
+(define (problem iso-paint-2)
+  (:domain iso-paint)
+  (:objects b1 b2 b3 b4 - block)
+  (:init (clean b1) (clean b2) (clean b3) (clean b4))
+  (:goal (and (red b1) (blue b3))))
+" |  |  |  |  |
+
+| `
+(define (domain fuel-gap)
+  (:requirements :typing :durative-actions :numeric-fluents)
+  (:types rig)
+  (:predicates (idle) (hot) (done) (dipped) (refilled))
+  (:functions (level))
+  (:durative-action run
+    :parameters (?r - rig)
+    :duration (= ?duration 10)
+    :condition (and (at start (idle)) (over all (>= (level) 1)))
+    :effect (and (at start (not (idle))) (at start (hot))
+                 (at end (not (hot))) (at end (done))))
+  (:durative-action topup
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (idle))
+    :effect (at start (increase (level) 2)))
+  (:durative-action dip
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (hot))
+    :effect (and (at start (dipped)) (at start (decrease (level) 2))))
+  (:durative-action refill
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (dipped))
+    :effect (and (at start (refilled)) (at start (increase (level) 2)))))
+` | str_key | FUEL_DOM = "
+(define (domain fuel-gap)
+  (:requirements :typing :durative-actions :numeric-fluents)
+  (:types rig)
+  (:predicates (idle) (hot) (done) (dipped) (refilled))
+  (:functions (level))
+  (:durative-action run
+    :parameters (?r - rig)
+    :duration (= ?duration 10)
+    :condition (and (at start (idle)) (over all (>= (level) 1)))
+    :effect (and (at start (not (idle))) (at start (hot))
+                 (at end (not (hot))) (at end (done))))
+  (:durative-action topup
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (idle))
+    :effect (at start (increase (level) 2)))
+  (:durative-action dip
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (hot))
+    :effect (and (at start (dipped)) (at start (decrease (level) 2))))
+  (:durative-action refill
+    :parameters (?r - rig)
+    :duration (= ?duration 1)
+    :condition (at start (dipped))
+    :effect (and (at start (refilled)) (at start (increase (level) 2)))))
+" |  |  |  |  |
+
+| `
+(define (domain kiln-gap)
+  (:requirements :typing :durative-actions :timed-initial-literals)
+  (:types piece)
+  (:predicates (ready) (raw ?p - piece) (prepped ?p - piece) (baked ?p - piece))
+  (:durative-action prep
+    :parameters (?p - piece)
+    :duration (= ?duration 6)
+    :condition (at start (raw ?p))
+    :effect (and (at start (not (raw ?p))) (at end (prepped ?p))))
+  (:durative-action bake
+    :parameters (?p - piece)
+    :duration (= ?duration 3)
+    :condition (and (at start (prepped ?p)) (over all (ready)))
+    :effect (at end (baked ?p))))
+` | str_key | KILN_DOM = "
+(define (domain kiln-gap)
+  (:requirements :typing :durative-actions :timed-initial-literals)
+  (:types piece)
+  (:predicates (ready) (raw ?p - piece) (prepped ?p - piece) (baked ?p - piece))
+  (:durative-action prep
+    :parameters (?p - piece)
+    :duration (= ?duration 6)
+    :condition (at start (raw ?p))
+    :effect (and (at start (not (raw ?p))) (at end (prepped ?p))))
+  (:durative-action bake
+    :parameters (?p - piece)
+    :duration (= ?duration 3)
+    :condition (and (at start (prepped ?p)) (over all (ready)))
+    :effect (at end (baked ?p))))
+" |  |  |  |  |
+
+| `
+(define (domain mini-tms)
+  (:requirements :strips :typing :durative-actions)
+  (:types piece)
+  (:predicates (raw ?p - piece) (made ?p - piece) (glued ?a ?b - piece) (free))
+  (:durative-action make
+    :parameters (?p - piece)
+    :duration (= ?duration 2)
+    :condition (and (at start (raw ?p)) (over all (free)))
+    :effect (and (at start (not (raw ?p))) (at end (made ?p))))
+  (:durative-action glue
+    :parameters (?a ?b - piece)
+    :duration (= ?duration 3)
+    :condition (and (at start (made ?a)) (at start (made ?b)))
+    :effect (at end (glued ?a ?b))))
+` | str_key | MINI_DOM = "
+(define (domain mini-tms)
+  (:requirements :strips :typing :durative-actions)
+  (:types piece)
+  (:predicates (raw ?p - piece) (made ?p - piece) (glued ?a ?b - piece) (free))
+  (:durative-action make
+    :parameters (?p - piece)
+    :duration (= ?duration 2)
+    :condition (and (at start (raw ?p)) (over all (free)))
+    :effect (and (at start (not (raw ?p))) (at end (made ?p))))
+  (:durative-action glue
+    :parameters (?a ?b - piece)
+    :duration (= ?duration 3)
+    :condition (and (at start (made ?a)) (at start (made ?b)))
+    :effect (at end (glued ?a ?b))))
+" |  |  |  |  |
+
+| `
+(define (problem fuel-gap-1)
+  (:domain fuel-gap)
+  (:objects r1 - rig)
+  (:init (idle) (= (level) 2))
+  (:goal (and (done) (dipped) (refilled)))
+  (:metric minimize (total-time)))
+` | str_key | FUEL_PROB = "
+(define (problem fuel-gap-1)
+  (:domain fuel-gap)
+  (:objects r1 - rig)
+  (:init (idle) (= (level) 2))
+  (:goal (and (done) (dipped) (refilled)))
+  (:metric minimize (total-time)))
+" |  |  |  |  |
+
+| `
+(define (problem kiln-gap-1)
+  (:domain kiln-gap)
+  (:objects p1 - piece)
+  (:init (raw p1) (ready)
+         (at 8 (not (ready)))
+         (at 8.001 (ready)))
+  (:goal (baked p1))
+  (:metric minimize (total-time)))
+` | str_key | KILN_PROB = "
+(define (problem kiln-gap-1)
+  (:domain kiln-gap)
+  (:objects p1 - piece)
+  (:init (raw p1) (ready)
+         (at 8 (not (ready)))
+         (at 8.001 (ready)))
+  (:goal (baked p1))
+  (:metric minimize (total-time)))
+" |  |  |  |  |
+
+| `
+(define (problem mini-tms-1)
+  (:domain mini-tms)
+  (:objects a1 b1 a2 b2 - piece)
+  (:init (raw a1) (raw b1) (raw a2) (raw b2) (free))
+  (:goal (and (glued a1 b1) (glued a2 b2))))
+` | str_key | MINI_PROB = "
+(define (problem mini-tms-1)
+  (:domain mini-tms)
+  (:objects a1 b1 a2 b2 - piece)
+  (:init (raw a1) (raw b1) (raw a2) (raw b2) (free))
+  (:goal (and (glued a1 b1) (glued a2 b2))))
+" |  |  |  |  |
+
+| `(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room) (free ?g - gripper))
+  (:functions (cost))
+  (:action move :parameters (?from ?to - room)
+    :precondition (at-robby ?from) :effect (and (not (at-robby ?from)) (at-robby ?to)))
+  (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r)) :effect (not (at ?b ?r))))` | str_key | DOM = "(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room) (free ?g - gripper))
+  (:functions (cost))
+  (:action move :parameters (?from ?to - room)
+    :precondition (at-robby ?from) :effect (and (not (at-robby ?from)) (at-robby ?to)))
+  (:action pick :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r)) :effect (not (at ?b ?r))))" |  |  |  |  |
+
+| `(define (problem gripper-1) (:domain gripper)
+  (:objects rooma roomb - room b1 b2 - ball left right - gripper)
+  (:init (at-robby rooma) (at b1 rooma) (= (cost) 0))
+  (:goal (at b1 roomb))
+  (:metric minimize (cost)))` | str_key | PROB = "(define (problem gripper-1) (:domain gripper)
+  (:objects rooma roomb - room b1 b2 - ball left right - gripper)
+  (:init (at-robby rooma) (at b1 rooma) (= (cost) 0))
+  (:goal (at b1 roomb))
+  (:metric minimize (cost)))" |  |  |  |  |
+
+| `(define (domain mk)
+ (:requirements :strips :typing :adl :fluents)
+ (:types item)
+ (:predicates (special ?x - item) (can ?x - item))
+ (:functions (total-cost))
+ (:action make :parameters (?x - item) :precondition (can ?x) :effect (special ?x)))` | str_key | MARK = "(define (domain mk)
+ (:requirements :strips :typing :adl :fluents)
+ (:types item)
+ (:predicates (special ?x - item) (can ?x - item))
+ (:functions (total-cost))
+ (:action make :parameters (?x - item) :precondition (can ?x) :effect (special ?x)))" |  |  |  |  |
+
+| `(define (domain sp)
+ (:requirements :strips :adl :fluents)
+ (:predicates (ready) (done))
+ (:functions (total-cost))
+ (:action go :parameters ()
+   :precondition (preference want (ready))
+   :effect (done)))` | str_key | SOFTPRE = "(define (domain sp)
+ (:requirements :strips :adl :fluents)
+ (:predicates (ready) (done))
+ (:functions (total-cost))
+ (:action go :parameters ()
+   :precondition (preference want (ready))
+   :effect (done)))" |  |  |  |  |
+
+| `(define (domain chain)
+  (:predicates (p0) (p1) (p2) (p3))
+  (:action s1 :precondition (p0) :effect (p1))
+  (:action s2 :precondition (p1) :effect (p2))
+  (:action s3 :precondition (p2) :effect (p3)))` | str_key | DOM = "(define (domain chain)
+  (:predicates (p0) (p1) (p2) (p3))
+  (:action s1 :precondition (p0) :effect (p1))
+  (:action s2 :precondition (p1) :effect (p2))
+  (:action s3 :precondition (p2) :effect (p3)))" |  |  |  |  |
+
+| `PREF_CHASE_WALL_CHILD` | env_key | std::env::var("PREF_CHASE_WALL_CHILD") |  |  |  |  |
+
+| `(define (domain corridor)
+ (:requirements :strips :typing :preferences)
+ (:types cell)
+ (:predicates (at ?c - cell) (adj ?a ?b - cell) (lit ?c - cell) (visited ?c - cell))
+ (:action move :parameters (?a ?b - cell)
+   :precondition (and (at ?a) (adj ?a ?b) (preference darkstep (lit ?a)))
+   :effect (and (not (at ?a)) (at ?b) (visited ?b)))
+ (:action light :parameters (?a - cell)
+   :precondition (at ?a)
+   :effect (lit ?a)))` | str_key | CORRIDOR = "(define (domain corridor)
+ (:requirements :strips :typing :preferences)
+ (:types cell)
+ (:predicates (at ?c - cell) (adj ?a ?b - cell) (lit ?c - cell) (visited ?c - cell))
+ (:action move :parameters (?a ?b - cell)
+   :precondition (and (at ?a) (adj ?a ?b) (preference darkstep (lit ?a)))
+   :effect (and (not (at ?a)) (at ?b) (visited ?b)))
+ (:action light :parameters (?a - cell)
+   :precondition (at ?a)
+   :effect (lit ?a)))" |  |  |  |  |
+
+| `(define (problem walk) (:domain corridor)
+ (:objects c0 c1 c2 c3 s1 - cell)
+ (:init (at c0)
+        (adj c0 c1) (adj c1 c2) (adj c2 c3) (adj c1 s1) (adj s1 c1))
+ (:goal (and (at c3) (preference sidetrip (visited s1))))
+ (:metric minimize (+ (is-violated darkstep) (* 5 (is-violated sidetrip)))))` | str_key | WALK = "(define (problem walk) (:domain corridor)
+ (:objects c0 c1 c2 c3 s1 - cell)
+ (:init (at c0)
+        (adj c0 c1) (adj c1 c2) (adj c2 c3) (adj c1 s1) (adj s1 c1))
+ (:goal (and (at c3) (preference sidetrip (visited s1))))
+ (:metric minimize (+ (is-violated darkstep) (* 5 (is-violated sidetrip)))))" |  |  |  |  |
+
+| `REFILL_CHILD` | env_key | std::env::var("REFILL_CHILD") |  |  |  |  |
+
+| `(define (domain d) (:requirements :strips)
+  (:predicates (a) (b))
+  (:action go :parameters () :precondition (a) :effect (and (not (a)) (b))))` | str_key | GOOD_DOM = "(define (domain d) (:requirements :strips)
+  (:predicates (a) (b))
+  (:action go :parameters () :precondition (a) :effect (and (not (a)) (b))))" |  |  |  |  |
+
+| `(define (problem p) (:domain d) (:init (a)) (:goal (b)))` | str_key | GOOD_PROB = "(define (problem p) (:domain d) (:init (a)) (:goal (b)))" |  |  |  |  |
+
+| `fixtures/sa2a-v26.9.17/sa2a-v26.9.17-domain.hddl` | str_key | DOMAIN = "fixtures/sa2a-v26.9.17/sa2a-v26.9.17-domain.hddl" |  |  |  |  |
+
+| `fixtures/sa2a-v26.9.17/sa2a-v26.9.17-problem.hddl` | str_key | PROBLEM = "fixtures/sa2a-v26.9.17/sa2a-v26.9.17-problem.hddl" |  |  |  |  |
+
+| `SAT_PROMO_CHILD` | env_key | std::env::var("SAT_PROMO_CHILD") |  |  |  |  |
+
+| `
+(define (domain sat-rc)
+  (:requirements :strips :durative-actions)
+  (:predicates (light) (open) (fresh-shine) (fresh-mend) (fresh-deliver)
+               (fresh-door) (mended) (delivered))
+  (:durative-action shine
+    :parameters ()
+    :duration (= ?duration 20)
+    :condition (at start (fresh-shine))
+    :effect (and (at start (not (fresh-shine)))
+                 (at start (light))
+                 (at end (not (light)))))
+  (:durative-action mend
+    :parameters ()
+    :duration (= ?duration 9)
+    :condition (and (at start (fresh-mend)) (over all (light)))
+    :effect (and (at start (not (fresh-mend))) (at end (mended))))
+  (:durative-action deliver
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (and (at start (fresh-deliver)) (at end (open)))
+    :effect (and (at start (not (fresh-deliver))) (at end (delivered))))
+  (:durative-action door
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-door))
+    :effect (and (at start (not (fresh-door)))
+                 (at start (open))
+                 (at end (not (open))))))
+` | str_key | RC_DOMAIN = "
+(define (domain sat-rc)
+  (:requirements :strips :durative-actions)
+  (:predicates (light) (open) (fresh-shine) (fresh-mend) (fresh-deliver)
+               (fresh-door) (mended) (delivered))
+  (:durative-action shine
+    :parameters ()
+    :duration (= ?duration 20)
+    :condition (at start (fresh-shine))
+    :effect (and (at start (not (fresh-shine)))
+                 (at start (light))
+                 (at end (not (light)))))
+  (:durative-action mend
+    :parameters ()
+    :duration (= ?duration 9)
+    :condition (and (at start (fresh-mend)) (over all (light)))
+    :effect (and (at start (not (fresh-mend))) (at end (mended))))
+  (:durative-action deliver
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (and (at start (fresh-deliver)) (at end (open)))
+    :effect (and (at start (not (fresh-deliver))) (at end (delivered))))
+  (:durative-action door
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-door))
+    :effect (and (at start (not (fresh-door)))
+                 (at start (open))
+                 (at end (not (open))))))
+" |  |  |  |  |
+
+| `
+(define (problem sat-rc-1) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend) (fresh-deliver) (fresh-door))
+  (:goal (and (mended) (delivered))))
+` | str_key | RC_PROBLEM = "
+(define (problem sat-rc-1) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend) (fresh-deliver) (fresh-door))
+  (:goal (and (mended) (delivered))))
+" |  |  |  |  |
+
+| `
+(define (problem sat-rc-env) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend))
+  (:goal (mended)))
+` | str_key | ENVELOPE_PROBLEM = "
+(define (problem sat-rc-env) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend))
+  (:goal (mended)))
+" |  |  |  |  |
+
+| `FERROPLAN_VAL` | env_key | std::env::var("FERROPLAN_VAL") |  |  |  |  |
+
+| `
+(define (domain sat-micro)
+  (:requirements :strips :typing)
+  (:types loc)
+  (:predicates (at ?l - loc) (adj ?a ?b - loc))
+  (:action move
+    :parameters (?a ?b - loc)
+    :precondition (and (at ?a) (adj ?a ?b))
+    :effect (and (not (at ?a)) (at ?b))))
+` | str_key | MICRO_DOMAIN = "
+(define (domain sat-micro)
+  (:requirements :strips :typing)
+  (:types loc)
+  (:predicates (at ?l - loc) (adj ?a ?b - loc))
+  (:action move
+    :parameters (?a ?b - loc)
+    :precondition (and (at ?a) (adj ?a ?b))
+    :effect (and (not (at ?a)) (at ?b))))
+" |  |  |  |  |
+
+| `
+(define (domain sat-rc)
+  (:requirements :strips :durative-actions)
+  (:predicates (light) (open) (fresh-shine) (fresh-mend) (fresh-deliver)
+               (fresh-door) (mended) (delivered))
+  (:durative-action shine
+    :parameters ()
+    :duration (= ?duration 20)
+    :condition (at start (fresh-shine))
+    :effect (and (at start (not (fresh-shine)))
+                 (at start (light))
+                 (at end (not (light)))))
+  (:durative-action mend
+    :parameters ()
+    :duration (= ?duration 9)
+    :condition (and (at start (fresh-mend)) (over all (light)))
+    :effect (and (at start (not (fresh-mend))) (at end (mended))))
+  (:durative-action deliver
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (and (at start (fresh-deliver)) (at end (open)))
+    :effect (and (at start (not (fresh-deliver))) (at end (delivered))))
+  (:durative-action door
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-door))
+    :effect (and (at start (not (fresh-door)))
+                 (at start (open))
+                 (at end (not (open))))))
+` | str_key | RC_DOMAIN = "
+(define (domain sat-rc)
+  (:requirements :strips :durative-actions)
+  (:predicates (light) (open) (fresh-shine) (fresh-mend) (fresh-deliver)
+               (fresh-door) (mended) (delivered))
+  (:durative-action shine
+    :parameters ()
+    :duration (= ?duration 20)
+    :condition (at start (fresh-shine))
+    :effect (and (at start (not (fresh-shine)))
+                 (at start (light))
+                 (at end (not (light)))))
+  (:durative-action mend
+    :parameters ()
+    :duration (= ?duration 9)
+    :condition (and (at start (fresh-mend)) (over all (light)))
+    :effect (and (at start (not (fresh-mend))) (at end (mended))))
+  (:durative-action deliver
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (and (at start (fresh-deliver)) (at end (open)))
+    :effect (and (at start (not (fresh-deliver))) (at end (delivered))))
+  (:durative-action door
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (fresh-door))
+    :effect (and (at start (not (fresh-door)))
+                 (at start (open))
+                 (at end (not (open))))))
+" |  |  |  |  |
+
+| `
+(define (problem sat-micro-1) (:domain sat-micro)
+  (:objects l1 l2 l3 - loc)
+  (:init (at l1) (adj l1 l2) (adj l2 l3))
+  (:goal (at l3)))
+` | str_key | MICRO_PROBLEM = "
+(define (problem sat-micro-1) (:domain sat-micro)
+  (:objects l1 l2 l3 - loc)
+  (:init (at l1) (adj l1 l2) (adj l2 l3))
+  (:goal (at l3)))
+" |  |  |  |  |
+
+| `
+(define (problem sat-rc-1) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend) (fresh-deliver) (fresh-door))
+  (:goal (and (mended) (delivered))))
+` | str_key | RC_PROBLEM = "
+(define (problem sat-rc-1) (:domain sat-rc)
+  (:init (fresh-shine) (fresh-mend) (fresh-deliver) (fresh-door))
+  (:goal (and (mended) (delivered))))
+" |  |  |  |  |
+
+| `SCALING_LADDER_RESULTS` | env_key | std::env::var("SCALING_LADDER_RESULTS") |  |  |  |  |
+
+| `SCALING_LADDER_RSS_KB` | env_key | std::env::var("SCALING_LADDER_RSS_KB") |  |  |  |  |
+
+| `| family | n | m | ground_actions | ground_methods | states | transitions | parse_ms | ground_ms | translate_ms | solve_ms | outcome |` | str_key | SWEEP_HEADER = "| family | n | m | ground_actions | ground_methods | states | transitions | parse_ms | ground_ms | translate_ms | solve_ms | outcome |" |  |  |  |  |
+
+| `TCOMPRESS_TCONC_CHILD` | env_key | std::env::var("TCOMPRESS_TCONC_CHILD") |  |  |  |  |
+
+| `(define (domain shop)
+ (:requirements :typing :durative-actions)
+ (:types job machine)
+ (:predicates (todo ?j - job) (done ?j - job) (fits ?j - job ?m - machine)
+              (free ?m - machine) (busy ?m - machine))
+ (:durative-action run
+   :parameters (?j - job ?m - machine)
+   :duration (= ?duration 3)
+   :condition (and (at start (todo ?j)) (at start (free ?m))
+                   (over all (fits ?j ?m)) (at end (busy ?m)))
+   :effect (and (at start (not (todo ?j))) (at start (not (free ?m))) (at start (busy ?m))
+                (at end (not (busy ?m))) (at end (free ?m)) (at end (done ?j)))))` | str_key | SHOP = "(define (domain shop)
+ (:requirements :typing :durative-actions)
+ (:types job machine)
+ (:predicates (todo ?j - job) (done ?j - job) (fits ?j - job ?m - machine)
+              (free ?m - machine) (busy ?m - machine))
+ (:durative-action run
+   :parameters (?j - job ?m - machine)
+   :duration (= ?duration 3)
+   :condition (and (at start (todo ?j)) (at start (free ?m))
+                   (over all (fits ?j ?m)) (at end (busy ?m)))
+   :effect (and (at start (not (todo ?j))) (at start (not (free ?m))) (at start (busy ?m))
+                (at end (not (busy ?m))) (at end (free ?m)) (at end (done ?j)))))" |  |  |  |  |
+
+| `(define (domain mr)
+  (:requirements :durative-actions :numeric-fluents)
+  (:predicates (ready))
+  (:functions (raw) (mid) (top))
+  (:durative-action gather :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (ready))
+    :effect (at end (increase (raw) 1)))
+  (:durative-action refine :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (>= (raw) 1))
+    :effect (and (at start (decrease (raw) 1)) (at end (increase (mid) 1))))
+  (:durative-action assemble :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (>= (mid) 1))
+    :effect (and (at start (decrease (mid) 1)) (at end (increase (top) 1)))))` | str_key | DOM = "(define (domain mr)
+  (:requirements :durative-actions :numeric-fluents)
+  (:predicates (ready))
+  (:functions (raw) (mid) (top))
+  (:durative-action gather :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (ready))
+    :effect (at end (increase (raw) 1)))
+  (:durative-action refine :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (>= (raw) 1))
+    :effect (and (at start (decrease (raw) 1)) (at end (increase (mid) 1))))
+  (:durative-action assemble :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (>= (mid) 1))
+    :effect (and (at start (decrease (mid) 1)) (at end (increase (top) 1)))))" |  |  |  |  |
+
+| `(define (problem mr3) (:domain mr)
+  (:init (ready) (= (raw) 0) (= (mid) 0) (= (top) 0))
+  (:goal (>= (top) 3)))` | str_key | PROB = "(define (problem mr3) (:domain mr)
+  (:init (ready) (= (raw) 0) (= (mid) 0) (= (top) 0))
+  (:goal (>= (top) 3)))" |  |  |  |  |
+
+| `ESCALATION_CHILD` | env_key | std::env::var("ESCALATION_CHILD") |  |  |  |  |
+
+| `
+(define (domain crew)
+  (:requirements :typing :durative-actions :numeric-fluents)
+  (:types task)
+  (:predicates (done ?t - task))
+  (:functions (avail))
+  (:durative-action do
+    :parameters (?t - task)
+    :duration (= ?duration 5)
+    :condition (at start (>= (avail) 1))
+    :effect (and (at start (decrease (avail) 1))
+                 (at end (increase (avail) 1))
+                 (at end (done ?t)))))
+` | str_key | RESOURCE_DOM = "
+(define (domain crew)
+  (:requirements :typing :durative-actions :numeric-fluents)
+  (:types task)
+  (:predicates (done ?t - task))
+  (:functions (avail))
+  (:durative-action do
+    :parameters (?t - task)
+    :duration (= ?duration 5)
+    :condition (at start (>= (avail) 1))
+    :effect (and (at start (decrease (avail) 1))
+                 (at end (increase (avail) 1))
+                 (at end (done ?t)))))
+" |  |  |  |  |
+
+| `
+(define (domain gate)
+  (:requirements :durative-actions)
+  (:predicates (open) (through))
+  (:durative-action pass
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (open))
+    :effect (at end (through))))
+` | str_key | TIL_DOM = "
+(define (domain gate)
+  (:requirements :durative-actions)
+  (:predicates (open) (through))
+  (:durative-action pass
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (open))
+    :effect (at end (through))))
+" |  |  |  |  |
+
+| `
+(define (domain ineq)
+  (:requirements :durative-actions)
+  (:predicates (done))
+  (:durative-action work
+    :parameters ()
+    :duration (and (>= ?duration 2) (<= ?duration 5))
+    :condition ()
+    :effect (at end (done))))
+` | str_key | INEQ_DOM = "
+(define (domain ineq)
+  (:requirements :durative-actions)
+  (:predicates (done))
+  (:durative-action work
+    :parameters ()
+    :duration (and (>= ?duration 2) (<= ?duration 5))
+    :condition ()
+    :effect (at end (done))))
+" |  |  |  |  |
+
+| `
+(define (domain t)
+  (:requirements :strips :durative-actions :numeric-fluents)
+  (:predicates (at) (goal) (light))
+  (:durative-action act
+    :parameters ()
+    :duration (= ?duration 3)
+    :condition (and (at start (at)) (over all (light)))
+    :effect (and (at start (not (at))) (at end (goal)))))` | str_key | DUR_DOM = "
+(define (domain t)
+  (:requirements :strips :durative-actions :numeric-fluents)
+  (:predicates (at) (goal) (light))
+  (:durative-action act
+    :parameters ()
+    :duration (= ?duration 3)
+    :condition (and (at start (at)) (over all (light)))
+    :effect (and (at start (not (at))) (at end (goal)))))" |  |  |  |  |
+
+| `
+(define (domain temporal-test)
+  (:requirements :strips :typing :durative-actions :numeric-fluents)
+  (:types location)
+  (:predicates (at ?l - location) (connected ?a ?b - location) (free))
+  (:functions (dist ?a ?b - location))
+  (:durative-action move
+    :parameters (?from ?to - location)
+    :duration (= ?duration (dist ?from ?to))
+    :condition (and (at start (at ?from))
+                    (at start (connected ?from ?to))
+                    (over all (free)))
+    :effect (and (at start (not (at ?from)))
+                 (at end (at ?to)))))
+` | str_key | DOM = "
+(define (domain temporal-test)
+  (:requirements :strips :typing :durative-actions :numeric-fluents)
+  (:types location)
+  (:predicates (at ?l - location) (connected ?a ?b - location) (free))
+  (:functions (dist ?a ?b - location))
+  (:durative-action move
+    :parameters (?from ?to - location)
+    :duration (= ?duration (dist ?from ?to))
+    :condition (and (at start (at ?from))
+                    (at start (connected ?from ?to))
+                    (over all (free)))
+    :effect (and (at start (not (at ?from)))
+                 (at end (at ?to)))))
+" |  |  |  |  |
+
+| `(define (problem g) (:domain gate)
+  (:init (at 5 (open)))
+  (:goal (through)))` | str_key | TIL_PROB = "(define (problem g) (:domain gate)
+  (:init (at 5 (open)))
+  (:goal (through)))" |  |  |  |  |
+
+| `(define (problem p) (:domain t) (:init (at) (light)) (:goal (goal)))` | str_key | DUR_PROB = "(define (problem p) (:domain t) (:init (at) (light)) (:goal (goal)))" |  |  |  |  |
+
+| `(define (problem w) (:domain ineq) (:init) (:goal (done)))` | str_key | INEQ_PROB = "(define (problem w) (:domain ineq) (:init) (:goal (done)))" |  |  |  |  |
+
+| `(define (domain tconstr)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (home) (done) (flag))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (home))
+    :effect (at end (done)))
+  (:durative-action raise
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (home))
+    :effect (at end (flag))))` | str_key | ATEND_DOM = "(define (domain tconstr)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (home) (done) (flag))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (home))
+    :effect (at end (done)))
+  (:durative-action raise
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (home))
+    :effect (at end (flag))))" |  |  |  |  |
+
+| `(define (domain tresp)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (idle) (alarm) (handled) (done))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (idle))
+    :effect (and (at start (not (idle))) (at start (alarm)) (at end (done))))
+  (:durative-action quiet-work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (idle))
+    :effect (and (at start (not (idle))) (at end (done))))
+  (:durative-action respond
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (alarm))
+    :effect (at end (handled))))` | str_key | RESPOND_DOM = "(define (domain tresp)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (idle) (alarm) (handled) (done))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (idle))
+    :effect (and (at start (not (idle))) (at start (alarm)) (at end (done))))
+  (:durative-action quiet-work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (idle))
+    :effect (and (at start (not (idle))) (at end (done))))
+  (:durative-action respond
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (alarm))
+    :effect (at end (handled))))" |  |  |  |  |
+
+| `(define (domain twin)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (home) (done) (flag))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (home))
+    :effect (at end (done)))
+  (:durative-action quick-flag
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (home))
+    :effect (at end (flag)))
+  (:durative-action slow-flag
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (at start (home))
+    :effect (at end (flag))))` | str_key | WITHIN_DOM = "(define (domain twin)
+  (:requirements :strips :durative-actions :constraints)
+  (:predicates (home) (done) (flag))
+  (:durative-action work
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (home))
+    :effect (at end (done)))
+  (:durative-action quick-flag
+    :parameters ()
+    :duration (= ?duration 1)
+    :condition (at start (home))
+    :effect (at end (flag)))
+  (:durative-action slow-flag
+    :parameters ()
+    :duration (= ?duration 6)
+    :condition (at start (home))
+    :effect (at end (flag))))" |  |  |  |  |
+
+| `TGROUND_WALL_CHILD` | env_key | std::env::var("TGROUND_WALL_CHILD") |  |  |  |  |
+
+| `(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+               (free ?g - gripper) (carry ?b - ball ?g - gripper))
+  (:action move
+    :parameters (?from - room ?to - room)
+    :precondition (at-robby ?from)
+    :effect (and (at-robby ?to) (not (at-robby ?from))))
+  (:action pick
+    :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+    :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+  (:action drop
+    :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (carry ?b ?g) (at-robby ?r))
+    :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))` | str_key | GRIPPER_DOMAIN = "(define (domain gripper)
+  (:requirements :strips :typing)
+  (:types room ball gripper)
+  (:predicates (at-robby ?r - room) (at ?b - ball ?r - room)
+               (free ?g - gripper) (carry ?b - ball ?g - gripper))
+  (:action move
+    :parameters (?from - room ?to - room)
+    :precondition (at-robby ?from)
+    :effect (and (at-robby ?to) (not (at-robby ?from))))
+  (:action pick
+    :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (at ?b ?r) (at-robby ?r) (free ?g))
+    :effect (and (carry ?b ?g) (not (at ?b ?r)) (not (free ?g))))
+  (:action drop
+    :parameters (?b - ball ?r - room ?g - gripper)
+    :precondition (and (carry ?b ?g) (at-robby ?r))
+    :effect (and (at ?b ?r) (free ?g) (not (carry ?b ?g)))))" |  |  |  |  |
+
+| `(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))` | str_key | CORRIDOR_DOMAIN = "(define (domain rooms)
+  (:requirements :strips :typing)
+  (:types room)
+  (:predicates (at ?r - room) (link ?a - room ?b - room))
+  (:action go
+    :parameters (?a - room ?b - room)
+    :precondition (and (at ?a) (link ?a ?b))
+    :effect (and (at ?b) (not (at ?a)))))" |  |  |  |  |
+
+| `(define (problem corridor)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c d))
+  (:goal (at d)))` | str_key | CORRIDOR_PROBLEM = "(define (problem corridor)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c) (link c d))
+  (:goal (at d)))" |  |  |  |  |
+
+| `(define (problem dead-end)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c))
+  (:goal (at d)))` | str_key | DEAD_END_PROBLEM = "(define (problem dead-end)
+  (:domain rooms)
+  (:objects a b c d - room)
+  (:init (at a) (link a b) (link b c))
+  (:goal (at d)))" |  |  |  |  |
+
+| `(define (problem gripper-4)
+  (:domain gripper)
+  (:objects rooma roomb - room b1 b2 b3 b4 - ball left right - gripper)
+  (:init (at-robby rooma) (free left) (free right)
+         (at b1 rooma) (at b2 rooma) (at b3 rooma) (at b4 rooma))
+  (:goal (and (at b1 roomb) (at b2 roomb) (at b3 roomb) (at b4 roomb))))` | str_key | GRIPPER_PROBLEM = "(define (problem gripper-4)
+  (:domain gripper)
+  (:objects rooma roomb - room b1 b2 b3 b4 - ball left right - gripper)
+  (:init (at-robby rooma) (free left) (free right)
+         (at b1 rooma) (at b2 rooma) (at b3 rooma) (at b4 rooma))
+  (:goal (and (at b1 roomb) (at b2 roomb) (at b3 roomb) (at b4 roomb))))" |  |  |  |  |
+
+| `pcp_1` | str_key | CASES = "pcp_1" |  |  |  |  |
+
+| `TSEARCH_WALL_CHILD` | env_key | std::env::var("TSEARCH_WALL_CHILD") |  |  |  |  |
+
+| `
+(define (domain z0)
+  (:requirements :strips :durative-actions)
+  (:predicates (a) (g) (h2))
+  (:durative-action zap
+    :parameters ()
+    :duration (= ?duration 0)
+    :condition (at start (a))
+    :effect (at start (g)))
+  (:durative-action chain
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (g))
+    :effect (at end (h2))))
+` | str_key | DOMAIN = "
+(define (domain z0)
+  (:requirements :strips :durative-actions)
+  (:predicates (a) (g) (h2))
+  (:durative-action zap
+    :parameters ()
+    :duration (= ?duration 0)
+    :condition (at start (a))
+    :effect (at start (g)))
+  (:durative-action chain
+    :parameters ()
+    :duration (= ?duration 2)
+    :condition (at start (g))
+    :effect (at end (h2))))
+" |  |  |  |  |
 
 
 <!-- ============================================================= -->

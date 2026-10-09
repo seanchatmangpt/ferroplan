@@ -17,7 +17,7 @@ each ticket's close row in its own History carries the same pairing:
 
 | ticket | branch | integrated tip | merge |
 |---|---|---|---|
-| fond-htn-42 | fix/goal-eval-recursion | `85a2fe0` | `f0b8b9c` |
+| fond-htn-42 | fix/goal-eval-recursion | `85a2fe0` | f0b8b9c |
 | fond-htn-43 | fix/ground-caps-plumbing | `3b8ee6e` (receipt commit atop code tip `5cb9041`) | `833994f` |
 | fond-htn-44 | fix/duplicate-type-dedup | `8f587af` | `0f39d2d` |
 | fond-htn-31 | fuzz/hddl-roundtrip | `0479c1e` | `8e54704` |

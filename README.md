@@ -18,7 +18,7 @@ it emit code that does the arithmetic deterministically, and for free — applie
 level up: don't ask an LLM to *be* the planner for a whole village of agents. Have it
 author a PDDL domain that then plans deterministically, cheaply, and inspectably at
 scale, and let it only *nudge* that domain at runtime. PDDL is the auditable interface
-between your intent, the model's authoring, and a fast solver — and `ferroplan` is
+between your intent, the model's authoring, and a fast solver — and ferroplan is
 that solver.
 
 **Why PDDL, not prompt-spaghetti:**
@@ -50,13 +50,13 @@ that solver.
 Best five shown. **[Full standings → `STANDINGS.md`](https://github.com/hhh42/ferroplan/blob/main/STANDINGS.md)** · per-track detail, quality scoring and failure classes in [`benchmarks/ipc-standings.md`](https://github.com/hhh42/ferroplan/blob/main/benchmarks/ipc-standings.md).
 <!-- STANDINGS:END -->
 
-`ferroplan` is a from-scratch reimplementation of the FF family of planners with a
+ferroplan is a from-scratch reimplementation of the FF family of planners with a
 data-oriented core (bitset states, structure-of-arrays / CSR operator tables),
 **enforced hill-climbing** (EHC) with a best-first fallback, parallel grounding
 and parallel heuristic evaluation, plus an SGPlan-style partition-and-resolve mode,
 PDDL3 preference/metric optimization, and **PDDL2.1 temporal** planning (durative
 actions). It ships both a **library** (with a structured, JSON-serializable API)
-and the **`ff`** command-line binary — a drop-in for Metric-FF's
+and the **ff** command-line binary — a drop-in for Metric-FF's
 `ff -o domain -f problem`.
 
 On classical and ADL benchmarks it runs within ~1.4× of the heavily-optimized C
@@ -64,7 +64,7 @@ Metric-FF (EHC reaches goals in dozens of evaluations, not thousands); numeric
 trails and IPC-5 preference quality is competitive-not-winning — see
 [Benchmarks](#benchmarks).
 
-> Status: **v0.29.0** — release candidate on `main` (cut label v26.9.28): the standings table above is still the 0.28 sweep and has not been re-measured for this cut, and [crates.io](https://crates.io/crates/ferroplan) carries v0.27.1 (`ferroplan`, `ferroplan-cli`, `ferroplan-mcp`, `ferroplan-sat`) until it lands. APIs may shift before 1.0.
+> Status: **v0.29.0** — release candidate on `main` (cut label v26.9.28): the standings table above is still the 0.28 sweep and has not been re-measured for this cut, and [crates.io](https://crates.io/crates/ferroplan) carries v0.27.1 (ferroplan, `ferroplan-cli`, `ferroplan-mcp`, `ferroplan-sat`) until it lands. APIs may shift before 1.0.
 
 <!-- WHATSNEW:BEGIN — newest first; trimmed by scripts/release-notes-roll.py -->
 
@@ -166,8 +166,8 @@ domains in a Blockly-style block editor (`cargo run -p ferroplan-bevy`).
 ## Install / build
 
 ```sh
-# install the `ff` CLI from crates.io
-cargo install ferroplan-cli    # puts `ff` on your PATH
+# install the ff CLI from crates.io
+cargo install ferroplan-cli    # puts ff on your PATH
 
 # …or build from a clone
 cargo build --release          # produces target/release/ff
@@ -176,7 +176,7 @@ cargo run --release --bin ff -- -o domain.pddl -f problem.pddl
 
 As a library dependency: `cargo add ferroplan` (see [Library](#library) below).
 
-## CLI (`ff`)
+## CLI (ff)
 
 ```sh
 # drop-in: classic Metric-FF text output
@@ -263,21 +263,21 @@ witnesses it:
   `crates/ferroplan/tests/fixtures/htn-ipc2023/RESULTS.md`). Refused shapes
   (`:durative-action`, numeric fluents, `:constraints`) fail loudly with typed
   errors, never silently dropped.
-- **`oneof` rules** — `oneof` is legal in exactly one position: the entire
+- **oneof rules** — oneof is legal in exactly one position: the entire
   top-level `:effect` of an `:action`. One line per rule:
-  - a single-branch `oneof` degenerates to its deterministic effect;
+  - a single-branch oneof degenerates to its deterministic effect;
     genuinely non-deterministic branches carry their full outcome set;
   - an empty branch survives as a real no-change outcome, and branches may
     overlap (`hddl_solve_transport_oneof_with_empty_branch_solves_and_preserves_outcomes`);
   - bare `(oneof)` is refused (`empty_oneof_is_cleanly_handled_never_panics`);
-  - `oneof` in a precondition, method condition, or goal is refused
+  - oneof in a precondition, method condition, or goal is refused
     (`oneof_in_precondition_is_typed_rejection`);
-  - nested `oneof` is refused (`nested_oneof_is_typed_malformed_oneof`);
+  - nested oneof is refused (`nested_oneof_is_typed_malformed_oneof`);
   - `when` inside a branch is refused — a loud typed error where a silently
     weakened domain would mis-solve
     (`when_inside_oneof_branch_is_cleanly_handled_never_panics`).
   Weighted `(:probabilistic …)` effects are accepted as sugar rewritten into
-  `oneof` plus a weight map
+  oneof plus a weight map
   (`rewrites_probabilistic_block_to_oneof_and_extracts_weights`).
 - **Strong and strong-cyclic FOND policies over the explicit state graph** — a
   *strong* policy reaches the goal in a bounded number of steps under every
@@ -381,13 +381,13 @@ measurement switch is in the book's
 <!-- BEGIN GENERATED: crate-roster (ontology/ferroplan-crates.ttl) -->
 | crate | what |
 |---|---|
-| [`ferroplan`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan) | the library: engine + modes + `solve` / `decompose` / `Session` API |
-| [`ferroplan-cli`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-cli) | the `ff` binary (clap + JSON) |
+| [ferroplan](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan) | the library: engine + modes + `solve` / `decompose` / `Session` API |
+| [`ferroplan-cli`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-cli) | the ff binary (clap + JSON) |
 | [`ferroplan-mcp`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-mcp) | an MCP server exposing `solve` / `validate` / `decompose` over stdio — so an LLM agent can author PDDL and drive the planner |
 | [`ferroplan-bevy`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-bevy) | Bevy app: visualize, inspect & animate a domain+problem (`cargo run -p ferroplan-bevy [domain.pddl problem.pddl]`) |
 | [`ferroplan-wasm`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-wasm) | WebAssembly binding behind the client-side [browser demo](https://seanchatmangpt.github.io/ferroplan/demo/index.html) — `solve` a domain+problem entirely in-page |
-| [`ferroplan-py`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-py) | Python binding (`pip`-installable extension module) exposing `solve` for embedding in Python tools |
-| [`ferroplan-hddl`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-hddl) | HDDL front-end: parses typed HDDL domain/problem text with `oneof` effects, grounds it and translates it into the ground IR the FOND solver runs over |
+| [`ferroplan-py`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-py) | Python binding (pip-installable extension module) exposing `solve` for embedding in Python tools |
+| [`ferroplan-hddl`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-hddl) | HDDL front-end: parses typed HDDL domain/problem text with oneof effects, grounds it and translates it into the ground IR the FOND solver runs over |
 | [`ferroplan-sat`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-sat) | in-tree CDCL SAT solver, absorbed from varisat 0.2.2 and carried forward as ferroplan code |
 | [`ferroplan-runtime`](https://github.com/seanchatmangpt/ferroplan/tree/main/crates/ferroplan-runtime) | runtime substrate: authority, budgets, circuit breakers and dispatch for hosting the planner (in-workspace, not published) |
 <!-- END GENERATED: crate-roster -->

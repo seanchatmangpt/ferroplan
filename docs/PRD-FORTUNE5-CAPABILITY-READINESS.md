@@ -76,22 +76,22 @@ The following capability IDs are in scope. A capability SHALL NOT be advertised 
 | Capability ID | Surface | Product responsibility |
 |---|---|---|
 | `fp.core.solve` | Rust library | Parse, ground, search, and return a bounded planning outcome |
-| `fp.core.parallel` | Rust library | Execute bounded parallel search while preserving declared determinism semantics |
-| `fp.core.stream` | Rust library | Emit bounded progress and terminal outcomes with cancellation support |
+| fp.core.parallel | Rust library | Execute bounded parallel search while preserving declared determinism semantics |
+| fp.core.stream | Rust library | Emit bounded progress and terminal outcomes with cancellation support |
 | `fp.core.validate` | Rust library | Validate plans independently from search |
 | `fp.core.explain` | Rust library | Produce structured explanation evidence |
 | `fp.core.fingerprint` | Rust library | Produce stable, domain-separated problem and result identities |
 | `fp.eve.enter` | Rust library | Convert human purpose and Genesis assets into a deterministic, non-authoritative handoff |
-| `fp.cli` | Native CLI | Expose planning and readiness contracts with stable exit and output semantics |
-| `fp.python` | Python ABI3 | Expose bounded planning through typed Python errors and stable JSON/schema contracts |
-| `fp.wasm` | Browser/WASM | Expose bounded browser planning without ambient host authority |
-| `fp.bevy` | Native/browser GUI | Provide an operator-facing planning client without changing core semantics |
-| `fp.mcpplus` | MCP+ stdio surface | Expose candidate planning capabilities through bounded JSON-RPC without actuation authority |
-| `fp.plugin.chatman` | Plugin control plane | Expose governed ecosystem integration and verifier evidence |
+| fp.cli | Native CLI | Expose planning and readiness contracts with stable exit and output semantics |
+| fp.python | Python ABI3 | Expose bounded planning through typed Python errors and stable JSON/schema contracts |
+| fp.wasm | Browser/WASM | Expose bounded browser planning without ambient host authority |
+| fp.bevy | Native/browser GUI | Provide an operator-facing planning client without changing core semantics |
+| fp.mcpplus | MCP+ stdio surface | Expose candidate planning capabilities through bounded JSON-RPC without actuation authority |
+| fp.plugin.chatman | Plugin control plane | Expose governed ecosystem integration and verifier evidence |
 | `fp.docs` | mdBook/API docs | Publish version-matched operational and integration contracts |
-| `fp.release` | Release pipeline | Produce attributable, integrity-checked artifacts and capability evidence |
+| fp.release | Release pipeline | Produce attributable, integrity-checked artifacts and capability evidence |
 
-At the start of this program, `fp.mcpplus` is **BLOCKED** because the repository documentation advertises an MCP server while no `ferroplan-mcp` crate is present in the source tree. The program SHALL either ship the bounded MCP+ surface defined here or remove the advertisement. Silent inconsistency is prohibited.
+At the start of this program, fp.mcpplus is **BLOCKED** because the repository documentation advertises an MCP server while no `ferroplan-mcp` crate is present in the source tree. The program SHALL either ship the bounded MCP+ surface defined here or remove the advertisement. Silent inconsistency is prohibited.
 
 ## 6. Authority model
 
@@ -217,7 +217,7 @@ Plans returned as solved SHALL be independently validated before a service-facin
 
 ### PRD-FR-010 — MCP+ production contract
 
-`fp.mcpplus` SHALL:
+fp.mcpplus SHALL:
 
 - use bounded stdio JSON-RPC framing,
 - implement deterministic initialization and capability discovery,

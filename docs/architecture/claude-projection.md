@@ -71,7 +71,7 @@ Claude Code plugin
 |---|---|---|
 | star-toml / O*.toml | Canonical admitted observation carrier | Project and session configuration |
 | Graphlaw | RDF, SHACL, and bounded semantic derivation | Configuration and repository diagnostics |
-| BCINR-CMCA | Bounded multifractal allocation | `cmca_allocate` MCP tool |
+| BCINR-CMCA | Bounded multifractal allocation | cmca_allocate MCP tool |
 | MFW / POWL v2 | Planning constitution, promotion, admission, and planner choice | Planner-routing authority |
 | Ferroplan | Deterministic candidate planning and persistent sessions | Planning MCP server |
 | VAL | Independent PDDL validation | External validator evidence |

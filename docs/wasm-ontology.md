@@ -29,8 +29,8 @@ frontmatter template (see `crates/ferroplan-wasm/PACK-GAPS.md`, gap 1). Hence tw
 
 | Output | Rule or template | Mode |
 |---|---|---|
-| `registry/capability-registry.json` | `wasm-capability-registry` (`registry.rq`) | Overwrite |
-| `registry/op-examples.json` | `wasm-op-examples` (`examples.rq`) | Overwrite |
+| `registry/capability-registry.json` | `wasm-capability-registry` (registry.rq) | Overwrite |
+| `registry/op-examples.json` | `wasm-op-examples` (examples.rq) | Overwrite |
 | `registry/ARTIFACTS.sha256` | `wasm-artifacts` | Create (pin; never rewritten) |
 | `generated/beam-host/abi.ex` | `beam-host-templates/abi.ex.tmpl` | frontmatter `force: true` |
 | `generated/beam-host/engine_load.ex` | `beam-host-templates/engine_load.ex.tmpl` | same |
@@ -81,7 +81,7 @@ text, std only).
 
 5. Commit ontology, source and regenerated `registry/*` together.
 
-`ARTIFACTS.sha256` is Create-mode: a rebuilt `.wasm` needs its pin line updated deliberately,
+ARTIFACTS.sha256 is Create-mode: a rebuilt `.wasm` needs its pin line updated deliberately,
 not by sync.
 
 ## How to change a host-contract fact (limits, timeouts, probe op)
@@ -107,7 +107,7 @@ byte on the second run means replay is broken.
 | replay | run `ggen sync run` twice | second run: all outputs unchanged |
 | drift gate | `cargo test -p ferroplan-wasm --test abi_ontology_drift` | pass |
 | gate has teeth | in a scratch copy, rename one `wja:opName`, rerun the test | fail |
-| pin | edit `ARTIFACTS.sha256` in a scratch copy, run sync | line left untouched (Create) |
+| pin | edit ARTIFACTS.sha256 in a scratch copy, run sync | line left untouched (Create) |
 
 ## How to hand the host to ex4pm
 

@@ -12,8 +12,8 @@
 | SHA | one-line |
 |---|---|
 | `8dc2b37` | docs(book): fix links to archived roadmaps + orphan audit (fleet campaign) |
-| `de8eb6b` | docs: commit root-level note deletions missed by prior pathspec |
-| `b9c6f50` | docs: archive roadmap history 0.5-0.27 + stale one-off notes (fleet campaign) |
+| de8eb6b | docs: commit root-level note deletions missed by prior pathspec |
+| b9c6f50 | docs: archive roadmap history 0.5-0.27 + stale one-off notes (fleet campaign) |
 
 ## Courts / gates witnessed
 
