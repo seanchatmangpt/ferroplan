@@ -189,6 +189,48 @@ separately at the end.
 | `FF_LAMA_EXT_ARRIVAL` | Opt-in ARRIVAL extension rule for LAMA extension (0.24 Phase 6). |
 | FF_ESPC (not a direct read; the arm answers through `FF_NO_ESPC`) | see features.rs. |
 
+### Helper-routed env reads (outside extractor recall)
+
+Read through typed helpers — `crate::search::wall_frac_env`, the espc.rs
+`env_i64` indirection, ground.rs `env_f64`, sat.rs `env_usize`,
+optimal.rs `frac_env`, novelty.rs's `off` closure, plus one direct
+tcompress.rs read the extractor's recall class misses — these keys sit
+outside the extractor's direct std::env::var / var_os recall. They are
+de-backticked here (same rationale as the alias/glob re-export rows
+below: a backticked span lifts as a symbol claim that does not ground at
+this extractor). Every row was verified against the cited read site in
+this checkout; defaults are the source defaults.
+
+| Key | Read site | Meaning |
+|---|---|---|
+| FF_EHC_WALL_FRAC | search.rs:2098 | EHC rung's wall deadline: this fraction (default 0.25) of the REMAINING wall at rung entry, checked per evaluation in the lookahead; byte-identical with no armed budget (`FF_NO_EHC_WALLCAP=1` restores op-scaled-only). |
+| FF_LAMA_WALL_FRAC | search.rs:1817 | LAMA rung wall slice fraction (default 0.25). |
+| FF_NOV_WALL_FRAC | search.rs:1861 | Novelty rung wall slice fraction (default 0.50 since 0.26 F3; 0.30 restores the earlier shape). |
+| FF_NOVLIGHT_WALL_FRAC | novelty.rs:415 | Novelty-light rung wall slice: fraction (default 0.10) of the remaining wall; no armed budget means no slice. |
+| FF_TCOMPRESS_WALL_FRAC | tcompress.rs:557 | TCompress Bet::First bound: the deadline tightens to remaining × (1 − frac), frac defaulting to the module's WALL_FRAC const 0.25; the bound ends at search — validating a plan already found is never cut. |
+| FF_TCOMPRESS_CHASE_FRAC | temporal.rs:825 | Chase on a banked row: fraction (default 0.25) of what is left after the tcompress bank, not of the wall; unarmed, the ladder runs to its own deterministic caps. |
+| FF_PREF_SEED_WALL_FRAC | pddl3.rs:1284 | Caps the preference-seed EHC wall: fraction (default 1.0, uncapped) of the remaining wall; f < 1 tightens the deadline to remaining × (1 − f). |
+| FF_PREF_SEED_EHC_FRAC | pddl3.rs:1296 | Inside the seed, EHC's share of the wall via `SearchCfg::ehc_wall_frac` (default 0.6). |
+| FF_SAT_PROMO_WALL_FRAC | temporal.rs:895 | SAT promotion wall slice: fraction (default 0.5) of the remaining wall. |
+| FF_ESPC_LAMBDA0 | espc.rs:396 | Initial λ penalty (default 0 — on purpose, so iteration 0 is the plain penalty-free B&B and the default-quality incumbent is a hard floor). |
+| FF_ESPC_RATE | espc.rs:397 | Initial penalty rate (default 20, min 1). |
+| FF_ESPC_OUTER | espc.rs:399 | Outer-loop iteration cap (default 64 partitioned / 16 monolithic, min 1). |
+| FF_ESPC_K | espc.rs:400 | Consecutive-violation rate bump (default 2, min 1). |
+| FF_ESPC_STALL | espc.rs:401 | Stall cap (default 4). |
+| FF_ESPC_EVAL_BUDGET | espc.rs:408 | Deterministic evaluated-state pool for the ESPC loop (0.5 graduation; default 6,000,000, min 1) — makes the default run thread-count and machine independent; FF_ESPC_TIME_MS is demoted to an optional additional cap. |
+| FF_FIXPOINT_THRESHOLD | ground.rs:1860 | Fixpoint-grounding threshold (default 1e13). |
+| FF_MCV_THRESHOLD | ground.rs:1787 | MCV join-ordering threshold (default 1e6); unset keeps the plain recursion for every small action, FF_NO_MCV_JOIN removes the lever wholesale. |
+| FF_GOAL_FACTOR_THRESHOLD | ground.rs:2376 | Goal-factor product-compilation threshold (default 65536.0). |
+| FF_OPT_SPRINT_FRAC | optimal.rs:1205 | h^max sprint wall slice fraction (default 0.4) at the normal root-gate ratio. |
+| FF_OPT_SPRINT_FRAC_HI | optimal.rs:1203 | The same slice at the high-ratio gate (default 0.1). |
+| FF_OPT_LMCUT_PROBE_FRAC | optimal.rs:1223 | Incremental LM-cut probe wall slice fraction (default 0.33). |
+| FF_SAT_HORIZON | sat.rs:120 | Overrides the SAT max horizon (min 1; unset keeps the SatCfg default). |
+| FF_SAT_CONFLICTS | sat.rs:123 | SAT conflicts per horizon (min 1). |
+| FF_SAT_CAP | sat.rs:126 | SAT clause-literal cap (min 1). |
+| FF_NOV_PART | novelty.rs:547 | =0 turns the novelty partition lever OFF (unset means on), exactly as the roadmap writes the hatch. |
+| FF_NOV_W2 | novelty.rs:548 | =0 turns the width-2 novelty lever OFF (unset means on). |
+| FF_NO_TCOMPRESS | tcompress.rs:48 | Restore hatch removing the TCompress rung — declines() names it as the rung's reason for not applying. |
+
 ### Example / fixture keys
 
 | Key | Meaning |
@@ -244,10 +286,12 @@ the espc.rs env_num indirection) and set_var sites in tests are outside
 extractor recall; the book's tuning page names several such keys
 (FF_EHC_WALL_FRAC, FF_ESPC, FF_ESPC_EVAL_BUDGET, FF_TCOMPRESS_WALL_FRAC,
 FF_TCOMPRESS_CHASE_FRAC, FF_PREF_SEED_WALL_FRAC, FF_PREF_SEED_EHC_FRAC,
-FF_PREF_BARRIER — see the tuning tables for their meanings). They are
-therefore de-backticked on the tuning page so they do not emit phantom
-symbol claims, and they belong in the extractor's accessor list in a future
-backlog item. FF_ESPC is answered through the FF_NO_ESPC read
+FF_PREF_BARRIER — see the tuning tables for their meanings). The
+helper-routed ones among them are now documented on this page in the
+Helper-routed env reads section above (de-backticked, same rationale as
+the alias/glob re-export rows); they still belong in the extractor's
+accessor list in a future backlog item. The tuning page de-backticking
+stands. FF_ESPC is answered through the FF_NO_ESPC read
 (features.rs); FF_ESPC_EVAL_BUDGET is set_var-set by the espc test. All are
 verified real on disk (grep). Disclosure, not a silent hole.
 
@@ -286,3 +330,28 @@ are the crate-root wasm/harvest/sat/root re-export map.
 - `ferroplan` `crates/ferroplan/src/lib.rs`: `readiness::{ capability_manifest, evaluate_readiness, production_input_fingerprint, solve_production, AuthorityClass, BuildIdentity, CapabilityContract, CapabilityEvaluation, CapabilityManifest, CompatibilityClass, DeterminismClass, InterfaceKind, ManifestError, OperationEnvelope, OutcomeClass, ProductionLimits, PublicError, ReadinessReport, ReadinessState, ReplayClass, SecurityClass, ValidationStatus, CANDIDATE_AUTHORITY, CAPABILITY_MANIFEST_SCHEMA, OPERATION_ENVELOPE_SCHEMA, }`
 - `ferroplan` `crates/ferroplan/src/lib.rs`: `session::{Session, Think, ThinkBudget, ThinkVerdict}`
 - `ferroplan` `crates/ferroplan/src/lib.rs`: `trace::{trace, StateSnapshot}`
+
+### Alias and glob re-exports ([105]-residual extractor class, drift re-close [145])
+
+Two re-export shapes cannot be quoted in the verbatim list above because the
+extractor lifts their verbatim text as claims that do not ground (the alias
+tail and the glob target are real surface, but the full span is not a symbol):
+
+- `crates/ferroplan/src/ground.rs` aliases the packed task type: it binds
+  `PackedTask` from `crate::packed` to the local name Task. The real symbol is
+  `PackedTask` (struct, documented in the packed module section of the
+  generated reference), and the alias is referenced from the ground module's
+  `ground_task` / `initial_state` signatures.
+- `crates/ferroplan-cli/src/harvest/mod.rs` glob-re-exports the `model` module
+  alongside the named re-exports `compile::{compile_pack, replay_pack}`,
+  `extract::extract_operators`, and `gh::collect_with_gh`. The glob's real
+  surface is the model module's public items: the schema constants
+  `OBSERVATION_SCHEMA`, `ADMISSION_SCHEMA`, `CATALOG_SCHEMA`, `RECEIPT_SCHEMA`
+  and the observation/admission structs (`ObservationWindow`, `ObservationPack`,
+  `ObservedWorkItem`, `AdmittedWork`, `AdmissionReport`, ...), all documented
+  in the model module section of the generated reference.
+
+These two rows appear de-backticked (with a prose pointer, not a symbol span)
+in the generated reference's use-item tables; the generated reference is
+documentation of the extraction surface, not code, so the alias/glob rows are
+intentionally not backticked there.
