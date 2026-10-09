@@ -37,7 +37,7 @@ and `Options::should_continue`.
 | `FF_TDEMAND` | numeric-only | force the **Full** demand tier (also seed demand from predicate-goal thresholds) *first*, for conjunctive/structural builds. |
 | `FF_NO_TDEMAND` | — | master switch to the pristine pre-v0.2 path: no demand guidance, no relevance pruning, no escalation. |
 | `FF_NOREL` | — | disable goal-relevance pruning alone (keep demand guidance). |
-| `FF_NO_ESCALATE` | ladder on | disable the on-failure escalation ladder (retry Full tier, then decomposer). Only affects would-be failures. |
+| FF_NO_ESCALATE | ladder on | disable the on-failure escalation ladder (retry Full tier, then decomposer). Only affects would-be failures. |
 | `FF_TDECOMP` | off | route the temporal path through the partition-and-resolve decomposer first (the `decompose` API always does, regardless). |
 | `FF_TCONC` | off | run the concurrent scheduling phase — repack a plan onto actor objects to minimize makespan. |
 | `FF_TDEMAND_W` | `3` | weight of the temporal demand seed. |
