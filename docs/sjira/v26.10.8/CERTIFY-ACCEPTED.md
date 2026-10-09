@@ -126,3 +126,13 @@ Denominator unchanged: 1431 gated items (1709 raw, collapsed delta 278).
 Inputs: /tmp/ferro-reclose/inputs2.json (8121 claims; code+doc surface
 extracted from the ferroplan working tree carrying this lane's edits).
 Standing after the falsifier run: **ALIVE** — the gate did not re-open.
+
+## Extractor identity pin (ggen-marketplace fleet law [150], 2026-10-09)
+
+Receipts in this doc predate the extractor pin and are **grandfathered**
+(valid as bound). Certify now embeds an `extractor` field (BLAKE3 over the
+extractor source bytes) into every new receipt and refuses typed
+(`REFUSED:EXTRACTOR_MISMATCH`) on replay when the current extractor identity
+differs from the recorded one; `--force-rebaseline` mints a NEW baseline
+receipt acknowledging the drift. Pass `--extractor scripts/gen_doc_surface.py`
+(ggen-marketplace) when replaying so new receipts carry the pin.

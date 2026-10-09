@@ -315,7 +315,7 @@
 
 | `gh::collect_with_gh` | use | gh::collect_with_gh |  |  |  |  |
 
-| `model::*` | use | model::* |  |  |  |  |
+| model::* (glob re-export; see prose note) | use | model::* |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/harvest/model.rs
@@ -3036,7 +3036,7 @@
 
 | `objects_by_type` | function | objects_by_type(domain: &Domain, problem: &Problem) -> HashMap<Sym, Vec<Sym>> |  |  |  |  |
 
-| `crate::packed::PackedTask as Task` | use | crate::packed::PackedTask as Task |  |  |  |  |
+| crate::packed::PackedTask as Task (alias re-export; see prose note) | use | crate::packed::PackedTask as Task |  |  |  |  |
 
 
 ### crates/ferroplan/src/hash.rs
@@ -7352,7 +7352,7 @@
 
 | `gh::collect_with_gh` | use | gh::collect_with_gh |  |  |  |  |
 
-| `model::*` | use | model::* |  |  |  |  |
+| model::* (glob re-export; see prose note) | use | model::* |  |  |  |  |
 
 | `ADMISSION_SCHEMA` | const | ADMISSION_SCHEMA: &str |  |  |  |  |
 
@@ -9656,7 +9656,7 @@
 
 | `objects_by_type` | function | objects_by_type(domain: &Domain, problem: &Problem) -> HashMap<Sym, Vec<Sym>> |  |  |  |  |
 
-| `crate::packed::PackedTask as Task` | use | crate::packed::PackedTask as Task |  |  |  |  |
+| crate::packed::PackedTask as Task (alias re-export; see prose note) | use | crate::packed::PackedTask as Task |  |  |  |  |
 
 | `FxHasher` | struct | FxHasher { hash: u64 } |  |  |  |  |
 
