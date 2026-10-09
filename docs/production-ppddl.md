@@ -20,6 +20,19 @@ target/release/ferroplan-ppddl \
   > future-policy-receipt.json
 ```
 
+## Synthesis defaults
+
+Unless overridden on the command line, `ferroplan-ppddl` takes its
+defaults from the generated option constants in
+`crates/ferroplan-cli/src/generated/options.rs`: a finite-horizon
+synthesis window of `PPDDL_HORIZON` (64) steps, value-iteration
+discount `PPDDL_DISCOUNT` (1.0), and convergence slack
+`PPDDL_EPSILON` (1e-10). Every one of these is a plain CLI flag
+(`--horizon`, `--discount`, `--epsilon`); there is no separate config
+file behind the binary.
+
+## Command sequence
+
 The command performs, in order:
 
 1. bounded explicit-MDP policy synthesis through `ferroplan::solve_ppddl`;

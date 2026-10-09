@@ -8,6 +8,15 @@ This document is the operator-facing projection of `FP-PRD-F5-001` and `FP-ARD-F
 
 A capability is production-admitted only for an exact source revision when every required evidence identifier in the canonical manifest is produced by a completed verification command and the independent `ferroplan-readiness` evaluator reports `ADMITTED`.
 
+The manifest surface is typed in `crates/ferroplan/src/readiness.rs`:
+`CAPABILITY_MANIFEST_SCHEMA` (pinned to `ferroplan.capabilities.v1`)
+identifies the manifest itself, `OPERATION_ENVELOPE_SCHEMA` (pinned to
+`ferroplan.operation.v1`) identifies each operation envelope, and
+`CANDIDATE_AUTHORITY` (pinned to `candidate_only`) is the fixed
+authority notice string carried on every envelope. `validate()` refuses
+a manifest whose `schema_version` does not equal
+`CAPABILITY_MANIFEST_SCHEMA` exactly.
+
 ## Exact-head execution handoff
 
 The evidence harvester completed its Rust, MCP+, Python, SHACL, replay, formatter, and clean-tree boundaries on source `c1e76cf8a7b8c7ca054c1216b373656de8e9e53f`, then committed the verified formatter and lockfile projections as `e1288fc4b6bb3aed94cdbd6c6479553df82b3e3c`.

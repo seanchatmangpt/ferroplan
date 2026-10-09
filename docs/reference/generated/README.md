@@ -20,6 +20,9 @@ GENERATED — do not hand-edit the reference tables.
 - The reference tables under `reference.md` are rigid (see the
   AGENT-FORBIDDEN banner in the file): every row is rendered from the
   extracted code surface. Prose lives only in the fenced slot.
-- Known extractor limit (disclosed, not hand-filled): `struct`/`enum`/`trait`
-  rows carry an empty signature column (612 items) — the v1 scanner records
-  type names only, not fields/generics. Function signatures (1120) are complete.
+- Known extractor limit (disclosed, not hand-filled): a small residue of
+  `struct`/`trait` rows still carries an empty signature column (20 items
+  at this extraction: 18 `struct`, 2 `trait`) — the scanner records
+  fields/generics where path typing resolves them and only the type name
+  otherwise. Function signatures (659) are complete. The vendored
+  `crucible/` tree is outside the surface by default (backlog [79]).

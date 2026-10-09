@@ -15,6 +15,16 @@ produce this page.
   `--test-threads=1` where stated). Walls vary run to run — the verdict
   classes are the stable fact, the walls are context.
 
+## Heuristic instrumentation
+
+The FF heuristic path carries its own instrumentation: `crates/
+ferroplan/src/heuristic.rs` exposes three public monotonic counters,
+`T_RESET` / `T_BUILD` / `T_EXTRACT`, each an `AtomicU64` accumulating
+microseconds across all worker threads for, respectively, the state
+reset, the relaxed-graph build, and the relaxed-goal extraction phase
+per evaluation. They are read-side instrumentation only — they change
+no search behavior and no number on this page derives from them.
+
 ## Summary — one row per corpus
 
 | corpus | instances | solved (ferroplan) | solved (oracle) | refused-by-limit | gaps | source file |

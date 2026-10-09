@@ -15,80 +15,52 @@
 
 | `advance` | function | advance(time: Res<Time>, mut plan: ResMut<Plan>) |  |  |  |  |
 
-| `animate` | function | animate(
-    plan: Res<Plan>,
-    scene: Res<Scene>,
-    nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
+| `animate` | function | animate( plan: Res<Plan>, scene: Res<Scene>, nodes: Query<(&NodeObj, &Transform)>, mut mobiles: Query<(&MobileObj, &FanOffset, &mut Transform), Without<NodeObj>>, ) |  |  |  |  |
 
-| `controls` | function | controls(
-    keys: Res<ButtonInput<KeyCode>>,
-    scene: Res<Scene>,
-    editor: Res<crate::blocks::Editor>,
-    mut plan: ResMut<Plan>,
-    mut job: ResMut<SolveJob>,
-) |  |  |  |  |
+| `controls` | function | controls( keys: Res<ButtonInput<KeyCode>>, scene: Res<Scene>, editor: Res<crate::blocks::Editor>, mut plan: ResMut<Plan>, mut job: ResMut<SolveJob>, ) |  |  |  |  |
 
-| `frac` | function | frac(&self) |  |  |  |  |
+| `frac` | function | frac(&self) -> f32 |  |  |  |  |
 
 | `poll_solve` | function | poll_solve(mut job: ResMut<SolveJob>, mut plan: ResMut<Plan>) |  |  |  |  |
 
-| `span` | function | span(&self) |  |  |  |  |
+| `span` | function | span(&self) -> f32 |  |  |  |  |
 
-| `start_frac` | function | start_frac(&self, step: &Step, idx: usize) |  |  |  |  |
+| `start_frac` | function | start_frac(&self, step: &Step, idx: usize) -> f32 |  |  |  |  |
 
-| `Plan` | struct |  |  |  |  |  |
+| `Plan` | struct | Plan { pub steps: Vec<Step>, pub snapshots: Vec<StateSnapshot>, pub t: f32, pub playing: bool, pub status: String, pub temporal: bool, pub makespan: f32 } |  |  |  |  |
 
-| `SolveJob` | struct |  |  |  |  |  |
+| `SolveJob` | struct | SolveJob { Option<Task<SolveResult>> } |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/blocks.rs
 
-| `Act` | enum |  |  |  |  |  |
+| `Act` | enum | Act { AddObject, RemoveObject(usize), CycleType(usize), AddFact(bool), RemoveFact(bool, usize), CyclePred(bool, usize), CycleArg(bool, usize, usize), AddType, RemoveType(usize), CycleSuper(usize), AddPred, RemovePred(usize), AddArg(usize), RemoveArg(usize), CycleArgType(usize, usize), AddAction, RemoveAction(usize), AddParam(usize), RemoveParam(usize), CycleParamType(usize, usize), TogglePreKind(usize), AddWhen(usize), RemoveWhen(usize, usize), AddLit(usize, LitLoc), RemoveLit(usize, LitLoc, usize), CycleLitPred(usize, LitLoc, usize), CycleLitArg(usize, LitLoc, usize, usize), ToggleNeg(usize, LitLoc, usize), SetFocus(Focus), ToggleMode, Apply, Export, Close } |  |  |  |  |
 
-| `DragKind` | enum |  |  |  |  |  |
+| `DragKind` | enum | DragKind { Init(usize), Goal(usize) } |  |  |  |  |
 
-| `Focus` | enum |  |  |  |  |  |
+| `Focus` | enum | Focus { DomainName, TypeName(usize), PredName(usize), ActionName(usize) } |  |  |  |  |
 
-| `LitLoc` | enum |  |  |  |  |  |
+| `LitLoc` | enum | LitLoc { Pre, Eff, WhenCond(usize), WhenEff(usize) } |  |  |  |  |
 
-| `Mode` | enum |  |  |  |  |  |
+| `Mode` | enum | Mode { Problem, Domain } |  |  |  |  |
 
-| `Zone` | enum |  |  |  |  |  |
+| `Zone` | enum | Zone { Init, Goal } |  |  |  |  |
 
-| `editor_drag` | function | editor_drag(
-    mouse: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    mut drag: ResMut<Drag>,
-    mut editor: ResMut<Editor>,
-    grips: Query<(&DragKind, &RelativeCursorPosition) |  |  |  |  |
+| `editor_drag` | function | editor_drag( mouse: Res<ButtonInput<MouseButton>>, windows: Query<&Window>, mut drag: ResMut<Drag>, mut editor: ResMut<Editor>, grips: Query<(&DragKind, &RelativeCursorPosition)>, zones: Query<(&Zone, &RelativeCursorPosition)>, mut ghosts: Query<&mut Node, With<Ghost>>, mut commands: Commands, ) |  |  |  |  |
 
-| `handle_clicks` | function | handle_clicks(
-    interactions: Query<(&Interaction, &Act) |  |  |  |  |
+| `handle_clicks` | function | handle_clicks( interactions: Query<(&Interaction, &Act), (Changed<Interaction>, With<Button>)>, mut editor: ResMut<Editor>, mut scene: ResMut<Scene>, ) |  |  |  |  |
 
-| `rebuild` | function | rebuild(
-    mut commands: Commands,
-    mut editor: ResMut<Editor>,
-    roots: Query<Entity, With<EditorRoot>>,
-) |  |  |  |  |
+| `rebuild` | function | rebuild( mut commands: Commands, mut editor: ResMut<Editor>, roots: Query<Entity, With<EditorRoot>>, ) |  |  |  |  |
 
-| `scroll_editor` | function | scroll_editor(
-    mut wheel: MessageReader<MouseWheel>,
-    keys: Res<ButtonInput<KeyCode>>,
-    editor: Res<Editor>,
-    mut q: Query<&mut ScrollPosition, With<EditorRoot>>,
-) |  |  |  |  |
+| `scroll_editor` | function | scroll_editor( mut wheel: MessageReader<MouseWheel>, keys: Res<ButtonInput<KeyCode>>, editor: Res<Editor>, mut q: Query<&mut ScrollPosition, With<EditorRoot>>, ) |  |  |  |  |
 
 | `text_input` | function | text_input(mut evr: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>) |  |  |  |  |
 
-| `toggle_editor` | function | toggle_editor(
-    keys: Res<ButtonInput<KeyCode>>,
-    scene: Res<Scene>,
-    mut editor: ResMut<Editor>,
-) |  |  |  |  |
+| `toggle_editor` | function | toggle_editor( keys: Res<ButtonInput<KeyCode>>, scene: Res<Scene>, mut editor: ResMut<Editor>, ) |  |  |  |  |
 
-| `Drag` | struct |  |  |  |  |  |
+| `Drag` | struct | Drag { held: Option<DragKind>, ghost: Option<Entity> } |  |  |  |  |
 
-| `Editor` | struct |  |  |  |  |  |
+| `Editor` | struct | Editor { pub open: bool, pub focus: Option<Focus>, mode: Mode, dirty: bool, status: String, problem_name: String, objects: Vec<(String, String)>, init: Vec<(String, Vec<String>)>, goal: Vec<(String, Vec<String>)>, counters: HashMap<String, u32>, seeded: bool, dname: String, requirements: String, types: Vec<(String, String)>, dpreds: Vec<(String, Vec<String>)>, actions: Vec<EdAction>, dseeded: bool } |  |  |  |  |
 
 | `EditorRoot` | struct |  |  |  |  |  |
 
@@ -99,28 +71,13 @@
 
 | `gantt_now` | function | gantt_now(plan: Res<Plan>, mut now: Query<&mut Node, With<GanttNow>>) |  |  |  |  |
 
-| `gantt_visibility` | function | gantt_visibility(
-    plan: Res<Plan>,
-    state: Res<GanttState>,
-    editor: Res<crate::blocks::Editor>,
-    mut panel: Query<&mut Visibility, With<GanttPanel>>,
-) |  |  |  |  |
+| `gantt_visibility` | function | gantt_visibility( plan: Res<Plan>, state: Res<GanttState>, editor: Res<crate::blocks::Editor>, mut panel: Query<&mut Visibility, With<GanttPanel>>, ) |  |  |  |  |
 
-| `rebuild_gantt` | function | rebuild_gantt(
-    mut commands: Commands,
-    plan: Res<Plan>,
-    mut state: ResMut<GanttState>,
-    track: Query<Entity, With<GanttTrack>>,
-    bars: Query<Entity, With<GanttBar>>,
-) |  |  |  |  |
+| `rebuild_gantt` | function | rebuild_gantt( mut commands: Commands, plan: Res<Plan>, mut state: ResMut<GanttState>, track: Query<Entity, With<GanttTrack>>, bars: Query<Entity, With<GanttBar>>, ) |  |  |  |  |
 
 | `setup_gantt` | function | setup_gantt(mut commands: Commands) |  |  |  |  |
 
-| `toggle_gantt` | function | toggle_gantt(
-    keys: Res<ButtonInput<KeyCode>>,
-    editor: Res<crate::blocks::Editor>,
-    mut state: ResMut<GanttState>,
-) |  |  |  |  |
+| `toggle_gantt` | function | toggle_gantt( keys: Res<ButtonInput<KeyCode>>, editor: Res<crate::blocks::Editor>, mut state: ResMut<GanttState>, ) |  |  |  |  |
 
 | `GanttBar` | struct |  |  |  |  |  |
 
@@ -128,114 +85,112 @@
 
 | `GanttPanel` | struct |  |  |  |  |  |
 
-| `GanttState` | struct |  |  |  |  |  |
+| `GanttState` | struct | GanttState { pub open: bool, built_for: usize, built_span: f32 } |  |  |  |  |
 
 | `GanttTrack` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/icons.rs
 
-| `IconShape` | enum |  |  |  |  |  |
+| `IconShape` | enum | IconShape { Circle, Truck, Box, Person, Robot, Machine, Diamond } |  |  |  |  |
 
-| `color_for` | function | color_for(ty: &str) |  |  |  |  |
+| `color_for` | function | color_for(ty: &str) -> Color |  |  |  |  |
 
-| `mat_handle` | function | mat_handle(
-    materials: &mut Assets<ColorMaterial>,
-    cache: &mut MatCache,
-    color: Color,
-) |  |  |  |  |
+| `mat_handle` | function | mat_handle( materials: &mut Assets<ColorMaterial>, cache: &mut MatCache, color: Color, ) -> Handle<ColorMaterial> |  |  |  |  |
 
-| `mesh_handle` | function | mesh_handle(
-    meshes: &mut Assets<Mesh>,
-    cache: &mut MeshCache,
-    shape: IconShape,
-    size: f32,
-) |  |  |  |  |
+| `mesh_handle` | function | mesh_handle( meshes: &mut Assets<Mesh>, cache: &mut MeshCache, shape: IconShape, size: f32, ) -> Handle<Mesh> |  |  |  |  |
 
-| `shape_for` | function | shape_for(ty: &str) |  |  |  |  |
+| `shape_for` | function | shape_for(ty: &str) -> IconShape |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/interact.rs
 
-| `draw_selection` | function | draw_selection(
-    mut gizmos: Gizmos,
-    selected: Res<Selected>,
-    nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
+| `draw_selection` | function | draw_selection( mut gizmos: Gizmos, selected: Res<Selected>, nodes: Query<(&NodeObj, &Transform)>, mobiles: Query<(&MobileObj, &Transform), Without<NodeObj>>, ) |  |  |  |  |
 
-| `interact` | function | interact(
-    mouse: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    editor: Res<crate::blocks::Editor>,
-    cam_q: Query<(&Camera, &GlobalTransform) |  |  |  |  |
+| `interact` | function | interact( mouse: Res<ButtonInput<MouseButton>>, windows: Query<&Window>, editor: Res<crate::blocks::Editor>, cam_q: Query<(&Camera, &GlobalTransform), With<MainCamera>>, mut nodes: Query<(Entity, &NodeObj, &mut Transform)>, mobiles: Query<(&MobileObj, &Transform), Without<NodeObj>>, transport: Res<crate::transport::Transport>, mut selected: ResMut<Selected>, mut drag: ResMut<DragState>, ) |  |  |  |  |
 
-| `DragState` | struct |  |  |  |  |  |
+| `DragState` | struct | DragState { node: Option<Entity> } |  |  |  |  |
 
-| `Selected` | struct |  |  |  |  |  |
+| `Selected` | struct | Selected { pub Option<String> } |  |  |  |  |
+
+
+### crates/ferroplan-bevy/src/palette.rs
+
+| `ACC` | const | ACC: Color |  |  |  |  |
+
+| `BG` | const | BG: Color |  |  |  |  |
+
+| `BG2` | const | BG2: Color |  |  |  |  |
+
+| `CRATE_AMBER` | const | CRATE_AMBER: Color |  |  |  |  |
+
+| `CY` | const | CY: Color |  |  |  |  |
+
+| `EDGE` | const | EDGE: Color |  |  |  |  |
+
+| `EDGE2` | const | EDGE2: Color |  |  |  |  |
+
+| `FAINT` | const | FAINT: Color |  |  |  |  |
+
+| `GREY_NODE` | const | GREY_NODE: Color |  |  |  |  |
+
+| `INK` | const | INK: Color |  |  |  |  |
+
+| `MUT` | const | MUT: Color |  |  |  |  |
+
+| `NODE_PURPLE` | const | NODE_PURPLE: Color |  |  |  |  |
+
+| `PANEL` | const | PANEL: Color |  |  |  |  |
+
+| `PANEL2` | const | PANEL2: Color |  |  |  |  |
+
+| `PANEL_BLUR` | const | PANEL_BLUR: Color |  |  |  |  |
+
+| `RIG_GREEN` | const | RIG_GREEN: Color |  |  |  |  |
+
+| `ZONE` | const | ZONE: Color |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/scene.rs
 
-| `camera_nav` | function | camera_nav(
-    mouse: Res<ButtonInput<MouseButton>>,
-    editor: Res<crate::blocks::Editor>,
-    mut motion: MessageReader<bevy::input::mouse::MouseMotion>,
-    mut wheel: MessageReader<MouseWheel>,
-    mut cam: Query<(&mut Transform, &mut Projection) |  |  |  |  |
+| `MOBILE_SIZE` | const | MOBILE_SIZE: f32 |  |  |  |  |
 
-| `draw_edges` | function | draw_edges(
-    mut gizmos: Gizmos,
-    scene: Res<Scene>,
-    plan: Res<crate::anim::Plan>,
-    nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
+| `NODE_SIZE` | const | NODE_SIZE: f32 |  |  |  |  |
+
+| `camera_nav` | function | camera_nav( mouse: Res<ButtonInput<MouseButton>>, editor: Res<crate::blocks::Editor>, mut motion: MessageReader<bevy::input::mouse::MouseMotion>, mut wheel: MessageReader<MouseWheel>, mut cam: Query<(&mut Transform, &mut Projection), With<MainCamera>>, ) |  |  |  |  |
+
+| `draw_edges` | function | draw_edges( mut gizmos: Gizmos, scene: Res<Scene>, plan: Res<crate::anim::Plan>, nodes: Query<(&NodeObj, &Transform)>, ) |  |  |  |  |
 
 | `handle_drops` | function | handle_drops(mut drops: MessageReader<FileDragAndDrop>, mut scene: ResMut<Scene>) |  |  |  |  |
 
 | `load_src` | function | load_src(&mut self, src: &str) |  |  |  |  |
 
-| `respawn_graph` | function | respawn_graph(
-    mut commands: Commands,
-    mut scene: ResMut<Scene>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    existing: Query<Entity, With<GraphItem>>,
-) |  |  |  |  |
+| `respawn_graph` | function | respawn_graph( mut commands: Commands, mut scene: ResMut<Scene>, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<ColorMaterial>>, existing: Query<Entity, With<GraphItem>>, ) |  |  |  |  |
 
 | `setup` | function | setup(mut commands: Commands) |  |  |  |  |
 
-| `FanOffset` | struct |  |  |  |  |  |
+| `FanOffset` | struct | FanOffset { pub Vec2 } |  |  |  |  |
 
 | `GraphItem` | struct |  |  |  |  |  |
 
 | `MainCamera` | struct |  |  |  |  |  |
 
-| `MobileObj` | struct |  |  |  |  |  |
+| `MobileObj` | struct | MobileObj { pub String } |  |  |  |  |
 
-| `NodeObj` | struct |  |  |  |  |  |
+| `NodeObj` | struct | NodeObj { pub String } |  |  |  |  |
 
-| `Scene` | struct |  |  |  |  |  |
+| `Scene` | struct | Scene { pub domain: Option<Domain>, pub problem: Option<Problem>, pub domain_src: String, pub problem_src: String, pub graph: VizGraph, pub dirty: bool, pub status: String } |  |  |  |  |
 
 
 ### crates/ferroplan-bevy/src/transport.rs
 
-| `rebuild_notches` | function | rebuild_notches(
-    mut commands: Commands,
-    plan: Res<Plan>,
-    mut state: ResMut<Transport>,
-    track: Query<Entity, With<ScrubTrack>>,
-    notches: Query<Entity, With<StepNotch>>,
-) |  |  |  |  |
+| `rebuild_notches` | function | rebuild_notches( mut commands: Commands, plan: Res<Plan>, mut state: ResMut<Transport>, track: Query<Entity, With<ScrubTrack>>, notches: Query<Entity, With<StepNotch>>, ) |  |  |  |  |
 
 | `setup_transport` | function | setup_transport(mut commands: Commands) |  |  |  |  |
 
-| `transport_input` | function | transport_input(
-    mouse: Res<ButtonInput<MouseButton>>,
-    mut transport: ResMut<Transport>,
-    mut plan: ResMut<Plan>,
-    play_btn: Query<&Interaction, (With<PlayButton>, Changed<Interaction>) |  |  |  |  |
+| `transport_input` | function | transport_input( mouse: Res<ButtonInput<MouseButton>>, mut transport: ResMut<Transport>, mut plan: ResMut<Plan>, play_btn: Query<&Interaction, (With<PlayButton>, Changed<Interaction>)>, track: Query<(&Interaction, &RelativeCursorPosition), With<ScrubTrack>>, ) |  |  |  |  |
 
-| `transport_sync` | function | transport_sync(
-    plan: Res<Plan>,
-    mut fill: Query<&mut Node, (With<ScrubFill>, Without<Playhead>) |  |  |  |  |
+| `transport_sync` | function | transport_sync( plan: Res<Plan>, mut fill: Query<&mut Node, (With<ScrubFill>, Without<Playhead>)>, mut head: Query<&mut Node, (With<Playhead>, Without<ScrubFill>)>, mut icon: Query<&mut Text, (With<PlayIcon>, Without<TransportLabel>)>, mut label: Query<&mut Text, (With<TransportLabel>, Without<PlayIcon>)>, ) |  |  |  |  |
 
 | `transport_visibility` | function | transport_visibility(plan: Res<Plan>, mut bar: Query<&mut Visibility, With<TransportBar>>) |  |  |  |  |
 
@@ -251,7 +206,7 @@
 
 | `StepNotch` | struct |  |  |  |  |  |
 
-| `Transport` | struct |  |  |  |  |  |
+| `Transport` | struct | Transport { pub hovering: bool, built_for: usize } |  |  |  |  |
 
 | `TransportBar` | struct |  |  |  |  |  |
 
@@ -262,547 +217,545 @@
 
 | `setup_ui` | function | setup_ui(mut commands: Commands) |  |  |  |  |
 
-| `update_info` | function | update_info(
-    scene: Res<Scene>,
-    selected: Res<Selected>,
-    plan: Res<Plan>,
-    mut q: Query<&mut Text, With<InfoText>>,
-) |  |  |  |  |
+| `update_info` | function | update_info( scene: Res<Scene>, selected: Res<Selected>, plan: Res<Plan>, mut q: Query<&mut Text, With<InfoText>>, ) |  |  |  |  |
 
 | `InfoText` | struct |  |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/generated/options.rs
 
-| `ModeArg` | enum |  |  |  |  |  |
+| `FF_THREADS` | const | FF_THREADS: usize |  |  |  |  |
 
-| `ObjectiveArg` | enum |  |  |  |  |  |
+| `FF_WEIGHT_G` | const | FF_WEIGHT_G: f64 |  |  |  |  |
 
-| `SearchArg` | enum |  |  |  |  |  |
+| `FF_WEIGHT_H` | const | FF_WEIGHT_H: f64 |  |  |  |  |
+
+| `PPDDL_DISCOUNT` | const | PPDDL_DISCOUNT: f64 |  |  |  |  |
+
+| `PPDDL_EPISODES` | const | PPDDL_EPISODES: usize |  |  |  |  |
+
+| `PPDDL_EPSILON` | const | PPDDL_EPSILON: f64 |  |  |  |  |
+
+| `PPDDL_HORIZON` | const | PPDDL_HORIZON: usize |  |  |  |  |
+
+| `PPDDL_MAX_INITIAL_OUTCOMES` | const | PPDDL_MAX_INITIAL_OUTCOMES: usize |  |  |  |  |
+
+| `PPDDL_MAX_ITERATIONS` | const | PPDDL_MAX_ITERATIONS: usize |  |  |  |  |
+
+| `PPDDL_MAX_OUTCOMES_PER_ACTION` | const | PPDDL_MAX_OUTCOMES_PER_ACTION: usize |  |  |  |  |
+
+| `PPDDL_MAX_POLICY_ENTRIES` | const | PPDDL_MAX_POLICY_ENTRIES: usize |  |  |  |  |
+
+| `PPDDL_MAX_STATES` | const | PPDDL_MAX_STATES: usize |  |  |  |  |
+
+| `PPDDL_MAX_TRANSITIONS` | const | PPDDL_MAX_TRANSITIONS: usize |  |  |  |  |
+
+| `PPDDL_MAX_VALUE_CELLS` | const | PPDDL_MAX_VALUE_CELLS: usize |  |  |  |  |
+
+| `PPDDL_SEED` | const | PPDDL_SEED: u64 |  |  |  |  |
+
+| `PPDDL_SIMULATION_MAX_STEPS` | const | PPDDL_SIMULATION_MAX_STEPS: usize |  |  |  |  |
+
+| `PPDDL_THREADS` | const | PPDDL_THREADS: usize |  |  |  |  |
+
+| `ModeArg` | enum | ModeArg { Auto, Ff, Partition, Pddl3, Temporal, Portfolio, Optimal, Sat } |  |  |  |  |
+
+| `ObjectiveArg` | enum | ObjectiveArg { Auto, MaximizeGoalProbability, MinimizeGoalProbability, MaximizeExpectedReward, MinimizeExpectedReward, MaximizeExpectedMetric, MinimizeExpectedMetric } |  |  |  |  |
+
+| `SearchArg` | enum | SearchArg { Auto, Ehc, BestFirst, EhcThenBestFirst } |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/harvest/compile.rs
 
-| `compile_pack` | function | compile_pack(pack: &ObservationPack, output_dir: &Path) |  |  |  |  |
+| `compile_pack` | function | compile_pack(pack: &ObservationPack, output_dir: &Path) -> Result<HarvestReceipt> |  |  |  |  |
 
-| `replay_pack` | function | replay_pack(
-    pack: &ObservationPack,
-    expected: &HarvestReceipt,
-    output_dir: &Path,
-) |  |  |  |  |
+| `replay_pack` | function | replay_pack( pack: &ObservationPack, expected: &HarvestReceipt, output_dir: &Path, ) -> Result<HarvestReceipt> |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/harvest/extract.rs
 
-| `extract_operators` | function | extract_operators(report: &AdmissionReport) |  |  |  |  |
+| `extract_operators` | function | extract_operators(report: &AdmissionReport) -> Vec<PlanningOperator> |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/harvest/gh.rs
 
-| `collect_with_gh` | function | collect_with_gh(
-    repositories: &[String],
-    window: ObservationWindow,
-    max_pages: usize,
-) |  |  |  |  |
+| `collect_with_gh` | function | collect_with_gh( repositories: &[String], window: ObservationWindow, max_pages: usize, ) -> Result<ObservationPack> |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/harvest/mod.rs
 
-| `admit` | function | admit(pack: &ObservationPack) |  |  |  |  |
+| `admit` | function | admit(pack: &ObservationPack) -> AdmissionReport |  |  |  |  |
 
-| `digest_bytes` | function | digest_bytes(bytes: &[u8]) |  |  |  |  |
+| `digest_bytes` | function | digest_bytes(bytes: &[u8]) -> String |  |  |  |  |
 
-| `load_observation_pack` | function | load_observation_pack(path: &Path) |  |  |  |  |
+| `load_observation_pack` | function | load_observation_pack(path: &Path) -> Result<ObservationPack> |  |  |  |  |
 
-| `load_receipt` | function | load_receipt(path: &Path) |  |  |  |  |
+| `load_receipt` | function | load_receipt(path: &Path) -> Result<HarvestReceipt> |  |  |  |  |
 
-| `receipt_exit_code` | function | receipt_exit_code(receipt: &HarvestReceipt) |  |  |  |  |
+| `receipt_exit_code` | function | receipt_exit_code(receipt: &HarvestReceipt) -> i32 |  |  |  |  |
 
-| `save_observation_pack` | function | save_observation_pack(path: &Path, pack: &ObservationPack) |  |  |  |  |
+| `save_observation_pack` | function | save_observation_pack(path: &Path, pack: &ObservationPack) -> Result<()> |  |  |  |  |
 
-| `validate_pack` | function | validate_pack(pack: &ObservationPack) |  |  |  |  |
+| `validate_pack` | function | validate_pack(pack: &ObservationPack) -> Result<()> |  |  |  |  |
 
-| `validate_window` | function | validate_window(window: &ObservationWindow) |  |  |  |  |
+| `validate_window` | function | validate_window(window: &ObservationWindow) -> Result<()> |  |  |  |  |
+
+| `compile::{compile_pack, replay_pack}` | use | compile::{compile_pack, replay_pack} |  |  |  |  |
+
+| `extract::extract_operators` | use | extract::extract_operators |  |  |  |  |
+
+| `gh::collect_with_gh` | use | gh::collect_with_gh |  |  |  |  |
+
+| `model::*` | use | model::* |  |  |  |  |
 
 
 ### crates/ferroplan-cli/src/harvest/model.rs
 
-| `ActuationClass` | enum |  |  |  |  |  |
+| `ADMISSION_SCHEMA` | const | ADMISSION_SCHEMA: &str |  |  |  |  |
 
-| `AdmissionLevel` | enum |  |  |  |  |  |
+| `CATALOG_SCHEMA` | const | CATALOG_SCHEMA: &str |  |  |  |  |
 
-| `ExecutionResult` | enum |  |  |  |  |  |
+| `OBSERVATION_SCHEMA` | const | OBSERVATION_SCHEMA: &str |  |  |  |  |
 
-| `FinalState` | enum |  |  |  |  |  |
+| `RECEIPT_SCHEMA` | const | RECEIPT_SCHEMA: &str |  |  |  |  |
 
-| `GallCheckpoint` | enum |  |  |  |  |  |
+| `ActuationClass` | enum | ActuationClass { Select, Construct, Do, HookIntent } |  |  |  |  |
 
-| `RefusalCode` | enum |  |  |  |  |  |
+| `AdmissionLevel` | enum | AdmissionLevel { Observed, IdentityResolved, ExecutionObserved, ResultCorroborated, ReceiptVerified, ReplayVerified } |  |  |  |  |
 
-| `ReplayState` | enum |  |  |  |  |  |
+| `ExecutionResult` | enum | ExecutionResult { Pass, Fail, Cancelled, Pending, Unknown } |  |  |  |  |
 
-| `AdmissionReport` | struct |  |  |  |  |  |
+| `FinalState` | enum | FinalState { PartialAlive, Alive, Blocked, BuildBroken, Unknown, Unsupported } |  |  |  |  |
 
-| `AdmittedWork` | struct |  |  |  |  |  |
+| `GallCheckpoint` | enum | GallCheckpoint { G0Orient, G1Fence, G2Observe, G3Admit, G4Plan, G5Manufacture, G6Verify, G7Replay, G8ReleaseAdmission, G9SunsetAdmission } |  |  |  |  |
 
-| `ArtifactEvidence` | struct |  |  |  |  |  |
+| `RefusalCode` | enum | RefusalCode { MissingExactSourceIdentity, OutsideObservationWindow, MissingChangedPaths, ExecutionNotObserved, WorkflowRunNotBoundToHead, ProbabilityEvidenceMissing, InvalidProbability, ProbabilityMassExceeded, OperatorBoundExceeded } |  |  |  |  |
 
-| `EvidenceRef` | struct |  |  |  |  |  |
+| `ReplayState` | enum | ReplayState { NotExecuted, ReplayMatch, ReplayMismatch } |  |  |  |  |
 
-| `ExcludedWork` | struct |  |  |  |  |  |
+| `AdmissionReport` | struct | AdmissionReport { pub schema: String, pub admitted: Vec<AdmittedWork>, pub excluded: Vec<ExcludedWork>, pub unresolved_transport_failures: Vec<TransportFailure> } |  |  |  |  |
 
-| `ExecutionEvidence` | struct |  |  |  |  |  |
+| `AdmittedWork` | struct | AdmittedWork { pub identity: String, pub level: AdmissionLevel, pub work: ObservedWorkItem, pub evidence: Vec<EvidenceRef> } |  |  |  |  |
 
-| `HarvestReceipt` | struct |  |  |  |  |  |
+| `ArtifactEvidence` | struct | ArtifactEvidence { pub name: String, pub source_sha: String, pub evidence_url: String, pub digest: Option<String>, pub size_bytes: Option<u64> } |  |  |  |  |
 
-| `MethodCatalog` | struct |  |  |  |  |  |
+| `EvidenceRef` | struct | EvidenceRef { pub kind: String, pub identity: String, pub location: String } |  |  |  |  |
 
-| `ObservationPack` | struct |  |  |  |  |  |
+| `ExcludedWork` | struct | ExcludedWork { pub identity: String, pub code: RefusalCode, pub detail: String } |  |  |  |  |
 
-| `ObservationWindow` | struct |  |  |  |  |  |
+| `ExecutionEvidence` | struct | ExecutionEvidence { pub surface: String, pub command: String, pub source_sha: String, pub result: ExecutionResult, pub exit_code: Option<i32>, pub observed_at_utc: String, pub evidence_url: String } |  |  |  |  |
 
-| `ObservedOutcome` | struct |  |  |  |  |  |
+| `HarvestReceipt` | struct | HarvestReceipt { pub schema: String, pub run_id: String, pub receipt_digest: String, pub source_pack_digest: String, pub catalog_digest: String, pub source_revisions: Vec<SourceRevision>, pub source_work: Vec<String>, pub admitted_work: Vec<String>, pub excluded_work: Vec<ExcludedWork>, pub operators_added: Vec<String>, pub operators_deduplicated: usize, pub probabilistic_operators: usize, pub outputs: Vec<OutputArtifact>, pub validation: ValidationSummary, pub replay: ReplayState, pub generated_outputs_hand_edited: bool, pub transport_failures: Vec<TransportFailure>, pub failures: Vec<String>, pub exclusions: Vec<String>, pub final_state: FinalState } |  |  |  |  |
 
-| `ObservedWorkItem` | struct |  |  |  |  |  |
+| `MethodCatalog` | struct | MethodCatalog { pub schema: String, pub run_id: String, pub source_pack_digest: String, pub raw_operator_count: usize, pub operator_count: usize, pub operators: Vec<PlanningOperator> } |  |  |  |  |
 
-| `OperatorOutcome` | struct |  |  |  |  |  |
+| `ObservationPack` | struct | ObservationPack { pub schema: String, pub run_id: String, pub window: ObservationWindow, pub repositories: Vec<String>, pub work_items: Vec<ObservedWorkItem>, pub transport_failures: Vec<TransportFailure> } |  |  |  |  |
 
-| `OutputArtifact` | struct |  |  |  |  |  |
+| `ObservationWindow` | struct | ObservationWindow { pub start_utc: String, pub end_exclusive_utc: String, pub timezone: String } |  |  |  |  |
 
-| `PlanningOperator` | struct |  |  |  |  |  |
+| `ObservedOutcome` | struct | ObservedOutcome { pub label: String, pub probability: f64, pub success: bool, pub evidence: Vec<EvidenceRef> } |  |  |  |  |
 
-| `SourceRevision` | struct |  |  |  |  |  |
+| `ObservedWorkItem` | struct | ObservedWorkItem { pub repository: String, pub sha: String, pub parent_sha: Option<String>, pub message: String, pub committed_at_utc: String, pub source_url: String, pub changed_paths: Vec<String>, pub executions: Vec<ExecutionEvidence>, pub artifacts: Vec<ArtifactEvidence>, pub probabilistic_outcomes: Vec<ObservedOutcome> } |  |  |  |  |
 
-| `TransportFailure` | struct |  |  |  |  |  |
+| `OperatorOutcome` | struct | OperatorOutcome { pub label: String, pub probability: f64, pub success: bool, pub evidence: Vec<EvidenceRef> } |  |  |  |  |
 
-| `ValidationRecord` | struct |  |  |  |  |  |
+| `OutputArtifact` | struct | OutputArtifact { pub path: String, pub bytes: usize, pub blake3: String } |  |  |  |  |
 
-| `ValidationSummary` | struct |  |  |  |  |  |
+| `PlanningOperator` | struct | PlanningOperator { pub id: String, pub name: String, pub signature: String, pub checkpoint: GallCheckpoint, pub actuation_class: ActuationClass, pub preconditions: Vec<String>, pub effects: Vec<String>, pub invariants: Vec<String>, pub failures: Vec<String>, pub refusals: Vec<String>, pub receipt_hook: bool, pub replay_hook: bool, pub probabilistic_outcomes: Vec<OperatorOutcome>, pub evidence: Vec<EvidenceRef>, pub source_work: Vec<String> } |  |  |  |  |
+
+| `SourceRevision` | struct | SourceRevision { pub repository: String, pub base_sha: Option<String>, pub head_sha: String } |  |  |  |  |
+
+| `TransportFailure` | struct | TransportFailure { pub repository: String, pub operation: String, pub state: String, pub detail: String } |  |  |  |  |
+
+| `ValidationRecord` | struct | ValidationRecord { pub command: String, pub result: String, pub detail: Option<String> } |  |  |  |  |
+
+| `ValidationSummary` | struct | ValidationSummary { pub parse_ok: bool, pub parse_error: Option<String>, pub solve_attempted: bool, pub solved: Option<bool>, pub initial_value: Option<f64>, pub policy_valid: Option<bool>, pub policy_errors: Vec<String>, pub records: Vec<ValidationRecord> } |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/examples/validate_files.rs
 
-| `validate_pair` | function | validate_pair(domain_src: &str, problem_src: &str) |  |  |  |  |
+| `validate_pair` | function | validate_pair(domain_src: &str, problem_src: &str) -> Result<Summary, String> |  |  |  |  |
 
-| `validate_paths` | function | validate_paths(domain_path: &str, problem_path: &str) |  |  |  |  |
+| `validate_paths` | function | validate_paths(domain_path: &str, problem_path: &str) -> Result<Summary, String> |  |  |  |  |
 
-| `Summary` | struct |  |  |  |  |  |
+| `Summary` | struct | Summary { pub domain: String, pub problem: String, pub actions: usize, pub tasks: usize, pub methods: usize, pub ground_methods: usize } |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/ast.rs
 
-| `Effect` | enum |  |  |  |  |  |
+| `Effect` | enum | Effect { Empty, Literal(Literal), And(Vec<Effect>), When(GoalDesc, Box<Effect>), Oneof(Vec<Effect>), Increase(AtomicFormula, NumericValue), Decrease(AtomicFormula, NumericValue) } |  |  |  |  |
 
-| `GoalDesc` | enum |  |  |  |  |  |
+| `GoalDesc` | enum | GoalDesc { Empty, Atom(AtomicFormula), Not(Box<GoalDesc>), And(Vec<GoalDesc>), Or(Vec<GoalDesc>), Imply(Box<GoalDesc>, Box<GoalDesc>), Forall(Vec<TypedParam>, Box<GoalDesc>), Exists(Vec<TypedParam>, Box<GoalDesc>) } |  |  |  |  |
 
-| `Literal` | enum |  |  |  |  |  |
+| `Literal` | enum | Literal { Pos(AtomicFormula), Neg(AtomicFormula) } |  |  |  |  |
 
-| `NumericValue` | enum |  |  |  |  |  |
+| `NumericValue` | enum | NumericValue { Number(String), Fluent(AtomicFormula) } |  |  |  |  |
 
-| `Term` | enum |  |  |  |  |  |
+| `Term` | enum | Term { Var(VarName), Const(Name) } |  |  |  |  |
 
-| `ActionDef` | struct |  |  |  |  |  |
+| `ActionDef` | struct | ActionDef { pub name: Name, pub params: Vec<TypedParam>, pub precondition: GoalDesc, pub effect: Effect, pub probability_weights: Option<Vec<String>> } |  |  |  |  |
 
-| `AtomicFormula` | struct |  |  |  |  |  |
+| `AtomicFormula` | struct | AtomicFormula { pub predicate: Name, pub args: Vec<Term> } |  |  |  |  |
 
-| `ConstraintDef` | struct |  |  |  |  |  |
+| `ConstraintDef` | struct | ConstraintDef { pub kind: Name, pub raw: String } |  |  |  |  |
 
-| `Domain` | struct |  |  |  |  |  |
+| `Domain` | struct | Domain { pub name: Name, pub types: TypeDef, pub constants: Vec<TypedObject>, pub predicates: Vec<PredicateDef>, pub numeric_fluents: Vec<NumericFluentDecl>, pub tasks: Vec<TaskDef>, pub actions: Vec<ActionDef>, pub methods: Vec<MethodDef>, pub constraints: Vec<ConstraintDef> } |  |  |  |  |
 
-| `MethodDef` | struct |  |  |  |  |  |
+| `MethodDef` | struct | MethodDef { pub name: Name, pub params: Vec<TypedParam>, pub task: TaskCall, pub precondition: GoalDesc, pub effect: Effect, pub network: TaskNetwork } |  |  |  |  |
 
-| `NumericFluentDecl` | struct |  |  |  |  |  |
+| `NumericFluentDecl` | struct | NumericFluentDecl { pub name: Name, pub params: Vec<TypedParam>, pub value: NumericValue } |  |  |  |  |
 
-| `OrderEdge` | struct |  |  |  |  |  |
+| `OrderEdge` | struct | OrderEdge { pub before: Name, pub after: Name } |  |  |  |  |
 
-| `PredicateDef` | struct |  |  |  |  |  |
+| `PredicateDef` | struct | PredicateDef { pub name: Name, pub params: Vec<TypedParam> } |  |  |  |  |
 
-| `Problem` | struct |  |  |  |  |  |
+| `Problem` | struct | Problem { pub name: Name, pub domain_name: Name, pub objects: Vec<TypedObject>, pub init: Vec<AtomicFormula>, pub goal: GoalDesc, pub htn: TaskNetwork, pub constraints: Vec<ConstraintDef> } |  |  |  |  |
 
-| `Subtask` | struct |  |  |  |  |  |
+| `Subtask` | struct | Subtask { pub id: Name, pub task: TaskCall } |  |  |  |  |
 
-| `TaskCall` | struct |  |  |  |  |  |
+| `TaskCall` | struct | TaskCall { pub name: Name, pub args: Vec<Term> } |  |  |  |  |
 
-| `TaskDef` | struct |  |  |  |  |  |
+| `TaskDef` | struct | TaskDef { pub name: Name, pub params: Vec<TypedParam> } |  |  |  |  |
 
-| `TaskNetwork` | struct |  |  |  |  |  |
+| `TaskNetwork` | struct | TaskNetwork { pub params: Vec<TypedParam>, pub subtasks: Vec<Subtask>, pub order: Vec<OrderEdge> } |  |  |  |  |
 
-| `TypeDef` | struct |  |  |  |  |  |
+| `TypeDef` | struct | TypeDef { pub parents: BTreeMap<Name, BTreeSet<Name>>, pub declared: Vec<Name> } |  |  |  |  |
 
-| `TypedObject` | struct |  |  |  |  |  |
+| `TypedObject` | struct | TypedObject { pub name: Name, pub type_name: Name } |  |  |  |  |
 
-| `TypedParam` | struct |  |  |  |  |  |
+| `TypedParam` | struct | TypedParam { pub var: VarName, pub type_name: Name } |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/grounder.rs
 
-| `GroundError` | enum |  |  |  |  |  |
+| `DEFAULT_MAX_GOAL_DEPTH` | const | DEFAULT_MAX_GOAL_DEPTH: usize |  |  |  |  |
 
-| `GroundGoal` | enum |  |  |  |  |  |
+| `GroundError` | enum | GroundError { Validation(validate::ValidationError), TypeCycle(String), UnboundVariable(String), UnsupportedPrecondition(String), LimitExceeded(String), UnsupportedNumericFluent(String), UnsupportedConstraint(String), GoalTooDeep { depth: usize, budget: usize }, Timeout { elapsed_ms: u128, limit_ms: u128 } } |  |  |  |  |
 
-| `action_applicable` | function | action_applicable(
-    action: &GroundAction,
-    facts: &BTreeSet<String>,
-) |  |  |  |  |
+| `GroundGoal` | enum | GroundGoal { Empty, Atom(String), Eq(String, String), Not(Box<GroundGoal>), And(Vec<GroundGoal>), Or(Vec<GroundGoal>) } |  |  |  |  |
 
-| `build_type_closure` | function | build_type_closure(
-    domain: &Domain,
-) |  |  |  |  |
+| `action_applicable` | function | action_applicable( action: &GroundAction, facts: &BTreeSet<String>, ) -> Result<bool, GroundError> |  |  |  |  |
 
-| `compute_reachability` | function | compute_reachability(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    initial_facts: &BTreeSet<String>,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `build_type_closure` | function | build_type_closure( domain: &Domain, ) -> Result<BTreeMap<String, BTreeSet<String>>, GroundError> |  |  |  |  |
 
-| `compute_task_relevance` | function | compute_task_relevance(
-    domain: &Domain,
-    problem: &Problem,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `compute_reachability` | function | compute_reachability( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, initial_facts: &BTreeSet<String>, limits: &GroundingLimits, ) -> Result<ReachabilityInfo, GroundError> |  |  |  |  |
 
-| `evaluate_ground_goal` | function | evaluate_ground_goal(
-    goal: &GroundGoal,
-    facts: &BTreeSet<String>,
-) |  |  |  |  |
+| `compute_task_relevance` | function | compute_task_relevance( domain: &Domain, problem: &Problem, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, ) -> Result<TaskRelevanceInfo, GroundError> |  |  |  |  |
 
-| `evaluate_ground_goal_with_budget` | function | evaluate_ground_goal_with_budget(
-    goal: &GroundGoal,
-    facts: &BTreeSet<String>,
-    budget: usize,
-) |  |  |  |  |
+| `evaluate_ground_goal` | function | evaluate_ground_goal( goal: &GroundGoal, facts: &BTreeSet<String>, ) -> Result<bool, GroundError> |  |  |  |  |
 
-| `ground` | function | ground(
-    domain: &Domain,
-    problem: &Problem,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `evaluate_ground_goal_with_budget` | function | evaluate_ground_goal_with_budget( goal: &GroundGoal, facts: &BTreeSet<String>, budget: usize, ) -> Result<bool, GroundError> |  |  |  |  |
 
-| `ground_actions` | function | ground_actions(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `ground` | function | ground( domain: &Domain, problem: &Problem, limits: &GroundingLimits, ) -> Result<GroundedIR, GroundError> |  |  |  |  |
 
-| `ground_actions_reachable` | function | ground_actions_reachable(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-    reachability: &ReachabilityInfo,
-) |  |  |  |  |
+| `ground_actions` | function | ground_actions( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, ) -> Result<Vec<GroundAction>, GroundError> |  |  |  |  |
 
-| `ground_actions_relevant` | function | ground_actions_relevant(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-    relevance: &TaskRelevanceInfo,
-    reachability: Option<&ReachabilityInfo>,
-) |  |  |  |  |
+| `ground_actions_reachable` | function | ground_actions_reachable( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, reachability: &ReachabilityInfo, ) -> Result<Vec<GroundAction>, GroundError> |  |  |  |  |
 
-| `ground_initial_facts` | function | ground_initial_facts(problem: &Problem) |  |  |  |  |
+| `ground_actions_relevant` | function | ground_actions_relevant( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, relevance: &TaskRelevanceInfo, reachability: Option<&ReachabilityInfo>, ) -> Result<Vec<GroundAction>, GroundError> |  |  |  |  |
 
-| `ground_methods` | function | ground_methods(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `ground_initial_facts` | function | ground_initial_facts(problem: &Problem) -> Result<BTreeSet<String>, GroundError> |  |  |  |  |
 
-| `ground_methods_reachable` | function | ground_methods_reachable(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-    reachability: &ReachabilityInfo,
-) |  |  |  |  |
+| `ground_methods` | function | ground_methods( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, ) -> Result<Vec<GroundMethod>, GroundError> |  |  |  |  |
 
-| `ground_methods_relevant` | function | ground_methods_relevant(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-    relevance: &TaskRelevanceInfo,
-    reachability: Option<&ReachabilityInfo>,
-) |  |  |  |  |
+| `ground_methods_reachable` | function | ground_methods_reachable( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, reachability: &ReachabilityInfo, ) -> Result<Vec<GroundMethod>, GroundError> |  |  |  |  |
 
-| `ground_root_network` | function | ground_root_network(
-    problem: &Problem,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-) |  |  |  |  |
+| `ground_methods_relevant` | function | ground_methods_relevant( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, relevance: &TaskRelevanceInfo, reachability: Option<&ReachabilityInfo>, ) -> Result<Vec<GroundMethod>, GroundError> |  |  |  |  |
 
-| `index_objects_by_type` | function | index_objects_by_type(
-    domain: &Domain,
-    problem: &Problem,
-    closure: &BTreeMap<String, BTreeSet<String>>,
-) |  |  |  |  |
+| `ground_root_network` | function | ground_root_network( problem: &Problem, objects_by_type: &BTreeMap<String, Vec<String>>, ) -> Result<Vec<GroundRootNetwork>, GroundError> |  |  |  |  |
 
-| `GroundAction` | struct |  |  |  |  |  |
+| `index_objects_by_type` | function | index_objects_by_type( domain: &Domain, problem: &Problem, closure: &BTreeMap<String, BTreeSet<String>>, ) -> BTreeMap<String, Vec<String>> |  |  |  |  |
 
-| `GroundConditional` | struct |  |  |  |  |  |
+| `GroundAction` | struct | GroundAction { pub name: String, pub precondition: GroundGoal, pub outcomes: Vec<GroundEffectBranch> } |  |  |  |  |
 
-| `GroundEffectBranch` | struct |  |  |  |  |  |
+| `GroundConditional` | struct | GroundConditional { pub pos_cond: BTreeSet<String>, pub neg_cond: BTreeSet<String>, pub add: BTreeSet<String>, pub del: BTreeSet<String> } |  |  |  |  |
 
-| `GroundMethod` | struct |  |  |  |  |  |
+| `GroundEffectBranch` | struct | GroundEffectBranch { pub add: BTreeSet<String>, pub del: BTreeSet<String>, pub conditional: Vec<GroundConditional>, pub probability_weight: Option<String> } |  |  |  |  |
 
-| `GroundRootNetwork` | struct |  |  |  |  |  |
+| `GroundMethod` | struct | GroundMethod { pub name: String, pub task_name: String, pub precondition: GroundGoal, pub effect: GroundEffectBranch, pub subtasks: Vec<GroundSubtask>, pub order: Vec<(String, String)> } |  |  |  |  |
 
-| `GroundSubtask` | struct |  |  |  |  |  |
+| `GroundRootNetwork` | struct | GroundRootNetwork { pub subtasks: Vec<GroundSubtask>, pub order: Vec<(String, String)> } |  |  |  |  |
 
-| `GroundedIR` | struct |  |  |  |  |  |
+| `GroundSubtask` | struct | GroundSubtask { pub id: String, pub task_name: String } |  |  |  |  |
 
-| `GroundingLimits` | struct |  |  |  |  |  |
+| `GroundedIR` | struct | GroundedIR { pub actions: Vec<GroundAction>, pub methods: Vec<GroundMethod>, pub root_networks: Vec<GroundRootNetwork>, pub initial_facts: BTreeSet<String>, pub goal: GoalDesc } |  |  |  |  |
 
-| `ReachabilityInfo` | struct |  |  |  |  |  |
+| `GroundingLimits` | struct | GroundingLimits { pub max_ground_actions: usize, pub max_ground_methods: usize, pub prune_unreachable: bool, pub prune_irrelevant: bool, pub max_wall: Option<Duration> } |  |  |  |  |
 
-| `TaskRelevanceInfo` | struct |  |  |  |  |  |
+| `ReachabilityInfo` | struct | ReachabilityInfo { pub facts: BTreeSet<String>, pub reachable_actions: BTreeSet<String> } |  |  |  |  |
+
+| `TaskRelevanceInfo` | struct | TaskRelevanceInfo { pub relevant_tasks: BTreeSet<String> } |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/parser.rs
 
-| `ParseError` | enum |  |  |  |  |  |
+| `DEFAULT_MAX_PARSE_DEPTH` | const | DEFAULT_MAX_PARSE_DEPTH: usize |  |  |  |  |
 
-| `parse_domain` | function | parse_domain(src: &str) |  |  |  |  |
+| `ParseError` | enum | ParseError { Syntax(String), UnsupportedConstruct(String), MalformedOneof(String), NestedProbabilisticBlock(String), NestingTooDeep { line: usize, column: usize, budget: usize, } } |  |  |  |  |
 
-| `parse_domain_with_budget` | function | parse_domain_with_budget(src: &str, max_depth: usize) |  |  |  |  |
+| `parse_domain` | function | parse_domain(src: &str) -> Result<Domain, ParseError> |  |  |  |  |
 
-| `parse_problem` | function | parse_problem(src: &str) |  |  |  |  |
+| `parse_domain_with_budget` | function | parse_domain_with_budget(src: &str, max_depth: usize) -> Result<Domain, ParseError> |  |  |  |  |
 
-| `parse_problem_with_budget` | function | parse_problem_with_budget(src: &str, max_depth: usize) |  |  |  |  |
+| `parse_problem` | function | parse_problem(src: &str) -> Result<Problem, ParseError> |  |  |  |  |
+
+| `parse_problem_with_budget` | function | parse_problem_with_budget(src: &str, max_depth: usize) -> Result<Problem, ParseError> |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/probabilistic.rs
 
-| `has_probabilistic` | function | has_probabilistic(src: &str) |  |  |  |  |
+| `has_probabilistic` | function | has_probabilistic(src: &str) -> bool |  |  |  |  |
 
-| `preprocess` | function | preprocess(src: &str) |  |  |  |  |
+| `preprocess` | function | preprocess(src: &str) -> Result<(String, BTreeMap<String, Vec<String>>), ParseError> |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/translate.rs
 
-| `TranslateError` | enum |  |  |  |  |  |
+| `TranslateError` | enum | TranslateError { UnsupportedNegativeGoal, UnsupportedGoalConnective(String), MalformedTermEquality { found: usize, }, UnboundVariable(String), TaskNetworkDepthExceeded { addr: String, limit: usize, }, Timeout { elapsed_ms: u128, limit_ms: u128, }, MemoryLimitExceeded { states: usize, limit: usize, }, Ground(GroundError) } |  |  |  |  |
 
-| `translate` | function | translate(
-    ir: &GroundedIR,
-    limits: &TranslateLimits,
-) |  |  |  |  |
+| `translate` | function | translate( ir: &GroundedIR, limits: &TranslateLimits, ) -> Result<PlanningProblem, TranslateError> |  |  |  |  |
 
-| `Goal` | struct |  |  |  |  |  |
+| `Goal` | struct | Goal { pub facts: BTreeSet<String> } |  |  |  |  |
 
-| `Method` | struct |  |  |  |  |  |
+| `Method` | struct | Method { pub id: String, pub task: String, pub subtasks: Vec<String> } |  |  |  |  |
 
-| `PlanningProblem` | struct |  |  |  |  |  |
+| `PlanningProblem` | struct | PlanningProblem { pub states: Vec<State>, pub initial_states: Vec<String>, pub goal: Goal, pub transitions: Vec<Transition>, pub tasks: Vec<Task>, pub root_tasks: Vec<String>, pub methods: Vec<Method> } |  |  |  |  |
 
-| `State` | struct |  |  |  |  |  |
+| `State` | struct | State { pub id: String, pub facts: BTreeSet<String> } |  |  |  |  |
 
-| `Task` | struct |  |  |  |  |  |
+| `Task` | struct | Task { pub id: String, pub primitive_action: Option<String> } |  |  |  |  |
 
-| `Transition` | struct |  |  |  |  |  |
+| `Transition` | struct | Transition { pub action: String, pub from: String, pub to: String, pub probability_ppm: u32 } |  |  |  |  |
 
-| `TranslateLimits` | struct |  |  |  |  |  |
+| `TranslateLimits` | struct | TranslateLimits { pub max_task_network_depth: usize, pub max_wall: Option<std::time::Duration>, pub max_states: Option<usize> } |  |  |  |  |
 
 
 ### crates/ferroplan-hddl/src/validate.rs
 
-| `DuplicateKind` | enum |  |  |  |  |  |
+| `DuplicateKind` | enum | DuplicateKind { Task, Predicate, Action, Method, Object } |  |  |  |  |
 
-| `ValidationError` | enum |  |  |  |  |  |
+| `ValidationError` | enum | ValidationError { UnknownTaskOrAction(String), ArityMismatch { task: String, expected: usize, found: usize, }, UndefinedPredicate(String), UndefinedType(String), DuplicateDefinition { kind: DuplicateKind, name: String }, CyclicTypeHierarchy { type_name: String, }, PredicateArityMismatch { predicate: String, expected: usize, found: usize, }, MethodHeadNotCompoundTask { method: String, name: String, }, UnknownMethodVariable { method: String, var: String, }, UndefinedOrderRef { in_method: Option<String>, id: String, }, CyclicOrdering { in_method: Option<String>, cycle: Vec<String>, }, MissingTaskNetwork, UnknownConstant { name: String, }, ArgumentTypeMismatch { callee: String, position: usize, expected: String, found: String, }, NonGroundInitAtom { predicate: String, }, NonGroundRootSubtaskArg { id: String, } } |  |  |  |  |
 
-| `ValidationWarning` | enum |  |  |  |  |  |
+| `ValidationWarning` | enum | ValidationWarning { UnrefinableCompoundTask { task: String, }, DuplicateTypeDeclaration { name: String, } } |  |  |  |  |
 
-| `validate_domain` | function | validate_domain(domain: &Domain) |  |  |  |  |
+| `validate_domain` | function | validate_domain(domain: &Domain) -> Result<(), ValidationError> |  |  |  |  |
 
-| `validate_domain_with_warnings` | function | validate_domain_with_warnings(
-    domain: &Domain,
-) |  |  |  |  |
+| `validate_domain_with_warnings` | function | validate_domain_with_warnings( domain: &Domain, ) -> Result<Vec<ValidationWarning>, ValidationError> |  |  |  |  |
 
-| `validate_problem` | function | validate_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `validate_problem` | function | validate_problem(domain: &Domain, problem: &Problem) -> Result<(), ValidationError> |  |  |  |  |
 
-| `validate_problem_with_warnings` | function | validate_problem_with_warnings(
-    domain: &Domain,
-    problem: &Problem,
-) |  |  |  |  |
+| `validate_problem_with_warnings` | function | validate_problem_with_warnings( domain: &Domain, problem: &Problem, ) -> Result<Vec<ValidationWarning>, ValidationError> |  |  |  |  |
 
 
 ### crates/ferroplan-mcp/tests/common/mod.rs
 
-| `call` | function | call(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `DOM` | const | DOM: &str |  |  |  |  |
 
-| `call_json` | function | call_json(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `PROB` | const | PROB: &str |  |  |  |  |
 
-| `call_text` | function | call_text(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `call` | function | call(&mut self, tool: &str, args: Value) -> Value |  |  |  |  |
+
+| `call_json` | function | call_json(&mut self, tool: &str, args: Value) -> Value |  |  |  |  |
+
+| `call_text` | function | call_text(&mut self, tool: &str, args: Value) -> (String, bool) |  |  |  |  |
 
 | `finish` | function | finish(mut self) |  |  |  |  |
 
 | `notify` | function | notify(&mut self, method: &str) |  |  |  |  |
 
-| `request` | function | request(&mut self, method: &str, params: Value) |  |  |  |  |
+| `request` | function | request(&mut self, method: &str, params: Value) -> Value |  |  |  |  |
 
-| `start` | function | start() |  |  |  |  |
+| `start` | function | start() -> Client |  |  |  |  |
 
-| `Client` | struct |  |  |  |  |  |
+| `Client` | struct | Client { child: Child, stdin: Option<ChildStdin>, stdout: BufReader<ChildStdout>, next_id: i64 } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/authority.rs
 
-| `Authority` | enum |  |  |  |  |  |
+| `Authority` | enum | Authority { Observe, Select, Construct, Do } |  |  |  |  |
 
-| `permits` | function | permits(g: Authority, n: Authority) |  |  |  |  |
+| `permits` | function | permits(g: Authority, n: Authority) -> bool |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/backoff.rs
 
-| `exponential` | function | exponential(base: u64, attempt: u32, cap: u64) |  |  |  |  |
+| `exponential` | function | exponential(base: u64, attempt: u32, cap: u64) -> u64 |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/budget.rs
 
-| `new` | function | new(n: u32) |  |  |  |  |
+| `new` | function | new(n: u32) -> Self |  |  |  |  |
 
-| `remaining` | function | remaining(&self) |  |  |  |  |
+| `remaining` | function | remaining(&self) -> u32 |  |  |  |  |
 
-| `take` | function | take(&mut self) |  |  |  |  |
+| `take` | function | take(&mut self) -> bool |  |  |  |  |
 
-| `Budget` | struct |  |  |  |  |  |
+| `Budget` | struct | Budget { remaining: u32 } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/capability.rs
 
-| `compatible` | function | compatible(available: &[Capability], required: &str) |  |  |  |  |
+| `compatible` | function | compatible(available: &[Capability], required: &str) -> bool |  |  |  |  |
 
-| `Capability` | struct |  |  |  |  |  |
+| `Capability` | struct | Capability { pub &'static str } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/circuit.rs
 
-| `open` | function | open(&self) |  |  |  |  |
+| `open` | function | open(&self) -> bool |  |  |  |  |
 
 | `record_failure` | function | record_failure(&mut self) |  |  |  |  |
 
-| `Circuit` | struct |  |  |  |  |  |
+| `Circuit` | struct | Circuit { pub failures: u32, pub threshold: u32 } |  |  |  |  |
+
+
+### crates/ferroplan-runtime/src/context.rs
+
+| `bounded` | function | bounded(x: &[T], n: usize) -> Vec<T> |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/coordinator.rs
 
 | `fail` | function | fail(&mut self, id: &str) |  |  |  |  |
 
-| `Coordinator` | struct |  |  |  |  |  |
+| `Coordinator` | struct | Coordinator { pub graph: Graph, pub excluded: Vec<String> } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/deadline.rs
 
-| `after` | function | after(d: Duration) |  |  |  |  |
+| `after` | function | after(d: Duration) -> Self |  |  |  |  |
 
-| `expired` | function | expired(&self) |  |  |  |  |
+| `expired` | function | expired(&self) -> bool |  |  |  |  |
 
-| `Deadline` | struct |  |  |  |  |  |
+| `Deadline` | struct | Deadline { pub Instant } |  |  |  |  |
+
+
+### crates/ferroplan-runtime/src/dispatcher.rs
+
+| `dispatch` | function | dispatch(p: &P, s: &str) -> Outcome<Vec<String>> |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/edge.rs
 
 | `exclude` | function | exclude(&mut self) |  |  |  |  |
 
-| `Edge` | struct |  |  |  |  |  |
+| `Edge` | struct | Edge { pub id: String, pub provider: String, pub enabled: bool } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/epoch.rs
 
-| `next` | function | next(self) |  |  |  |  |
+| `next` | function | next(self) -> Self |  |  |  |  |
 
-| `Epoch` | struct |  |  |  |  |  |
+| `Epoch` | struct | Epoch { pub u64 } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/evidence.rs
 
-| `admitted` | function | admitted(xs: &[Observation]) |  |  |  |  |
+| `admitted` | function | admitted(xs: &[Observation]) -> bool |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/exact_subject.rs
 
-| `admitted` | function | admitted(&self) |  |  |  |  |
+| `admitted` | function | admitted(&self) -> bool |  |  |  |  |
 
-| `ExactSubject` | struct |  |  |  |  |  |
+| `ExactSubject` | struct | ExactSubject { pub repo: String, pub sha: String } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/failure.rs
 
-| `FailureClass` | enum |  |  |  |  |  |
+| `FailureClass` | enum | FailureClass { Local, Edge, Authority, Unknown } |  |  |  |  |
+
+| `classify` | function | classify(o: &Outcome<T>) -> Option<FailureClass> |  |  |  |  |
+
+
+### crates/ferroplan-runtime/src/fond.rs
+
+| `reselect` | function | reselect(g: &'a Graph, x: &[String]) -> Option<&'a str> |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/graph.rs
 
 | `exclude` | function | exclude(&mut self, id: &str) |  |  |  |  |
 
-| `lawful` | function | lawful(&self) |  |  |  |  |
+| `lawful` | function | lawful(&self) -> impl Iterator<Item = &Edge> |  |  |  |  |
 
-| `Graph` | struct |  |  |  |  |  |
+| `Graph` | struct | Graph { pub edges: Vec<Edge> } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/hddl.rs
 
-| `Task` | struct |  |  |  |  |  |
+| `leaves` | function | leaves(&'a self, out: &mut Vec<&'a str>) |  |  |  |  |
+
+| `Task` | struct | Task { pub id: String, pub children: Vec<Task> } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/health.rs
 
-| `Health` | enum |  |  |  |  |  |
+| `Health` | enum | Health { Healthy, Degraded, Open } |  |  |  |  |
 
-| `eligible` | function | eligible(h: Health) |  |  |  |  |
+| `eligible` | function | eligible(h: Health) -> bool |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/idempotency.rs
 
-| `key` | function | key(subject: &str, epoch: u64, provider: &str) |  |  |  |  |
+| `key` | function | key(subject: &str, epoch: u64, provider: &str) -> u64 |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/lease.rs
 
-| `valid_for` | function | valid_for(&self, o: &str, e: u64) |  |  |  |  |
+| `valid_for` | function | valid_for(&self, o: &str, e: u64) -> bool |  |  |  |  |
 
-| `Lease` | struct |  |  |  |  |  |
+| `Lease` | struct | Lease { pub owner: String, pub epoch: u64 } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/observation.rs
 
-| `Observation` | struct |  |  |  |  |  |
+| `Observation` | struct | Observation { pub key: String, pub value: String, pub source: String } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/ocel.rs
 
-| `bound` | function | bound(&self) |  |  |  |  |
+| `bound` | function | bound(&self) -> bool |  |  |  |  |
 
-| `Event` | struct |  |  |  |  |  |
+| `Event` | struct | Event { pub id: String, pub activity: String, pub objects: Vec<String> } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/outcome.rs
 
-| `Outcome` | enum |  |  |  |  |  |
+| `Outcome` | enum | Outcome { Success(T), Retryable(String), Permanent(String), Refused(String), Unknown(String) } |  |  |  |  |
 
-| `is_success` | function | is_success(&self) |  |  |  |  |
+| `is_success` | function | is_success(&self) -> bool |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/plan.rs
 
-| `valid` | function | valid(&self) |  |  |  |  |
+| `valid` | function | valid(&self) -> bool |  |  |  |  |
 
-| `Plan` | struct |  |  |  |  |  |
+| `Plan` | struct | Plan { pub provider: String, pub steps: Vec<String>, pub cost: u64 } |  |  |  |  |
+
+
+### crates/ferroplan-runtime/src/policy.rs
+
+| `select` | function | select(e: &'a [Edge], x: &[String]) -> Option<&'a Edge> |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/poly_evidence.rs
 
-| `exact` | function | exact(&self) |  |  |  |  |
+| `exact` | function | exact(&self) -> bool |  |  |  |  |
 
-| `EvidenceSet` | struct |  |  |  |  |  |
+| `EvidenceSet` | struct | EvidenceSet { pub subject: String, pub sources: Vec<String> } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/portfolio.rs
 
-| `ranked` | function | ranked(mut ps: Vec<Plan>) |  |  |  |  |
+| `ranked` | function | ranked(mut ps: Vec<Plan>) -> Vec<Plan> |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/powl.rs
 
-| `acyclic` | function | acyclic(e: &[Order]) |  |  |  |  |
+| `acyclic` | function | acyclic(e: &[Order]) -> bool |  |  |  |  |
 
-| `Order` | struct |  |  |  |  |  |
+| `Order` | struct | Order { pub before: String, pub after: String } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/provider.rs
@@ -812,140 +765,145 @@
 
 ### crates/ferroplan-runtime/src/ptd.rs
 
-| `changed` | function | changed(a: &EpochArtifact, b: &EpochArtifact) |  |  |  |  |
+| `changed` | function | changed(a: &EpochArtifact, b: &EpochArtifact) -> bool |  |  |  |  |
 
-| `EpochArtifact` | struct |  |  |  |  |  |
+| `EpochArtifact` | struct | EpochArtifact { pub epoch: Epoch, pub digest: u64 } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/receipt.rs
 
-| `exact` | function | exact(&self) |  |  |  |  |
+| `exact` | function | exact(&self) -> bool |  |  |  |  |
 
-| `Receipt` | struct |  |  |  |  |  |
+| `Receipt` | struct | Receipt { pub subject_sha: String, pub epoch: u64, pub provider: String, pub edge: String, pub outcome: String } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/reconcile.rs
 
-| `reconcile` | function | reconcile(g: &mut Graph, s: &[(String, Health) |  |  |  |  |
+| `reconcile` | function | reconcile(g: &mut Graph, s: &[(String, Health)]) |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/recovery.rs
 
-| `exclude_failed` | function | exclude_failed(g: &mut Graph, edge: &str) |  |  |  |  |
+| `exclude_failed` | function | exclude_failed(g: &mut Graph, edge: &str) -> usize |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/registry.rs
 
-| `contains` | function | contains(&self, id: &str) |  |  |  |  |
+| `contains` | function | contains(&self, id: &str) -> bool |  |  |  |  |
 
 | `register` | function | register(&mut self, id: impl Into<String>) |  |  |  |  |
 
-| `Registry` | struct |  |  |  |  |  |
+| `Registry` | struct | Registry { ids: BTreeSet<String> } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/replay.rs
 
-| `same_decision` | function | same_decision(a: &Receipt, b: &Receipt) |  |  |  |  |
+| `same_decision` | function | same_decision(a: &Receipt, b: &Receipt) -> bool |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/runtime.rs
 
-| `next_edge` | function | next_edge(&self) |  |  |  |  |
+| `next_edge` | function | next_edge(&self) -> Option<&str> |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/scheduler.rs
 
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) -> bool |  |  |  |  |
 
-| `len` | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) -> usize |  |  |  |  |
 
-| `pop_next` | function | pop_next(&mut self) |  |  |  |  |
+| `pop_next` | function | pop_next(&mut self) -> Option<T> |  |  |  |  |
 
 | `push` | function | push(&mut self, x: T) |  |  |  |  |
 
-| `Scheduler` | struct |  |  |  |  |  |
+| `Scheduler` | struct | Scheduler { q: VecDeque<T> } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/state.rs
 
-| `State` | enum |  |  |  |  |  |
+| `State` | enum | State { Bound, Planning, Executing, Recovering, Succeeded, Failed } |  |  |  |  |
 
-| `allowed` | function | allowed(a: State, b: State) |  |  |  |  |
+| `allowed` | function | allowed(a: State, b: State) -> bool |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/supervision.rs
 
-| `Restart` | enum |  |  |  |  |  |
+| `Restart` | enum | Restart { Permanent, Transient, Temporary } |  |  |  |  |
 
-| `should_restart` | function | should_restart(r: Restart, abnormal: bool) |  |  |  |  |
+| `should_restart` | function | should_restart(r: Restart, abnormal: bool) -> bool |  |  |  |  |
+
+
+### crates/ferroplan-runtime/src/switch.rs
+
+| `next` | function | next(ps: &'a [Plan], failed: &str) -> Option<&'a Plan> |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/telemetry.rs
 
-| `success_rate` | function | success_rate(&self) |  |  |  |  |
+| `success_rate` | function | success_rate(&self) -> f64 |  |  |  |  |
 
-| `Counters` | struct |  |  |  |  |  |
+| `Counters` | struct | Counters { pub attempts: u64, pub recoveries: u64, pub successes: u64 } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/tla_evidence.rs
 
-| `actionable` | function | actionable(&self) |  |  |  |  |
+| `actionable` | function | actionable(&self) -> bool |  |  |  |  |
 
-| `Counterexample` | struct |  |  |  |  |  |
+| `Counterexample` | struct | Counterexample { pub invariant: String, pub trace: Vec<String> } |  |  |  |  |
 
 
 ### crates/ferroplan-runtime/src/trimtab.rs
 
-| `ModelRole` | struct |  |  |  |  |  |
+| `ModelRole` | struct | ModelRole { pub context: bool, pub select: bool, pub construct: bool, pub do_act: bool } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/analyze_conflict.rs
 
 | `add` | function | add(&mut self, level: usize) |  |  |  |  |
 
-| `analyze_conflict` | function | analyze_conflict(ctx: &mut Context, conflict: Conflict) |  |  |  |  |
+| `analyze_conflict` | function | analyze_conflict(ctx: &mut Context, conflict: Conflict) -> usize |  |  |  |  |
 
-| `clause` | function | clause(&self) |  |  |  |  |
+| `clause` | function | clause(&self) -> &[Lit] |  |  |  |  |
 
-| `involved` | function | involved(&self) |  |  |  |  |
+| `involved` | function | involved(&self) -> &[ClauseRef] |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `test` | function | test(&self, level: usize) |  |  |  |  |
+| `test` | function | test(&self, level: usize) -> bool |  |  |  |  |
 
-| `AnalyzeConflict` | struct |  |  |  |  |  |
+| `AnalyzeConflict` | struct | AnalyzeConflict { clause: Vec<Lit>, current_level_count: usize, var_flags: Vec<bool>, to_clean: Vec<Var>, involved: Vec<ClauseRef>, stack: Vec<Lit> } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/assumptions.rs
 
-| `EnqueueAssumption` | enum |  |  |  |  |  |
+| `EnqueueAssumption` | enum | EnqueueAssumption { Done, Enqueued, Conflict } |  |  |  |  |
 
-| `assumption_levels` | function | assumption_levels(&self) |  |  |  |  |
+| `assumption_levels` | function | assumption_levels(&self) -> usize |  |  |  |  |
 
-| `enqueue_assumption` | function | enqueue_assumption(ctx: &mut Context) |  |  |  |  |
+| `enqueue_assumption` | function | enqueue_assumption(ctx: &mut Context) -> EnqueueAssumption |  |  |  |  |
 
 | `full_restart` | function | full_restart(&mut self) |  |  |  |  |
 
 | `set_assumptions` | function | set_assumptions(ctx: &mut Context, user_assumptions: &[Lit]) |  |  |  |  |
 
-| `user_failed_core` | function | user_failed_core(&self) |  |  |  |  |
+| `user_failed_core` | function | user_failed_core(&self) -> &[Lit] |  |  |  |  |
 
-| `Assumptions` | struct |  |  |  |  |  |
+| `Assumptions` | struct | Assumptions { assumptions: Vec<Lit>, failed_core: Vec<Lit>, user_failed_core: Vec<Lit>, assumption_levels: usize } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/binary.rs
 
 | `add_binary_clause` | function | add_binary_clause(&mut self, lits: [Lit; 2]) |  |  |  |  |
 
-| `count` | function | count(&self) |  |  |  |  |
+| `count` | function | count(&self) -> usize |  |  |  |  |
 
-| `implied` | function | implied(&self, lit: Lit) |  |  |  |  |
+| `implied` | function | implied(&self, lit: Lit) -> &[Lit] |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
 | `simplify_binary` | function | simplify_binary(ctx: &mut Context) |  |  |  |  |
 
-| `BinaryClauses` | struct |  |  |  |  |  |
+| `BinaryClauses` | struct | BinaryClauses { by_lit: Vec<Vec<Lit>>, count: usize } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/cdcl.rs
@@ -955,15 +913,25 @@
 
 ### crates/ferroplan-sat/src/clause.rs
 
-| `header` | function | header(&self) |  |  |  |  |
+| `header` | function | header(&self) -> &ClauseHeader |  |  |  |  |
 
-| `header_mut` | function | header_mut(&mut self) |  |  |  |  |
+| `header_mut` | function | header_mut(&mut self) -> &mut ClauseHeader |  |  |  |  |
 
-| `lits` | function | lits(&self) |  |  |  |  |
+| `lits` | function | lits(&self) -> &[Lit] |  |  |  |  |
 
-| `lits_mut` | function | lits_mut(&mut self) |  |  |  |  |
+| `lits_mut` | function | lits_mut(&mut self) -> &mut [Lit] |  |  |  |  |
 
-| `Clause` | struct |  |  |  |  |  |
+| `Clause` | struct | Clause { data: [LitIdx] } |  |  |  |  |
+
+| `activity::{decay_clause_activities, ClauseActivity}` | use | activity::{decay_clause_activities, ClauseActivity} |  |  |  |  |
+
+| `alloc::{ClauseAlloc, ClauseRef}` | use | alloc::{ClauseAlloc, ClauseRef} |  |  |  |  |
+
+| `db::{ClauseDb, Tier}` | use | db::{ClauseDb, Tier} |  |  |  |  |
+
+| `gc::collect_garbage` | use | gc::collect_garbage |  |  |  |  |
+
+| `header::ClauseHeader` | use | header::ClauseHeader |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/activity.rs
@@ -972,62 +940,66 @@
 
 | `decay_clause_activities` | function | decay_clause_activities(ctx: &mut Context) |  |  |  |  |
 
-| `ClauseActivity` | struct |  |  |  |  |  |
+| `ClauseActivity` | struct | ClauseActivity { bump: f32, inv_decay: f32 } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/alloc.rs
 
-| `add_clause` | function | add_clause(&mut self, mut header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
+| `add_clause` | function | add_clause(&mut self, mut header: ClauseHeader, lits: &[Lit]) -> ClauseRef |  |  |  |  |
 
-| `buffer_size` | function | buffer_size(&self) |  |  |  |  |
+| `buffer_size` | function | buffer_size(&self) -> usize |  |  |  |  |
 
 | `check_bounds` | function | check_bounds(&self, cref: ClauseRef, len: usize) |  |  |  |  |
 
-| `clause` | function | clause(&self, cref: ClauseRef) |  |  |  |  |
+| `clause` | function | clause(&self, cref: ClauseRef) -> &Clause |  |  |  |  |
 
-| `clause_mut` | function | clause_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `clause_mut` | function | clause_mut(&mut self, cref: ClauseRef) -> &mut Clause |  |  |  |  |
 
-| `header` | function | header(&self, cref: ClauseRef) |  |  |  |  |
+| `header` | function | header(&self, cref: ClauseRef) -> &ClauseHeader |  |  |  |  |
 
-| `header_mut` | function | header_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `header_mut` | function | header_mut(&mut self, cref: ClauseRef) -> &mut ClauseHeader |  |  |  |  |
 
-| `header_unchecked_mut` | function | header_unchecked_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `header_unchecked_mut` | function | header_unchecked_mut(&mut self, cref: ClauseRef) -> &mut ClauseHeader |  |  |  |  |
 
-| `lits_ptr_mut_unchecked` | function | lits_ptr_mut_unchecked(&mut self, cref: ClauseRef) |  |  |  |  |
+| `lits_ptr_mut_unchecked` | function | lits_ptr_mut_unchecked(&mut self, cref: ClauseRef) -> *mut Lit |  |  |  |  |
 
-| `with_capacity` | function | with_capacity(capacity: usize) |  |  |  |  |
+| `with_capacity` | function | with_capacity(capacity: usize) -> ClauseAlloc |  |  |  |  |
 
-| `ClauseAlloc` | struct |  |  |  |  |  |
+| `ClauseAlloc` | struct | ClauseAlloc { buffer: Vec<LitIdx> } |  |  |  |  |
 
-| `ClauseRef` | struct |  |  |  |  |  |
+| `ClauseRef` | struct | ClauseRef { offset: ClauseOffset } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/assess.rs
 
-| `assess_learned_clause` | function | assess_learned_clause(ctx: &mut Context, lits: &[Lit]) |  |  |  |  |
+| `assess_learned_clause` | function | assess_learned_clause(ctx: &mut Context, lits: &[Lit]) -> ClauseHeader |  |  |  |  |
 
 | `bump_clause` | function | bump_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/db.rs
 
-| `Tier` | enum |  |  |  |  |  |
+| `Tier` | enum | Tier { Irred = 0, Core = 1, Mid = 2, Local = 3 } |  |  |  |  |
 
-| `add_clause` | function | add_clause(ctx: &mut Context, header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
+| `add_clause` | function | add_clause(ctx: &mut Context, header: ClauseHeader, lits: &[Lit]) -> ClauseRef |  |  |  |  |
 
-| `count` | function | count() |  |  |  |  |
+| `clauses_iter` | function | clauses_iter( db: &'a ClauseDb, alloc: &'a ClauseAlloc, ) -> impl Iterator<Item = ClauseRef> + 'a |  |  |  |  |
 
-| `count_by_tier` | function | count_by_tier(&self, tier: Tier) |  |  |  |  |
+| `count` | function | count() -> usize |  |  |  |  |
+
+| `count_by_tier` | function | count_by_tier(&self, tier: Tier) -> usize |  |  |  |  |
 
 | `delete_clause` | function | delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| `from_index` | function | from_index(index: usize) |  |  |  |  |
+| `filter_clauses` | function | filter_clauses( alloc: &mut ClauseAlloc, db: &mut ClauseDb, watchlists: &mut crate::prop::Watchlists, mut filter: F, ) |  |  |  |  |
+
+| `from_index` | function | from_index(index: usize) -> Tier |  |  |  |  |
 
 | `set_clause_tier` | function | set_clause_tier(ctx: &mut Context, cref: ClauseRef, tier: Tier) |  |  |  |  |
 
-| `try_delete_clause` | function | try_delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `try_delete_clause` | function | try_delete_clause(ctx: &mut Context, cref: ClauseRef) -> bool |  |  |  |  |
 
-| `ClauseDb` | struct |  |  |  |  |  |
+| `ClauseDb` | struct | ClauseDb { pub(crate) clauses: Vec<ClauseRef>, pub(super) by_tier: [Vec<ClauseRef>; Tier::count()], pub(super) count_by_tier: [usize; Tier::count()], pub(super) garbage_size: usize } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/gc.rs
@@ -1037,19 +1009,19 @@
 
 ### crates/ferroplan-sat/src/clause/header.rs
 
-| `active` | function | active(&self) |  |  |  |  |
+| `active` | function | active(&self) -> bool |  |  |  |  |
 
-| `activity` | function | activity(&self) |  |  |  |  |
+| `activity` | function | activity(&self) -> f32 |  |  |  |  |
 
-| `deleted` | function | deleted(&self) |  |  |  |  |
+| `deleted` | function | deleted(&self) -> bool |  |  |  |  |
 
-| `glue` | function | glue(&self) |  |  |  |  |
+| `glue` | function | glue(&self) -> usize |  |  |  |  |
 
-| `len` | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) -> usize |  |  |  |  |
 
-| `mark` | function | mark(&self) |  |  |  |  |
+| `mark` | function | mark(&self) -> bool |  |  |  |  |
 
-| `new` | function | new() |  |  |  |  |
+| `new` | function | new() -> ClauseHeader |  |  |  |  |
 
 | `set_active` | function | set_active(&mut self, active: bool) |  |  |  |  |
 
@@ -1065,9 +1037,9 @@
 
 | `set_tier` | function | set_tier(&mut self, tier: Tier) |  |  |  |  |
 
-| `tier` | function | tier(&self) |  |  |  |  |
+| `tier` | function | tier(&self) -> Tier |  |  |  |  |
 
-| `ClauseHeader` | struct |  |  |  |  |  |
+| `ClauseHeader` | struct | ClauseHeader { pub(super) data: [LitIdx; HEADER_LEN] } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/clause/reduce.rs
@@ -1081,38 +1053,38 @@
 
 ### crates/ferroplan-sat/src/cnf.rs
 
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) -> bool |  |  |  |  |
 
-| `iter` | function | iter(&self) |  |  |  |  |
+| `iter` | function | iter(&self) -> impl Iterator<Item = &[Lit]> |  |  |  |  |
 
-| `len` | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) -> usize |  |  |  |  |
 
-| `new` | function | new() |  |  |  |  |
+| `new` | function | new() -> CnfFormula |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `var_count` | function | var_count(&self) |  |  |  |  |
+| `var_count` | function | var_count(&self) -> usize |  |  |  |  |
 
-| `CnfFormula` | struct |  |  |  |  |  |
+| `CnfFormula` | struct | CnfFormula { var_count: usize, literals: Vec<Lit>, clause_ranges: Vec<Range<usize>> } |  |  |  |  |
 
 | `ExtendFormula` | trait |  |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/config.rs
 
-| `SolverConfig` | struct |  |  |  |  |  |
+| `SolverConfig` | struct | SolverConfig { pub vsids_decay: f32, pub clause_activity_decay: f32, pub reduce_locals_interval: u64, pub reduce_mids_interval: u64, pub luby_restart_interval_scale: u64 } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/context.rs
 
 | `set_var_count` | function | set_var_count(ctx: &mut Context, count: usize) |  |  |  |  |
 
-| `Context` | struct |  |  |  |  |  |
+| `Context` | struct | Context { pub analyze_conflict: AnalyzeConflict, pub assignment: Assignment, pub assumptions: Assumptions, pub binary_clauses: BinaryClauses, pub clause_activity: ClauseActivity, pub clause_alloc: ClauseAlloc, pub clause_db: ClauseDb, pub impl_graph: ImplGraph, pub model: Model, pub schedule: Schedule, pub solver_config: SolverConfig, pub solver_state: SolverState, pub tmp_data: TmpData, pub tmp_flags: TmpFlags, pub trail: Trail, pub variables: Variables, pub vsids: Vsids, pub watchlists: Watchlists } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/decision.rs
 
-| `make_decision` | function | make_decision(ctx: &mut Context) |  |  |  |  |
+| `make_decision` | function | make_decision(ctx: &mut Context) -> bool |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/decision/vsids.rs
@@ -1133,64 +1105,73 @@
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `var_count` | function | var_count(&self) |  |  |  |  |
+| `var_count` | function | var_count(&self) -> usize |  |  |  |  |
 
-| `Vsids` | struct |  |  |  |  |  |
+| `Vsids` | struct | Vsids { activity: Vec<f32>, heap: Vec<Var>, position: Vec<Option<usize>>, bump: f32, inv_decay: f32 } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/dimacs.rs
 
-| `DimacsError` | enum |  |  |  |  |  |
+| `DimacsError` | enum | DimacsError { Io(io::Error), Parse { line: usize, msg: String } } |  |  |  |  |
 
-| `parse_dimacs` | function | parse_dimacs(input: impl io::BufRead) |  |  |  |  |
+| `parse_dimacs` | function | parse_dimacs(input: impl io::BufRead) -> Result<CnfFormula, DimacsError> |  |  |  |  |
 
-| `parse_dimacs_str` | function | parse_dimacs_str(input: &str) |  |  |  |  |
+| `parse_dimacs_str` | function | parse_dimacs_str(input: &str) -> Result<CnfFormula, DimacsError> |  |  |  |  |
 
-| `write_dimacs` | function | write_dimacs(target: &mut impl io::Write, formula: &CnfFormula) |  |  |  |  |
+| `write_dimacs` | function | write_dimacs(target: &mut impl io::Write, formula: &CnfFormula) -> io::Result<()> |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/glue.rs
 
-| `compute_glue` | function | compute_glue(tmp_flags: &mut TmpFlags, impl_graph: &ImplGraph, lits: &[Lit]) |  |  |  |  |
+| `compute_glue` | function | compute_glue(tmp_flags: &mut TmpFlags, impl_graph: &ImplGraph, lits: &[Lit]) -> usize |  |  |  |  |
+
+
+### crates/ferroplan-sat/src/lib.rs
+
+| `cnf::{CnfFormula, ExtendFormula}` | use | cnf::{CnfFormula, ExtendFormula} |  |  |  |  |
+
+| `lit::{Lit, Var}` | use | lit::{Lit, Var} |  |  |  |  |
+
+| `solver::{Solver, SolverError}` | use | solver::{Solver, SolverError} |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/lit.rs
 
-| `code` | function | code(self) |  |  |  |  |
+| `code` | function | code(self) -> usize |  |  |  |  |
 
-| `from_code` | function | from_code(code: usize) |  |  |  |  |
+| `from_code` | function | from_code(code: usize) -> Lit |  |  |  |  |
 
-| `from_dimacs` | function | from_dimacs(number: isize) |  |  |  |  |
+| `from_dimacs` | function | from_dimacs(number: isize) -> Var |  |  |  |  |
 
-| `from_index` | function | from_index(index: usize) |  |  |  |  |
+| `from_index` | function | from_index(index: usize) -> Var |  |  |  |  |
 
-| `from_var` | function | from_var(var: Var, polarity: bool) |  |  |  |  |
+| `from_var` | function | from_var(var: Var, polarity: bool) -> Lit |  |  |  |  |
 
-| `index` | function | index(self) |  |  |  |  |
+| `index` | function | index(self) -> usize |  |  |  |  |
 
-| `is_negative` | function | is_negative(self) |  |  |  |  |
+| `is_negative` | function | is_negative(self) -> bool |  |  |  |  |
 
-| `is_positive` | function | is_positive(self) |  |  |  |  |
+| `is_positive` | function | is_positive(self) -> bool |  |  |  |  |
 
-| `lit` | function | lit(self, polarity: bool) |  |  |  |  |
+| `lit` | function | lit(self, polarity: bool) -> Lit |  |  |  |  |
 
-| `map_var` | function | map_var(self, f: impl FnOnce(Var) |  |  |  |  |
+| `map_var` | function | map_var(self, f: impl FnOnce(Var) -> Var) -> Lit |  |  |  |  |
 
-| `max_count` | function | max_count() |  |  |  |  |
+| `max_count` | function | max_count() -> usize |  |  |  |  |
 
-| `max_var` | function | max_var() |  |  |  |  |
+| `max_var` | function | max_var() -> Var |  |  |  |  |
 
-| `negative` | function | negative(self) |  |  |  |  |
+| `negative` | function | negative(self) -> Lit |  |  |  |  |
 
-| `positive` | function | positive(self) |  |  |  |  |
+| `positive` | function | positive(self) -> Lit |  |  |  |  |
 
-| `to_dimacs` | function | to_dimacs(self) |  |  |  |  |
+| `to_dimacs` | function | to_dimacs(self) -> isize |  |  |  |  |
 
-| `var` | function | var(self) |  |  |  |  |
+| `var` | function | var(self) -> Var |  |  |  |  |
 
-| `Lit` | struct |  |  |  |  |  |
+| `Lit` | struct | Lit { code: LitIdx } |  |  |  |  |
 
-| `Var` | struct |  |  |  |  |  |
+| `Var` | struct | Var { index: LitIdx } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/load.rs
@@ -1200,57 +1181,57 @@
 
 ### crates/ferroplan-sat/src/model.rs
 
-| `assignment` | function | assignment(&self) |  |  |  |  |
+| `assignment` | function | assignment(&self) -> &[Option<bool>] |  |  |  |  |
 
 | `reconstruct_global_model` | function | reconstruct_global_model(ctx: &mut Context) |  |  |  |  |
 
-| `Model` | struct |  |  |  |  |  |
+| `Model` | struct | Model { assignment: Vec<Option<bool>> } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop.rs
 
-| `propagate` | function | propagate(ctx: &mut Context) |  |  |  |  |
+| `propagate` | function | propagate(ctx: &mut Context) -> Result<(), Conflict> |  |  |  |  |
+
+| `assignment::{backtrack, enqueue_assignment, full_restart, restart, Assignment, Trail}` | use | assignment::{backtrack, enqueue_assignment, full_restart, restart, Assignment, Trail} |  |  |  |  |
+
+| `graph::{Conflict, ImplGraph, Reason}` | use | graph::{Conflict, ImplGraph, Reason} |  |  |  |  |
+
+| `watch::{enable_watchlists, Watch, Watchlists}` | use | watch::{enable_watchlists, Watch, Watchlists} |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/assignment.rs
 
 | `assign_lit` | function | assign_lit(&mut self, lit: Lit) |  |  |  |  |
 
-| `assignment` | function | assignment(&self) |  |  |  |  |
+| `assignment` | function | assignment(&self) -> &[Option<bool>] |  |  |  |  |
 
 | `backtrack` | function | backtrack(ctx: &mut Context, level: usize) |  |  |  |  |
 
 | `clear` | function | clear(&mut self) |  |  |  |  |
 
-| `current_level` | function | current_level(&self) |  |  |  |  |
+| `current_level` | function | current_level(&self) -> usize |  |  |  |  |
 
-| `enqueue_assignment` | function | enqueue_assignment(
-    assignment: &mut Assignment,
-    impl_graph: &mut ImplGraph,
-    trail: &mut Trail,
-    lit: Lit,
-    reason: Reason,
-) |  |  |  |  |
+| `enqueue_assignment` | function | enqueue_assignment( assignment: &mut Assignment, impl_graph: &mut ImplGraph, trail: &mut Trail, lit: Lit, reason: Reason, ) |  |  |  |  |
 
-| `fast_option_eq` | function | fast_option_eq(a: Option<bool>, b: Option<bool>) |  |  |  |  |
+| `fast_option_eq` | function | fast_option_eq(a: Option<bool>, b: Option<bool>) -> bool |  |  |  |  |
 
 | `full_restart` | function | full_restart(ctx: &mut Context) |  |  |  |  |
 
-| `last_var_value` | function | last_var_value(&self, var: Var) |  |  |  |  |
+| `last_var_value` | function | last_var_value(&self, var: Var) -> bool |  |  |  |  |
 
-| `lit_is_false` | function | lit_is_false(&self, lit: Lit) |  |  |  |  |
+| `lit_is_false` | function | lit_is_false(&self, lit: Lit) -> bool |  |  |  |  |
 
-| `lit_is_true` | function | lit_is_true(&self, lit: Lit) |  |  |  |  |
+| `lit_is_true` | function | lit_is_true(&self, lit: Lit) -> bool |  |  |  |  |
 
-| `lit_is_unk` | function | lit_is_unk(&self, lit: Lit) |  |  |  |  |
+| `lit_is_unk` | function | lit_is_unk(&self, lit: Lit) -> bool |  |  |  |  |
 
-| `lit_value` | function | lit_value(&self, lit: Lit) |  |  |  |  |
+| `lit_value` | function | lit_value(&self, lit: Lit) -> Option<bool> |  |  |  |  |
 
 | `new_decision_level` | function | new_decision_level(&mut self) |  |  |  |  |
 
-| `pop_queue` | function | pop_queue(&mut self) |  |  |  |  |
+| `pop_queue` | function | pop_queue(&mut self) -> Option<Lit> |  |  |  |  |
 
-| `queue_head` | function | queue_head(&self) |  |  |  |  |
+| `queue_head` | function | queue_head(&self) -> Option<Lit> |  |  |  |  |
 
 | `restart` | function | restart(ctx: &mut Context) |  |  |  |  |
 
@@ -1258,35 +1239,37 @@
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `trail` | function | trail(&self) |  |  |  |  |
+| `trail` | function | trail(&self) -> &[Lit] |  |  |  |  |
 
 | `unassign_var` | function | unassign_var(&mut self, var: Var) |  |  |  |  |
 
-| `var_value` | function | var_value(&self, var: Var) |  |  |  |  |
+| `var_value` | function | var_value(&self, var: Var) -> Option<bool> |  |  |  |  |
 
-| `Assignment` | struct |  |  |  |  |  |
+| `Assignment` | struct | Assignment { assignment: Vec<Option<bool>>, last_value: Vec<bool> } |  |  |  |  |
 
-| `Trail` | struct |  |  |  |  |  |
+| `Trail` | struct | Trail { trail: Vec<Lit>, queue_head_pos: usize, decisions: Vec<LitIdx>, units_removed: usize } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/binary.rs
 
-| `propagate_binary` | function | propagate_binary(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `propagate_binary` | function | propagate_binary(ctx: &mut Context, lit: Lit) -> Result<(), Conflict> |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/graph.rs
 
-| `Conflict` | enum |  |  |  |  |  |
+| `Conflict` | enum | Conflict { Binary([Lit; 2]), Long(ClauseRef) } |  |  |  |  |
 
-| `Reason` | enum |  |  |  |  |  |
+| `Reason` | enum | Reason { Unit, Binary([Lit; 1]), Long(ClauseRef) } |  |  |  |  |
 
-| `is_removed_unit` | function | is_removed_unit(&self, var: Var) |  |  |  |  |
+| `is_removed_unit` | function | is_removed_unit(&self, var: Var) -> bool |  |  |  |  |
 
-| `is_unit` | function | is_unit(&self) |  |  |  |  |
+| `is_unit` | function | is_unit(&self) -> bool |  |  |  |  |
 
-| `level` | function | level(&self, var: Var) |  |  |  |  |
+| `level` | function | level(&self, var: Var) -> usize |  |  |  |  |
 
-| `reason` | function | reason(&self, var: Var) |  |  |  |  |
+| `lits` | function | lits(&'a self, alloc: &'a ClauseAlloc) -> &'a [Lit] |  |  |  |  |
+
+| `reason` | function | reason(&self, var: Var) -> &Reason |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
@@ -1294,14 +1277,14 @@
 
 | `update_removed_unit` | function | update_removed_unit(&mut self, var: Var) |  |  |  |  |
 
-| `ImplGraph` | struct |  |  |  |  |  |
+| `ImplGraph` | struct | ImplGraph { pub nodes: Vec<ImplNode> } |  |  |  |  |
 
-| `ImplNode` | struct |  |  |  |  |  |
+| `ImplNode` | struct | ImplNode { pub reason: Reason, pub level: LitIdx, pub depth: LitIdx } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/long.rs
 
-| `propagate_long` | function | propagate_long(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `propagate_long` | function | propagate_long(ctx: &mut Context, lit: Lit) -> Result<(), Conflict> |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/prop/watch.rs
@@ -1316,71 +1299,71 @@
 
 | `watch_clause` | function | watch_clause(&mut self, cref: ClauseRef, lits: [Lit; 2]) |  |  |  |  |
 
-| `watched_by_mut` | function | watched_by_mut(&mut self, lit: Lit) |  |  |  |  |
+| `watched_by_mut` | function | watched_by_mut(&mut self, lit: Lit) -> &mut Vec<Watch> |  |  |  |  |
 
-| `Watch` | struct |  |  |  |  |  |
+| `Watch` | struct | Watch { pub cref: ClauseRef, pub blocking: Lit } |  |  |  |  |
 
-| `Watchlists` | struct |  |  |  |  |  |
+| `Watchlists` | struct | Watchlists { watches: Vec<Vec<Watch>>, enabled: bool } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/schedule.rs
 
-| `schedule_step` | function | schedule_step(ctx: &mut Context) |  |  |  |  |
+| `schedule_step` | function | schedule_step(ctx: &mut Context) -> bool |  |  |  |  |
 
-| `Schedule` | struct |  |  |  |  |  |
+| `Schedule` | struct | Schedule { conflicts: u64, next_restart: u64, restarts: u64, luby: LubySequence, pub conflict_limit: Option<u64>, pub conflicts_this_solve: u64 } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/schedule/luby.rs
 
-| `advance` | function | advance(&mut self) |  |  |  |  |
+| `advance` | function | advance(&mut self) -> u64 |  |  |  |  |
 
-| `LubySequence` | struct |  |  |  |  |  |
+| `LubySequence` | struct | LubySequence { u: u64, v: u64 } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/solver.rs
 
-| `SolverError` | enum |  |  |  |  |  |
+| `SolverError` | enum | SolverError { Interrupted } |  |  |  |  |
 
 | `add_formula` | function | add_formula(&mut self, formula: &CnfFormula) |  |  |  |  |
 
 | `assume` | function | assume(&mut self, assumptions: &[Lit]) |  |  |  |  |
 
-| `failed_core` | function | failed_core(&self) |  |  |  |  |
+| `failed_core` | function | failed_core(&self) -> Option<&[Lit]> |  |  |  |  |
 
-| `is_recoverable` | function | is_recoverable(&self) |  |  |  |  |
+| `is_recoverable` | function | is_recoverable(&self) -> bool |  |  |  |  |
 
-| `model` | function | model(&self) |  |  |  |  |
+| `model` | function | model(&self) -> Option<Vec<Lit>> |  |  |  |  |
 
-| `new` | function | new() |  |  |  |  |
+| `new` | function | new() -> Solver |  |  |  |  |
 
-| `seed_activity` | function | seed_activity(&mut self, seeds: &[(usize, f32) |  |  |  |  |
+| `seed_activity` | function | seed_activity(&mut self, seeds: &[(usize, f32)]) |  |  |  |  |
 
 | `set_conflict_limit` | function | set_conflict_limit(&mut self, limit: Option<u64>) |  |  |  |  |
 
-| `solve` | function | solve(&mut self) |  |  |  |  |
+| `solve` | function | solve(&mut self) -> Result<bool, SolverError> |  |  |  |  |
 
-| `Solver` | struct |  |  |  |  |  |
+| `Solver` | struct | Solver { ctx: Box<Context> } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/state.rs
 
-| `SatState` | enum |  |  |  |  |  |
+| `SatState` | enum | SatState { Unknown, Sat, Unsat, UnsatUnderAssumptions } |  |  |  |  |
 
-| `SolverState` | struct |  |  |  |  |  |
+| `SolverState` | struct | SolverState { pub sat_state: SatState } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/tmp.rs
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `TmpData` | struct |  |  |  |  |  |
+| `TmpData` | struct | TmpData { pub lits: Vec<Lit>, pub lits_2: Vec<Lit> } |  |  |  |  |
 
-| `TmpFlags` | struct |  |  |  |  |  |
+| `TmpFlags` | struct | TmpFlags { pub flags: Vec<bool> } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/unit_simplify.rs
 
-| `prove_units` | function | prove_units(ctx: &mut Context) |  |  |  |  |
+| `prove_units` | function | prove_units(ctx: &mut Context) -> bool |  |  |  |  |
 
 | `resurrect_unit` | function | resurrect_unit(ctx: &mut Context, lit: Lit) |  |  |  |  |
 
@@ -1389,429 +1372,386 @@
 
 ### crates/ferroplan-sat/src/variables.rs
 
-| `existing_user_from_solver` | function | existing_user_from_solver(&self, solver: Var) |  |  |  |  |
+| `existing_user_from_solver` | function | existing_user_from_solver(&self, solver: Var) -> Var |  |  |  |  |
 
-| `global_from_solver` | function | global_from_solver(&self) |  |  |  |  |
+| `global_from_solver` | function | global_from_solver(&self) -> &VarMap |  |  |  |  |
 
-| `global_from_solver_mut` | function | global_from_solver_mut(&mut self) |  |  |  |  |
+| `global_from_solver_mut` | function | global_from_solver_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `global_from_user` | function | global_from_user(&self) |  |  |  |  |
+| `global_from_user` | function | global_from_user(&self) -> &VarMap |  |  |  |  |
 
-| `global_from_user_mut` | function | global_from_user_mut(&mut self) |  |  |  |  |
+| `global_from_user_mut` | function | global_from_user_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `global_var_iter` | function | global_var_iter(&self) |  |  |  |  |
+| `global_var_iter` | function | global_var_iter(&self) -> impl Iterator<Item = Var> + '_ |  |  |  |  |
 
-| `global_watermark` | function | global_watermark(&self) |  |  |  |  |
+| `global_watermark` | function | global_watermark(&self) -> usize |  |  |  |  |
 
 | `initialize_solver_var` | function | initialize_solver_var(ctx: &mut Context, solver: Var, global: Var) |  |  |  |  |
 
-| `new_user_var` | function | new_user_var(ctx: &mut Context) |  |  |  |  |
+| `new_user_var` | function | new_user_var(ctx: &mut Context) -> Var |  |  |  |  |
 
-| `next_unmapped_solver` | function | next_unmapped_solver(&self) |  |  |  |  |
+| `next_unmapped_solver` | function | next_unmapped_solver(&self) -> Var |  |  |  |  |
 
-| `next_unmapped_user` | function | next_unmapped_user(&self) |  |  |  |  |
+| `next_unmapped_user` | function | next_unmapped_user(&self) -> Var |  |  |  |  |
 
 | `remove_solver_var` | function | remove_solver_var(ctx: &mut Context, solver: Var) |  |  |  |  |
 
-| `solver_from_global` | function | solver_from_global(&self) |  |  |  |  |
+| `solver_from_global` | function | solver_from_global(&self) -> &VarMap |  |  |  |  |
 
-| `solver_from_global_mut` | function | solver_from_global_mut(&mut self) |  |  |  |  |
+| `solver_from_global_mut` | function | solver_from_global_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `solver_from_user` | function | solver_from_user(ctx: &mut Context, user: Var) |  |  |  |  |
+| `solver_from_user` | function | solver_from_user(ctx: &mut Context, user: Var) -> Var |  |  |  |  |
 
 | `solver_from_user_lits` | function | solver_from_user_lits(ctx: &mut Context, solver_lits: &mut Vec<Lit>, user_lits: &[Lit]) |  |  |  |  |
 
-| `solver_var_present` | function | solver_var_present(&self, solver: Var) |  |  |  |  |
+| `solver_var_present` | function | solver_var_present(&self, solver: Var) -> bool |  |  |  |  |
 
-| `solver_watermark` | function | solver_watermark(&self) |  |  |  |  |
+| `solver_watermark` | function | solver_watermark(&self) -> usize |  |  |  |  |
 
-| `user_from_global` | function | user_from_global(&self) |  |  |  |  |
+| `user_from_global` | function | user_from_global(&self) -> &VarMap |  |  |  |  |
 
-| `user_var_iter` | function | user_var_iter(&self) |  |  |  |  |
+| `user_var_iter` | function | user_var_iter(&self) -> impl Iterator<Item = Var> + '_ |  |  |  |  |
 
-| `user_watermark` | function | user_watermark(&self) |  |  |  |  |
+| `user_watermark` | function | user_watermark(&self) -> usize |  |  |  |  |
 
-| `var_data_global` | function | var_data_global(&self, global: Var) |  |  |  |  |
+| `var_data_global` | function | var_data_global(&self, global: Var) -> &VarData |  |  |  |  |
 
-| `var_data_global_mut` | function | var_data_global_mut(&mut self, global: Var) |  |  |  |  |
+| `var_data_global_mut` | function | var_data_global_mut(&mut self, global: Var) -> &mut VarData |  |  |  |  |
 
-| `var_data_solver_mut` | function | var_data_solver_mut(&mut self, solver: Var) |  |  |  |  |
+| `var_data_solver_mut` | function | var_data_solver_mut(&mut self, solver: Var) -> &mut VarData |  |  |  |  |
 
-| `Variables` | struct |  |  |  |  |  |
+| `Variables` | struct | Variables { global_from_user: VarBiMap, solver_from_global: VarBiMap, solver_freelist: HashSet<Var>, var_data: Vec<VarData> } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/variables/data.rs
 
-| `user_default` | function | user_default() |  |  |  |  |
+| `user_default` | function | user_default() -> VarData |  |  |  |  |
 
-| `VarData` | struct |  |  |  |  |  |
+| `VarData` | struct | VarData { pub unit: Option<bool>, pub isolated: bool, pub assumed: bool, pub deleted: bool } |  |  |  |  |
 
 
 ### crates/ferroplan-sat/src/variables/var_map.rs
 
-| `bwd` | function | bwd(&self) |  |  |  |  |
+| `bwd` | function | bwd(&self) -> &VarMap |  |  |  |  |
 
-| `bwd_mut` | function | bwd_mut(&mut self) |  |  |  |  |
+| `bwd_mut` | function | bwd_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `fwd` | function | fwd(&self) |  |  |  |  |
+| `fwd` | function | fwd(&self) -> &VarMap |  |  |  |  |
 
-| `fwd_mut` | function | fwd_mut(&mut self) |  |  |  |  |
+| `fwd_mut` | function | fwd_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `get` | function | get(&self, from: Var) |  |  |  |  |
+| `get` | function | get(&self, from: Var) -> Option<Var> |  |  |  |  |
 
 | `insert` | function | insert(&mut self, into: Var, from: Var) |  |  |  |  |
 
 | `remove` | function | remove(&mut self, from: Var) |  |  |  |  |
 
-| `watermark` | function | watermark(&self) |  |  |  |  |
+| `watermark` | function | watermark(&self) -> usize |  |  |  |  |
 
-| `VarBiMap` | struct |  |  |  |  |  |
+| `VarBiMap` | struct | VarBiMap { fwd: VarMap, bwd: VarMap } |  |  |  |  |
 
-| `VarBiMapMut` | struct |  |  |  |  |  |
+| `VarBiMapMut` | struct | VarBiMapMut { fwd: &'a mut VarMap, bwd: &'a mut VarMap } |  |  |  |  |
 
-| `VarMap` | struct |  |  |  |  |  |
+| `VarMap` | struct | VarMap { mapping: Vec<LitIdx> } |  |  |  |  |
 
 
 ### crates/ferroplan-wasm/src/dfcm_route.rs
 
-| `admit_candidates` | function | admit_candidates(
-    candidates: &[ProbeCandidate],
-    goal_limit: usize,
-    surface: &str,
-) |  |  |  |  |
+| `CORRIDOR_DOMAIN` | const | CORRIDOR_DOMAIN: &str |  |  |  |  |
 
-| `corridor_problem` | function | corridor_problem(n: usize) |  |  |  |  |
+| `MAX_PROBE_CANDIDATES` | const | MAX_PROBE_CANDIDATES: usize |  |  |  |  |
 
-| `probe_all` | function | probe_all(
-    parent: &Session,
-    candidates: &[ProbeCandidate],
-    evals: usize,
-    mem_mb: usize,
-) |  |  |  |  |
+| `MAX_PROBE_FACT_BYTES` | const | MAX_PROBE_FACT_BYTES: usize |  |  |  |  |
 
-| `probe_candidate` | function | probe_candidate(
-    parent: &Session,
-    candidate: &ProbeCandidate,
-    evals: usize,
-    mem_mb: usize,
-) |  |  |  |  |
+| `MAX_PROBE_OBSERVATIONS` | const | MAX_PROBE_OBSERVATIONS: usize |  |  |  |  |
 
-| `repair` | function | repair(
-    inner: &Session,
-    plan: &mut Option<Plan>,
-    cursor: &mut usize,
-    evals: usize,
-    mem_mb: usize,
-) |  |  |  |  |
+| `admit_candidates` | function | admit_candidates( candidates: &[ProbeCandidate], goal_limit: usize, surface: &str, ) -> Result<(), Refusal> |  |  |  |  |
 
-| `ProbeCandidate` | struct |  |  |  |  |  |
+| `corridor_problem` | function | corridor_problem(n: usize) -> String |  |  |  |  |
+
+| `probe_all` | function | probe_all( parent: &Session, candidates: &[ProbeCandidate], evals: usize, mem_mb: usize, ) -> Vec<Value> |  |  |  |  |
+
+| `probe_candidate` | function | probe_candidate( parent: &Session, candidate: &ProbeCandidate, evals: usize, mem_mb: usize, ) -> Value |  |  |  |  |
+
+| `repair` | function | repair( inner: &Session, plan: &mut Option<Plan>, cursor: &mut usize, evals: usize, mem_mb: usize, ) -> Value |  |  |  |  |
+
+| `ProbeCandidate` | struct | ProbeCandidate { pub id: String, pub goal: Option<String>, pub sight: Vec<(String, bool)>, pub restrict_contains: Option<String> } |  |  |  |  |
 
 
 ### crates/ferroplan-wasm/src/lib.rs
 
 | `advance` | function | advance(&mut self) |  |  |  |  |
 
-| `apply_start` | function | apply_start(&mut self, name: &str) |  |  |  |  |
+| `apply_start` | function | apply_start(&mut self, name: &str) -> Result<(), JsValue> |  |  |  |  |
 
 | `drop_plan` | function | drop_plan(&mut self) |  |  |  |  |
 
-| `elapse` | function | elapse(&mut self, dt: f64) |  |  |  |  |
+| `elapse` | function | elapse(&mut self, dt: f64) -> Result<String, JsValue> |  |  |  |  |
 
-| `explain` | function | explain(domain: &str, problem: &str, plan_json: &str) |  |  |  |  |
+| `explain` | function | explain(domain: &str, problem: &str, plan_json: &str) -> String |  |  |  |  |
 
-| `fact` | function | fact(&self, name: &str) |  |  |  |  |
+| `fact` | function | fact(&self, name: &str) -> JsValue |  |  |  |  |
 
-| `fluent` | function | fluent(&self, name: &str) |  |  |  |  |
+| `fluent` | function | fluent(&self, name: &str) -> JsValue |  |  |  |  |
 
-| `fond_validate` | function | fond_validate(problem_json: &str, plan_json: &str) |  |  |  |  |
+| `fond_validate` | function | fond_validate(problem_json: &str, plan_json: &str) -> String |  |  |  |  |
 
-| `fork` | function | fork(&self) |  |  |  |  |
+| `fork` | function | fork(&self) -> WasmSession |  |  |  |  |
 
-| `goal_met` | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) -> bool |  |  |  |  |
 
-| `has_plan` | function | has_plan(&self) |  |  |  |  |
+| `has_plan` | function | has_plan(&self) -> bool |  |  |  |  |
 
-| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) -> usize |  |  |  |  |
 
-| `new` | function | new(domain: &str, problem: &str) |  |  |  |  |
+| `new` | function | new(domain: &str, problem: &str) -> Result<WasmSession, JsValue> |  |  |  |  |
 
-| `observe` | function | observe(&mut self, sight_json: &str) |  |  |  |  |
+| `observe` | function | observe(&mut self, sight_json: &str) -> Result<String, JsValue> |  |  |  |  |
 
-| `plan` | function | plan(
-        domain: &str,
-        problem: &str,
-        mode: Option<String>,
-        flags: Option<String>,
-        search: Option<String>,
-    ) |  |  |  |  |
+| `plan` | function | plan( domain: &str, problem: &str, mode: Option<String>, flags: Option<String>, search: Option<String>, ) -> String |  |  |  |  |
 
-| `plan_production` | function | plan_production(
-        domain: &str,
-        problem: &str,
-        mode: Option<String>,
-        search: Option<String>,
-        max_evaluated: Option<usize>,
-        max_plan_steps: Option<usize>,
-        max_output_bytes: Option<usize>,
-        request_id: Option<String>,
-    ) |  |  |  |  |
+| `plan_production` | function | plan_production( domain: &str, problem: &str, mode: Option<String>, search: Option<String>, max_evaluated: Option<usize>, max_plan_steps: Option<usize>, max_output_bytes: Option<usize>, request_id: Option<String>, ) -> String |  |  |  |  |
 
-| `plan_valid_json` | function | plan_valid_json(&self, plan_json: &str, from: usize) |  |  |  |  |
+| `plan_valid_json` | function | plan_valid_json(&self, plan_json: &str, from: usize) -> bool |  |  |  |  |
 
-| `probe_json` | function | probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) |  |  |  |  |
+| `probe_json` | function | probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) -> String |  |  |  |  |
 
-| `readiness` | function | readiness() |  |  |  |  |
+| `readiness` | function | readiness() -> String |  |  |  |  |
 
-| `repair` | function | repair(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `repair` | function | repair(&mut self, evals: usize, mem_mb: usize) -> String |  |  |  |  |
 
-| `replan_following` | function | replan_following(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `replan_following` | function | replan_following(&mut self, evals: usize, mem_mb: usize) -> String |  |  |  |  |
 
 | `restrict_contains` | function | restrict_contains(&mut self, filter: String) |  |  |  |  |
 
 | `restrict_prefix_claims` | function | restrict_prefix_claims(&mut self, prefix: String, claimed: String) |  |  |  |  |
 
-| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
+| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) -> Result<(), JsValue> |  |  |  |  |
 
-| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
+| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) -> Result<(), JsValue> |  |  |  |  |
 
-| `set_goal` | function | set_goal(&mut self, goal: &str) |  |  |  |  |
+| `set_goal` | function | set_goal(&mut self, goal: &str) -> Result<(), JsValue> |  |  |  |  |
 
-| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
+| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) -> Result<(), JsValue> |  |  |  |  |
 
-| `step_json` | function | step_json(&self) |  |  |  |  |
+| `step_json` | function | step_json(&self) -> String |  |  |  |  |
 
-| `suffix_json` | function | suffix_json(&self) |  |  |  |  |
+| `suffix_json` | function | suffix_json(&self) -> String |  |  |  |  |
 
-| `think` | function | think(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `think` | function | think(&mut self, evals: usize, mem_mb: usize) -> String |  |  |  |  |
 
-| `valid` | function | valid(&self) |  |  |  |  |
+| `valid` | function | valid(&self) -> bool |  |  |  |  |
 
-| `version` | function | version() |  |  |  |  |
+| `version` | function | version() -> String |  |  |  |  |
 
-| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
-| `WasmSession` | struct |  |  |  |  |  |
+| `WasmSession` | struct | WasmSession { inner: ferroplan::Session, plan: Option<ferroplan::api::Plan>, cursor: usize } |  |  |  |  |
+
+| `browser_impl::{ explain, fond_validate, plan, plan_production, readiness, version, WasmSession, }` | use | browser_impl::{ explain, fond_validate, plan, plan_production, readiness, version, WasmSession, } |  |  |  |  |
 
 
 ### crates/ferroplan-wasm/src/probe_guard.rs
 
-| `contradictory_fact` | function | contradictory_fact(sight: &[(String, bool) |  |  |  |  |
+| `MAX_PROBE_ID_BYTES` | const | MAX_PROBE_ID_BYTES: usize |  |  |  |  |
 
-| `fact_key` | function | fact_key(fact: &str) |  |  |  |  |
+| `contradictory_fact` | function | contradictory_fact(sight: &[(String, bool)]) -> Option<&str> |  |  |  |  |
+
+| `duplicate_id` | function | duplicate_id(ids: impl IntoIterator<Item = &'a str>) -> Option<&'a str> |  |  |  |  |
+
+| `fact_key` | function | fact_key(fact: &str) -> String |  |  |  |  |
+
+| `malformed_id` | function | malformed_id(ids: impl IntoIterator<Item = &'a str>) -> Option<&'a str> |  |  |  |  |
+
+
+### crates/ferroplan-wasm/src/wasi_abi.rs
+
+| `fp_alloc` | function | fp_alloc(len: usize) -> *mut u8 |  |  |  |  |
+
+| `fp_call` | function | fp_call(ptr: *mut u8, len: usize) -> u64 |  |  |  |  |
+
+| `fp_dealloc` | function | fp_dealloc(ptr: *mut u8, len: usize) |  |  |  |  |
 
 
 ### crates/ferroplan/src/api.rs
 
-| `Mode` | enum |  |  |  |  |  |
+| `Mode` | enum | Mode { Auto, Ff, Partition, Pddl3, Temporal, Portfolio, Optimal, Sat } |  |  |  |  |
 
-| `Search` | enum |  |  |  |  |  |
+| `Search` | enum | Search { Auto, Ehc, BestFirst, EhcThenBestFirst } |  |  |  |  |
 
-| `SolveError` | enum |  |  |  |  |  |
+| `SolveError` | enum | SolveError { DomainParse(crate::types::ParseError), ProblemParse(crate::types::ParseError), EmptyType { kind: String, pred: String, ty: String, }, Derived(String), Unsupported(String) } |  |  |  |  |
 
-| `decompose` | function | decompose(
-    domain_src: &str,
-    problem_src: &str,
-    opts: &Options,
-) |  |  |  |  |
+| `decompose` | function | decompose( domain_src: &str, problem_src: &str, opts: &Options, ) -> Result<Decomposition, SolveError> |  |  |  |  |
 
-| `parse` | function | parse(src: &str) |  |  |  |  |
+| `parse` | function | parse(src: &str) -> ParseReport |  |  |  |  |
 
-| `solve` | function | solve(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
+| `solve` | function | solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solution, SolveError> |  |  |  |  |
 
-| `Contract` | struct |  |  |  |  |  |
+| `Contract` | struct | Contract { pub index: usize, pub goal: String, pub steps: Vec<Step>, pub makespan: f64, pub offset: f64 } |  |  |  |  |
 
-| `Decomposition` | struct |  |  |  |  |  |
+| `Decomposition` | struct | Decomposition { pub solved: bool, pub contracts: Vec<Contract>, pub plan: Option<Plan>, pub monolithic: bool, pub notes: Vec<String> } |  |  |  |  |
 
-| `DomainSummary` | struct |  |  |  |  |  |
+| `DomainSummary` | struct | DomainSummary { pub types: Vec<String>, pub predicates: Vec<String>, pub functions: Vec<String>, pub actions: Vec<String>, pub durative_actions: Vec<String>, pub derived: usize } |  |  |  |  |
 
-| `Options` | struct |  |  |  |  |  |
+| `Options` | struct | Options { pub mode: Mode, pub search: Search, pub helpful_actions: bool, pub weight_g: f64, pub weight_h: f64, pub threads: usize, pub max_evaluated: Option<usize>, pub optimize: bool, pub wall_ms: Option<u64>, pub should_continue: Option<std::sync::Arc<std::sync::atomic::AtomicBool>> } |  |  |  |  |
 
-| `ParseReport` | struct |  |  |  |  |  |
+| `ParseReport` | struct | ParseReport { pub ok: bool, pub kind: Option<String>, pub name: Option<String>, pub requirements: Vec<String>, pub error: Option<String>, pub domain: Option<DomainSummary>, pub problem: Option<ProblemSummary> } |  |  |  |  |
 
-| `Plan` | struct |  |  |  |  |  |
+| `Plan` | struct | Plan { pub steps: Vec<Step>, pub length: usize, pub metric: Option<f64>, pub makespan: Option<f64> } |  |  |  |  |
 
-| `ProblemSummary` | struct |  |  |  |  |  |
+| `ProblemSummary` | struct | ProblemSummary { pub domain: String, pub objects: usize, pub init_facts: usize, pub init_fluents: usize, pub timed_initial_literals: usize, pub has_goal: bool, pub has_metric: bool } |  |  |  |  |
 
-| `Solution` | struct |  |  |  |  |  |
+| `Solution` | struct | Solution { pub solved: bool, pub mode: Mode, pub plan: Option<Plan>, pub statistics: Statistics, pub notes: Vec<String> } |  |  |  |  |
 
-| `Statistics` | struct |  |  |  |  |  |
+| `Statistics` | struct | Statistics { pub grounded_facts: usize, pub grounded_actions: usize, pub evaluated_states: usize, pub threads: usize } |  |  |  |  |
 
-| `Step` | struct |  |  |  |  |  |
+| `Step` | struct | Step { pub index: usize, pub action: String, pub args: Vec<String>, pub time: Option<f64>, pub duration: Option<f64> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/bitset.rs
 
 | `clear` | function | clear(w: &mut [u64], i: usize) |  |  |  |  |
 
-| `count` | function | count(w: &[u64]) |  |  |  |  |
+| `count` | function | count(w: &[u64]) -> usize |  |  |  |  |
 
 | `set` | function | set(w: &mut [u64], i: usize) |  |  |  |  |
 
-| `test` | function | test(w: &[u64], i: usize) |  |  |  |  |
+| `test` | function | test(w: &[u64], i: usize) -> bool |  |  |  |  |
 
-| `words_for` | function | words_for(n_bits: usize) |  |  |  |  |
+| `words_for` | function | words_for(n_bits: usize) -> usize |  |  |  |  |
 
 
 ### crates/ferroplan/src/clock.rs
 
-| `elapsed_ms` | function | elapsed_ms(&self) |  |  |  |  |
+| `elapsed_ms` | function | elapsed_ms(&self) -> u128 |  |  |  |  |
 
-| `elapsed_secs` | function | elapsed_secs(&self) |  |  |  |  |
+| `elapsed_secs` | function | elapsed_secs(&self) -> f64 |  |  |  |  |
 
-| `elapsed_us` | function | elapsed_us(&self) |  |  |  |  |
+| `elapsed_us` | function | elapsed_us(&self) -> u128 |  |  |  |  |
 
-| `now` | function | now() |  |  |  |  |
+| `now` | function | now() -> Self |  |  |  |  |
 
-| `Clock` | struct |  |  |  |  |  |
+| `Clock` | struct | Clock { t0: std::time::Instant } |  |  |  |  |
 
 
 ### crates/ferroplan/src/constraints.rs
 
-| `Traj` | enum |  |  |  |  |  |
+| `END_ACTION` | const | END_ACTION: &str |  |  |  |  |
 
-| `accepted` | function | accepted(&self) |  |  |  |  |
+| `Traj` | enum | Traj { Always(Formula), Sometime(Formula), AtMostOnce(Formula), SometimeAfter(Formula, Formula), SometimeBefore(Formula, Formula), AtEnd(Formula), Within(f64, Formula), AlwaysWithin(f64, Formula, Formula) } |  |  |  |  |
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `accepted` | function | accepted(&self) -> bool |  |  |  |  |
 
-| `expand` | function | expand(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> |  |  |  |  |
 
-| `gate` | function | gate(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `expand` | function | expand(domain: &Domain, problem: &Problem) -> Result<Expanded, String> |  |  |  |  |
 
-| `hard_only_gated` | function | hard_only_gated(
-    domain: &Domain,
-    problem: &Problem,
-) |  |  |  |  |
+| `gate` | function | gate(domain: &Domain, problem: &Problem) -> Result<Option<(Domain, Problem)>, String> |  |  |  |  |
 
-| `new` | function | new(traj: &'a Traj) |  |  |  |  |
+| `hard_only_gated` | function | hard_only_gated( domain: &Domain, problem: &Problem, ) -> Result<Option<(Domain, Problem)>, String> |  |  |  |  |
 
-| `op_name` | function | op_name(&self) |  |  |  |  |
+| `new` | function | new(traj: &'a Traj) -> Self |  |  |  |  |
 
-| `step` | function | step(&mut self, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
+| `op_name` | function | op_name(&self) -> &'static str |  |  |  |  |
 
-| `step_at` | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
+| `step` | function | step(&mut self, holds: &mut dyn FnMut(&Formula) -> bool) |  |  |  |  |
 
-| `Expanded` | struct |  |  |  |  |  |
+| `step_at` | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) -> bool) |  |  |  |  |
 
-| `Fold` | struct |  |  |  |  |  |
+| `Expanded` | struct | Expanded { pub hard: Vec<Traj>, pub soft: Vec<(String, Vec<Traj>)> } |  |  |  |  |
+
+| `Fold` | struct | Fold { traj: &'a Traj, ok: bool, seen: bool, holding: bool, pending: bool, safe: bool, last: bool, due: f64 } |  |  |  |  |
 
 
 ### crates/ferroplan/src/costs.rs
 
-| `improve` | function | improve(
-    task: &PackedTask,
-    cf: usize,
-    ops: Vec<usize>,
-    first_cost: f64,
-    threads: usize,
-    base: SearchCfg,
-    spent: usize,
-    
-    
-    
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `improve` | function | improve( task: &PackedTask, cf: usize, ops: Vec<usize>, first_cost: f64, threads: usize, base: SearchCfg, spent: usize, orbit: Option<&crate::orbits::OrbitMap>, ) -> CostOutcome |  |  |  |  |
 
-| `improve_length` | function | improve_length(
-    task: &PackedTask,
-    ops: Vec<usize>,
-    threads: usize,
-    base: SearchCfg,
-    spent: usize,
-) |  |  |  |  |
+| `improve_length` | function | improve_length( task: &PackedTask, ops: Vec<usize>, threads: usize, base: SearchCfg, spent: usize, ) -> (Vec<usize>, usize, bool) |  |  |  |  |
 
-| `metric_fluent` | function | metric_fluent(problem: &Problem) |  |  |  |  |
+| `metric_fluent` | function | metric_fluent(problem: &Problem) -> Option<String> |  |  |  |  |
 
-| `optimize_text` | function | optimize_text(
-    problem: &Problem,
-    task: &PackedTask,
-    optimize: bool,
-    threads: usize,
-    cfg: SearchCfg,
-    ops: &mut Vec<usize>,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `optimize_text` | function | optimize_text( problem: &Problem, task: &PackedTask, optimize: bool, threads: usize, cfg: SearchCfg, ops: &mut Vec<usize>, orbit: Option<&crate::orbits::OrbitMap>, ) -> Option<(f64, &'static str)> |  |  |  |  |
 
-| `plan_cost` | function | plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) |  |  |  |  |
+| `plan_cost` | function | plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) -> Option<f64> |  |  |  |  |
 
-| `CostOutcome` | struct |  |  |  |  |  |
+| `CostOutcome` | struct | CostOutcome { pub ops: Vec<usize>, pub cost: f64, pub improved: bool, pub proven: bool, pub evaluated: usize } |  |  |  |  |
 
 
 ### crates/ferroplan/src/derived.rs
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> |  |  |  |  |
 
 
 ### crates/ferroplan/src/espc.rs
 
-| `espc_optimize` | function | espc_optimize(
-    task: &PackedTask,
-    cost_fluent: usize,
-    sat: &mut SatGuidance,
-    seed: Option<(Vec<usize>, f64) |  |  |  |  |
+| `espc_optimize` | function | espc_optimize( task: &PackedTask, cost_fluent: usize, sat: &mut SatGuidance, seed: Option<(Vec<usize>, f64)>, part: Option<EspcPartition>, threads: usize, cfg: SearchCfg, ) -> Option<EspcResult> |  |  |  |  |
 
-| `EspcPartition` | struct |  |  |  |  |  |
+| `EspcPartition` | struct | EspcPartition { pub comps: Vec<Subgoal>, pub tail: PhaseTail, pub assoc: FxHashMap<u32, Vec<u32>> } |  |  |  |  |
 
-| `EspcResult` | struct |  |  |  |  |  |
+| `EspcResult` | struct | EspcResult { pub ops: Vec<usize>, pub cost: f64, pub iterations: usize } |  |  |  |  |
 
 
 ### crates/ferroplan/src/eve.rs
 
-| `EveError` | enum |  |  |  |  |  |
+| `MAX_PRIMARY_ACTIVATORS` | const | MAX_PRIMARY_ACTIVATORS: usize |  |  |  |  |
 
-| `EveStage` | enum |  |  |  |  |  |
+| `EveError` | enum | EveError { Missing { field: String }, SplitRequired { directive: SplitDirective } } |  |  |  |  |
 
-| `PlanningRegime` | enum |  |  |  |  |  |
+| `EveStage` | enum | EveStage { GroundHumanPurpose, ProjectGenesis, DecomposeHddl, GovernUncertaintyPpddl, ManufactureGgen, ExposeMcpPlus, ActuateBrce, ObserveOcel2, ConformTruexKernel, AdmitReceipt, ReplayTruex } |  |  |  |  |
 
-| `enter` | function | enter(request: EveRequest) |  |  |  |  |
+| `PlanningRegime` | enum | PlanningRegime { Deterministic, Probabilistic } |  |  |  |  |
 
-| `Activator` | struct |  |  |  |  |  |
+| `enter` | function | enter(request: EveRequest) -> Result<EveHandoff, EveError> |  |  |  |  |
 
-| `CapabilityTarget` | struct |  |  |  |  |  |
+| `Activator` | struct | Activator { pub name: String, pub value: String } |  |  |  |  |
+
+| `CapabilityTarget` | struct | CapabilityTarget { pub capability: String, pub route: String, pub authority_scopes: Vec<String> } |  |  |  |  |
 
 | `Eve` | struct |  |  |  |  |  |
 
-| `EveHandoff` | struct |  |  |  |  |  |
+| `EveHandoff` | struct | EveHandoff { pub protocol: String, pub closure_id: String, pub planning_regime: PlanningRegime, pub stages: Vec<EveStage>, pub goal: GroundedGoal, pub genesis: GenesisProjection, pub hddl: HddlDecompositionRequest, pub ppddl: Option<PpddlPolicyRequest>, pub ggen: GgenManufacturingRequest, pub mcp_plus: McpPlusHandoff, pub truex: TruexContinuation } |  |  |  |  |
 
-| `EveRequest` | struct |  |  |  |  |  |
+| `EveRequest` | struct | EveRequest { pub purpose: HumanPurpose, pub genesis: GenesisWorld, pub manufacture: ManufactureTarget, pub capability: CapabilityTarget } |  |  |  |  |
 
-| `GenesisProjection` | struct |  |  |  |  |  |
+| `GenesisProjection` | struct | GenesisProjection { pub ontology_rdf: String, pub construct_query: String } |  |  |  |  |
 
-| `GenesisWorld` | struct |  |  |  |  |  |
+| `GenesisWorld` | struct | GenesisWorld { pub ontology_rdf: String, pub construct_query: String, pub hddl: HddlSurface, pub ppddl: Option<PpddlSurface> } |  |  |  |  |
 
-| `GgenManufacturingRequest` | struct |  |  |  |  |  |
+| `GgenManufacturingRequest` | struct | GgenManufacturingRequest { pub target: ManufactureTarget, pub closure_id: String, pub candidate_only: bool } |  |  |  |  |
 
-| `GroundedGoal` | struct |  |  |  |  |  |
+| `GroundedGoal` | struct | GroundedGoal { pub statement: String, pub desired_consequence: String, pub actor: Option<String>, pub root_task: String, pub activators: Vec<Activator> } |  |  |  |  |
 
-| `HddlDecompositionRequest` | struct |  |  |  |  |  |
+| `HddlDecompositionRequest` | struct | HddlDecompositionRequest { pub domain: String, pub problem: String, pub root_task: String } |  |  |  |  |
 
-| `HddlSurface` | struct |  |  |  |  |  |
+| `HddlSurface` | struct | HddlSurface { pub domain: String, pub problem: String, pub root_task: String } |  |  |  |  |
 
-| `HumanPurpose` | struct |  |  |  |  |  |
+| `HumanPurpose` | struct | HumanPurpose { pub statement: String, pub desired_consequence: String, pub actor: Option<String>, pub activators: Vec<Activator> } |  |  |  |  |
 
-| `ManufactureTarget` | struct |  |  |  |  |  |
+| `ManufactureTarget` | struct | ManufactureTarget { pub name: String, pub template: String, pub artifact_kind: String, pub output: String } |  |  |  |  |
 
-| `McpPlusHandoff` | struct |  |  |  |  |  |
+| `McpPlusHandoff` | struct | McpPlusHandoff { pub target: CapabilityTarget, pub closure_id: String, pub ambient_authority: bool, pub brce_required: bool, pub receipt_obligations: Vec<String> } |  |  |  |  |
 
-| `PpddlPolicyRequest` | struct |  |  |  |  |  |
+| `PpddlPolicyRequest` | struct | PpddlPolicyRequest { pub domain: String, pub problem: String } |  |  |  |  |
 
-| `PpddlSurface` | struct |  |  |  |  |  |
+| `PpddlSurface` | struct | PpddlSurface { pub domain: String, pub problem: String } |  |  |  |  |
 
-| `SplitDirective` | struct |  |  |  |  |  |
+| `SplitDirective` | struct | SplitDirective { pub provided: usize, pub maximum: usize, pub groups: Vec<Vec<Activator>> } |  |  |  |  |
 
-| `TruexContinuation` | struct |  |  |  |  |  |
+| `TruexContinuation` | struct | TruexContinuation { pub expected_process_geometry: String, pub observed_path_format: String, pub conformance_engine: String, pub terminal_authority: String, pub replay_required: bool } |  |  |  |  |
 
 
 ### crates/ferroplan/src/features.rs
 
-| `DemandMode` | enum |  |  |  |  |  |
+| `DemandMode` | enum | DemandMode { Off, Numeric, Full } |  |  |  |  |
 
 | `clear_overrides` | function | clear_overrides() |  |  |  |  |
 
-| `demand_mode` | function | demand_mode() |  |  |  |  |
+| `demand_mode` | function | demand_mode() -> DemandMode |  |  |  |  |
 
-| `escalate` | function | escalate() |  |  |  |  |
+| `escalate` | function | escalate() -> bool |  |  |  |  |
 
-| `espc` | function | espc() |  |  |  |  |
+| `espc` | function | espc() -> bool |  |  |  |  |
 
 | `set_escalate_override` | function | set_escalate_override(on: bool) |  |  |  |  |
 
@@ -1819,3173 +1759,1034 @@
 
 | `set_overrides` | function | set_overrides(tdemand: bool, tdecomp: bool, tconc: bool) |  |  |  |  |
 
-| `tconc` | function | tconc() |  |  |  |  |
+| `tconc` | function | tconc() -> bool |  |  |  |  |
 
-| `tdecomp` | function | tdecomp() |  |  |  |  |
+| `tdecomp` | function | tdecomp() -> bool |  |  |  |  |
 
-| `tdemand` | function | tdemand() |  |  |  |  |
+| `tdemand` | function | tdemand() -> bool |  |  |  |  |
 
 
 ### crates/ferroplan/src/ground.rs
 
-| `Outcome` | enum |  |  |  |  |  |
+| `Outcome` | enum | Outcome { Task(PackedTask), GoalTrue, GoalFalse(String), GoalUndefinedFluent(String), EmptyType { kind: &'static str, pred: String, ty: String, }, WallExhausted(String) } |  |  |  |  |
 
-| `ground` | function | ground(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground` | function | ground(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
-| `ground_fixpoint` | function | ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_fixpoint` | function | ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
-| `ground_stratified` | function | ground_stratified(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_stratified` | function | ground_stratified(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
-| `ground_stratified_walled` | function | ground_stratified_walled(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_stratified_walled` | function | ground_stratified_walled(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
-| `ground_task` | function | ground_task(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_task` | function | ground_task(domain: &Domain, problem: &Problem, threads: usize) -> Option<PackedTask> |  |  |  |  |
 
-| `initial_state` | function | initial_state(t: &PackedTask) |  |  |  |  |
+| `initial_state` | function | initial_state(t: &PackedTask) -> State |  |  |  |  |
 
-| `objects_by_type` | function | objects_by_type(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `objects_by_type` | function | objects_by_type(domain: &Domain, problem: &Problem) -> HashMap<Sym, Vec<Sym>> |  |  |  |  |
+
+| `crate::packed::PackedTask as Task` | use | crate::packed::PackedTask as Task |  |  |  |  |
 
 
 ### crates/ferroplan/src/hash.rs
 
-| `FxHasher` | struct |  |  |  |  |  |
+| `FxHasher` | struct | FxHasher { hash: u64 } |  |  |  |  |
 
 
 ### crates/ferroplan/src/hddl.rs
 
-| `HddlError` | enum |  |  |  |  |  |
+| `HddlError` | enum | HddlError { Parse(String), Ground(String), Translate(String), Planner(PlannerError), RootTaskMismatch { root_task: String, problem_root_network: Vec<String>, }, Timeout { elapsed_ms: u128, limit_ms: u128, }, WorkerPanicked(String) } |  |  |  |  |
 
-| `adapt_problem` | function | adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) |  |  |  |  |
+| `adapt_problem` | function | adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) -> PlanningProblem |  |  |  |  |
 
-| `solve_hddl` | function | solve_hddl(
-    domain_src: &str,
-    problem_src: &str,
-    limits: &PlannerLimits,
-) |  |  |  |  |
+| `solve_hddl` | function | solve_hddl( domain_src: &str, problem_src: &str, limits: &PlannerLimits, ) -> Result<UniversalPlan, HddlError> |  |  |  |  |
 
-| `solve_hddl_from_eve` | function | solve_hddl_from_eve(
-    handoff: &EveHandoff,
-    limits: &PlannerLimits,
-) |  |  |  |  |
+| `solve_hddl_from_eve` | function | solve_hddl_from_eve( handoff: &EveHandoff, limits: &PlannerLimits, ) -> Result<UniversalPlan, HddlError> |  |  |  |  |
 
 
 ### crates/ferroplan/src/heuristic.rs
 
-| `extraction_need_facts` | function | extraction_need_facts(sc: &Scratch) |  |  |  |  |
+| `T_BUILD` | const | T_BUILD: std::sync::atomic::AtomicU64 |  |  |  |  |
 
-| `helpful_needed_adders` | function | helpful_needed_adders(
-    task: &PackedTask,
-    sc: &Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-) |  |  |  |  |
+| `T_EXTRACT` | const | T_EXTRACT: std::sync::atomic::AtomicU64 |  |  |  |  |
 
-| `new` | function | new(task: &PackedTask) |  |  |  |  |
+| `T_RESET` | const | T_RESET: std::sync::atomic::AtomicU64 |  |  |  |  |
 
-| `reachability_layers` | function | reachability_layers(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-) |  |  |  |  |
+| `extraction_need_facts` | function | extraction_need_facts(sc: &Scratch) -> Vec<(u32, u32)> |  |  |  |  |
 
-| `relaxed` | function | relaxed(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-) |  |  |  |  |
+| `helpful_needed_adders` | function | helpful_needed_adders( task: &PackedTask, sc: &Scratch, bits: &[u64], fv: &[f64], def: &[bool], ) -> Vec<u32> |  |  |  |  |
 
-| `relaxed_costed` | function | relaxed_costed(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-) |  |  |  |  |
+| `new` | function | new(task: &PackedTask) -> Self |  |  |  |  |
 
-| `relaxed_helpful` | function | relaxed_helpful(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-) |  |  |  |  |
+| `reachability_layers` | function | reachability_layers( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], ) -> (Vec<u32>, Vec<u32>) |  |  |  |  |
 
-| `relaxed_plan_cost` | function | relaxed_plan_cost(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-) |  |  |  |  |
+| `relaxed` | function | relaxed( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], ) -> Option<i32> |  |  |  |  |
 
-| `relaxed_to` | function | relaxed_to(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-) |  |  |  |  |
+| `relaxed_costed` | function | relaxed_costed( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: usize, ) -> Option<i32> |  |  |  |  |
 
-| `Scratch` | struct |  |  |  |  |  |
+| `relaxed_helpful` | function | relaxed_helpful( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], ) -> Option<(i32, Vec<u32>)> |  |  |  |  |
 
-| `TrpgInfo` | struct |  |  |  |  |  |
+| `relaxed_plan_cost` | function | relaxed_plan_cost( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: usize, ) -> Option<f64> |  |  |  |  |
 
-| `TrpgWindow` | struct |  |  |  |  |  |
+| `relaxed_to` | function | relaxed_to( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], ) -> Option<i32> |  |  |  |  |
+
+| `Scratch` | struct | Scratch { reached: Vec<bool>, fact_layer: Vec<u32>, op_layer: Vec<u32>, gen: u32, op_stamp: Vec<u32>, applicable: Vec<u32>, lb: Vec<f64>, ub: Vec<f64>, selected: Vec<u32>, need_fact: Vec<u32>, queue: Vec<u32>, num_applied: Vec<u32>, cond_ops: Vec<u32>, helpful: Vec<u32>, fact_time: Vec<f64>, op_time: Vec<f64> } |  |  |  |  |
+
+| `TrpgInfo` | struct | TrpgInfo { pub start_of: Vec<u32>, pub lag: Vec<f64>, pub floor: Vec<f64>, pub windows: Vec<Vec<TrpgWindow>> } |  |  |  |  |
+
+| `TrpgWindow` | struct | TrpgWindow { pub fact: u32, pub providers: Vec<(u32, f64)>, pub close: f64 } |  |  |  |  |
 
 
 ### crates/ferroplan/src/introspect.rs
 
-| `explain` | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) |  |  |  |  |
+| `explain` | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) -> Result<Explanation, String> |  |  |  |  |
 
-| `CausalLink` | struct |  |  |  |  |  |
+| `CausalLink` | struct | CausalLink { pub provider: Option<usize>, pub consumer: usize, pub fact: String } |  |  |  |  |
 
-| `Explanation` | struct |  |  |  |  |  |
+| `Explanation` | struct | Explanation { pub kind: String, pub causal_links: Vec<CausalLink>, pub invariant_spans: Vec<InvariantSpan>, pub preferences: Vec<PrefReport> } |  |  |  |  |
 
-| `InvariantSpan` | struct |  |  |  |  |  |
+| `InvariantSpan` | struct | InvariantSpan { pub step: usize, pub action: String, pub start: f64, pub end: f64, pub conditions: Vec<String> } |  |  |  |  |
 
-| `PrefReport` | struct |  |  |  |  |  |
+| `PrefReport` | struct | PrefReport { pub name: String, pub satisfied: bool, pub weight: f64 } |  |  |  |  |
 
 
 ### crates/ferroplan/src/invariants.rs
 
-| `synthesize` | function | synthesize(domain: &Domain, task: &PackedTask) |  |  |  |  |
+| `synthesize` | function | synthesize(domain: &Domain, task: &PackedTask) -> Vec<Vec<u32>> |  |  |  |  |
 
 
 ### crates/ferroplan/src/lama.rs
 
-| `search` | function | search(
-    task: &PackedTask,
-    threads: usize,
-    max_eval: usize,
-    forbidden: &[bool],
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `search` | function | search( task: &PackedTask, threads: usize, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `search_subgoal` | function | search_subgoal(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[crate::types::NumPre],
-    threads: usize,
-    max_eval: usize,
-    forbidden: &[bool],
-    len_anytime: bool,
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `search_subgoal` | function | search_subgoal( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[crate::types::NumPre], threads: usize, max_eval: usize, forbidden: &[bool], len_anytime: bool, slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
 
 ### crates/ferroplan/src/landmarks.rs
 
-| `goal_landmarks` | function | goal_landmarks(task: &PackedTask) |  |  |  |  |
+| `goal_landmarks` | function | goal_landmarks(task: &PackedTask) -> Vec<u32> |  |  |  |  |
 
-| `landmarks_for` | function | landmarks_for(
-    task: &PackedTask,
-    start: &crate::packed::State,
-    goal_pos: &[u32],
-) |  |  |  |  |
+| `landmarks_for` | function | landmarks_for( task: &PackedTask, start: &crate::packed::State, goal_pos: &[u32], ) -> Vec<u32> |  |  |  |  |
 
 
 ### crates/ferroplan/src/lexer.rs
 
-| `Tok` | enum |  |  |  |  |  |
+| `Tok` | enum | Tok { LParen, RParen, Dash, Var(String), Name(String), Num(f64), Op(String) } |  |  |  |  |
 
-| `lex` | function | lex(input: &str) |  |  |  |  |
+| `lex` | function | lex(input: &str) -> Result<(Vec<Tok>, Vec<u32>), crate::types::ParseError> |  |  |  |  |
+
+
+### crates/ferroplan/src/lib.rs
+
+| `api::{ decompose, parse, solve, Contract, Decomposition, DomainSummary, Metric, Mode, Options, ParseReport, Plan, ProblemSummary, Search, Solution, SolveError, Statistics, Step, }` | use | api::{ decompose, parse, solve, Contract, Decomposition, DomainSummary, Metric, Mode, Options, ParseReport, Plan, ProblemSummary, Search, Solution, SolveError, Statistics, Step, } |  |  |  |  |
+
+| `eve::{ Activator, CapabilityTarget, Eve, EveError, EveHandoff, EveRequest, EveStage, GenesisProjection, GenesisWorld, GgenManufacturingRequest, GroundedGoal, HddlDecompositionRequest, HddlSurface, HumanPurpose, ManufactureTarget, McpPlusHandoff, PlanningRegime, PpddlPolicyRequest, PpddlSurface, SplitDirective, TruexContinuation, MAX_PRIMARY_ACTIVATORS, }` | use | eve::{ Activator, CapabilityTarget, Eve, EveError, EveHandoff, EveRequest, EveStage, GenesisProjection, GenesisWorld, GgenManufacturingRequest, GroundedGoal, HddlDecompositionRequest, HddlSurface, HumanPurpose, ManufactureTarget, McpPlusHandoff, PlanningRegime, PpddlPolicyRequest, PpddlSurface, SplitDirective, TruexContinuation, MAX_PRIMARY_ACTIVATORS, } |  |  |  |  |
+
+| `hddl::{solve_hddl, HddlError}` | use | hddl::{solve_hddl, HddlError} |  |  |  |  |
+
+| `operator_compiler::{ compile_operator, CompiledOperator, OperatorCompileError, OperatorEffects, OperatorSpec, }` | use | operator_compiler::{ compile_operator, CompiledOperator, OperatorCompileError, OperatorEffects, OperatorSpec, } |  |  |  |  |
+
+| `planner::{run_ff, run_planner}` | use | planner::{run_ff, run_planner} |  |  |  |  |
+
+| `planning_runtime::{ solve_planning_type, Agent, Goal as UniversalGoal, Method as PlanningMethod, PlanStep, PlannerError, PlannerLimits, PlanningProblem, PolicyEntry as UniversalPolicyEntry, PolicyOutcome as UniversalPolicyOutcome, QueueState, RdfTriple, State as UniversalState, Task as PlanningTask, Tool, Transition as UniversalTransition, UniversalPlan, UniversalPlanningRequest, WorkflowEdge, }` | use | planning_runtime::{ solve_planning_type, Agent, Goal as UniversalGoal, Method as PlanningMethod, PlanStep, PlannerError, PlannerLimits, PlanningProblem, PolicyEntry as UniversalPolicyEntry, PolicyOutcome as UniversalPolicyOutcome, QueueState, RdfTriple, State as UniversalState, Task as PlanningTask, Tool, Transition as UniversalTransition, UniversalPlan, UniversalPlanningRequest, WorkflowEdge, } |  |  |  |  |
+
+| `planning_types::{ route_planning_request, PlanningCapability, PlanningRail, PlanningRequest, PlanningRoute, PlanningRouteError, PlanningType, }` | use | planning_types::{ route_planning_request, PlanningCapability, PlanningRail, PlanningRequest, PlanningRoute, PlanningRouteError, PlanningType, } |  |  |  |  |
+
+| `policy_validation::{ validate_fond_policy, PolicyGuarantee, PolicyIssue, PolicyValidationReport, }` | use | policy_validation::{ validate_fond_policy, PolicyGuarantee, PolicyIssue, PolicyValidationReport, } |  |  |  |  |
+
+| `ppddl::{ parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability, PolicyDecision, PolicyOutcome, PolicyValidation, PpddlError, PpddlParseReport, ProbabilisticObjective, ProbabilisticOptions, ProbabilisticSolution, ProbabilisticState, ProbabilisticStatistics, SimulationReport, }` | use | ppddl::{ parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability, PolicyDecision, PolicyOutcome, PolicyValidation, PpddlError, PpddlParseReport, ProbabilisticObjective, ProbabilisticOptions, ProbabilisticSolution, ProbabilisticState, ProbabilisticStatistics, SimulationReport, } |  |  |  |  |
+
+| `production::{ parse_production, solve_ppddl_production, trace_production, validate_plan_production, PlanValidationEvidence, ProductionSession, }` | use | production::{ parse_production, solve_ppddl_production, trace_production, validate_plan_production, PlanValidationEvidence, ProductionSession, } |  |  |  |  |
+
+| `production_explain::{decompose_production, explain_production}` | use | production_explain::{decompose_production, explain_production} |  |  |  |  |
+
+| `readiness::{ capability_manifest, evaluate_readiness, production_input_fingerprint, solve_production, AuthorityClass, BuildIdentity, CapabilityContract, CapabilityEvaluation, CapabilityManifest, CompatibilityClass, DeterminismClass, InterfaceKind, ManifestError, OperationEnvelope, OutcomeClass, ProductionLimits, PublicError, ReadinessReport, ReadinessState, ReplayClass, SecurityClass, ValidationStatus, CANDIDATE_AUTHORITY, CAPABILITY_MANIFEST_SCHEMA, OPERATION_ENVELOPE_SCHEMA, }` | use | readiness::{ capability_manifest, evaluate_readiness, production_input_fingerprint, solve_production, AuthorityClass, BuildIdentity, CapabilityContract, CapabilityEvaluation, CapabilityManifest, CompatibilityClass, DeterminismClass, InterfaceKind, ManifestError, OperationEnvelope, OutcomeClass, ProductionLimits, PublicError, ReadinessReport, ReadinessState, ReplayClass, SecurityClass, ValidationStatus, CANDIDATE_AUTHORITY, CAPABILITY_MANIFEST_SCHEMA, OPERATION_ENVELOPE_SCHEMA, } |  |  |  |  |
+
+| `session::{Session, Think, ThinkBudget, ThinkVerdict}` | use | session::{Session, Think, ThinkBudget, ThinkVerdict} |  |  |  |  |
+
+| `trace::{trace, StateSnapshot}` | use | trace::{trace, StateSnapshot} |  |  |  |  |
+
+| `types::ParseError` | use | types::ParseError |  |  |  |  |
 
 
 ### crates/ferroplan/src/mem.rs
 
-| `arm` | function | arm() |  |  |  |  |
+| `arm` | function | arm() -> Self |  |  |  |  |
 
-| `armed` | function | armed(&self) |  |  |  |  |
+| `armed` | function | armed(&self) -> bool |  |  |  |  |
 
-| `declared_budget_bytes` | function | declared_budget_bytes() |  |  |  |  |
+| `declared_budget_bytes` | function | declared_budget_bytes() -> Option<u64> |  |  |  |  |
 
-| `hit` | function | hit(&self) |  |  |  |  |
+| `hit` | function | hit(&self) -> bool |  |  |  |  |
 
 | `latch` | function | latch() |  |  |  |  |
 
-| `latched` | function | latched() |  |  |  |  |
+| `latched` | function | latched() -> bool |  |  |  |  |
 
-| `peak_resident_bytes` | function | peak_resident_bytes() |  |  |  |  |
+| `peak_resident_bytes` | function | peak_resident_bytes() -> Option<u64> |  |  |  |  |
 
-| `resident_bytes` | function | resident_bytes() |  |  |  |  |
+| `resident_bytes` | function | resident_bytes() -> Option<u64> |  |  |  |  |
 
-| `unarmed` | function | unarmed() |  |  |  |  |
+| `unarmed` | function | unarmed() -> Self |  |  |  |  |
 
-| `MemWall` | struct |  |  |  |  |  |
+| `MemWall` | struct | MemWall { trip_at: Option<u64> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/novelty.rs
 
-| `from_env` | function | from_env() |  |  |  |  |
+| `from_env` | function | from_env() -> Self |  |  |  |  |
 
-| `r_partition_facts` | function | r_partition_facts(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[crate::types::NumPre],
-    r_cap: usize,
-) |  |  |  |  |
+| `r_partition_facts` | function | r_partition_facts( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[crate::types::NumPre], r_cap: usize, ) -> Vec<u32> |  |  |  |  |
 
-| `search` | function | search(
-    task: &PackedTask,
-    threads: usize,
-    max_eval: usize,
-    forbidden: &[bool],
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `search` | function | search( task: &PackedTask, threads: usize, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `search_driver` | function | search_driver(
-    task: &PackedTask,
-    max_eval: usize,
-    forbidden: &[bool],
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `search_driver` | function | search_driver( task: &PackedTask, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, cfg: &DriverCfg, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `search_light` | function | search_light(
-    task: &PackedTask,
-    max_eval: usize,
-    forbidden: &[bool],
-) |  |  |  |  |
+| `search_light` | function | search_light( task: &PackedTask, max_eval: usize, forbidden: &[bool], ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `search_subgoal` | function | search_subgoal(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[crate::types::NumPre],
-    threads: usize,
-    max_eval: usize,
-    forbidden: &[bool],
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `search_subgoal` | function | search_subgoal( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[crate::types::NumPre], threads: usize, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `DriverCfg` | struct |  |  |  |  |  |
+| `DriverCfg` | struct | DriverCfg { pub partition: bool, pub width2: bool, pub r_cap: usize } |  |  |  |  |
 
 
 ### crates/ferroplan/src/operator_compiler.rs
 
-| `OperatorCompileError` | enum |  |  |  |  |  |
+| `OperatorCompileError` | enum | OperatorCompileError { EmptyName, ConflictingEffect(String), NoApplicableState, MissingTargetState { from: String, facts: BTreeSet<String>, }, AmbiguousTargetState { from: String, candidates: Vec<String>, } } |  |  |  |  |
 
-| `compile_operator` | function | compile_operator(
-    spec: &OperatorSpec,
-    states: &[State],
-) |  |  |  |  |
+| `compile_operator` | function | compile_operator( spec: &OperatorSpec, states: &[State], ) -> Result<CompiledOperator, OperatorCompileError> |  |  |  |  |
 
-| `CompiledOperator` | struct |  |  |  |  |  |
+| `CompiledOperator` | struct | CompiledOperator { pub task: Task, pub transitions: Vec<Transition> } |  |  |  |  |
 
-| `OperatorEffects` | struct |  |  |  |  |  |
+| `OperatorEffects` | struct | OperatorEffects { pub add: BTreeSet<String>, pub delete: BTreeSet<String> } |  |  |  |  |
 
-| `OperatorSpec` | struct |  |  |  |  |  |
+| `OperatorSpec` | struct | OperatorSpec { pub name: String, pub preconditions: BTreeSet<String>, pub effects: OperatorEffects, pub cost: u64 } |  |  |  |  |
 
 
 ### crates/ferroplan/src/optimal.rs
 
-| `solve` | function | solve(
-    task: &PackedTask,
-    cf: Option<usize>,
-    max_nodes: usize,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `solve` | function | solve( task: &PackedTask, cf: Option<usize>, max_nodes: usize, orbit: Option<&crate::orbits::OrbitMap>, ) -> OptOutcome |  |  |  |  |
 
-| `OptOutcome` | struct |  |  |  |  |  |
+| `OptOutcome` | struct | OptOutcome { pub ops: Option<Vec<usize>>, pub cost: f64, pub expanded: usize, pub evaluated: usize, pub proven: bool, pub reject: Option<String>, pub heuristic: &'static str, pub clock_tripped: bool } |  |  |  |  |
 
 
 ### crates/ferroplan/src/orbits.rs
 
-| `canonical_key` | function | canonical_key(
-        &self,
-        task: &PackedTask,
-        state: &State,
-        agenda: &[(i64, usize) |  |  |  |  |
+| `canonical_key` | function | canonical_key( &self, task: &PackedTask, state: &State, agenda: &[(i64, usize)], ) -> (crate::packed::StateKey, Vec<(i64, usize)>) |  |  |  |  |
 
-| `canonical_skey` | function | canonical_skey(
-        &self,
-        task: &PackedTask,
-        state: &State,
-        cost_fluent: Option<usize>,
-    ) |  |  |  |  |
+| `canonical_skey` | function | canonical_skey( &self, task: &PackedTask, state: &State, cost_fluent: Option<usize>, ) -> crate::packed::StateKey |  |  |  |  |
 
-| `canonical_skey_hash` | function | canonical_skey_hash(
-        &self,
-        task: &PackedTask,
-        state: &State,
-        cost_fluent: Option<usize>,
-    ) |  |  |  |  |
+| `canonical_skey_hash` | function | canonical_skey_hash( &self, task: &PackedTask, state: &State, cost_fluent: Option<usize>, ) -> u64 |  |  |  |  |
 
-| `detect` | function | detect(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect` | function | detect(domain: &Domain, problem: &Problem, task: &PackedTask) -> Option<OrbitMap> |  |  |  |  |
 
-| `detect_classical` | function | detect_classical(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect_classical` | function | detect_classical(domain: &Domain, problem: &Problem, task: &PackedTask) -> Option<OrbitMap> |  |  |  |  |
 
-| `detect_classical_iso` | function | detect_classical_iso(
-    domain: &Domain,
-    problem: &Problem,
-    task: &PackedTask,
-) |  |  |  |  |
+| `detect_classical_iso` | function | detect_classical_iso( domain: &Domain, problem: &Problem, task: &PackedTask, ) -> Option<OrbitMap> |  |  |  |  |
 
-| `detect_iso` | function | detect_iso(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect_iso` | function | detect_iso(domain: &Domain, problem: &Problem, task: &PackedTask) -> Option<OrbitMap> |  |  |  |  |
 
-| `gen_key` | function | gen_key(&self, op: usize, classes: &[Vec<u16>]) |  |  |  |  |
+| `gen_key` | function | gen_key(&self, op: usize, classes: &[Vec<u16>]) -> Option<(u32, Vec<u16>)> |  |  |  |  |
 
-| `goal_free_view` | function | goal_free_view(&self) |  |  |  |  |
+| `goal_free_view` | function | goal_free_view(&self) -> Option<OrbitMap> |  |  |  |  |
 
-| `iso_active` | function | iso_active(&self) |  |  |  |  |
+| `iso_active` | function | iso_active(&self) -> bool |  |  |  |  |
 
-| `iso_goal_witness` | function | iso_goal_witness(
-        &self,
-        task: &PackedTask,
-        state: &State,
-        goal_pos: &[u32],
-        goal_num: &[NumPre],
-    ) |  |  |  |  |
+| `iso_goal_witness` | function | iso_goal_witness( &self, task: &PackedTask, state: &State, goal_pos: &[u32], goal_num: &[NumPre], ) -> Option<Vec<Vec<u16>>> |  |  |  |  |
 
-| `iso_remap_op` | function | iso_remap_op(&self, sigma: &[Vec<u16>], op: usize) |  |  |  |  |
+| `iso_remap_op` | function | iso_remap_op(&self, sigma: &[Vec<u16>], op: usize) -> usize |  |  |  |  |
 
-| `iso_untouched_goal` | function | iso_untouched_goal(&self) |  |  |  |  |
+| `iso_untouched_goal` | function | iso_untouched_goal(&self) -> Option<&[u32]> |  |  |  |  |
 
-| `stabilizer_classes` | function | stabilizer_classes(&self, state: &State, agenda: &[(f64, usize) |  |  |  |  |
+| `stabilizer_classes` | function | stabilizer_classes(&self, state: &State, agenda: &[(f64, usize)]) -> Vec<Vec<u16>> |  |  |  |  |
 
-| `IsoGoal` | struct |  |  |  |  |  |
+| `IsoGoal` | struct | IsoGoal { desig: Vec<(u32, Vec<u16>)>, untouched: Vec<u32>, goal: Vec<u32> } |  |  |  |  |
 
-| `Orbit` | struct |  |  |  |  |  |
+| `Orbit` | struct | Orbit { pub facts: Vec<Vec<u32>>, pub fluent_slots: Vec<Vec<usize>>, pub ops: Vec<Vec<usize>> } |  |  |  |  |
 
-| `OrbitMap` | struct |  |  |  |  |  |
+| `OrbitMap` | struct | OrbitMap { pub orbits: Vec<Orbit>, pub iso: Option<IsoGoal>, pub op_owner: FxHashMap<usize, (usize, usize, usize)>, pub goal_bound: Vec<bool>, frozen: Vec<bool>, fact_fams: Vec<Family>, fact_touch: Vec<(u32, u32, Vec<u16>)>, op_fams: Vec<Family>, op_touch: FxHashMap<usize, (u32, Vec<u16>)>, flu_fams: Vec<Family>, flu_touch: Vec<(u32, u32, Vec<u16>)> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/output.rs
 
-| `preamble` | function | preamble(threads: usize) |  |  |  |  |
+| `preamble` | function | preamble(threads: usize) -> String |  |  |  |  |
 
-| `render` | function | render(task: &PackedTask, result: &PlanResult, threads: usize) |  |  |  |  |
+| `render` | function | render(task: &PackedTask, result: &PlanResult, threads: usize) -> (String, i32) |  |  |  |  |
 
 
 ### crates/ferroplan/src/packed.rs
 
 | `applicable_ops` | function | applicable_ops(&self, s: &State, out: &mut Vec<u32>) |  |  |  |  |
 
-| `apply` | function | apply(&self, oi: usize, s: &State) |  |  |  |  |
+| `apply` | function | apply(&self, oi: usize, s: &State) -> State |  |  |  |  |
 
-| `build_succ` | function | build_succ(pre_pos: &Csr<u32>, n_facts: usize, n_ops: usize) |  |  |  |  |
+| `build_succ` | function | build_succ(pre_pos: &Csr<u32>, n_facts: usize, n_ops: usize) -> (Csr<u32>, Vec<u32>) |  |  |  |  |
 
-| `cond_effs` | function | cond_effs(&self, oi: usize) |  |  |  |  |
+| `cond_effs` | function | cond_effs(&self, oi: usize) -> impl Iterator<Item = &CondEff> + Clone |  |  |  |  |
 
-| `fact_id` | function | fact_id(&self, disp: &str) |  |  |  |  |
+| `fact_id` | function | fact_id(&self, disp: &str) -> Option<usize> |  |  |  |  |
 
-| `finish` | function | finish(self) |  |  |  |  |
+| `finish` | function | finish(self) -> Csr<T> |  |  |  |  |
 
-| `fluent_id` | function | fluent_id(&self, disp: &str) |  |  |  |  |
+| `fluent_id` | function | fluent_id(&self, disp: &str) -> Option<usize> |  |  |  |  |
 
-| `goal_met` | function | goal_met(&self, s: &State) |  |  |  |  |
+| `goal_met` | function | goal_met(&self, s: &State) -> bool |  |  |  |  |
 
-| `goal_met_with` | function | goal_met_with(&self, s: &State, goal_pos: &[u32], goal_num: &[NumPre]) |  |  |  |  |
+| `goal_met_with` | function | goal_met_with(&self, s: &State, goal_pos: &[u32], goal_num: &[NumPre]) -> bool |  |  |  |  |
 
-| `initial` | function | initial(&self) |  |  |  |  |
+| `initial` | function | initial(&self) -> State |  |  |  |  |
 
-| `n_cond_effs` | function | n_cond_effs(&self, oi: usize) |  |  |  |  |
+| `n_cond_effs` | function | n_cond_effs(&self, oi: usize) -> usize |  |  |  |  |
 
-| `new` | function | new() |  |  |  |  |
+| `new` | function | new() -> Self |  |  |  |  |
 
-| `op_applicable` | function | op_applicable(&self, oi: usize, s: &State) |  |  |  |  |
+| `op_applicable` | function | op_applicable(&self, oi: usize, s: &State) -> bool |  |  |  |  |
 
 | `push_row` | function | push_row(&mut self, items: impl IntoIterator<Item = T>) |  |  |  |  |
 
-| `slice` | function | slice(&self, i: usize) |  |  |  |  |
+| `slice` | function | slice(&self, i: usize) -> &[T] |  |  |  |  |
 
-| `state_key` | function | state_key(&self, s: &State) |  |  |  |  |
+| `state_key` | function | state_key(&self, s: &State) -> StateKey |  |  |  |  |
 
-| `state_key_eq` | function | state_key_eq(&self, a: &State, b: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_eq` | function | state_key_eq(&self, a: &State, b: &State, cost_fluent: Option<usize>) -> bool |  |  |  |  |
 
-| `state_key_hash` | function | state_key_hash(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_hash` | function | state_key_hash(&self, s: &State, cost_fluent: Option<usize>) -> u64 |  |  |  |  |
 
-| `state_key_with_cost` | function | state_key_with_cost(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_with_cost` | function | state_key_with_cost(&self, s: &State, cost_fluent: Option<usize>) -> StateKey |  |  |  |  |
 
-| `static_fluent` | function | static_fluent(&self, disp: &str) |  |  |  |  |
+| `static_fluent` | function | static_fluent(&self, disp: &str) -> Option<f64> |  |  |  |  |
 
-| `CondEff` | struct |  |  |  |  |  |
+| `CondEff` | struct | CondEff { pub cond_pos: Vec<u32>, pub cond_neg: Vec<u32>, pub cond_num: Vec<NumPre>, pub add: Vec<u32>, pub del: Vec<u32>, pub num: Vec<NumEff> } |  |  |  |  |
 
-| `Csr` | struct |  |  |  |  |  |
+| `Csr` | struct | Csr { pub flat: Arc<[T]>, pub off: Arc<[u32]> } |  |  |  |  |
 
-| `CsrBuilder` | struct |  |  |  |  |  |
+| `CsrBuilder` | struct | CsrBuilder { pub flat: Vec<T>, pub off: Vec<u32> } |  |  |  |  |
 
-| `PackedTask` | struct |  |  |  |  |  |
+| `PackedTask` | struct | PackedTask { pub n_facts: usize, pub words: usize, pub n_ops: usize, pub op_display: Arc<[String]>, pub pre_pos: Csr<u32>, pub succ_by_fact: Csr<u32>, pub succ_always: Arc<[u32]>, pub add: Csr<u32>, pub del: Csr<u32>, pub pre_num: Csr<NumPre>, pub num_eff: Csr<NumEff>, pub cond: Csr<CondEff>, pub shared_cond: Arc<[CondEff]>, pub monitored: Arc<[bool]>, pub add_by_fact: Csr<u32>, pub neff_by_fluent: Csr<u32>, pub relevant_fluent: Vec<bool>, pub rel_fluents: Vec<u32>, pub init_bits: Vec<u64>, pub fv0: Vec<f64>, pub fdef0: Vec<bool>, pub goal_pos: Vec<u32>, pub goal_num: Vec<NumPre>, pub charge_pre_num: bool, pub pair_end: Option<Vec<u32>>, pub trpg: Option<Arc<crate::heuristic::TrpgInfo>>, pub fact_names: Arc<[String]>, pub fluent_names: Arc<[String]>, pub static_fluents: Arc<[(String, f64)]>, pub n_easy: usize, pub n_hard: usize, pub n_reach_facts: usize, pub n_reach_actions: usize, pub n_relevant_fluents: usize } |  |  |  |  |
 
-| `State` | struct |  |  |  |  |  |
+| `State` | struct | State { pub bits: Vec<u64>, pub fv: Vec<f64>, pub fdef: Vec<bool> } |  |  |  |  |
 
-| `StateKey` | struct |  |  |  |  |  |
+| `StateKey` | struct | StateKey { pub bits: Vec<u64>, pub vals: Vec<i64> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/par.rs
 
-| `num_threads` | function | num_threads() |  |  |  |  |
+| `MIN_PAR` | const | MIN_PAR: usize |  |  |  |  |
+
+| `num_threads` | function | num_threads() -> usize |  |  |  |  |
+
+| `par_map` | function | par_map(items: &[T], threads: usize, f: F) -> Vec<R> |  |  |  |  |
+
+| `par_map_with` | function | par_map_with(items: &[T], threads: usize, init: I, f: F) -> Vec<R> |  |  |  |  |
 
 
 ### crates/ferroplan/src/parser.rs
 
-| `parse_domain` | function | parse_domain(src: &str) |  |  |  |  |
+| `parse_domain` | function | parse_domain(src: &str) -> Result<Domain, ParseError> |  |  |  |  |
 
-| `parse_problem` | function | parse_problem(src: &str) |  |  |  |  |
+| `parse_problem` | function | parse_problem(src: &str) -> Result<Problem, ParseError> |  |  |  |  |
 
 
 ### crates/ferroplan/src/partition.rs
 
-| `interaction_partition` | function | interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) |  |  |  |  |
+| `interaction_partition` | function | interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) -> Vec<Subgoal> |  |  |  |  |
 
-| `interaction_partition_of` | function | interaction_partition_of(
-    task: &PackedTask,
-    groups: &[Vec<u32>],
-    goals: &[u32],
-    excluded_vars: &FxHashSet<usize>,
-) |  |  |  |  |
+| `interaction_partition_of` | function | interaction_partition_of( task: &PackedTask, groups: &[Vec<u32>], goals: &[u32], excluded_vars: &FxHashSet<usize>, ) -> Vec<Subgoal> |  |  |  |  |
 
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) -> bool |  |  |  |  |
 
-| `merge_at` | function | merge_at(groups: &mut Vec<Subgoal>, i: usize, j: usize) |  |  |  |  |
+| `merge_at` | function | merge_at(groups: &mut Vec<Subgoal>, i: usize, j: usize) -> usize |  |  |  |  |
 
-| `merge_with_neighbor` | function | merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) |  |  |  |  |
+| `merge_with_neighbor` | function | merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) -> usize |  |  |  |  |
 
-| `partition` | function | partition(task: &PackedTask) |  |  |  |  |
+| `partition` | function | partition(task: &PackedTask) -> Vec<Subgoal> |  |  |  |  |
 
-| `Subgoal` | struct |  |  |  |  |  |
+| `Subgoal` | struct | Subgoal { pub pos: Vec<u32>, pub num: Vec<NumPre> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/pddl3.rs
 
-| `close_seed` | function | close_seed(
-    task: &PackedTask,
-    cost_fluent: usize,
-    forgos: &[(usize, f64) |  |  |  |  |
+| `COST` | const | COST: &str |  |  |  |  |
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `COST_DISP` | const | COST_DISP: &str |  |  |  |  |
 
-| `display_metric` | function | display_metric(&self, optimized: f64) |  |  |  |  |
+| `close_seed` | function | close_seed( task: &PackedTask, cost_fluent: usize, forgos: &[(usize, f64)], prefix: &[usize], ) -> Option<(Vec<usize>, f64)> |  |  |  |  |
 
-| `hard_goal_plan` | function | hard_goal_plan(
-    domain: &Domain,
-    problem: &Problem,
-    threads: usize,
-    cfg: SearchCfg,
-) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> Compiled |  |  |  |  |
 
-| `hard_goal_seed` | function | hard_goal_seed(
-    domain: &Domain,
-    problem: &Problem,
-    compiled: &PackedTask,
-    threads: usize,
-    cfg: SearchCfg,
-) |  |  |  |  |
+| `display_metric` | function | display_metric(&self, optimized: f64) -> f64 |  |  |  |  |
 
-| `has_preferences` | function | has_preferences(problem: &Problem) |  |  |  |  |
+| `hard_goal_plan` | function | hard_goal_plan( domain: &Domain, problem: &Problem, threads: usize, cfg: SearchCfg, ) -> Option<Vec<String>> |  |  |  |  |
 
-| `is_pddl3` | function | is_pddl3(problem: &Problem) |  |  |  |  |
+| `hard_goal_seed` | function | hard_goal_seed( domain: &Domain, problem: &Problem, compiled: &PackedTask, threads: usize, cfg: SearchCfg, ) -> Option<Vec<usize>> |  |  |  |  |
 
-| `lift_seed` | function | lift_seed(compiled: &PackedTask, names: &[String]) |  |  |  |  |
+| `has_preferences` | function | has_preferences(problem: &Problem) -> bool |  |  |  |  |
 
-| `metric_optimize` | function | metric_optimize(
-    task: &PackedTask,
-    cost_fluent: usize,
-    forgos: &[(usize, f64) |  |  |  |  |
+| `is_pddl3` | function | is_pddl3(problem: &Problem) -> bool |  |  |  |  |
 
-| `metric_optimize_seeded` | function | metric_optimize_seeded(
-    task: &PackedTask,
-    cost_fluent: usize,
-    forgos: &[(usize, f64) |  |  |  |  |
+| `lift_seed` | function | lift_seed(compiled: &PackedTask, names: &[String]) -> Option<Vec<usize>> |  |  |  |  |
 
-| `pref_weights` | function | pref_weights(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `metric_optimize` | function | metric_optimize( task: &PackedTask, cost_fluent: usize, forgos: &[(usize, f64)], groups: &[Vec<u32>], folded_metric: bool, threads: usize, ) -> Option<MetricResult> |  |  |  |  |
 
-| `preferences` | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) |  |  |  |  |
+| `metric_optimize_seeded` | function | metric_optimize_seeded( task: &PackedTask, cost_fluent: usize, forgos: &[(usize, f64)], groups: &[Vec<u32>], folded_metric: bool, threads: usize, seed: Option<&[usize]>, ) -> Option<SeededResult> |  |  |  |  |
 
-| `Compiled` | struct |  |  |  |  |  |
+| `pref_weights` | function | pref_weights(domain: &Domain, problem: &Problem) -> HashMap<String, f64> |  |  |  |  |
 
-| `MetricResult` | struct |  |  |  |  |  |
+| `preferences` | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) -> Vec<(String, Formula)> |  |  |  |  |
 
-| `PhaseTail` | struct |  |  |  |  |  |
+| `Compiled` | struct | Compiled { pub domain: Domain, pub problem: Problem, pub minimize: bool, pub maximized: bool, pub metric_konst: f64, pub n_prefs: usize, pub warn_other: bool, pub unsupported: Option<String>, pub synthetic: HashSet<String>, pub forgos: Vec<(String, f64)>, pub folded_metric: bool } |  |  |  |  |
 
-| `SeededResult` | struct |  |  |  |  |  |
+| `MetricResult` | struct | MetricResult { pub ops: Vec<usize>, pub cost: f64, pub iterations: usize, pub proven: bool } |  |  |  |  |
+
+| `PhaseTail` | struct | PhaseTail { pub end_op: usize, pub prefs: Vec<(Vec<usize>, usize)> } |  |  |  |  |
+
+| `SeededResult` | struct | SeededResult { pub result: MetricResult, pub from_seed: bool } |  |  |  |  |
 
 
 ### crates/ferroplan/src/plan.rs
 
-| `Validity` | enum |  |  |  |  |  |
+| `Validity` | enum | Validity { Valid, Invalid(String) } |  |  |  |  |
 
-| `parse_classical` | function | parse_classical(src: &str) |  |  |  |  |
+| `parse_classical` | function | parse_classical(src: &str) -> Vec<(String, Vec<String>)> |  |  |  |  |
 
-| `parse_timed` | function | parse_timed(src: &str) |  |  |  |  |
+| `parse_timed` | function | parse_timed(src: &str) -> Result<TimedPlan, String> |  |  |  |  |
 
-| `validate_plan` | function | validate_plan(
-    domain_src: &str,
-    problem_src: &str,
-    plan_src: &str,
-) |  |  |  |  |
+| `validate_plan` | function | validate_plan( domain_src: &str, problem_src: &str, plan_src: &str, ) -> Result<Validity, String> |  |  |  |  |
 
 
 ### crates/ferroplan/src/planner.rs
 
-| `run_ff` | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) |  |  |  |  |
+| `run_ff` | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) -> (String, i32) |  |  |  |  |
 
-| `run_planner` | function | run_planner(
-    domain_src: &str,
-    problem_src: &str,
-    opts: &crate::Options,
-    ipc: bool,
-) |  |  |  |  |
+| `run_planner` | function | run_planner( domain_src: &str, problem_src: &str, opts: &crate::Options, ipc: bool, ) -> (String, i32) |  |  |  |  |
 
 
 ### crates/ferroplan/src/planning_runtime.rs
 
-| `PlannerError` | enum |  |  |  |  |  |
+| `PlannerError` | enum | PlannerError { EmptyInitialState, UnknownState { state: String, }, InvalidProbabilityMass { state: String, action: String, mass: u64, }, ResourceBound { resource: String, limit: usize, }, NoPlan, HierarchyCycle { task: String, }, UnknownTask { task: String, }, NoMethod { task: String, }, WorkflowCycle, WipBoundExceeded { queue: String, current: u64, max: u64, }, CapabilityUncovered { item: String, missing: BTreeSet<String>, }, AuthorityUnbound { tool: String, }, VerifierUnbound { tool: String, }, ReceiptUnbound { tool: String, }, InvalidRdfProjection { reason: String, }, Timeout { elapsed_ms: u128, limit_ms: u128, } } |  |  |  |  |
 
-| `solve_planning_type` | function | solve_planning_type(
-    request: &UniversalPlanningRequest,
-) |  |  |  |  |
+| `solve_planning_type` | function | solve_planning_type( request: &UniversalPlanningRequest, ) -> Result<UniversalPlan, PlannerError> |  |  |  |  |
 
-| `Agent` | struct |  |  |  |  |  |
+| `Agent` | struct | Agent { pub id: String, pub capabilities: BTreeSet<String>, pub capacity: u64, pub current_wip: u64 } |  |  |  |  |
 
-| `Goal` | struct |  |  |  |  |  |
+| `Goal` | struct | Goal { pub facts: BTreeSet<String>, pub numeric_min: BTreeMap<String, i64>, pub numeric_max: BTreeMap<String, i64> } |  |  |  |  |
 
-| `Method` | struct |  |  |  |  |  |
+| `Method` | struct | Method { pub id: String, pub task: String, pub subtasks: Vec<String> } |  |  |  |  |
 
-| `PlanStep` | struct |  |  |  |  |  |
+| `PlanStep` | struct | PlanStep { pub action: String, pub from: Option<String>, pub to: Option<String>, pub start: u64, pub duration: u64, pub agent: Option<String>, pub tool: Option<String> } |  |  |  |  |
 
-| `PlannerLimits` | struct |  |  |  |  |  |
+| `PlannerLimits` | struct | PlannerLimits { pub max_depth: usize, pub max_states: usize, pub max_iterations: usize, pub max_wall_ms: u64 } |  |  |  |  |
 
-| `PlanningProblem` | struct |  |  |  |  |  |
+| `PlanningProblem` | struct | PlanningProblem { pub states: Vec<State>, pub initial_states: Vec<String>, pub goal: Goal, pub unsafe_states: BTreeSet<String>, pub soft_goal_facts: BTreeMap<String, u64>, pub transitions: Vec<Transition>, pub tasks: Vec<Task>, pub root_tasks: Vec<String>, pub methods: Vec<Method>, pub workflow_edges: Vec<WorkflowEdge>, pub queues: Vec<QueueState>, pub agents: Vec<Agent>, pub tools: Vec<Tool>, pub rdf: Vec<RdfTriple> } |  |  |  |  |
 
-| `PolicyEntry` | struct |  |  |  |  |  |
+| `PolicyEntry` | struct | PolicyEntry { pub state: String, pub action: String, pub outcomes: Vec<PolicyOutcome> } |  |  |  |  |
 
-| `PolicyOutcome` | struct |  |  |  |  |  |
+| `PolicyOutcome` | struct | PolicyOutcome { pub state: String, pub probability_ppm: u32, pub observation: Option<String> } |  |  |  |  |
 
-| `QueueState` | struct |  |  |  |  |  |
+| `QueueState` | struct | QueueState { pub id: String, pub current_wip: u64, pub max_wip: u64 } |  |  |  |  |
 
-| `RdfTriple` | struct |  |  |  |  |  |
+| `RdfTriple` | struct | RdfTriple { pub subject: String, pub predicate: String, pub object: String } |  |  |  |  |
 
-| `State` | struct |  |  |  |  |  |
+| `State` | struct | State { pub id: String, pub facts: BTreeSet<String>, pub fluents: BTreeMap<String, i64> } |  |  |  |  |
 
-| `Task` | struct |  |  |  |  |  |
+| `Task` | struct | Task { pub id: String, pub primitive_action: Option<String>, pub requires: BTreeSet<String> } |  |  |  |  |
 
-| `Tool` | struct |  |  |  |  |  |
+| `Tool` | struct | Tool { pub id: String, pub capabilities: BTreeSet<String>, pub authority_bound: bool, pub verifier_bound: bool, pub receipt_bound: bool } |  |  |  |  |
 
-| `Transition` | struct |  |  |  |  |  |
+| `Transition` | struct | Transition { pub action: String, pub from: String, pub to: String, pub cost: u64, pub duration: u64, pub reward: i64, pub probability_ppm: u32, pub observation: Option<String>, pub requires: BTreeSet<String> } |  |  |  |  |
 
-| `UniversalPlan` | struct |  |  |  |  |  |
+| `UniversalPlan` | struct | UniversalPlan { pub planning_type: Option<PlanningType>, pub solved: bool, pub steps: Vec<PlanStep>, pub policy: Vec<PolicyEntry>, pub decomposition: Vec<String>, pub notes: Vec<String> } |  |  |  |  |
 
-| `UniversalPlanningRequest` | struct |  |  |  |  |  |
+| `UniversalPlanningRequest` | struct | UniversalPlanningRequest { pub planning_type: PlanningType, pub problem: PlanningProblem, pub limits: PlannerLimits } |  |  |  |  |
 
-| `WorkflowEdge` | struct |  |  |  |  |  |
+| `WorkflowEdge` | struct | WorkflowEdge { pub before: String, pub after: String } |  |  |  |  |
 
 
 ### crates/ferroplan/src/planning_types.rs
 
-| `PlanningCapability` | enum |  |  |  |  |  |
+| `ALL` | const | ALL: [Self; 18] |  |  |  |  |
 
-| `PlanningRail` | enum |  |  |  |  |  |
+| `PlanningCapability` | enum | PlanningCapability { DeterministicState, SequentialPlan, ActionCosts, OptimalityProof, NumericFluents, DurativeActions, TemporalValidation, SoftGoals, StochasticTransitions, NondeterministicTransitions, Policy, PolicyValidation, StrongCyclicValidation, BeliefState, OpenLoopPlan, ObservationBranching, CompoundTasks, Methods, PartialOrder, ReceiptJoin, QueueState, WipBounds, ResolutionObligations, AgentCapabilities, CoordinationPolicy, AdmittedGraph, DeterministicProjection, DelegationEnvelope, ToolCapabilities, AuthorityBinding, PrimitiveClosure } |  |  |  |  |
 
-| `PlanningRouteError` | enum |  |  |  |  |  |
+| `PlanningRail` | enum | PlanningRail { NativeDeterministic, NativeProbabilistic, NativeNondeterministic, NativeBeliefState, NativeHierarchical, NativeWorkflow, NativeFlowConstrained, NativeMultiAgent, GraphProjection, Delegation, CapabilityBinding } |  |  |  |  |
 
-| `PlanningType` | enum |  |  |  |  |  |
+| `PlanningRouteError` | enum | PlanningRouteError { EmptySubject, MissingCapabilities { missing: BTreeSet<PlanningCapability>, }, AuthorityUnbound, VerifierUnbound, ReceiptUnbound } |  |  |  |  |
 
-| `rail` | function | rail(self) |  |  |  |  |
+| `PlanningType` | enum | PlanningType { Classical, CostOptimal, Numeric, Temporal, Preferences, Probabilistic, Fond, Conformant, Contingent, Hierarchical, PartialOrder, Workflow, FlowConstrained, ResolutionAdaptive, MultiAgent, RdfDerived, A2aDelegated, McpBound } |  |  |  |  |
 
-| `required_capabilities` | function | required_capabilities(self) |  |  |  |  |
+| `rail` | function | rail(self) -> PlanningRail |  |  |  |  |
 
-| `route_planning_request` | function | route_planning_request(
-    request: &PlanningRequest,
-) |  |  |  |  |
+| `required_capabilities` | function | required_capabilities(self) -> BTreeSet<PlanningCapability> |  |  |  |  |
 
-| `token` | function | token(self) |  |  |  |  |
+| `route_planning_request` | function | route_planning_request( request: &PlanningRequest, ) -> Result<PlanningRoute, PlanningRouteError> |  |  |  |  |
 
-| `PlanningRequest` | struct |  |  |  |  |  |
+| `token` | function | token(self) -> &'static str |  |  |  |  |
 
-| `PlanningRoute` | struct |  |  |  |  |  |
+| `PlanningRequest` | struct | PlanningRequest { pub subject: String, pub planning_type: PlanningType, pub available_capabilities: BTreeSet<PlanningCapability>, pub authority_bound: bool, pub verifier_bound: bool, pub receipt_bound: bool } |  |  |  |  |
+
+| `PlanningRoute` | struct | PlanningRoute { pub subject: String, pub planning_type: PlanningType, pub rail: PlanningRail, pub required_capabilities: BTreeSet<PlanningCapability> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/policy_validation.rs
 
-| `PolicyGuarantee` | enum |  |  |  |  |  |
+| `PolicyGuarantee` | enum | PolicyGuarantee { Strong, StrongCyclic, Invalid } |  |  |  |  |
 
-| `PolicyIssue` | enum |  |  |  |  |  |
+| `PolicyIssue` | enum | PolicyIssue { UnknownInitialState { state: String, }, DuplicatePolicyState { state: String, }, UnknownPolicyState { state: String, }, PolicyOnGoalState { state: String, }, MissingPolicyEntry { state: String, }, UnknownAction { state: String, action: String, }, UnknownTransitionTarget { state: String, action: String, target: String, }, InvalidProbabilityMass { state: String, action: String, mass: u64, }, OutcomeMismatch { state: String, action: String, }, UnsafeReachableState { state: String, }, NoGoalProgress { state: String, } } |  |  |  |  |
 
-| `validate_fond_policy` | function | validate_fond_policy(
-    problem: &PlanningProblem,
-    plan: &UniversalPlan,
-) |  |  |  |  |
+| `validate_fond_policy` | function | validate_fond_policy( problem: &PlanningProblem, plan: &UniversalPlan, ) -> PolicyValidationReport |  |  |  |  |
 
-| `PolicyValidationReport` | struct |  |  |  |  |  |
+| `PolicyValidationReport` | struct | PolicyValidationReport { pub valid: bool, pub guarantee: PolicyGuarantee, pub reachable_states: Vec<String>, pub reachable_goals: Vec<String>, pub issues: Vec<PolicyIssue> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/portfolio.rs
 
-| `solve` | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
+| `solve` | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) -> Outcome |  |  |  |  |
 
-| `Outcome` | struct |  |  |  |  |  |
+| `Outcome` | struct | Outcome { pub ops: Option<Vec<usize>>, pub evaluated: usize, pub winner: Option<&'static str> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/ppddl.rs
 
-| `PpddlError` | enum |  |  |  |  |  |
+| `PpddlError` | enum | PpddlError { Syntax(String), DomainParse(ParseError), ProblemParse(ParseError), Derived(String), Unsupported(String), InvalidProbability(String), InvalidOptions(String), OutcomeLimit { action: String, limit: usize }, StateLimit { limit: usize }, TransitionLimit { limit: usize }, GroundingFailed, GroundingDivergence { action: String, expected: usize, observed: usize, }, InitialOutcomeLimit { limit: usize }, RewardViolation(String), PolicyLimit { limit: usize }, ValueTableLimit { limit: usize } } |  |  |  |  |
 
-| `ProbabilisticObjective` | enum |  |  |  |  |  |
+| `ProbabilisticObjective` | enum | ProbabilisticObjective { Auto, MaximizeGoalProbability, MinimizeGoalProbability, MaximizeExpectedReward, MinimizeExpectedReward, MaximizeExpectedMetric, MinimizeExpectedMetric } |  |  |  |  |
 
-| `InitialStateProbability` | struct |  |  |  |  |  |
+| `InitialStateProbability` | struct | InitialStateProbability { pub state: usize, pub probability: f64, pub goal: bool } |  |  |  |  |
 
-| `PolicyDecision` | struct |  |  |  |  |  |
+| `PolicyDecision` | struct | PolicyDecision { pub state: usize, pub remaining: Option<usize>, pub action: String, pub args: Vec<String>, pub value: f64, pub outcomes: Vec<PolicyOutcome> } |  |  |  |  |
 
-| `PolicyOutcome` | struct |  |  |  |  |  |
+| `PolicyOutcome` | struct | PolicyOutcome { pub probability: f64, pub next_state: usize, pub reward: f64, pub goal: bool } |  |  |  |  |
 
-| `PolicyValidation` | struct |  |  |  |  |  |
+| `PolicyValidation` | struct | PolicyValidation { pub valid: bool, pub checked_decisions: usize, pub max_probability_error: f64, pub errors: Vec<String> } |  |  |  |  |
 
-| `PpddlParseReport` | struct |  |  |  |  |  |
+| `PpddlParseReport` | struct | PpddlParseReport { pub ok: bool, pub domain: Option<String>, pub problem: Option<String>, pub probabilistic_actions: usize, pub normalized_outcomes: usize, pub initial_outcomes: usize, pub uses_rewards: bool, pub goal_reward: Option<String>, pub error: Option<String> } |  |  |  |  |
 
-| `ProbabilisticOptions` | struct |  |  |  |  |  |
+| `ProbabilisticOptions` | struct | ProbabilisticOptions { pub objective: ProbabilisticObjective, pub horizon: Option<usize>, pub discount: f64, pub epsilon: f64, pub max_iterations: usize, pub max_states: usize, pub max_transitions: usize, pub max_outcomes_per_action: usize, pub max_policy_entries: usize, pub max_value_cells: usize, pub max_initial_outcomes: usize, pub simulation_max_steps: usize, pub threads: usize } |  |  |  |  |
 
-| `ProbabilisticSolution` | struct |  |  |  |  |  |
+| `ProbabilisticSolution` | struct | ProbabilisticSolution { pub solved: bool, pub objective: ProbabilisticObjective, pub initial_value: f64, pub initial_distribution: Vec<InitialStateProbability>, pub states: Vec<ProbabilisticState>, pub initial_action: Option<String>, pub horizon: Option<usize>, pub discount: f64, pub declared_metric: Option<String>, pub policy: Vec<PolicyDecision>, pub statistics: ProbabilisticStatistics, pub notes: Vec<String> } |  |  |  |  |
 
-| `ProbabilisticState` | struct |  |  |  |  |  |
+| `ProbabilisticState` | struct | ProbabilisticState { pub id: usize, pub facts: Vec<String>, pub fluents: BTreeMap<String, f64>, pub goal: bool, pub initial_probability: f64 } |  |  |  |  |
 
-| `ProbabilisticStatistics` | struct |  |  |  |  |  |
+| `ProbabilisticStatistics` | struct | ProbabilisticStatistics { pub grounded_facts: usize, pub grounded_outcome_operators: usize, pub grounded_actions: usize, pub initial_states: usize, pub reachable_states: usize, pub transitions: usize, pub iterations: usize, pub converged: bool, pub threads: usize } |  |  |  |  |
 
-| `SimulationReport` | struct |  |  |  |  |  |
+| `SimulationReport` | struct | SimulationReport { pub episodes: usize, pub reached_goal: usize, pub goal_rate: f64, pub average_reward: f64, pub average_discounted_reward: f64, pub average_steps: f64, pub seed: u64 } |  |  |  |  |
 
 
 ### crates/ferroplan/src/ppddl/compile/part07.rs
 
-| `parse_ppddl` | function | parse_ppddl(domain_src: &str, problem_src: &str) |  |  |  |  |
+| `parse_ppddl` | function | parse_ppddl(domain_src: &str, problem_src: &str) -> PpddlParseReport |  |  |  |  |
 
 
 ### crates/ferroplan/src/ppddl/solver/part03.rs
 
-| `solve_ppddl` | function | solve_ppddl(
-    domain_src: &str,
-    problem_src: &str,
-    options: &ProbabilisticOptions,
-) |  |  |  |  |
+| `solve_ppddl` | function | solve_ppddl( domain_src: &str, problem_src: &str, options: &ProbabilisticOptions, ) -> Result<ProbabilisticSolution, PpddlError> |  |  |  |  |
 
 
 ### crates/ferroplan/src/ppddl/solver/part04.rs
 
-| `validate_ppddl_policy` | function | validate_ppddl_policy(
-    domain_src: &str,
-    problem_src: &str,
-    options: &ProbabilisticOptions,
-    solution: &ProbabilisticSolution,
-) |  |  |  |  |
+| `validate_ppddl_policy` | function | validate_ppddl_policy( domain_src: &str, problem_src: &str, options: &ProbabilisticOptions, solution: &ProbabilisticSolution, ) -> Result<PolicyValidation, PpddlError> |  |  |  |  |
 
 
 ### crates/ferroplan/src/ppddl/solver/part05.rs
 
-| `simulate_ppddl` | function | simulate_ppddl(
-    domain_src: &str,
-    problem_src: &str,
-    options: &ProbabilisticOptions,
-    episodes: usize,
-    seed: u64,
-) |  |  |  |  |
+| `simulate_ppddl` | function | simulate_ppddl( domain_src: &str, problem_src: &str, options: &ProbabilisticOptions, episodes: usize, seed: u64, ) -> Result<SimulationReport, PpddlError> |  |  |  |  |
 
 
 ### crates/ferroplan/src/production.rs
 
-| `decompose_production` | function | decompose_production(
-    domain: &str,
-    problem: &str,
-    options: &Options,
-    limits: &ProductionLimits,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `decompose_production` | function | decompose_production( domain: &str, problem: &str, options: &Options, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Decomposition> |  |  |  |  |
 
-| `goal_met` | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) -> bool |  |  |  |  |
 
-| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) -> usize |  |  |  |  |
 
-| `new` | function | new(
-        domain: &str,
-        problem: &str,
-        options: &Options,
-        limits: ProductionLimits,
-    ) |  |  |  |  |
+| `new` | function | new( domain: &str, problem: &str, options: &Options, limits: ProductionLimits, ) -> Result<Self, PublicError> |  |  |  |  |
 
-| `parse_production` | function | parse_production(
-    source: &str,
-    max_input_bytes: usize,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `parse_production` | function | parse_production( source: &str, max_input_bytes: usize, request_id: Option<&str>, ) -> OperationEnvelope<ParseReport> |  |  |  |  |
 
-| `replan` | function | replan(
-        &self,
-        max_evaluated: usize,
-        memory_mb: Option<usize>,
-        request_id: Option<&str>,
-    ) |  |  |  |  |
+| `replan` | function | replan( &self, max_evaluated: usize, memory_mb: Option<usize>, request_id: Option<&str>, ) -> OperationEnvelope<Solution> |  |  |  |  |
 
-| `solve_ppddl_production` | function | solve_ppddl_production(
-    domain: &str,
-    problem: &str,
-    options: &ProbabilisticOptions,
-    max_input_bytes: usize,
-    max_output_bytes: usize,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `solve_ppddl_production` | function | solve_ppddl_production( domain: &str, problem: &str, options: &ProbabilisticOptions, max_input_bytes: usize, max_output_bytes: usize, request_id: Option<&str>, ) -> OperationEnvelope<ProbabilisticSolution> |  |  |  |  |
 
-| `trace_production` | function | trace_production(
-    domain: &str,
-    problem: &str,
-    plan: &[(String, Vec<String>) |  |  |  |  |
+| `trace_production` | function | trace_production( domain: &str, problem: &str, plan: &[(String, Vec<String>)], limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Vec<StateSnapshot>> |  |  |  |  |
 
-| `validate_plan_production` | function | validate_plan_production(
-    domain: &str,
-    problem: &str,
-    plan: &str,
-    max_input_bytes: usize,
-    max_plan_bytes: usize,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `validate_plan_production` | function | validate_plan_production( domain: &str, problem: &str, plan: &str, max_input_bytes: usize, max_plan_bytes: usize, request_id: Option<&str>, ) -> OperationEnvelope<PlanValidationEvidence> |  |  |  |  |
 
-| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
-| `PlanValidationEvidence` | struct |  |  |  |  |  |
+| `PlanValidationEvidence` | struct | PlanValidationEvidence { pub valid: bool, pub reason: Option<String> } |  |  |  |  |
 
-| `ProductionSession` | struct |  |  |  |  |  |
+| `ProductionSession` | struct | ProductionSession { inner: Session, domain: String, problem: String, limits: ProductionLimits, input_fingerprint: String } |  |  |  |  |
 
 
 ### crates/ferroplan/src/production_explain.rs
 
-| `decompose_production` | function | decompose_production(
-    domain: &str,
-    problem: &str,
-    options: &Options,
-    limits: &ProductionLimits,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `decompose_production` | function | decompose_production( domain: &str, problem: &str, options: &Options, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Decomposition> |  |  |  |  |
 
-| `explain_production` | function | explain_production(
-    domain: &str,
-    problem: &str,
-    plan: &Plan,
-    limits: &ProductionLimits,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `explain_production` | function | explain_production( domain: &str, problem: &str, plan: &Plan, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Explanation> |  |  |  |  |
 
 
 ### crates/ferroplan/src/reachability.rs
 
-| `depth_reached` | function | depth_reached(&self) |  |  |  |  |
+| `depth_reached` | function | depth_reached(&self) -> u32 |  |  |  |  |
 
-| `from_predecessors` | function | from_predecessors(
-        predecessors: &[Vec<u32>],
-        prohibited: &[u32],
-        max_depth: u32,
-    ) |  |  |  |  |
+| `from_predecessors` | function | from_predecessors( predecessors: &[Vec<u32>], prohibited: &[u32], max_depth: u32, ) -> Self |  |  |  |  |
 
-| `from_successors` | function | from_successors(
-        successors: &[Vec<u32>],
-        prohibited: &[u32],
-        max_depth: u32,
-    ) |  |  |  |  |
+| `from_successors` | function | from_successors( successors: &[Vec<u32>], prohibited: &[u32], max_depth: u32, ) -> Self |  |  |  |  |
 
-| `is_safe` | function | is_safe(&self, state: u32) |  |  |  |  |
+| `is_safe` | function | is_safe(&self, state: u32) -> bool |  |  |  |  |
 
-| `saturated` | function | saturated(&self) |  |  |  |  |
+| `saturated` | function | saturated(&self) -> bool |  |  |  |  |
 
-| `unsafe_count` | function | unsafe_count(&self) |  |  |  |  |
+| `unsafe_count` | function | unsafe_count(&self) -> usize |  |  |  |  |
 
-| `BackwardSafeSet` | struct |  |  |  |  |  |
+| `BackwardSafeSet` | struct | BackwardSafeSet { n_states: usize, unsafe_words: Vec<u64>, depth_reached: u32, saturated: bool } |  |  |  |  |
 
 
 ### crates/ferroplan/src/readiness.rs
 
-| `AuthorityClass` | enum |  |  |  |  |  |
+| `CANDIDATE_AUTHORITY` | const | CANDIDATE_AUTHORITY: &str |  |  |  |  |
 
-| `CompatibilityClass` | enum |  |  |  |  |  |
+| `CAPABILITY_MANIFEST_SCHEMA` | const | CAPABILITY_MANIFEST_SCHEMA: &str |  |  |  |  |
 
-| `DeterminismClass` | enum |  |  |  |  |  |
+| `OPERATION_ENVELOPE_SCHEMA` | const | OPERATION_ENVELOPE_SCHEMA: &str |  |  |  |  |
 
-| `InterfaceKind` | enum |  |  |  |  |  |
+| `AuthorityClass` | enum | AuthorityClass { CandidateOnly, EvidenceOnly, PresentationOnly } |  |  |  |  |
 
-| `ManifestError` | enum |  |  |  |  |  |
+| `CompatibilityClass` | enum | CompatibilityClass { Semver, VersionedSchema } |  |  |  |  |
 
-| `OutcomeClass` | enum |  |  |  |  |  |
+| `DeterminismClass` | enum | DeterminismClass { Exact, OutcomeEquivalent, NotApplicable } |  |  |  |  |
 
-| `ReadinessState` | enum |  |  |  |  |  |
+| `InterfaceKind` | enum | InterfaceKind { RustLibrary, NativeCli, PythonAbi3, BrowserWasm, BevyGui, McpPlus, Plugin, Documentation, ReleasePipeline } |  |  |  |  |
 
-| `ReplayClass` | enum |  |  |  |  |  |
+| `ManifestError` | enum | ManifestError { Schema(String), NonCanonicalOrder, DuplicateId(String), MissingField { id: String, field: String }, MissingEvidence(String), NonCanonicalEvidence(String), MissingSourceIdentity, Serialization } |  |  |  |  |
 
-| `SecurityClass` | enum |  |  |  |  |  |
+| `OutcomeClass` | enum | OutcomeClass { Solved, NoPlan, LimitExceeded, Refused, Failed } |  |  |  |  |
 
-| `ValidationStatus` | enum |  |  |  |  |  |
+| `ReadinessState` | enum | ReadinessState { Unknown, Declared, Partial, Admitted, Blocked, Unsupported, Refused } |  |  |  |  |
 
-| `capability_manifest` | function | capability_manifest() |  |  |  |  |
+| `ReplayClass` | enum | ReplayClass { Exact, Outcome, BuildReproducible, NotApplicable } |  |  |  |  |
 
-| `fingerprint` | function | fingerprint(&self) |  |  |  |  |
+| `SecurityClass` | enum | SecurityClass { UntrustedInput, LocalPresentation, BuildControl } |  |  |  |  |
 
-| `new` | function | new(code: impl Into<String>, message: impl Into<String>, retryable: bool) |  |  |  |  |
+| `ValidationStatus` | enum | ValidationStatus { Valid, NotApplicable, Failed } |  |  |  |  |
 
-| `production_input_fingerprint` | function | production_input_fingerprint(domain: &str, problem: &str, options: &Options) |  |  |  |  |
+| `capability_manifest` | function | capability_manifest() -> CapabilityManifest |  |  |  |  |
 
-| `solve_production` | function | solve_production(
-    domain: &str,
-    problem: &str,
-    options: &Options,
-    limits: &ProductionLimits,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `evaluate_readiness` | function | evaluate_readiness( source_identity: impl Into<String>, evidence: I, ) -> Result<ReadinessReport, ManifestError> |  |  |  |  |
 
-| `validate` | function | validate(&self) |  |  |  |  |
+| `fingerprint` | function | fingerprint(&self) -> Result<String, ManifestError> |  |  |  |  |
 
-| `BuildIdentity` | struct |  |  |  |  |  |
+| `new` | function | new(code: impl Into<String>, message: impl Into<String>, retryable: bool) -> Self |  |  |  |  |
 
-| `CapabilityContract` | struct |  |  |  |  |  |
+| `production_input_fingerprint` | function | production_input_fingerprint(domain: &str, problem: &str, options: &Options) -> String |  |  |  |  |
 
-| `CapabilityEvaluation` | struct |  |  |  |  |  |
+| `solve_production` | function | solve_production( domain: &str, problem: &str, options: &Options, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Solution> |  |  |  |  |
 
-| `CapabilityManifest` | struct |  |  |  |  |  |
+| `validate` | function | validate(&self) -> Result<(), ManifestError> |  |  |  |  |
 
-| `OperationEnvelope` | struct |  |  |  |  |  |
+| `BuildIdentity` | struct | BuildIdentity { pub product_version: String, pub source_revision: Option<String>, pub manifest_fingerprint: Option<String> } |  |  |  |  |
 
-| `ProductionLimits` | struct |  |  |  |  |  |
+| `CapabilityContract` | struct | CapabilityContract { pub id: String, pub version: String, pub owner: String, pub component: String, pub interface: InterfaceKind, pub authority: AuthorityClass, pub determinism: DeterminismClass, pub replay: ReplayClass, pub input_schema: String, pub output_schema: String, pub resource_profile: String, pub failure_contract: String, pub telemetry_contract: String, pub compatibility: CompatibilityClass, pub security: SecurityClass, pub shipped: bool, pub required_evidence: Vec<String> } |  |  |  |  |
 
-| `PublicError` | struct |  |  |  |  |  |
+| `CapabilityEvaluation` | struct | CapabilityEvaluation { pub capability_id: String, pub state: ReadinessState, pub satisfied_evidence: Vec<String>, pub missing_evidence: Vec<String> } |  |  |  |  |
 
-| `ReadinessReport` | struct |  |  |  |  |  |
+| `CapabilityManifest` | struct | CapabilityManifest { pub schema_version: String, pub product_version: String, pub authority_notice: String, pub capabilities: Vec<CapabilityContract> } |  |  |  |  |
+
+| `OperationEnvelope` | struct | OperationEnvelope { pub schema_version: String, pub request_id: String, pub capability_id: String, pub capability_version: String, pub build_identity: BuildIdentity, pub input_fingerprint: String, pub authority: String, pub outcome: OutcomeClass, pub validation: ValidationStatus, pub elapsed_micros: u64, pub counters: BTreeMap<String, u64>, pub warnings: Vec<String>, pub payload: Option<T>, pub error: Option<PublicError> } |  |  |  |  |
+
+| `ProductionLimits` | struct | ProductionLimits { pub max_domain_bytes: usize, pub max_problem_bytes: usize, pub max_evaluated: usize, pub max_plan_steps: usize, pub max_output_bytes: usize, pub max_workers: usize } |  |  |  |  |
+
+| `PublicError` | struct | PublicError { pub code: String, pub message: String, pub retryable: bool } |  |  |  |  |
+
+| `ReadinessReport` | struct | ReadinessReport { pub schema_version: String, pub product_version: String, pub source_identity: String, pub manifest_fingerprint: String, pub evaluator_version: String, pub overall_state: ReadinessState, pub capabilities: Vec<CapabilityEvaluation> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/report.rs
 
-| `ff_plan` | function | ff_plan(task: &PackedTask, ops: &[usize]) |  |  |  |  |
+| `ff_plan` | function | ff_plan(task: &PackedTask, ops: &[usize]) -> String |  |  |  |  |
 
-| `ipc_plan` | function | ipc_plan(task: &PackedTask, ops: &[usize], metric: Option<f64>) |  |  |  |  |
+| `ipc_plan` | function | ipc_plan(task: &PackedTask, ops: &[usize], metric: Option<f64>) -> String |  |  |  |  |
 
-| `metric_footer` | function | metric_footer(
-    cost: f64,
-    iterations: usize,
-    n_prefs: usize,
-    threads: usize,
-    warn_other: bool,
-) |  |  |  |  |
+| `metric_footer` | function | metric_footer( cost: f64, iterations: usize, n_prefs: usize, threads: usize, warn_other: bool, ) -> String |  |  |  |  |
 
-| `preamble` | function | preamble(threads: usize) |  |  |  |  |
+| `preamble` | function | preamble(threads: usize) -> String |  |  |  |  |
 
-| `timing` | function | timing(stats: &Stats, threads: usize) |  |  |  |  |
+| `timing` | function | timing(stats: &Stats, threads: usize) -> String |  |  |  |  |
 
 
 ### crates/ferroplan/src/resolve.rs
 
-| `Solved` | enum |  |  |  |  |  |
+| `Solved` | enum | Solved { Plan(Vec<usize>, Stats), Unsolvable { capped: bool, } } |  |  |  |  |
 
-| `solve` | function | solve(
-    task: &PackedTask,
-    threads: usize,
-    cfg: crate::search::SearchCfg,
-    mutex_groups: &[Vec<u32>],
-    
-    
-    
-    
-    
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `solve` | function | solve( task: &PackedTask, threads: usize, cfg: crate::search::SearchCfg, mutex_groups: &[Vec<u32>], orbit: Option<&crate::orbits::OrbitMap>, ) -> Solved |  |  |  |  |
 
-| `Stats` | struct |  |  |  |  |  |
+| `Stats` | struct | Stats { pub init_groups: usize, pub final_groups: usize, pub merges: usize, pub fallback: bool } |  |  |  |  |
 
 
 ### crates/ferroplan/src/resource.rs
 
-| `detect_resources` | function | detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
+| `detect_resources` | function | detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) -> Vec<ResourceVar> |  |  |  |  |
 
-| `occupancy` | function | occupancy(&self, bits: &[u64]) |  |  |  |  |
+| `occupancy` | function | occupancy(&self, bits: &[u64]) -> u32 |  |  |  |  |
 
-| `trip_bound` | function | trip_bound(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
+| `trip_bound` | function | trip_bound(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) -> Option<TripBound> |  |  |  |  |
 
-| `trips` | function | trips(&self, bits: &[u64]) |  |  |  |  |
+| `trips` | function | trips(&self, bits: &[u64]) -> i64 |  |  |  |  |
 
-| `ResourceVar` | struct |  |  |  |  |  |
+| `ResourceVar` | struct | ResourceVar { pub members: Vec<(u32, u32)> } |  |  |  |  |
 
-| `TripBound` | struct |  |  |  |  |  |
+| `TripBound` | struct | TripBound { pub goals: Vec<u32>, pub pool: i64 } |  |  |  |  |
 
 
 ### crates/ferroplan/src/sat.rs
 
-| `from_env` | function | from_env() |  |  |  |  |
+| `from_env` | function | from_env() -> Self |  |  |  |  |
 
-| `requires_concurrency` | function | requires_concurrency(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `requires_concurrency` | function | requires_concurrency(domain: &Domain, problem: &Problem) -> bool |  |  |  |  |
 
-| `solve_classical` | function | solve_classical(
-    task: &PackedTask,
-    groups: &[Vec<u32>],
-    cfg: &SatCfg,
-) |  |  |  |  |
+| `solve_classical` | function | solve_classical( task: &PackedTask, groups: &[Vec<u32>], cfg: &SatCfg, ) -> SatOutcome<Vec<usize>> |  |  |  |  |
 
-| `solve_temporal` | function | solve_temporal(
-    domain: &Domain,
-    problem: &Problem,
-    threads: usize,
-    cfg: &SatCfg,
-) |  |  |  |  |
+| `solve_temporal` | function | solve_temporal( domain: &Domain, problem: &Problem, threads: usize, cfg: &SatCfg, ) -> SatOutcome<TimedPlan> |  |  |  |  |
 
-| `solve_temporal_within` | function | solve_temporal_within(
-    domain: &Domain,
-    problem: &Problem,
-    threads: usize,
-    cfg: &SatCfg,
-    budget_secs: Option<f64>,
-) |  |  |  |  |
+| `solve_temporal_within` | function | solve_temporal_within( domain: &Domain, problem: &Problem, threads: usize, cfg: &SatCfg, budget_secs: Option<f64>, ) -> SatOutcome<TimedPlan> |  |  |  |  |
 
-| `SatCfg` | struct |  |  |  |  |  |
+| `SatCfg` | struct | SatCfg { pub max_horizon: usize, pub conflicts_per_horizon: u64, pub cap_lits: u64 } |  |  |  |  |
 
-| `SatOutcome` | struct |  |  |  |  |  |
+| `SatOutcome` | struct | SatOutcome { pub plan: Option<P>, pub notes: Vec<String>, pub proven_at_every_horizon: bool, pub grounded_facts: usize, pub grounded_actions: usize } |  |  |  |  |
 
 
 ### crates/ferroplan/src/search.rs
 
-| `PlanResult` | enum |  |  |  |  |  |
+| `DEFAULT_MAX_EVAL` | const | DEFAULT_MAX_EVAL: usize |  |  |  |  |
+
+| `PlanResult` | enum | PlanResult { Plan { ops: Vec<usize>, advance: Vec<i32>, evaluated: usize, max_g: usize, }, Unsolvable { evaluated: usize, capped: bool, } } |  |  |  |  |
 
 | `arm_wall_limit` | function | arm_wall_limit() |  |  |  |  |
 
-| `cancelled` | function | cancelled(&self) |  |  |  |  |
+| `cancelled` | function | cancelled(&self) -> bool |  |  |  |  |
 
-| `cost` | function | cost(&self, s: &State) |  |  |  |  |
+| `cost` | function | cost(&self, s: &State) -> f64 |  |  |  |  |
 
-| `from_weights` | function | from_weights(weight_g: f64, weight_h: f64, max_eval: Option<usize>) |  |  |  |  |
+| `from_weights` | function | from_weights(weight_g: f64, weight_h: f64, max_eval: Option<usize>) -> Self |  |  |  |  |
 
-| `holds` | function | holds(&self, s: &State) |  |  |  |  |
+| `holds` | function | holds(&self, s: &State) -> bool |  |  |  |  |
 
-| `plan` | function | plan(
-    task: &PackedTask,
-    threads: usize,
-    cfg: SearchCfg,
-    ehc_first: bool,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `plan` | function | plan( task: &PackedTask, threads: usize, cfg: SearchCfg, ehc_first: bool, orbit: Option<&crate::orbits::OrbitMap>, ) -> PlanOutcome |  |  |  |  |
 
-| `plan_avoiding` | function | plan_avoiding(
-    task: &PackedTask,
-    threads: usize,
-    cfg: SearchCfg,
-    ehc_first: bool,
-    forbidden: &[bool],
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `plan_avoiding` | function | plan_avoiding( task: &PackedTask, threads: usize, cfg: SearchCfg, ehc_first: bool, forbidden: &[bool], orbit: Option<&crate::orbits::OrbitMap>, ) -> PlanOutcome |  |  |  |  |
 
-| `search` | function | search(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
+| `search` | function | search(task: &PackedTask, threads: usize, cfg: SearchCfg) -> PlanResult |  |  |  |  |
 
-| `search_from` | function | search_from(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: Option<usize>,
-    cost_bound: f64,
-    threads: usize,
-    cfg: SearchCfg,
-    forbidden: &[bool],
-    sat: Option<&SatGuidance>,
-    closure: Option<&ClosureCost>,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `search_from` | function | search_from( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: Option<usize>, cost_bound: f64, threads: usize, cfg: SearchCfg, forbidden: &[bool], sat: Option<&SatGuidance>, closure: Option<&ClosureCost>, orbit: Option<&crate::orbits::OrbitMap>, ) -> PlanResult |  |  |  |  |
 
-| `solve_closure_bounded` | function | solve_closure_bounded(
-    task: &PackedTask,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-    bound: f64,
-    closure: &ClosureCost,
-    forbidden: &[bool],
-    threads: usize,
-    cfg: SearchCfg,
-    sat: Option<&SatGuidance>,
-) |  |  |  |  |
+| `solve_closure_bounded` | function | solve_closure_bounded( task: &PackedTask, goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: usize, bound: f64, closure: &ClosureCost, forbidden: &[bool], threads: usize, cfg: SearchCfg, sat: Option<&SatGuidance>, ) -> (Option<Vec<usize>>, usize, bool) |  |  |  |  |
 
-| `solve_subgoal` | function | solve_subgoal(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    threads: usize,
-    cfg: SearchCfg,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `solve_subgoal` | function | solve_subgoal( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], threads: usize, cfg: SearchCfg, orbit: Option<&crate::orbits::OrbitMap>, ) -> Option<Vec<usize>> |  |  |  |  |
 
-| `solve_subgoal_avoiding` | function | solve_subgoal_avoiding(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    forbidden: &[bool],
-    threads: usize,
-    cfg: SearchCfg,
-) |  |  |  |  |
+| `solve_subgoal_avoiding` | function | solve_subgoal_avoiding( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], forbidden: &[bool], threads: usize, cfg: SearchCfg, ) -> Option<Vec<usize>> |  |  |  |  |
 
-| `solve_subgoal_bounded` | function | solve_subgoal_bounded(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-    bound: f64,
-    threads: usize,
-    cfg: SearchCfg,
-    sat: Option<&SatGuidance>,
-) |  |  |  |  |
+| `solve_subgoal_bounded` | function | solve_subgoal_bounded( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: usize, bound: f64, threads: usize, cfg: SearchCfg, sat: Option<&SatGuidance>, ) -> (Option<Vec<usize>>, usize, bool) |  |  |  |  |
 
-| `solve_subgoal_guided` | function | solve_subgoal_guided(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    forbidden: &[bool],
-    threads: usize,
-    cfg: SearchCfg,
-    sat: Option<&SatGuidance>,
-) |  |  |  |  |
+| `solve_subgoal_guided` | function | solve_subgoal_guided( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], forbidden: &[bool], threads: usize, cfg: SearchCfg, sat: Option<&SatGuidance>, ) -> (Option<Vec<usize>>, usize) |  |  |  |  |
 
-| `with_cost_h` | function | with_cost_h(mut self, cost_fluent: usize) |  |  |  |  |
+| `with_cost_h` | function | with_cost_h(mut self, cost_fluent: usize) -> Self |  |  |  |  |
 
-| `with_cost_weight` | function | with_cost_weight(mut self, w_c: f64) |  |  |  |  |
+| `with_cost_weight` | function | with_cost_weight(mut self, w_c: f64) -> Self |  |  |  |  |
 
-| `ClosureCost` | struct |  |  |  |  |  |
+| `ClosureCost` | struct | ClosureCost { pub prefs: Vec<(f64, PrefPhi)> } |  |  |  |  |
 
-| `PlanOutcome` | struct |  |  |  |  |  |
+| `PlanOutcome` | struct | PlanOutcome { pub ops: Option<Vec<usize>>, pub evaluated: usize, pub ehc_fell_back: bool, pub capped: bool } |  |  |  |  |
 
-| `PrefPhi` | struct |  |  |  |  |  |
+| `PrefPhi` | struct | PrefPhi { pub disjuncts: Vec<(Vec<u32>, Vec<NumPre>)> } |  |  |  |  |
 
-| `SatGuidance` | struct |  |  |  |  |  |
+| `SatGuidance` | struct | SatGuidance { pub prefs: Vec<(PrefPhi, i64)>, pub res: Vec<crate::resource::ResourceVar>, pub res_weight: i64, pub res_thresh: i64, pub deadline: Vec<(u32, u32, i64)>, pub deadline_weight: i64 } |  |  |  |  |
 
-| `SearchCfg` | struct |  |  |  |  |  |
+| `SearchCfg` | struct | SearchCfg { pub w_g: i64, pub w_h: i64, pub max_eval: usize, pub w_c: f64, pub h_cost: Option<usize>, pub anytime: bool, pub g_bound: usize, pub len_anytime: bool, pub w_lm: i64, pub w_res: i64, pub pref_ops: bool, pub node_bytes_target: Option<usize>, pub deadline: Option<(crate::clock::Clock, f64)>, pub ehc_wall_frac: Option<f64> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/selection.rs
 
-| `select` | function | select(
-    task: &PackedTask,
-    groups: &[Vec<u32>],
-    weights: &[f64],
-    dnf: &FxHashMap<usize, Vec<Vec<u32>>>,
-    banned: &crate::hash::FxHashSet<u32>,
-) |  |  |  |  |
+| `select` | function | select( task: &PackedTask, groups: &[Vec<u32>], weights: &[f64], dnf: &FxHashMap<usize, Vec<Vec<u32>>>, banned: &crate::hash::FxHashSet<u32>, ) -> Option<Selection> |  |  |  |  |
 
-| `Selection` | struct |  |  |  |  |  |
+| `Selection` | struct | Selection { pub chosen: Vec<(usize, Vec<u32>)>, pub bound: f64, pub capped: bool } |  |  |  |  |
 
 
 ### crates/ferroplan/src/session.rs
 
-| `ThinkVerdict` | enum |  |  |  |  |  |
+| `ThinkVerdict` | enum | ThinkVerdict { Solved, Capped, Exhausted } |  |  |  |  |
 
-| `apply_start` | function | apply_start(&mut self, name: &str) |  |  |  |  |
+| `apply_start` | function | apply_start(&mut self, name: &str) -> Result<(), String> |  |  |  |  |
 
-| `elapse` | function | elapse(&mut self, dt: f64) |  |  |  |  |
+| `elapse` | function | elapse(&mut self, dt: f64) -> Result<Vec<String>, String> |  |  |  |  |
 
-| `fact` | function | fact(&self, name: &str) |  |  |  |  |
+| `fact` | function | fact(&self, name: &str) -> Option<bool> |  |  |  |  |
 
-| `fluent` | function | fluent(&self, name: &str) |  |  |  |  |
+| `fluent` | function | fluent(&self, name: &str) -> Option<f64> |  |  |  |  |
 
-| `fork` | function | fork(&self) |  |  |  |  |
+| `fork` | function | fork(&self) -> Session |  |  |  |  |
 
-| `goal_met` | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) -> bool |  |  |  |  |
 
-| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) -> usize |  |  |  |  |
 
-| `new` | function | new(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
+| `new` | function | new(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Session, String> |  |  |  |  |
 
-| `observe` | function | observe(&mut self, sight: &[(&str, bool) |  |  |  |  |
+| `observe` | function | observe(&mut self, sight: &[(&str, bool)]) -> Result<Vec<String>, String> |  |  |  |  |
 
-| `plan_still_valid` | function | plan_still_valid(&self, plan: &Plan, from_step: usize) |  |  |  |  |
+| `plan_still_valid` | function | plan_still_valid(&self, plan: &Plan, from_step: usize) -> bool |  |  |  |  |
 
-| `replan` | function | replan(&self) |  |  |  |  |
+| `replan` | function | replan(&self) -> Solution |  |  |  |  |
 
-| `replan_budgeted` | function | replan_budgeted(&self, max_evaluated: usize, memory_mb: Option<usize>) |  |  |  |  |
+| `replan_budgeted` | function | replan_budgeted(&self, max_evaluated: usize, memory_mb: Option<usize>) -> Solution |  |  |  |  |
 
-| `replan_following` | function | replan_following(
-        &self,
-        prior: &Plan,
-        from_step: usize,
-        max_evaluated: usize,
-        memory_mb: Option<usize>,
-    ) |  |  |  |  |
+| `replan_following` | function | replan_following( &self, prior: &Plan, from_step: usize, max_evaluated: usize, memory_mb: Option<usize>, ) -> Solution |  |  |  |  |
 
-| `restrict_ops` | function | restrict_ops(&mut self, mut keep: impl FnMut(&str) |  |  |  |  |
+| `restrict_ops` | function | restrict_ops(&mut self, mut keep: impl FnMut(&str) -> bool) |  |  |  |  |
 
-| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
+| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) -> Result<(), String> |  |  |  |  |
 
-| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
+| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) -> Result<(), String> |  |  |  |  |
 
-| `set_goal` | function | set_goal(&mut self, goal: &str) |  |  |  |  |
+| `set_goal` | function | set_goal(&mut self, goal: &str) -> Result<(), String> |  |  |  |  |
 
-| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
+| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) -> Result<(), String> |  |  |  |  |
 
-| `state_fingerprint` | function | state_fingerprint(&self) |  |  |  |  |
+| `state_fingerprint` | function | state_fingerprint(&self) -> String |  |  |  |  |
 
-| `think` | function | think(&self, budget: &ThinkBudget) |  |  |  |  |
+| `think` | function | think(&self, budget: &ThinkBudget) -> Think |  |  |  |  |
 
-| `think_following` | function | think_following(&self, prior: &Plan, from_step: usize, budget: &ThinkBudget) |  |  |  |  |
+| `think_following` | function | think_following(&self, prior: &Plan, from_step: usize, budget: &ThinkBudget) -> Think |  |  |  |  |
 
-| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
-| `Session` | struct |  |  |  |  |  |
+| `Session` | struct | Session { task: PackedTask, threads: usize, weight_g: f64, weight_h: f64, max_evaluated: Option<usize>, ehc_first: bool, fact_ids: Arc<FxHashMap<String, u32>>, dynamic: Arc<[bool]>, fluent_ids: Arc<FxHashMap<String, u32>>, temporal: Option<Arc<crate::temporal::TemporalCompiled>>, tier: crate::features::DemandMode, running_preds: Vec<String>, op_ids: Arc<FxHashMap<String, usize>>, mirror: Arc<FxHashMap<u32, u32>>, forbidden: Vec<bool>, timed: Vec<(f64, u32, bool)>, til_setters: Arc<FxHashMap<(u32, bool), usize>>, running: Vec<(f64, usize)>, lifted: Option<Arc<(crate::types::Domain, crate::types::Problem)>>, goal_formula: Formula } |  |  |  |  |
 
-| `Think` | struct |  |  |  |  |  |
+| `Think` | struct | Think { pub solution: Solution, pub capped: bool, pub spent_ms: u64, pub spent_evals: usize, pub verdict: ThinkVerdict } |  |  |  |  |
 
-| `ThinkBudget` | struct |  |  |  |  |  |
+| `ThinkBudget` | struct | ThinkBudget { pub max_evaluated: Option<usize>, pub wall_ms: Option<u64>, pub memory_mb: Option<usize> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/tcompress.rs
 
-| `Bet` | enum |  |  |  |  |  |
+| `UNWALLED_EVALS` | const | UNWALLED_EVALS: usize |  |  |  |  |
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `WALL_FRAC` | const | WALL_FRAC: f64 |  |  |  |  |
 
-| `declines` | function | declines(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `Bet` | enum | Bet { First, Rest } |  |  |  |  |
 
-| `lay_out` | function | lay_out(
-    domain: &Domain,
-    task: &PackedTask,
-    ops: &[usize],
-    shift: bool,
-) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> (Domain, Problem) |  |  |  |  |
 
-| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize, bet: Bet) |  |  |  |  |
+| `declines` | function | declines(domain: &Domain, problem: &Problem) -> Option<&'static str> |  |  |  |  |
+
+| `lay_out` | function | lay_out( domain: &Domain, task: &PackedTask, ops: &[usize], shift: bool, ) -> Option<TimedPlan> |  |  |  |  |
+
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize, bet: Bet) -> Option<TimedPlan> |  |  |  |  |
 
 
 ### crates/ferroplan/src/temporal.rs
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> TemporalCompiled |  |  |  |  |
 
-| `is_temporal` | function | is_temporal(domain: &Domain) |  |  |  |  |
+| `is_temporal` | function | is_temporal(domain: &Domain) -> bool |  |  |  |  |
 
-| `prepare` | function | prepare(domain: &'a Domain, problem: &'a Problem) |  |  |  |  |
+| `prepare` | function | prepare(domain: &'a Domain, problem: &'a Problem) -> Option<Self> |  |  |  |  |
 
-| `score` | function | score(&self, plan: &TimedPlan) |  |  |  |  |
+| `score` | function | score(&self, plan: &TimedPlan) -> Option<SoftScore> |  |  |  |  |
 
-| `score_soft` | function | score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `score_soft` | function | score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Option<SoftScore> |  |  |  |  |
 
-| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> |  |  |  |  |
 
-| `solve_scored` | function | solve_scored(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve_scored` | function | solve_scored(domain: &Domain, problem: &Problem, threads: usize) -> Option<ScoredPlan> |  |  |  |  |
 
-| `to_ipc` | function | to_ipc(&self) |  |  |  |  |
+| `to_ipc` | function | to_ipc(&self) -> String |  |  |  |  |
 
-| `validate` | function | validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `validate` | function | validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<(), String> |  |  |  |  |
 
-| `ScoredPlan` | struct |  |  |  |  |  |
+| `ScoredPlan` | struct | ScoredPlan { pub plan: TimedPlan, pub score: Option<SoftScore>, pub unscored: bool } |  |  |  |  |
 
-| `SnapInfo` | struct |  |  |  |  |  |
+| `SnapInfo` | struct | SnapInfo { pub start_action: Sym, pub end_action: Sym, pub running_pred: Sym, pub duration: Duration, pub invariant: Formula, pub params: Vec<(Sym, Sym)> } |  |  |  |  |
 
-| `SoftScore` | struct |  |  |  |  |  |
+| `SoftScore` | struct | SoftScore { pub metric: Option<f64>, pub violated: Vec<String>, pub satisfied: usize } |  |  |  |  |
 
-| `SoftScorer` | struct |  |  |  |  |  |
+| `SoftScorer` | struct | SoftScorer { domain: &'a Domain, problem: &'a Problem, objs: HashMap<Sym, Vec<Sym>>, goal_prefs: Vec<(String, Formula)>, exp: crate::constraints::Expanded, c: TemporalCompiled, task: PackedTask } |  |  |  |  |
 
-| `TemporalCompiled` | struct |  |  |  |  |  |
+| `TemporalCompiled` | struct | TemporalCompiled { pub domain: Domain, pub problem: Problem, pub snaps: Vec<SnapInfo>, pub til_ops: Vec<(f64, Sym)> } |  |  |  |  |
 
-| `TimedPlan` | struct |  |  |  |  |  |
+| `TimedPlan` | struct | TimedPlan { pub steps: Vec<TimedStep>, pub makespan: f64 } |  |  |  |  |
 
-| `TimedStep` | struct |  |  |  |  |  |
+| `TimedStep` | struct | TimedStep { pub time: f64, pub action: String, pub duration: Option<f64> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/trace.rs
 
-| `trace` | function | trace(
-    domain_src: &str,
-    problem_src: &str,
-    plan: &[(String, Vec<String>) |  |  |  |  |
+| `trace` | function | trace( domain_src: &str, problem_src: &str, plan: &[(String, Vec<String>)], ) -> Result<Vec<StateSnapshot>, String> |  |  |  |  |
 
-| `StateSnapshot` | struct |  |  |  |  |  |
+| `StateSnapshot` | struct | StateSnapshot { pub facts: Vec<String>, pub fluents: Vec<(String, f64)> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/tresolve.rs
 
-| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> |  |  |  |  |
 
 
 ### crates/ferroplan/src/tsched.rs
 
-| `n_actors` | function | n_actors(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `n_actors` | function | n_actors(domain: &Domain, problem: &Problem) -> usize |  |  |  |  |
 
-| `reschedule` | function | reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `reschedule` | function | reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Option<TimedPlan> |  |  |  |  |
 
-| `single_actor_problem` | function | single_actor_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `single_actor_problem` | function | single_actor_problem(domain: &Domain, problem: &Problem) -> Problem |  |  |  |  |
 
 
 ### crates/ferroplan/src/types.rs
 
-| `AssignOp` | enum |  |  |  |  |  |
+| `DURATION_PSEUDO` | const | DURATION_PSEUDO: &str |  |  |  |  |
 
-| `CompOp` | enum |  |  |  |  |  |
+| `AssignOp` | enum | AssignOp { Assign, Increase, Decrease, ScaleUp, ScaleDown } |  |  |  |  |
 
-| `Constraint` | enum |  |  |  |  |  |
+| `CompOp` | enum | CompOp { Lt, Le, Eq, Ge, Gt } |  |  |  |  |
 
-| `Effect` | enum |  |  |  |  |  |
+| `Constraint` | enum | Constraint { And(Vec<Constraint>), Forall(Vec<(Sym, Sym)>, Box<Constraint>), Pref(Option<Sym>, Box<Constraint>), Always(Formula), Sometime(Formula), AtMostOnce(Formula), SometimeAfter(Formula, Formula), SometimeBefore(Formula, Formula), AtEnd(Formula), Within(f64, Formula), AlwaysWithin(f64, Formula, Formula), HoldDuring(f64, f64, Formula), HoldAfter(f64, Formula) } |  |  |  |  |
 
-| `Expr` | enum |  |  |  |  |  |
+| `Effect` | enum | Effect { Add(Sym, Vec<Term>), Del(Sym, Vec<Term>), Num(AssignOp, Sym, Vec<Term>, Expr), And(Vec<Effect>), When(Formula, Box<Effect>), Forall(Vec<(Sym, Sym)>, Box<Effect>) } |  |  |  |  |
 
-| `Formula` | enum |  |  |  |  |  |
+| `Expr` | enum | Expr { Num(f64), Fluent(Sym, Vec<Term>), Add(Box<Expr>, Box<Expr>), Sub(Box<Expr>, Box<Expr>), Mul(Box<Expr>, Box<Expr>), Div(Box<Expr>, Box<Expr>), Neg(Box<Expr>) } |  |  |  |  |
 
-| `MetricDir` | enum |  |  |  |  |  |
+| `Formula` | enum | Formula { And(Vec<Formula>), Or(Vec<Formula>), Not(Box<Formula>), Atom(Sym, Vec<Term>), Comp(CompOp, Expr, Expr), Forall(Vec<(Sym, Sym)>, Box<Formula>), Exists(Vec<(Sym, Sym)>, Box<Formula>), Eq(Term, Term), Pref(Option<Sym>, Box<Formula>), True, False } |  |  |  |  |
 
-| `NExpr` | enum |  |  |  |  |  |
+| `MetricDir` | enum | MetricDir { Minimize, Maximize } |  |  |  |  |
 
-| `Term` | enum |  |  |  |  |  |
+| `NExpr` | enum | NExpr { Num(f64), Fluent(u32), Add(Box<NExpr>, Box<NExpr>), Sub(Box<NExpr>, Box<NExpr>), Mul(Box<NExpr>, Box<NExpr>), Div(Box<NExpr>, Box<NExpr>), Neg(Box<NExpr>) } |  |  |  |  |
 
-| `TimeSpec` | enum |  |  |  |  |  |
+| `Term` | enum | Term { Var(Sym), Const(Sym) } |  |  |  |  |
 
-| `chosen` | function | chosen(&self) |  |  |  |  |
+| `TimeSpec` | enum | TimeSpec { Start, End, All } |  |  |  |  |
+
+| `chosen` | function | chosen(&self) -> Option<&Expr> |  |  |  |  |
 
 | `collect_fluents` | function | collect_fluents(&self, out: &mut Vec<u32>) |  |  |  |  |
 
-| `eval` | function | eval(&self, fv: &[f64], def: &[bool]) |  |  |  |  |
+| `eval` | function | eval(&self, fv: &[f64], def: &[bool]) -> Option<f64> |  |  |  |  |
 
-| `eval_numpre` | function | eval_numpre(np: &NumPre, fv: &[f64], def: &[bool]) |  |  |  |  |
+| `eval_numpre` | function | eval_numpre(np: &NumPre, fv: &[f64], def: &[bool]) -> Option<bool> |  |  |  |  |
 
-| `fixed` | function | fixed(e: Expr) |  |  |  |  |
+| `fixed` | function | fixed(e: Expr) -> Self |  |  |  |  |
 
-| `new` | function | new(line: u32, message: impl Into<String>) |  |  |  |  |
+| `new` | function | new(line: u32, message: impl Into<String>) -> Self |  |  |  |  |
 
-| `Action` | struct |  |  |  |  |  |
+| `Action` | struct | Action { pub name: Sym, pub params: Vec<(Sym, Sym)>, pub precond: Formula, pub effect: Effect, pub monitored: bool } |  |  |  |  |
 
-| `DerivedRule` | struct |  |  |  |  |  |
+| `DerivedRule` | struct | DerivedRule { pub head: Sym, pub params: Vec<(Sym, Sym)>, pub body: Formula } |  |  |  |  |
 
-| `Domain` | struct |  |  |  |  |  |
+| `Domain` | struct | Domain { pub name: Sym, pub requirements: Vec<Sym>, pub types: Vec<Sym>, pub type_parent: Vec<(Sym, Sym)>, pub constants: Vec<(Sym, Sym)>, pub predicates: Vec<(Sym, Vec<Sym>)>, pub functions: Vec<(Sym, Vec<Sym>)>, pub actions: Vec<Action>, pub durative_actions: Vec<DurativeAction>, pub constraints: Vec<Constraint>, pub derived: Vec<DerivedRule>, pub monitors: Vec<Effect> } |  |  |  |  |
 
-| `Duration` | struct |  |  |  |  |  |
+| `Duration` | struct | Duration { pub min: Option<Expr>, pub max: Option<Expr> } |  |  |  |  |
 
-| `DurativeAction` | struct |  |  |  |  |  |
+| `DurativeAction` | struct | DurativeAction { pub name: Sym, pub params: Vec<(Sym, Sym)>, pub duration: Duration, pub conditions: Vec<(TimeSpec, Formula)>, pub effects: Vec<(TimeSpec, Effect)> } |  |  |  |  |
 
-| `NumEff` | struct |  |  |  |  |  |
+| `NumEff` | struct | NumEff { pub op: AssignOp, pub target: u32, pub value: NExpr } |  |  |  |  |
 
-| `NumPre` | struct |  |  |  |  |  |
+| `NumPre` | struct | NumPre { pub op: CompOp, pub lhs: NExpr, pub rhs: NExpr } |  |  |  |  |
 
-| `ParseError` | struct |  |  |  |  |  |
+| `ParseError` | struct | ParseError { pub line: u32, pub message: String } |  |  |  |  |
 
-| `Problem` | struct |  |  |  |  |  |
+| `Problem` | struct | Problem { pub name: Sym, pub domain_name: Sym, pub objects: Vec<(Sym, Sym)>, pub init_atoms: Vec<(Sym, Vec<Sym>)>, pub init_fluents: Vec<((Sym, Vec<Sym>), f64)>, pub til: Vec<TimedLiteral>, pub goal: Formula, pub constraints: Vec<Constraint>, pub metric: Option<(MetricDir, Expr)> } |  |  |  |  |
 
-| `TimedLiteral` | struct |  |  |  |  |  |
+| `TimedLiteral` | struct | TimedLiteral { pub time: f64, pub add: bool, pub pred: Sym, pub args: Vec<Sym> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/verify.rs
 
-| `verify` | function | verify(
-    domain_src: &str,
-    problem_src: &str,
-    plan: &[(String, Vec<String>) |  |  |  |  |
+| `verify` | function | verify( domain_src: &str, problem_src: &str, plan: &[(String, Vec<String>)], ) -> Result<Verified, String> |  |  |  |  |
 
-| `Verified` | struct |  |  |  |  |  |
+| `Verified` | struct | Verified { pub metric: f64, pub hard_goal_met: bool, pub satisfied: usize, pub violated: usize, pub constraints_met: bool, pub constraint_failures: Vec<String>, pub constraint_prefs: Vec<(String, bool)> } |  |  |  |  |
 
 
 ### crates/ferroplan/src/viz.rs
 
-| `PredKind` | enum |  |  |  |  |  |
+| `PredKind` | enum | PredKind { Edge, Position, Property } |  |  |  |  |
 
-| `build` | function | build(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `build` | function | build(domain: &Domain, problem: &Problem) -> Self |  |  |  |  |
 
-| `domain_to_pddl` | function | domain_to_pddl(
-    name: &str,
-    requirements: &str,
-    types: &[(String, String) |  |  |  |  |
+| `domain_to_pddl` | function | domain_to_pddl( name: &str, requirements: &str, types: &[(String, String)], predicates: &[(String, Vec<String>)], actions_raw: &[String], ) -> String |  |  |  |  |
 
-| `dynamic_predicates` | function | dynamic_predicates(domain: &Domain) |  |  |  |  |
+| `dynamic_predicates` | function | dynamic_predicates(domain: &Domain) -> BTreeSet<String> |  |  |  |  |
 
-| `goal_facts` | function | goal_facts(problem: &Problem) |  |  |  |  |
+| `goal_facts` | function | goal_facts(problem: &Problem) -> Vec<(String, Vec<String>)> |  |  |  |  |
 
-| `positions_at` | function | positions_at(&self, facts: &[String]) |  |  |  |  |
+| `positions_at` | function | positions_at(&self, facts: &[String]) -> HashMap<String, Option<String>> |  |  |  |  |
 
-| `to_pddl` | function | to_pddl(
-    name: &str,
-    domain_name: &str,
-    objects: &[(String, String) |  |  |  |  |
+| `to_pddl` | function | to_pddl( name: &str, domain_name: &str, objects: &[(String, String)], init: &[(String, Vec<String>)], goal: &[(String, Vec<String>)], ) -> String |  |  |  |  |
 
-| `VizEdge` | struct |  |  |  |  |  |
+| `VizEdge` | struct | VizEdge { pub a: String, pub b: String, pub pred: String } |  |  |  |  |
 
-| `VizGraph` | struct |  |  |  |  |  |
+| `VizGraph` | struct | VizGraph { pub nodes: Vec<VizNode>, pub edges: Vec<VizEdge>, pub mobiles: Vec<VizMobile>, pub props_by_object: BTreeMap<String, Vec<String>>, pub goal_by_object: BTreeMap<String, Vec<String>>, pub pred_kind: BTreeMap<String, PredKind>, pub location_types: BTreeSet<String> } |  |  |  |  |
 
-| `VizMobile` | struct |  |  |  |  |  |
+| `VizMobile` | struct | VizMobile { pub object: String, pub ty: String, pub at: Option<String>, pub at_raw: Option<String> } |  |  |  |  |
 
-| `VizNode` | struct |  |  |  |  |  |
+| `VizNode` | struct | VizNode { pub object: String, pub ty: String } |  |  |  |  |
 
 
 ### crates/ferroplan/tests/common/external.rs
 
-| `corpus_dir` | function | corpus_dir() |  |  |  |  |
+| `corpus_dir` | function | corpus_dir() -> PathBuf |  |  |  |  |
 
-| `corpus_ipc_dir` | function | corpus_ipc_dir() |  |  |  |  |
+| `corpus_ipc_dir` | function | corpus_ipc_dir() -> PathBuf |  |  |  |  |
 
-| `differential_run_dir` | function | differential_run_dir() |  |  |  |  |
+| `differential_run_dir` | function | differential_run_dir() -> PathBuf |  |  |  |  |
 
-| `harness_present` | function | harness_present(what: &str, path: &Path) |  |  |  |  |
+| `harness_present` | function | harness_present(what: &str, path: &Path) -> bool |  |  |  |  |
 
-| `oracle_dir` | function | oracle_dir() |  |  |  |  |
+| `oracle_dir` | function | oracle_dir() -> PathBuf |  |  |  |  |
 
-| `oracle_runner` | function | oracle_runner() |  |  |  |  |
+| `oracle_runner` | function | oracle_runner() -> PathBuf |  |  |  |  |
 
 
 ### crates/ferroplan/tests/common/mod.rs
 
-| `base_sizes` | function | base_sizes(rng: &mut Rng) |  |  |  |  |
+| `PROVENANCE_DIFF_T61` | const | PROVENANCE_DIFF_T61: &[&str] |  |  |  |  |
 
-| `below` | function | below(&mut self, n: u64) |  |  |  |  |
+| `PROVENANCE_FUZZ_T31` | const | PROVENANCE_FUZZ_T31: &[&str] |  |  |  |  |
 
-| `chance` | function | chance(&mut self, percent: u64) |  |  |  |  |
+| `base_sizes` | function | base_sizes(rng: &mut Rng) -> Sizes |  |  |  |  |
 
-| `draw_for` | function | draw_for(seed: u64, sizes: Sizes) |  |  |  |  |
+| `below` | function | below(&mut self, n: u64) -> u64 |  |  |  |  |
 
-| `draw_valid` | function | draw_valid(seed: u64, sizes: Sizes) |  |  |  |  |
+| `chance` | function | chance(&mut self, percent: u64) -> bool |  |  |  |  |
 
-| `generate` | function | generate(seed: u64, sizes: Sizes) |  |  |  |  |
+| `draw_for` | function | draw_for(seed: u64, sizes: Sizes) -> (String, String) |  |  |  |  |
 
-| `generate_valid` | function | generate_valid(seed: u64, sizes: Sizes) |  |  |  |  |
+| `draw_valid` | function | draw_valid(seed: u64, sizes: Sizes) -> (String, String) |  |  |  |  |
 
-| `halve_sizes` | function | halve_sizes(s: Sizes) |  |  |  |  |
+| `generate` | function | generate(seed: u64, sizes: Sizes) -> Model |  |  |  |  |
 
-| `mutation_of` | function | mutation_of(seed: u64) |  |  |  |  |
+| `generate_valid` | function | generate_valid(seed: u64, sizes: Sizes) -> Model |  |  |  |  |
 
-| `new` | function | new(seed: u64) |  |  |  |  |
+| `halve_sizes` | function | halve_sizes(s: Sizes) -> Sizes |  |  |  |  |
 
-| `next_u64` | function | next_u64(&mut self) |  |  |  |  |
+| `mutation_of` | function | mutation_of(seed: u64) -> bool |  |  |  |  |
 
-| `pick_idx` | function | pick_idx(&mut self, len: usize) |  |  |  |  |
+| `new` | function | new(seed: u64) -> Self |  |  |  |  |
 
-| `range` | function | range(&mut self, lo: u64, hi: u64) |  |  |  |  |
+| `next_u64` | function | next_u64(&mut self) -> u64 |  |  |  |  |
 
-| `range_usize` | function | range_usize(&mut self, lo: usize, hi: usize) |  |  |  |  |
+| `pick_idx` | function | pick_idx(&mut self, len: usize) -> usize |  |  |  |  |
 
-| `render` | function | render(model: &Model, problem_name: &str) |  |  |  |  |
+| `range` | function | range(&mut self, lo: u64, hi: u64) -> u64 |  |  |  |  |
 
-| `render_with_provenance` | function | render_with_provenance(
-    model: &Model,
-    problem_name: &str,
-    header: &[&str],
-) |  |  |  |  |
+| `range_usize` | function | range_usize(&mut self, lo: usize, hi: usize) -> usize |  |  |  |  |
 
-| `sizes_for` | function | sizes_for(seed: u64) |  |  |  |  |
+| `render` | function | render(model: &Model, problem_name: &str) -> (String, String) |  |  |  |  |
 
-| `Model` | struct |  |  |  |  |  |
+| `render_with_provenance` | function | render_with_provenance( model: &Model, problem_name: &str, header: &[&str], ) -> (String, String) |  |  |  |  |
 
-| `Rng` | struct |  |  |  |  |  |
+| `sizes_for` | function | sizes_for(seed: u64) -> Sizes |  |  |  |  |
 
-| `Sizes` | struct |  |  |  |  |  |
+| `Model` | struct | Model { types: Vec<String>, preds: Vec<(String, Vec<usize>)>, actions: Vec<ActionM>, tasks: Vec<(String, Vec<(String, usize)>)>, methods: Vec<MethodM>, objects: Vec<(String, usize)>, init: Vec<LitO>, goal: Vec<LitO>, root: Vec<(String, CallM)> } |  |  |  |  |
 
+| `Rng` | struct | Rng { u64 } |  |  |  |  |
 
-### crucible/crates/crucible-core/src/artifact/board_md.rs
-
-| `from_rows` | function | from_rows(rows: &[RawRow]) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `len` | function | len(&self) |  |  |  |  |
-
-| `render` | function | render(
-    header: &BoardHeader,
-    summary: &[VariantSummary],
-    score_against: Option<&str>,
-) |  |  |  |  |
-
-| `summarize_variants` | function | summarize_variants(rows: &[RawRow], reference: Option<&Reference>) |  |  |  |  |
-
-| `BoardHeader` | struct |  |  |  |  |  |
-
-| `Reference` | struct |  |  |  |  |  |
-
-| `VariantSummary` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/artifact/conditions.rs
-
-| `ConditionsError` | enum |  |  |  |  |  |
-
-| `Slot` | enum |  |  |  |  |  |
-
-| `as_option` | function | as_option(&self) |  |  |  |  |
-
-| `at` | function | at(&self) |  |  |  |  |
-
-| `competitors_total` | function | competitors_total(&self) |  |  |  |  |
-
-| `idle_pct` | function | idle_pct(&self) |  |  |  |  |
-
-| `is_present` | function | is_present(&self) |  |  |  |  |
-
-| `new` | function | new(
-        at: Option<Number>,
-        idle_pct: Option<Number>,
-        competitors_total: Option<Number>,
-    ) |  |  |  |  |
-
-| `observe` | function | observe(&mut self, r: &Reading<'_>) |  |  |  |  |
-
-| `of` | function | of(self_exclusion: Vec<String>) |  |  |  |  |
-
-| `parse` | function | parse(text: &str, path: &str) |  |  |  |  |
-
-| `percentile` | function | percentile(v: &[f64], p: f64) |  |  |  |  |
-
-| `rollup_from_timeline` | function | rollup_from_timeline(timeline: &[TimelineEntry]) |  |  |  |  |
-
-| `statistics_median` | function | statistics_median(v: &[f64]) |  |  |  |  |
-
-| `summarize` | function | summarize(r: &Rollup, ended: &str, provenance: Option<&Provenance>) |  |  |  |  |
-
-| `to_json` | function | to_json(&self) |  |  |  |  |
-
-| `Competitors` | struct |  |  |  |  |  |
-
-| `Conditions` | struct |  |  |  |  |  |
-
-| `CpuSpeedLimit` | struct |  |  |  |  |  |
-
-| `IdlePct` | struct |  |  |  |  |  |
-
-| `LoadAvg` | struct |  |  |  |  |  |
-
-| `Provenance` | struct |  |  |  |  |  |
-
-| `Reading` | struct |  |  |  |  |  |
-
-| `Rollup` | struct |  |  |  |  |  |
-
-| `SwapMb` | struct |  |  |  |  |  |
-
-| `TimelineEntry` | struct |  |  |  |  |  |
-
-| `TimelineRollup` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/corpus.rs
-
-| `instances` | function | instances(v: &Variant, max: usize, warnings: &mut Vec<String>) |  |  |  |  |
-
-| `variants` | function | variants(corpus: &Path, ipcs: &[String], selects: &dyn Fn(&str) |  |  |  |  |
-
-| `Instance` | struct |  |  |  |  |  |
-
-| `Variant` | struct |  |  |  |  |  |
-
-| `Walk` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/db/lock.rs
-
-| `LockError` | enum |  |  |  |  |  |
-
-| `acquire` | function | acquire(dir: &Path) |  |  |  |  |
-
-| `path` | function | path(&self) |  |  |  |  |
-
-| `DirLock` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/db/mod.rs
-
-| `DbError` | enum |  |  |  |  |  |
-
-| `open` | function | open(dir: &Path) |  |  |  |  |
-
-| `path` | function | path(&self) |  |  |  |  |
-
-| `reader` | function | reader(&self) |  |  |  |  |
-
-| `writer` | function | writer(&self) |  |  |  |  |
-
-| `Db` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/db/model.rs
-
-| `Cleanliness` | enum |  |  |  |  |  |
-
-| `PassVerdict` | enum |  |  |  |  |  |
-
-| `RunState` | enum |  |  |  |  |  |
-
-| `TimingQuality` | enum |  |  |  |  |  |
-
-| `ValReason` | enum |  |  |  |  |  |
-
-| `as_str` | function | as_str(self) |  |  |  |  |
-
-| `identity` | function | identity(&self) |  |  |  |  |
-
-| `of` | function | of(i: &Instance) |  |  |  |  |
-
-| `parse` | function | parse(s: &str) |  |  |  |  |
-
-| `sort_key` | function | sort_key(label: &str) |  |  |  |  |
-
-| `to_instance` | function | to_instance(&self) |  |  |  |  |
-
-| `AttemptRec` | struct |  |  |  |  |  |
-
-| `BoardFacts` | struct |  |  |  |  |  |
-
-| `BoardKey` | struct |  |  |  |  |  |
-
-| `BoardPassRec` | struct |  |  |  |  |  |
-
-| `EngineFacts` | struct |  |  |  |  |  |
-
-| `EngineKey` | struct |  |  |  |  |  |
-
-| `EventRec` | struct |  |  |  |  |  |
-
-| `InstanceKey` | struct |  |  |  |  |  |
-
-| `LiveChild` | struct |  |  |  |  |  |
-
-| `Measured` | struct |  |  |  |  |  |
-
-| `RunRecord` | struct |  |  |  |  |  |
-
-| `SamplePoint` | struct |  |  |  |  |  |
-
-| `SampleRec` | struct |  |  |  |  |  |
-
-| `ThrottleWindowRec` | struct |  |  |  |  |  |
-
-| `VariantKey` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/db/read.rs
-
-| `attempts_for` | function | attempts_for(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-        variant: &str,
-        label: &str,
-    ) |  |  |  |  |
-
-| `banked_instances` | function | banked_instances(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `boards_named` | function | boards_named(&self, name: &str) |  |  |  |  |
-
-| `canary_baseline` | function | canary_baseline(
-        &self,
-        label: &str,
-        window: usize,
-        pct: f64,
-    ) |  |  |  |  |
-
-| `canary_max_between` | function | canary_max_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
-
-| `clean_instances` | function | clean_instances(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `competitors_between` | function | competitors_between(
-        &self,
-        start_ts: f64,
-        end_ts: f64,
-    ) |  |  |  |  |
-
-| `conn` | function | conn(&self) |  |  |  |  |
-
-| `engine_by_hash` | function | engine_by_hash(&self, blake3: &str) |  |  |  |  |
-
-| `engines_for_board` | function | engines_for_board(&self, board_id: i64) |  |  |  |  |
-
-| `engines_matching` | function | engines_matching(&self, needle: &str) |  |  |  |  |
-
-| `export_rows` | function | export_rows(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `live_children` | function | live_children(&self) |  |  |  |  |
-
-| `next_attempt` | function | next_attempt(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-        ipc: Option<&str>,
-        variant: &str,
-        label: &str,
-    ) |  |  |  |  |
-
-| `open` | function | open(path: &Path) |  |  |  |  |
-
-| `pass_verdict` | function | pass_verdict(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `prior_peak_rss` | function | prior_peak_rss(&self, variant: &str, label: &str) |  |  |  |  |
-
-| `run_census` | function | run_census(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `runs_between` | function | runs_between(
-        &self,
-        engine_id: i64,
-        start_ts: f64,
-        end_ts: f64,
-    ) |  |  |  |  |
-
-| `sample_count` | function | sample_count(&self, pass: Option<i64>) |  |  |  |  |
-
-| `samples_between` | function | samples_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
-
-| `solo_attempts` | function | solo_attempts(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-        variant: &str,
-        label: &str,
-    ) |  |  |  |  |
-
-| `swap_growth_between` | function | swap_growth_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
-
-| `throttle_windows_between` | function | throttle_windows_between(
-        &self,
-        start_ts: f64,
-        end_ts: f64,
-    ) |  |  |  |  |
-
-| `timing_census` | function | timing_census(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `val_ok` | function | val_ok(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `val_rejected` | function | val_rejected(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `val_unavailable` | function | val_unavailable(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `verdicts_for` | function | verdicts_for(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `window_gate` | function | window_gate(
-        &self,
-        start_ts: f64,
-        end_ts: f64,
-        interval: f64,
-        pass: Option<i64>,
-    ) |  |  |  |  |
-
-| `Reader` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/db/rebuild.rs
-
-| `board_facts` | function | board_facts(spec: &BoardSpec, m: &Manifest, first: Option<&RawRow>) |  |  |  |  |
-
-| `board_key_from_manifest` | function | board_key_from_manifest(m: &Manifest, spec: &BoardSpec) |  |  |  |  |
-
-| `export` | function | export(reader: &Reader, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `export_to` | function | export_to(
-    reader: &Reader,
-    board_id: i64,
-    engine_id: i64,
-    path: &Path,
-) |  |  |  |  |
-
-| `rebuild_from_artifacts` | function | rebuild_from_artifacts(
-    writer: &WriterHandle,
-    manifest: &Manifest,
-    dir: &Path,
-    val_unavailable: Option<&ValUnavailable>,
-) |  |  |  |  |
-
-| `RebuiltBoard` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/db/schema.rs
-
-| `MigrateError` | enum |  |  |  |  |  |
-
-| `migrate` | function | migrate(conn: &Connection) |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/db/writer.rs
-
-| `board_pass` | function | board_pass(&self, p: BoardPassRec) |  |  |  |  |
-
-| `canary` | function | canary(&self, at: f64, label: String, secs: f64, solo: bool) |  |  |  |  |
-
-| `child_gone` | function | child_gone(&self, pid: i32) |  |  |  |  |
-
-| `child_spawned` | function | child_spawned(&self, c: LiveChild) |  |  |  |  |
-
-| `child_stopped` | function | child_stopped(&self, pid: i32, stopped: bool) |  |  |  |  |
-
-| `event` | function | event(&self, e: EventRec) |  |  |  |  |
-
-| `flush` | function | flush(&self) |  |  |  |  |
-
-| `handle` | function | handle(&self) |  |  |  |  |
-
-| `resolve` | function | resolve(
-        &self,
-        board: BoardKey,
-        board_facts: BoardFacts,
-        engine: EngineKey,
-        engine_facts: EngineFacts,
-    ) |  |  |  |  |
-
-| `run` | function | run(&self, rec: RunRecord) |  |  |  |  |
-
-| `sample` | function | sample(&self, s: SampleRec) |  |  |  |  |
-
-| `start` | function | start(conn: Connection) |  |  |  |  |
-
-| `take_error` | function | take_error(&self) |  |  |  |  |
-
-| `throttle_close` | function | throttle_close(&self, id: i64, ended_at: f64) |  |  |  |  |
-
-| `throttle_open` | function | throttle_open(&self, w: ThrottleWindowRec) |  |  |  |  |
-
-| `Writer` | struct |  |  |  |  |  |
-
-| `WriterHandle` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/exec/env.rs
-
-| `build` | function | build(
-    timeout_secs: u64,
-    mem_gb: f64,
-    board_env: &BTreeMap<String, String>,
-) |  |  |  |  |
-
-| `validate` | function | validate(
-    timeout_secs: u64,
-    mem_gb: f64,
-    board_env: &BTreeMap<String, String>,
-) |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/exec/mod.rs
-
-| `Ctl` | enum |  |  |  |  |  |
-
-| `ExecError` | enum |  |  |  |  |  |
-
-| `Killed` | enum |  |  |  |  |  |
-
-| `install_interrupt_handler` | function | install_interrupt_handler() |  |  |  |  |
-
-| `interrupted` | function | interrupted() |  |  |  |  |
-
-| `set_interrupted` | function | set_interrupted(on: bool) |  |  |  |  |
-
-| `RunOutcome` | struct |  |  |  |  |  |
-
-| `RunRequest` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/exec/orphan.rs
-
-| `Reaped` | enum |  |  |  |  |  |
-
-| `armed` | function | armed(&self) |  |  |  |  |
-
-| `disarm` | function | disarm(&mut self) |  |  |  |  |
-
-| `install_panic_reaper` | function | install_panic_reaper() |  |  |  |  |
-
-| `new` | function | new(pgid: Pid) |  |  |  |  |
-
-| `pgid` | function | pgid(&self) |  |  |  |  |
-
-| `pid` | function | pid(&self) |  |  |  |  |
-
-| `reap_registered` | function | reap_registered() |  |  |  |  |
-
-| `record` | function | record(pid: Pid, run_id: Option<i64>, id: &ProcIdentity, spawned_at: f64) |  |  |  |  |
-
-| `signalled` | function | signalled(&self) |  |  |  |  |
-
-| `GroupGuard` | struct |  |  |  |  |  |
-
-| `LiveChild` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/monitor/games.rs
-
-| `busiest` | function | busiest(&self, procs: &[Proc]) |  |  |  |  |
-
-| `game_pids` | function | game_pids(&self, procs: &[Proc]) |  |  |  |  |
-
-| `GameRules` | struct |  |  |  |  |  |
-
-| `Proc` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/monitor/sample.rs
-
-| `attribute` | function | attribute(ps_output: &str, exclude: &dyn Fn(&str) |  |  |  |  |
-
-| `is_clean` | function | is_clean(&self) |  |  |  |  |
-
-| `Sample` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/monitor/throttle.rs
-
-| `Level` | enum |  |  |  |  |  |
-
-| `Reason` | enum |  |  |  |  |  |
-
-| `level` | function | level(&self) |  |  |  |  |
-
-| `new` | function | new(cfg: Config) |  |  |  |  |
-
-| `on_sample` | function | on_sample(&mut self, s: &Sample, g: &GameState, now: Instant) |  |  |  |  |
-
-| `set_manual_hold` | function | set_manual_hold(&mut self, on: bool) |  |  |  |  |
-
-| `Config` | struct |  |  |  |  |  |
-
-| `GameState` | struct |  |  |  |  |  |
-
-| `Throttle` | struct |  |  |  |  |  |
-
-| `Transition` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/platform/generic.rs
-
-| `Generic` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/platform/macos.rs
-
-| `mach_ticks_to_ns` | function | mach_ticks_to_ns(ticks: u64) |  |  |  |  |
-
-| `MacOs` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/platform/mod.rs
-
-| `MemCap` | enum |  |  |  |  |  |
-
-| `bytes` | function | bytes(self) |  |  |  |  |
-
-| `host` | function | host() |  |  |  |  |
-
-| `instrument` | function | instrument(self) |  |  |  |  |
-
-| `ProcIdentity` | struct |  |  |  |  |  |
-
-| `Topology` | struct |  |  |  |  |  |
-
-| `KeepAwake` | trait |  |  |  |  |  |
-
-| `Platform` | trait |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/sched/budget.rs
-
-| `Admission` | enum |  |  |  |  |  |
-
-| `Denial` | enum |  |  |  |  |  |
-
-| `admit` | function | admit(&self, level: Level, demand: Demand, declared: bool) |  |  |  |  |
-
-| `capacity` | function | capacity(&self, level: Level) |  |  |  |  |
-
-| `contains` | function | contains(&self, board_id: &str) |  |  |  |  |
-
-| `cores` | function | cores(self) |  |  |  |  |
-
-| `errors` | function | errors(lines: &[String]) |  |  |  |  |
-
-| `ids` | function | ids(&self) |  |  |  |  |
-
-| `is_admitted` | function | is_admitted(&self) |  |  |  |  |
-
-| `new` | function | new(jobs: u32, threads: u32) |  |  |  |  |
-
-| `none` | function | none() |  |  |  |  |
-
-| `of` | function | of(b: &BoardSpec, d: &Defaults) |  |  |  |  |
-
-| `validate` | function | validate(&self, m: &Manifest, declared: &Oversubscribed) |  |  |  |  |
-
-| `with_reserve` | function | with_reserve(topology: Topology, reserve_p_cores: u32) |  |  |  |  |
-
-| `Accountant` | struct |  |  |  |  |  |
-
-| `Demand` | struct |  |  |  |  |  |
-
-| `Oversubscribed` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/sched/mod.rs
-
-| `Event` | enum |  |  |  |  |  |
-
-| `Next` | enum |  |  |  |  |  |
-
-| `backoff` | function | backoff(&self, consecutive: u32) |  |  |  |  |
-
-| `order_boards` | function | order_boards(boards: &[BoardState], pass: u32) |  |  |  |  |
-
-| `run` | function | run(r: &mut dyn Runner, cfg: &LoopConfig) |  |  |  |  |
-
-| `Attempt` | struct |  |  |  |  |  |
-
-| `BoardState` | struct |  |  |  |  |  |
-
-| `LoopConfig` | struct |  |  |  |  |  |
-
-| `Outcome` | struct |  |  |  |  |  |
-
-| `Runner` | trait |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/sched/quiet.rs
-
-| `Admission` | enum |  |  |  |  |  |
-
-| `Denied` | enum |  |  |  |  |  |
-
-| `Rule` | enum |  |  |  |  |  |
-
-| `config` | function | config(&self) |  |  |  |  |
-
-| `is_admitted` | function | is_admitted(&self) |  |  |  |  |
-
-| `new` | function | new(cfg: Config) |  |  |  |  |
-
-| `poll` | function | poll(&mut self, level: Level, sample: &Sample, now: Instant) |  |  |  |  |
-
-| `reset` | function | reset(&mut self) |  |  |  |  |
-
-| `Config` | struct |  |  |  |  |  |
-
-| `Gate` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/sched/referee.rs
-
-| `Bank` | enum |  |  |  |  |  |
-
-| `Owe` | enum |  |  |  |  |  |
-
-| `Verdict` | enum |  |  |  |  |  |
-
-| `as_str` | function | as_str(self) |  |  |  |  |
-
-| `banked` | function | banked(self) |  |  |  |  |
-
-| `box_fault` | function | box_fault(self) |  |  |  |  |
-
-| `judge` | function | judge(rule: &Rule, f: &Facts) |  |  |  |  |
-
-| `rho` | function | rho(&self) |  |  |  |  |
-
-| `rho_floor_ms` | function | rho_floor_ms(&self) |  |  |  |  |
-
-| `timing` | function | timing(f: &Facts) |  |  |  |  |
-
-| `Facts` | struct |  |  |  |  |  |
-
-| `Rule` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/sched/resume.rs
-
-| `Disabled` | enum |  |  |  |  |  |
-
-| `InstanceKey` | enum |  |  |  |  |  |
-
-| `Reject` | enum |  |  |  |  |  |
-
-| `disabled` | function | disabled(&self) |  |  |  |  |
-
-| `from_document` | function | from_document(doc: &crate::artifact::conditions::Conditions) |  |  |  |  |
-
-| `get` | function | get(&self, key: &RowKey) |  |  |  |  |
-
-| `has_timeline` | function | has_timeline(&self) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `judge` | function | judge(row: &RawRow, cond: &Conditions, want: &RunParams) |  |  |  |  |
-
-| `judge_lines` | function | judge_lines(text: &str, cond: &Conditions, want: &RunParams) |  |  |  |  |
-
-| `kind` | function | kind(&self) |  |  |  |  |
-
-| `len` | function | len(&self) |  |  |  |  |
-
-| `load` | function | load(path: &Path) |  |  |  |  |
-
-| `mode_str` | function | mode_str(&self) |  |  |  |  |
-
-| `none` | function | none() |  |  |  |  |
-
-| `of` | function | of(r: &RawRow) |  |  |  |  |
-
-| `parse` | function | parse(text: &str) |  |  |  |  |
-
-| `reject_counts` | function | reject_counts(&self) |  |  |  |  |
-
-| `rejected` | function | rejected(&self) |  |  |  |  |
-
-| `Conditions` | struct |  |  |  |  |  |
-
-| `Rejected` | struct |  |  |  |  |  |
-
-| `Resume` | struct |  |  |  |  |  |
-
-| `RowKey` | struct |  |  |  |  |  |
-
-| `RunParams` | struct |  |  |  |  |  |
-
-| `TimelineSample` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/sched/tier.rs
-
-| `Tier` | enum |  |  |  |  |  |
-
-| `census` | function | census(plan: &[Scheduled]) |  |  |  |  |
-
-| `classify` | function | classify(prior: Option<Prior>, t: &Thresholds) |  |  |  |  |
-
-| `eta` | function | eta(plan: &[Scheduled], jobs: u32) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `order` | function | order(
-    instances: &[RowKey],
-    h: &dyn History,
-    t: &Thresholds,
-    budget_secs: f64,
-) |  |  |  |  |
-
-| `NoHistory` | struct |  |  |  |  |  |
-
-| `Prior` | struct |  |  |  |  |  |
-
-| `Scheduled` | struct |  |  |  |  |  |
-
-| `Thresholds` | struct |  |  |  |  |  |
-
-| `History` | trait |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/sweep.rs
-
-| `argv` | function | argv(cfg: &BoardCfg, domain: &Path, problem: &Path) |  |  |  |  |
-
-| `BoardCfg` | struct |  |  |  |  |  |
-
-| `Engine` | struct |  |  |  |  |  |
-
-| `Measured` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-core/src/validate/mod.rs
-
-| `Unavailable` | enum |  |  |  |  |  |
-
-| `Verdict` | enum |  |  |  |  |  |
-
-| `as_json` | function | as_json(self) |  |  |  |  |
-
-| `find` | function | find(repo: &Path, configured: Option<&Path>) |  |  |  |  |
-
-| `judge` | function | judge(rc: Option<i32>, signal: Option<i32>, stdout: &str, stderr: &str) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `reason` | function | reason(self) |  |  |  |  |
-
-| `render_plan` | function | render_plan(steps: &[Step], temporal: bool) |  |  |  |  |
-
-| `validate` | function | validate(
-    val: Option<&Path>,
-    domain: &Path,
-    problem: &Path,
-    steps: &[Step],
-    temporal: bool,
-    plan_path: &Path,
-) |  |  |  |  |
-
-| `Step` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/archive.rs
-
-| `ArchiveError` | enum |  |  |  |  |  |
-
-| `arch_key` | function | arch_key(variant: &str, instance: u64) |  |  |  |  |
-
-| `arch_track` | function | arch_track(variant: &str) |  |  |  |  |
-
-| `best_length` | function | best_length(&self, k: &ArchKey) |  |  |  |  |
-
-| `best_makespan` | function | best_makespan(&self, k: &ArchKey) |  |  |  |  |
-
-| `count_action_lines` | function | count_action_lines(body: &str) |  |  |  |  |
-
-| `has_lengths` | function | has_lengths(&self) |  |  |  |  |
-
-| `has_makespans` | function | has_makespans(&self) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `iter` | function | iter(&self) |  |  |  |  |
-
-| `lengths` | function | lengths(&self, k: &ArchKey) |  |  |  |  |
-
-| `lengths_map` | function | lengths_map(&self) |  |  |  |  |
-
-| `makespan_of` | function | makespan_of(body: &str) |  |  |  |  |
-
-| `makespans` | function | makespans(&self, k: &ArchKey) |  |  |  |  |
-
-| `makespans_map` | function | makespans_map(&self) |  |  |  |  |
-
-| `open` | function | open(path: &Path) |  |  |  |  |
-
-| `warnings` | function | warnings(&self) |  |  |  |  |
-
-| `ArchiveWarnings` | struct |  |  |  |  |  |
-
-| `Ipc5Archive` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/bounds.rs
-
-| `best` | function | best(&self, year_key: &str, domain: &str, instance: u64) |  |  |  |  |
-
-| `from_sources` | function | from_sources(bounds_2023: Option<&str>, cost_bounds_2018: Option<&str>) |  |  |  |  |
-
-| `get` | function | get(&self, k: &BoundKey) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `len` | function | len(&self) |  |  |  |  |
-
-| `load` | function | load(corpus_root: &Path) |  |  |  |  |
-
-| `problems` | function | problems(&self) |  |  |  |  |
-
-| `BestKnownBounds` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/class.rs
-
-| `Class` | enum |  |  |  |  |  |
-
-| `failure_classes` | function | failure_classes(&self) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `Coverage` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/compare.rs
-
-| `Cleanliness` | enum |  |  |  |  |  |
-
-| `Clock` | enum |  |  |  |  |  |
-
-| `Cost` | enum |  |  |  |  |  |
-
-| `Mode` | enum |  |  |  |  |  |
-
-| `a` | function | a(&self) |  |  |  |  |
-
-| `a_solved` | function | a_solved(&self) |  |  |  |  |
-
-| `b` | function | b(&self) |  |  |  |  |
-
-| `b_solved` | function | b_solved(&self) |  |  |  |  |
-
-| `cheaper_a` | function | cheaper_a(&self) |  |  |  |  |
-
-| `cheaper_b` | function | cheaper_b(&self) |  |  |  |  |
-
-| `clean` | function | clean(&self) |  |  |  |  |
-
-| `cleanliness` | function | cleanliness(&self, r: &RawRow) |  |  |  |  |
-
-| `clock` | function | clock(&self) |  |  |  |  |
-
-| `common` | function | common(&self) |  |  |  |  |
-
-| `coverage` | function | coverage(&self) |  |  |  |  |
-
-| `delta` | function | delta(&self) |  |  |  |  |
-
-| `dirty` | function | dirty(&self) |  |  |  |  |
-
-| `equal` | function | equal(&self) |  |  |  |  |
-
-| `from_json` | function | from_json(src: &str) |  |  |  |  |
-
-| `from_jsonl` | function | from_jsonl(
-        name: impl Into<String>,
-        budget: f64,
-        src: &str,
-        path: &str,
-    ) |  |  |  |  |
-
-| `from_rows` | function | from_rows(name: impl Into<String>, budget: f64, rows: Vec<RawRow>) |  |  |  |  |
-
-| `gained` | function | gained(&self) |  |  |  |  |
-
-| `get` | function | get(&self, k: &InstanceKey) |  |  |  |  |
-
-| `has_timeline` | function | has_timeline(&self) |  |  |  |  |
-
-| `interval` | function | interval(&self) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `is_regression` | function | is_regression(&self) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `len` | function | len(&self) |  |  |  |  |
-
-| `load` | function | load(path: &Path) |  |  |  |  |
-
-| `lost` | function | lost(&self) |  |  |  |  |
-
-| `mean_a` | function | mean_a(&self) |  |  |  |  |
-
-| `mean_b` | function | mean_b(&self) |  |  |  |  |
-
-| `name` | function | name(self) |  |  |  |  |
-
-| `new` | function | new(referee: &'r Referee, a: &'r RunRef, b: &'r RunRef) |  |  |  |  |
-
-| `none` | function | none() |  |  |  |  |
-
-| `of` | function | of(r: &RawRow) |  |  |  |  |
-
-| `percentiles` | function | percentiles(&self) |  |  |  |  |
-
-| `qualified` | function | qualified(&self) |  |  |  |  |
-
-| `quality` | function | quality(&self) |  |  |  |  |
-
-| `referee` | function | referee(&self) |  |  |  |  |
-
-| `render` | function | render(&self, mode: Mode) |  |  |  |  |
-
-| `render_trend` | function | render_trend(t: &Trend) |  |  |  |  |
-
-| `scored` | function | scored(&self) |  |  |  |  |
-
-| `solved` | function | solved(&self, referee: &Referee) |  |  |  |  |
-
-| `table` | function | table(&self) |  |  |  |  |
-
-| `timing` | function | timing(&self, cond_a: &Conditions, cond_b: &Conditions) |  |  |  |  |
-
-| `to_json` | function | to_json(&self) |  |  |  |  |
-
-| `total_a` | function | total_a(&self) |  |  |  |  |
-
-| `total_b` | function | total_b(&self) |  |  |  |  |
-
-| `unstamped` | function | unstamped(&self) |  |  |  |  |
-
-| `value` | function | value(self) |  |  |  |  |
-
-| `variants` | function | variants(&self) |  |  |  |  |
-
-| `with_trend` | function | with_trend(mut self, t: Trend) |  |  |  |  |
-
-| `worse` | function | worse(self, other: Cleanliness) |  |  |  |  |
-
-| `Conditions` | struct |  |  |  |  |  |
-
-| `CoverageDiff` | struct |  |  |  |  |  |
-
-| `Diff` | struct |  |  |  |  |  |
-
-| `Gained` | struct |  |  |  |  |  |
-
-| `InstanceKey` | struct |  |  |  |  |  |
-
-| `Loaded` | struct |  |  |  |  |  |
-
-| `Lost` | struct |  |  |  |  |  |
-
-| `Percentiles` | struct |  |  |  |  |  |
-
-| `QualityDiff` | struct |  |  |  |  |  |
-
-| `RunRef` | struct |  |  |  |  |  |
-
-| `TimingDiff` | struct |  |  |  |  |  |
-
-| `VariantRow` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/field.rs
-
-| `cell` | function | cell(
-        &self,
-        label: &str,
-        rows: &[RawRow],
-        referee: &Referee,
-        solved: usize,
-        total: usize,
-    ) |  |  |  |  |
-
-| `cohort` | function | cohort(&self, label: &str) |  |  |  |  |
-
-| `load` | function | load(benchmarks_dir: &Path) |  |  |  |  |
-
-| `placement` | function | placement(&self, s: usize, n: usize) |  |  |  |  |
-
-| `unmatched_splits` | function | unmatched_splits(&self, label: &str, rows: &[RawRow]) |  |  |  |  |
-
-| `warnings` | function | warnings(&self) |  |  |  |  |
-
-| `Cohort` | struct |  |  |  |  |  |
-
-| `Entrant` | struct |  |  |  |  |  |
-
-| `FieldBook` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/fmt.rs
-
-| `bar` | function | bar(pct: f64, width: usize) |  |  |  |  |
-
-| `fmt_f` | function | fmt_f(x: f64, places: usize) |  |  |  |  |
-
-| `ordinal` | function | ordinal(n: usize) |  |  |  |  |
-
-| `ordinal_suffix` | function | ordinal_suffix(n: usize) |  |  |  |  |
-
-| `pct` | function | pct(solved: usize, total: usize) |  |  |  |  |
-
-| `py_round` | function | py_round(x: f64, ndigits: i32) |  |  |  |  |
-
-| `py_round_i` | function | py_round_i(x: f64) |  |  |  |  |
-
-| `thousands` | function | thousands(n: u64) |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/history.rs
-
-| `HistoryError` | enum |  |  |  |  |  |
-
-| `as_str` | function | as_str(&self) |  |  |  |  |
-
-| `comparable_predecessor` | function | comparable_predecessor(
-        &self,
-        box_: &BoxId,
-        cur: &VersionKey,
-    ) |  |  |  |  |
-
-| `current_version` | function | current_version(root: &Path) |  |  |  |  |
-
-| `delta` | function | delta(&self, label: &str, solved: usize, total: usize) |  |  |  |  |
-
-| `delta_cell` | function | delta_cell(
-    prev: Option<&ComparablePredecessor<'_>>,
-    label: &str,
-    solved: usize,
-    total: usize,
-) |  |  |  |  |
-
-| `from_json` | function | from_json(src: &str) |  |  |  |  |
-
-| `load` | function | load(path: &Path) |  |  |  |  |
-
-| `new` | function | new(s: impl Into<String>) |  |  |  |  |
-
-| `parse` | function | parse(s: &str) |  |  |  |  |
-
-| `parts` | function | parts(&self) |  |  |  |  |
-
-| `snapshots` | function | snapshots(&self) |  |  |  |  |
-
-| `to_json` | function | to_json(&self) |  |  |  |  |
-
-| `track` | function | track(&self, label: &str) |  |  |  |  |
-
-| `trend` | function | trend(&self, label: &str, box_: &BoxId) |  |  |  |  |
-
-| `try_load` | function | try_load(path: &Path) |  |  |  |  |
-
-| `upsert` | function | upsert(&mut self, s: Snapshot) |  |  |  |  |
-
-| `version` | function | version(&self) |  |  |  |  |
-
-| `version_key` | function | version_key(&self) |  |  |  |  |
-
-| `BoxId` | struct |  |  |  |  |  |
-
-| `ComparablePredecessor` | struct |  |  |  |  |  |
-
-| `History` | struct |  |  |  |  |  |
-
-| `MeasuredAt` | struct |  |  |  |  |  |
-
-| `Snapshot` | struct |  |  |  |  |  |
-
-| `Trend` | struct |  |  |  |  |  |
-
-| `VersionKey` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/lib.rs
-
-| `parse_rows` | function | parse_rows(src: &str, path: &str) |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/manifest.rs
-
-| `ManifestError` | enum |  |  |  |  |  |
-
-| `PatternError` | enum |  |  |  |  |  |
-
-| `board` | function | board(&self, id: &str) |  |  |  |  |
-
-| `board_by_label` | function | board_by_label(&self, label: &str) |  |  |  |  |
-
-| `board_by_raw` | function | board_by_raw(&self, raw: &str) |  |  |  |  |
-
-| `errors` | function | errors(&self) |  |  |  |  |
-
-| `is_match` | function | is_match(&self, variant: &str) |  |  |  |  |
-
-| `is_proof_track` | function | is_proof_track(&self, label: &str) |  |  |  |  |
-
-| `load` | function | load(path: &Path) |  |  |  |  |
-
-| `parse` | function | parse(src: &str) |  |  |  |  |
-
-| `rebaselined_on` | function | rebaselined_on(&self, label: &str, box_: &str) |  |  |  |  |
-
-| `search` | function | search(&self, hay: &str) |  |  |  |  |
-
-| `selector` | function | selector(&self) |  |  |  |  |
-
-| `selects` | function | selects(&self, variant: &str) |  |  |  |  |
-
-| `set` | function | set(&self, name: &str) |  |  |  |  |
-
-| `track` | function | track(&self, name: &str) |  |  |  |  |
-
-| `validate` | function | validate(&self) |  |  |  |  |
-
-| `warnings` | function | warnings(&self) |  |  |  |  |
-
-| `BoardSpec` | struct |  |  |  |  |  |
-
-| `CorpusSpec` | struct |  |  |  |  |  |
-
-| `Defaults` | struct |  |  |  |  |  |
-
-| `Manifest` | struct |  |  |  |  |  |
-
-| `Pattern` | struct |  |  |  |  |  |
-
-| `Selector` | struct |  |  |  |  |  |
-
-| `SetSpec` | struct |  |  |  |  |  |
-
-| `TrackSpec` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/promote.rs
-
-| `Gate` | enum |  |  |  |  |  |
-
-| `PromoteError` | enum |  |  |  |  |  |
-
-| `TierMovePolicy` | enum |  |  |  |  |  |
-
-| `accepts` | function | accepts(&self, board: &str) |  |  |  |  |
-
-| `against` | function | against(&self) |  |  |  |  |
-
-| `apply` | function | apply(&self) |  |  |  |  |
-
-| `board` | function | board(&self) |  |  |  |  |
-
-| `boards` | function | boards(&self) |  |  |  |  |
-
-| `bytes` | function | bytes(&self) |  |  |  |  |
-
-| `changes` | function | changes(&self) |  |  |  |  |
-
-| `compute` | function | compute(
-        box_: &str,
-        prev: Option<&ComparablePredecessor<'_>>,
-        live: &[LiveBoard],
-    ) |  |  |  |  |
-
-| `denominator_grew` | function | denominator_grew(&self) |  |  |  |  |
-
-| `dst` | function | dst(&self) |  |  |  |  |
-
-| `entries` | function | entries(&self) |  |  |  |  |
-
-| `failures` | function | failures(&self) |  |  |  |  |
-
-| `full_table` | function | full_table(&self) |  |  |  |  |
-
-| `like_for_like` | function | like_for_like(&self) |  |  |  |  |
-
-| `pct` | function | pct(&self) |  |  |  |  |
-
-| `pct_dropped_on_entry_day` | function | pct_dropped_on_entry_day(&self) |  |  |  |  |
-
-| `placements` | function | placements(&self) |  |  |  |  |
-
-| `plan` | function | plan(
-    root: &Path,
-    manifest: &Manifest,
-    sets: &[&str],
-    policy: &TierMovePolicy,
-) |  |  |  |  |
-
-| `promoted_lines` | function | promoted_lines(&self) |  |  |  |  |
-
-| `refusal` | function | refusal(&self) |  |  |  |  |
-
-| `sentence` | function | sentence(&self, box_: &str) |  |  |  |  |
-
-| `solved` | function | solved(&self) |  |  |  |  |
-
-| `src` | function | src(&self) |  |  |  |  |
-
-| `tier_moves` | function | tier_moves(&self) |  |  |  |  |
-
-| `total` | function | total(&self) |  |  |  |  |
-
-| `Change` | struct |  |  |  |  |  |
-
-| `GateReport` | struct |  |  |  |  |  |
-
-| `Headline` | struct |  |  |  |  |  |
-
-| `LiveBoard` | struct |  |  |  |  |  |
-
-| `Placement` | struct |  |  |  |  |  |
-
-| `Promotion` | struct |  |  |  |  |  |
-
-| `TierMove` | struct |  |  |  |  |  |
-
-| `TwoHeadlines` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/pyjson.rs
-
-| `write_indent1` | function | write_indent1(v: &serde_json::Value, out: &mut String) |  |  |  |  |
-
-| `write_str` | function | write_str(s: &str, out: &mut String) |  |  |  |  |
-
-| `write_value` | function | write_value(v: &serde_json::Value, out: &mut String) |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/quality.rs
-
-| `Currency` | enum |  |  |  |  |  |
-
-| `QualityNote` | enum |  |  |  |  |  |
-
-| `bounds_wtl` | function | bounds_wtl(
-    rows: &[RawRow],
-    referee: &Referee,
-    bounds: &BestKnownBounds,
-    year_key: &str,
-    variant_suffix: &str,
-) |  |  |  |  |
-
-| `currency` | function | currency(&self) |  |  |  |  |
-
-| `l` | function | l(&self) |  |  |  |  |
-
-| `length_wtl` | function | length_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
-
-| `makespan_wtl` | function | makespan_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
-
-| `mean` | function | mean(&self) |  |  |  |  |
-
-| `n` | function | n(&self) |  |  |  |  |
-
-| `new` | function | new(scored: Option<Wtl>, fallback: impl Into<String>) |  |  |  |  |
-
-| `prefix` | function | prefix(self) |  |  |  |  |
-
-| `render` | function | render(&self) |  |  |  |  |
-
-| `t` | function | t(&self) |  |  |  |  |
-
-| `w` | function | w(&self) |  |  |  |  |
-
-| `Wtl` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/raw.rs
-
-| `Instance` | enum |  |  |  |  |  |
-
-| `Notes` | enum |  |  |  |  |  |
-
-| `as_num` | function | as_num(&self) |  |  |  |  |
-
-| `current` | function | current(solved: bool) |  |  |  |  |
-
-| `domain_key` | function | domain_key(&self) |  |  |  |  |
-
-| `note_text` | function | note_text(&self) |  |  |  |  |
-
-| `of` | function | of(o: &serde_json::Map<String, serde_json::Value>) |  |  |  |  |
-
-| `text` | function | text(&self) |  |  |  |  |
-
-| `time_secs` | function | time_secs(&self) |  |  |  |  |
-
-| `write_row` | function | write_row(r: &RawRow, out: &mut String) |  |  |  |  |
-
-| `Present` | struct |  |  |  |  |  |
-
-| `RawRow` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/referee.rs
-
-| `budget_for` | function | budget_for(&self, r: &RawRow, registry: f64) |  |  |  |  |
-
-| `classify` | function | classify(&self, r: &RawRow, registry_budget: f64) |  |  |  |  |
-
-| `contains` | function | contains(&self, r: &RawRow) |  |  |  |  |
-
-| `coverage` | function | coverage(&self, rows: &[RawRow], registry_budget: f64) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `is_solved` | function | is_solved(&self, r: &RawRow) |  |  |  |  |
-
-| `new` | function | new(val_unavailable: ValUnavailable) |  |  |  |  |
-
-| `Referee` | struct |  |  |  |  |  |
-
-| `ValUnavailable` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/render/detail.rs
-
-| `render` | function | render(ctx: &RenderCtx) |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/render/mod.rs
-
-| `CtxError` | enum |  |  |  |  |  |
-
-| `absent_cell` | function | absent_cell(&self, label: &str) |  |  |  |  |
-
-| `board` | function | board(&self, label: &str) |  |  |  |  |
-
-| `coverage_of` | function | coverage_of(&self, rows: &[RawRow], budget: f64) |  |  |  |  |
-
-| `data` | function | data(&self, label: &str) |  |  |  |  |
-
-| `load` | function | load(root: &Path, box_id: BoxId) |  |  |  |  |
-
-| `new` | function | new(
-        manifest: Manifest,
-        boards: Vec<BoardRows>,
-        referee: Referee,
-        archive: Ipc5Archive,
-        bounds: BestKnownBounds,
-        field: FieldBook,
-        history: History,
-        version: Option<String>,
-        box_id: BoxId,
-    ) |  |  |  |  |
-
-| `predecessor` | function | predecessor(&self) |  |  |  |  |
-
-| `proof_mark` | function | proof_mark(&self, label: &str) |  |  |  |  |
-
-| `split` | function | split(&self, label: &str, ipc: &str) |  |  |  |  |
-
-| `standings` | function | standings(&self) |  |  |  |  |
-
-| `BoardRows` | struct |  |  |  |  |  |
-
-| `LiveBoard` | struct |  |  |  |  |  |
-
-| `RenderCtx` | struct |  |  |  |  |  |
-
-| `Standings` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/render/readme.rs
-
-| `block` | function | block(ctx: &RenderCtx) |  |  |  |  |
-
-| `patch` | function | patch(readme_text: &str, block: &str) |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/render/summary.rs
-
-| `render` | function | render(ctx: &RenderCtx) |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/src/snapshot.rs
-
-| `SnapshotError` | enum |  |  |  |  |  |
-
-| `Source` | enum |  |  |  |  |  |
-
-| `bank` | function | bank(
-    root: &Path,
-    manifest: &Manifest,
-    referee: &Referee,
-    args: &Args,
-) |  |  |  |  |
-
-| `parse_args` | function | parse_args(argv: &[String], env_box: Option<&str>) |  |  |  |  |
-
-| `tracks` | function | tracks(
-    root: &Path,
-    manifest: &Manifest,
-    referee: &Referee,
-    source: &Source,
-) |  |  |  |  |
-
-| `write` | function | write(&self) |  |  |  |  |
-
-| `Args` | struct |  |  |  |  |  |
-
-| `Banked` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible-publish/tests/common/mod.rs
-
-| `incident` | function | incident(name: &str) |  |  |  |  |
-
-| `real_val_map` | function | real_val_map() |  |  |  |  |
-
-
-### crucible/crates/crucible/src/backfill.rs
-
-| `run` | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
-
-| `stage_for` | function | stage_for(ver: &str) |  |  |  |  |
-
-| `Opts` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/config.rs
-
-| `in_quiet_hours` | function | in_quiet_hours(&self, minutes_past_midnight: u32) |  |  |  |  |
-
-| `load` | function | load(path: &std::path::Path) |  |  |  |  |
-
-| `path` | function | path() |  |  |  |  |
-
-| `Config` | struct |  |  |  |  |  |
-
-| `Contention` | struct |  |  |  |  |  |
-
-| `Db` | struct |  |  |  |  |  |
-
-| `QuietHours` | struct |  |  |  |  |  |
-
-| `Referee` | struct |  |  |  |  |  |
-
-| `Repo` | struct |  |  |  |  |  |
-
-| `Scheduler` | struct |  |  |  |  |  |
-
-| `Sweep` | struct |  |  |  |  |  |
-
-| `Ui` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/monitor.rs
-
-| `compare` | function | compare(
-    repo: &Path,
-    cfg: &crate::config::Config,
-    set_name: &str,
-    a: &str,
-    b: &str,
-    select: &crate::select::Select,
-    lost: Option<&Path>,
-) |  |  |  |  |
-
-| `frame` | function | frame(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
-
-| `run` | function | run(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
-
-| `status` | function | status(
-    repo: &Path,
-    cfg: &crate::config::Config,
-    set_name: &str,
-    json: bool,
-) |  |  |  |  |
-
-
-### crucible/crates/crucible/src/out.rs
-
-| `flush_to_stdout` | function | flush_to_stdout() |  |  |  |  |
-
-| `is_quiet` | function | is_quiet() |  |  |  |  |
-
-| `quiet` | function | quiet(on: bool) |  |  |  |  |
-
-| `recent` | function | recent(n: usize) |  |  |  |  |
-
-| `say` | function | say(line: String) |  |  |  |  |
-
-| `tz_offset_secs` | function | tz_offset_secs() |  |  |  |  |
-
-
-### crucible/crates/crucible/src/repo.rs
-
-| `RepoError` | enum |  |  |  |  |  |
-
-| `build_planner` | function | build_planner(dir: &Path) |  |  |  |  |
-
-| `candidate_path` | function | candidate_path(repo: &Path) |  |  |  |  |
-
-| `probe` | function | probe(path: &Path) |  |  |  |  |
-
-| `require_version` | function | require_version(&self, want: &str) |  |  |  |  |
-
-| `short_hash` | function | short_hash(&self) |  |  |  |  |
-
-| `supports_mode` | function | supports_mode(&self, mode: &str) |  |  |  |  |
-
-| `worktree_for` | function | worktree_for(worktree_dir: &Path, tag: &str) |  |  |  |  |
-
-| `Engine` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/resident.rs
-
-| `run` | function | run(repo: &Path, cfg: &Config, o: Opts<'_>) |  |  |  |  |
-
-| `tags` | function | tags(repo: &Path) |  |  |  |  |
-
-| `Opts` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/select.rs
-
-| `Prior` | enum |  |  |  |  |  |
-
-| `admits` | function | admits(
-        &self,
-        variant: &str,
-        label: &str,
-        prior: &BTreeMap<String, (bool, Option<f64>) |  |  |  |  |
-
-| `describe` | function | describe(&self) |  |  |  |  |
-
-| `from_args` | function | from_args(a: &SelectArgs) |  |  |  |  |
-
-| `is_subset` | function | is_subset(&self) |  |  |  |  |
-
-| `needs_prior` | function | needs_prior(&self) |  |  |  |  |
-
-| `parse_rows` | function | parse_rows(src: &str) |  |  |  |  |
-
-| `stage` | function | stage(&self, repo: &Path, set: &str, engine_ver: &str, engine_hash: &str) |  |  |  |  |
-
-| `wants_board` | function | wants_board(&self, id: &str) |  |  |  |  |
-
-| `Select` | struct |  |  |  |  |  |
-
-| `SelectArgs` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/sweep.rs
-
-| `attach` | function | attach(&self, tx: mpsc::Sender<Ctl>) |  |  |  |  |
-
-| `attached` | function | attached(&self) |  |  |  |  |
-
-| `calibrate` | function | calibrate(
-        &mut self,
-        prior: Option<f64>,
-        record: &dyn Fn(f64) |  |  |  |  |
-
-| `canary` | function | canary(&self) |  |  |  |  |
-
-| `ctl_for` | function | ctl_for(from: Level, to: Level, demote_ok: bool) |  |  |  |  |
-
-| `demote_ok` | function | demote_ok(&self) |  |  |  |  |
-
-| `detach` | function | detach(&self, id: u64) |  |  |  |  |
-
-| `from_config` | function | from_config(c: &crate::config::Scheduler) |  |  |  |  |
-
-| `held` | function | held(&self) |  |  |  |  |
-
-| `hold` | function | hold(&self, on: bool) |  |  |  |  |
-
-| `label` | function | label(&self) |  |  |  |  |
-
-| `level` | function | level(&self) |  |  |  |  |
-
-| `new` | function | new(manifest: &'a Manifest, setup: Setup<'_>) |  |  |  |  |
-
-| `policy_mem_budget` | function | policy_mem_budget(mem_bytes: u64, at_the_box: bool, pack: &Pack) |  |  |  |  |
-
-| `policy_width` | function | policy_width(
-    level: Level,
-    quiet_hours: bool,
-    user_idle_secs: Option<f64>,
-    foreign_pcpu: f64,
-    pack: &Pack,
-) |  |  |  |  |
-
-| `read` | function | read(&mut self, on_spawn: Option<&dyn Fn(Pid, f64) |  |  |  |  |
-
-| `reason` | function | reason(&self) |  |  |  |  |
-
-| `resolve` | function | resolve(
-        repo: &Path,
-        engine: &Path,
-        engine_hash: &str,
-        r: &crate::config::Referee,
-    ) |  |  |  |  |
-
-| `run` | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
-
-| `run_engine` | function | run_engine(
-    repo: &Path,
-    cfg: &crate::config::Config,
-    o: Opts<'_>,
-    manifest: &Manifest,
-    engine: crate::repo::Engine,
-    stage: Option<PathBuf>,
-) |  |  |  |  |
-
-| `send` | function | send(&self, c: Ctl) |  |  |  |  |
-
-| `set_canary` | function | set_canary(&self, factor: f64) |  |  |  |  |
-
-| `set_demote_ok` | function | set_demote_ok(&self, on: bool) |  |  |  |  |
-
-| `set_level` | function | set_level(&self, level: Level, reason: Option<String>) |  |  |  |  |
-
-| `set_width` | function | set_width(&self, w: usize) |  |  |  |  |
-
-| `solo` | function | solo() |  |  |  |  |
-
-| `throttle_config` | function | throttle_config(c: &crate::config::Contention) |  |  |  |  |
-
-| `total_instances` | function | total_instances(&self) |  |  |  |  |
-
-| `width` | function | width(&self) |  |  |  |  |
-
-| `Canary` | struct |  |  |  |  |  |
-
-| `DbCtx` | struct |  |  |  |  |  |
-
-| `Opts` | struct |  |  |  |  |  |
-
-| `Pack` | struct |  |  |  |  |  |
-
-| `Progress` | struct |  |  |  |  |  |
-
-| `Running` | struct |  |  |  |  |  |
-
-| `Setup` | struct |  |  |  |  |  |
-
-| `Shared` | struct |  |  |  |  |  |
-
-| `SweepRunner` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/tui/app.rs
-
-| `Cell` | enum |  |  |  |  |  |
-
-| `Level` | enum |  |  |  |  |  |
-
-| `LogKind` | enum |  |  |  |  |  |
-
-| `Sort` | enum |  |  |  |  |  |
-
-| `View` | enum |  |  |  |  |  |
-
-| `back` | function | back(&mut self) |  |  |  |  |
-
-| `banked` | function | banked(self) |  |  |  |  |
-
-| `board` | function | board(&self) |  |  |  |  |
-
-| `cycle_sort` | function | cycle_sort(&mut self) |  |  |  |  |
-
-| `delta_secs` | function | delta_secs(&self) |  |  |  |  |
-
-| `dismiss_toasts` | function | dismiss_toasts(&mut self) |  |  |  |  |
-
-| `done` | function | done(&self) |  |  |  |  |
-
-| `enter` | function | enter(&mut self) |  |  |  |  |
-
-| `expire_toasts` | function | expire_toasts(&mut self, dwell: Duration) |  |  |  |  |
-
-| `frac` | function | frac(&self) |  |  |  |  |
-
-| `gain` | function | gain(&self) |  |  |  |  |
-
-| `gains` | function | gains(&self) |  |  |  |  |
-
-| `jump` | function | jump(&mut self, to_end: bool) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `move_selection` | function | move_selection(&mut self, delta: isize) |  |  |  |  |
-
-| `near_wall` | function | near_wall(&self) |  |  |  |  |
-
-| `next` | function | next(self) |  |  |  |  |
-
-| `owed` | function | owed(&self) |  |  |  |  |
-
-| `prev_solved` | function | prev_solved(&self) |  |  |  |  |
-
-| `rank` | function | rank(self) |  |  |  |  |
-
-| `regression` | function | regression(&self) |  |  |  |  |
-
-| `regressions` | function | regressions(&self) |  |  |  |  |
-
-| `rho` | function | rho(&self) |  |  |  |  |
-
-| `running` | function | running(&self) |  |  |  |  |
-
-| `selected_instance` | function | selected_instance(&self) |  |  |  |  |
-
-| `solve_secs` | function | solve_secs(&self) |  |  |  |  |
-
-| `solved` | function | solved(&self) |  |  |  |  |
-
-| `sorted_instances` | function | sorted_instances(&self) |  |  |  |  |
-
-| `strip` | function | strip(cells: &[InstanceCell], width: usize) |  |  |  |  |
-
-| `tally` | function | tally(&mut self) |  |  |  |  |
-
-| `toggle_timeline` | function | toggle_timeline(&mut self) |  |  |  |  |
-
-| `total` | function | total(&self) |  |  |  |  |
-
-| `AttemptRow` | struct |  |  |  |  |  |
-
-| `BoardRow` | struct |  |  |  |  |  |
-
-| `InstanceCell` | struct |  |  |  |  |  |
-
-| `InstanceDetail` | struct |  |  |  |  |  |
-
-| `LevelState` | struct |  |  |  |  |  |
-
-| `LogLine` | struct |  |  |  |  |  |
-
-| `Slot` | struct |  |  |  |  |  |
-
-| `SlotRun` | struct |  |  |  |  |  |
-
-| `Snapshot` | struct |  |  |  |  |  |
-
-| `StripCol` | struct |  |  |  |  |  |
-
-| `SweepProgress` | struct |  |  |  |  |  |
-
-| `Timeline` | struct |  |  |  |  |  |
-
-| `TimelinePoint` | struct |  |  |  |  |  |
-
-| `Toast` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/tui/banner.rs
-
-| `compact` | function | compact(text: &str) |  |  |  |  |
-
-| `render` | function | render(text: &str, max_width: usize) |  |  |  |  |
-
-
-### crucible/crates/crucible/src/tui/demo.rs
-
-| `detail` | function | detail() |  |  |  |  |
-
-| `snapshot` | function | snapshot(t: f64) |  |  |  |  |
-
-
-### crucible/crates/crucible/src/tui/draw.rs
-
-| `draw` | function | draw(f: &mut Frame, s: &Snapshot, th: &Theme, banner_text: &str) |  |  |  |  |
-
-
-### crucible/crates/crucible/src/tui/feed.rs
-
-| `new` | function | new(progress: Arc<Mutex<Progress>>, shared: Arc<Shared>) |  |  |  |  |
-
-| `next` | function | next(&mut self, prev: &Snapshot) |  |  |  |  |
-
-| `Feed` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/tui/run.rs
-
-| `Action` | enum |  |  |  |  |  |
-
-| `action_for` | function | action_for(k: KeyEvent, s: &mut Snapshot) |  |  |  |  |
-
-| `enter` | function | enter() |  |  |  |  |
-
-| `TerminalGuard` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/tui/theme.rs
-
-| `Depth` | enum |  |  |  |  |  |
-
-| `bar_cells` | function | bar_cells(&self) |  |  |  |  |
-
-| `detect` | function | detect() |  |  |  |  |
-
-| `forge` | function | forge() |  |  |  |  |
-
-| `glyph` | function | glyph(&self, unicode: &'static str, ascii: &'static str) |  |  |  |  |
-
-| `spark_cells` | function | spark_cells(&self) |  |  |  |  |
-
-| `unicode_ok` | function | unicode_ok() |  |  |  |  |
-
-| `Theme` | struct |  |  |  |  |  |
-
-
-### crucible/crates/crucible/src/tui/widget.rs
-
-| `bar` | function | bar(theme: &Theme, frac: f64, width: usize) |  |  |  |  |
-
-| `duration` | function | duration(secs: u64) |  |  |  |  |
-
-| `ellipsize` | function | ellipsize(s: &str, width: usize) |  |  |  |  |
-
-| `spark` | function | spark(theme: &Theme, values: &[f64], width: usize) |  |  |  |  |
-
-| `until` | function | until(secs: u64) |  |  |  |  |
+| `Sizes` | struct | Sizes { pub types: usize, pub preds: usize, pub tasks: usize, pub actions: usize, pub objects: usize, pub subs: usize, pub root_subs: usize } |  |  |  |  |
 
 
 
@@ -5000,77 +2801,49 @@
 
 | `advance` | function | advance(time: Res<Time>, mut plan: ResMut<Plan>) |  |  |  |  |
 
-| `animate` | function | animate(
-    plan: Res<Plan>,
-    scene: Res<Scene>,
-    nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
+| `animate` | function | animate( plan: Res<Plan>, scene: Res<Scene>, nodes: Query<(&NodeObj, &Transform)>, mut mobiles: Query<(&MobileObj, &FanOffset, &mut Transform), Without<NodeObj>>, ) |  |  |  |  |
 
-| `controls` | function | controls(
-    keys: Res<ButtonInput<KeyCode>>,
-    scene: Res<Scene>,
-    editor: Res<crate::blocks::Editor>,
-    mut plan: ResMut<Plan>,
-    mut job: ResMut<SolveJob>,
-) |  |  |  |  |
+| `controls` | function | controls( keys: Res<ButtonInput<KeyCode>>, scene: Res<Scene>, editor: Res<crate::blocks::Editor>, mut plan: ResMut<Plan>, mut job: ResMut<SolveJob>, ) |  |  |  |  |
 
-| `frac` | function | frac(&self) |  |  |  |  |
+| `frac` | function | frac(&self) -> f32 |  |  |  |  |
 
 | `poll_solve` | function | poll_solve(mut job: ResMut<SolveJob>, mut plan: ResMut<Plan>) |  |  |  |  |
 
-| `span` | function | span(&self) |  |  |  |  |
+| `span` | function | span(&self) -> f32 |  |  |  |  |
 
-| `start_frac` | function | start_frac(&self, step: &Step, idx: usize) |  |  |  |  |
+| `start_frac` | function | start_frac(&self, step: &Step, idx: usize) -> f32 |  |  |  |  |
 
-| `Plan` | struct |  |  |  |  |  |
+| `Plan` | struct | Plan { pub steps: Vec<Step>, pub snapshots: Vec<StateSnapshot>, pub t: f32, pub playing: bool, pub status: String, pub temporal: bool, pub makespan: f32 } |  |  |  |  |
 
-| `SolveJob` | struct |  |  |  |  |  |
+| `SolveJob` | struct | SolveJob { Option<Task<SolveResult>> } |  |  |  |  |
 
-| `Act` | enum |  |  |  |  |  |
+| `Act` | enum | Act { AddObject, RemoveObject(usize), CycleType(usize), AddFact(bool), RemoveFact(bool, usize), CyclePred(bool, usize), CycleArg(bool, usize, usize), AddType, RemoveType(usize), CycleSuper(usize), AddPred, RemovePred(usize), AddArg(usize), RemoveArg(usize), CycleArgType(usize, usize), AddAction, RemoveAction(usize), AddParam(usize), RemoveParam(usize), CycleParamType(usize, usize), TogglePreKind(usize), AddWhen(usize), RemoveWhen(usize, usize), AddLit(usize, LitLoc), RemoveLit(usize, LitLoc, usize), CycleLitPred(usize, LitLoc, usize), CycleLitArg(usize, LitLoc, usize, usize), ToggleNeg(usize, LitLoc, usize), SetFocus(Focus), ToggleMode, Apply, Export, Close } |  |  |  |  |
 
-| `DragKind` | enum |  |  |  |  |  |
+| `DragKind` | enum | DragKind { Init(usize), Goal(usize) } |  |  |  |  |
 
-| `Focus` | enum |  |  |  |  |  |
+| `Focus` | enum | Focus { DomainName, TypeName(usize), PredName(usize), ActionName(usize) } |  |  |  |  |
 
-| `LitLoc` | enum |  |  |  |  |  |
+| `LitLoc` | enum | LitLoc { Pre, Eff, WhenCond(usize), WhenEff(usize) } |  |  |  |  |
 
-| `Mode` | enum |  |  |  |  |  |
+| `Mode` | enum | Mode { Problem, Domain } |  |  |  |  |
 
-| `Zone` | enum |  |  |  |  |  |
+| `Zone` | enum | Zone { Init, Goal } |  |  |  |  |
 
-| `editor_drag` | function | editor_drag(
-    mouse: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    mut drag: ResMut<Drag>,
-    mut editor: ResMut<Editor>,
-    grips: Query<(&DragKind, &RelativeCursorPosition) |  |  |  |  |
+| `editor_drag` | function | editor_drag( mouse: Res<ButtonInput<MouseButton>>, windows: Query<&Window>, mut drag: ResMut<Drag>, mut editor: ResMut<Editor>, grips: Query<(&DragKind, &RelativeCursorPosition)>, zones: Query<(&Zone, &RelativeCursorPosition)>, mut ghosts: Query<&mut Node, With<Ghost>>, mut commands: Commands, ) |  |  |  |  |
 
-| `handle_clicks` | function | handle_clicks(
-    interactions: Query<(&Interaction, &Act) |  |  |  |  |
+| `handle_clicks` | function | handle_clicks( interactions: Query<(&Interaction, &Act), (Changed<Interaction>, With<Button>)>, mut editor: ResMut<Editor>, mut scene: ResMut<Scene>, ) |  |  |  |  |
 
-| `rebuild` | function | rebuild(
-    mut commands: Commands,
-    mut editor: ResMut<Editor>,
-    roots: Query<Entity, With<EditorRoot>>,
-) |  |  |  |  |
+| `rebuild` | function | rebuild( mut commands: Commands, mut editor: ResMut<Editor>, roots: Query<Entity, With<EditorRoot>>, ) |  |  |  |  |
 
-| `scroll_editor` | function | scroll_editor(
-    mut wheel: MessageReader<MouseWheel>,
-    keys: Res<ButtonInput<KeyCode>>,
-    editor: Res<Editor>,
-    mut q: Query<&mut ScrollPosition, With<EditorRoot>>,
-) |  |  |  |  |
+| `scroll_editor` | function | scroll_editor( mut wheel: MessageReader<MouseWheel>, keys: Res<ButtonInput<KeyCode>>, editor: Res<Editor>, mut q: Query<&mut ScrollPosition, With<EditorRoot>>, ) |  |  |  |  |
 
 | `text_input` | function | text_input(mut evr: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>) |  |  |  |  |
 
-| `toggle_editor` | function | toggle_editor(
-    keys: Res<ButtonInput<KeyCode>>,
-    scene: Res<Scene>,
-    mut editor: ResMut<Editor>,
-) |  |  |  |  |
+| `toggle_editor` | function | toggle_editor( keys: Res<ButtonInput<KeyCode>>, scene: Res<Scene>, mut editor: ResMut<Editor>, ) |  |  |  |  |
 
-| `Drag` | struct |  |  |  |  |  |
+| `Drag` | struct | Drag { held: Option<DragKind>, ghost: Option<Entity> } |  |  |  |  |
 
-| `Editor` | struct |  |  |  |  |  |
+| `Editor` | struct | Editor { pub open: bool, pub focus: Option<Focus>, mode: Mode, dirty: bool, status: String, problem_name: String, objects: Vec<(String, String)>, init: Vec<(String, Vec<String>)>, goal: Vec<(String, Vec<String>)>, counters: HashMap<String, u32>, seeded: bool, dname: String, requirements: String, types: Vec<(String, String)>, dpreds: Vec<(String, Vec<String>)>, actions: Vec<EdAction>, dseeded: bool } |  |  |  |  |
 
 | `EditorRoot` | struct |  |  |  |  |  |
 
@@ -5078,28 +2851,13 @@
 
 | `gantt_now` | function | gantt_now(plan: Res<Plan>, mut now: Query<&mut Node, With<GanttNow>>) |  |  |  |  |
 
-| `gantt_visibility` | function | gantt_visibility(
-    plan: Res<Plan>,
-    state: Res<GanttState>,
-    editor: Res<crate::blocks::Editor>,
-    mut panel: Query<&mut Visibility, With<GanttPanel>>,
-) |  |  |  |  |
+| `gantt_visibility` | function | gantt_visibility( plan: Res<Plan>, state: Res<GanttState>, editor: Res<crate::blocks::Editor>, mut panel: Query<&mut Visibility, With<GanttPanel>>, ) |  |  |  |  |
 
-| `rebuild_gantt` | function | rebuild_gantt(
-    mut commands: Commands,
-    plan: Res<Plan>,
-    mut state: ResMut<GanttState>,
-    track: Query<Entity, With<GanttTrack>>,
-    bars: Query<Entity, With<GanttBar>>,
-) |  |  |  |  |
+| `rebuild_gantt` | function | rebuild_gantt( mut commands: Commands, plan: Res<Plan>, mut state: ResMut<GanttState>, track: Query<Entity, With<GanttTrack>>, bars: Query<Entity, With<GanttBar>>, ) |  |  |  |  |
 
 | `setup_gantt` | function | setup_gantt(mut commands: Commands) |  |  |  |  |
 
-| `toggle_gantt` | function | toggle_gantt(
-    keys: Res<ButtonInput<KeyCode>>,
-    editor: Res<crate::blocks::Editor>,
-    mut state: ResMut<GanttState>,
-) |  |  |  |  |
+| `toggle_gantt` | function | toggle_gantt( keys: Res<ButtonInput<KeyCode>>, editor: Res<crate::blocks::Editor>, mut state: ResMut<GanttState>, ) |  |  |  |  |
 
 | `GanttBar` | struct |  |  |  |  |  |
 
@@ -5107,102 +2865,97 @@
 
 | `GanttPanel` | struct |  |  |  |  |  |
 
-| `GanttState` | struct |  |  |  |  |  |
+| `GanttState` | struct | GanttState { pub open: bool, built_for: usize, built_span: f32 } |  |  |  |  |
 
 | `GanttTrack` | struct |  |  |  |  |  |
 
-| `IconShape` | enum |  |  |  |  |  |
+| `IconShape` | enum | IconShape { Circle, Truck, Box, Person, Robot, Machine, Diamond } |  |  |  |  |
 
-| `color_for` | function | color_for(ty: &str) |  |  |  |  |
+| `color_for` | function | color_for(ty: &str) -> Color |  |  |  |  |
 
-| `mat_handle` | function | mat_handle(
-    materials: &mut Assets<ColorMaterial>,
-    cache: &mut MatCache,
-    color: Color,
-) |  |  |  |  |
+| `mat_handle` | function | mat_handle( materials: &mut Assets<ColorMaterial>, cache: &mut MatCache, color: Color, ) -> Handle<ColorMaterial> |  |  |  |  |
 
-| `mesh_handle` | function | mesh_handle(
-    meshes: &mut Assets<Mesh>,
-    cache: &mut MeshCache,
-    shape: IconShape,
-    size: f32,
-) |  |  |  |  |
+| `mesh_handle` | function | mesh_handle( meshes: &mut Assets<Mesh>, cache: &mut MeshCache, shape: IconShape, size: f32, ) -> Handle<Mesh> |  |  |  |  |
 
-| `shape_for` | function | shape_for(ty: &str) |  |  |  |  |
+| `shape_for` | function | shape_for(ty: &str) -> IconShape |  |  |  |  |
 
-| `draw_selection` | function | draw_selection(
-    mut gizmos: Gizmos,
-    selected: Res<Selected>,
-    nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
+| `draw_selection` | function | draw_selection( mut gizmos: Gizmos, selected: Res<Selected>, nodes: Query<(&NodeObj, &Transform)>, mobiles: Query<(&MobileObj, &Transform), Without<NodeObj>>, ) |  |  |  |  |
 
-| `interact` | function | interact(
-    mouse: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    editor: Res<crate::blocks::Editor>,
-    cam_q: Query<(&Camera, &GlobalTransform) |  |  |  |  |
+| `interact` | function | interact( mouse: Res<ButtonInput<MouseButton>>, windows: Query<&Window>, editor: Res<crate::blocks::Editor>, cam_q: Query<(&Camera, &GlobalTransform), With<MainCamera>>, mut nodes: Query<(Entity, &NodeObj, &mut Transform)>, mobiles: Query<(&MobileObj, &Transform), Without<NodeObj>>, transport: Res<crate::transport::Transport>, mut selected: ResMut<Selected>, mut drag: ResMut<DragState>, ) |  |  |  |  |
 
-| `DragState` | struct |  |  |  |  |  |
+| `DragState` | struct | DragState { node: Option<Entity> } |  |  |  |  |
 
-| `Selected` | struct |  |  |  |  |  |
+| `Selected` | struct | Selected { pub Option<String> } |  |  |  |  |
 
-| `camera_nav` | function | camera_nav(
-    mouse: Res<ButtonInput<MouseButton>>,
-    editor: Res<crate::blocks::Editor>,
-    mut motion: MessageReader<bevy::input::mouse::MouseMotion>,
-    mut wheel: MessageReader<MouseWheel>,
-    mut cam: Query<(&mut Transform, &mut Projection) |  |  |  |  |
+| `ACC` | const | ACC: Color |  |  |  |  |
 
-| `draw_edges` | function | draw_edges(
-    mut gizmos: Gizmos,
-    scene: Res<Scene>,
-    plan: Res<crate::anim::Plan>,
-    nodes: Query<(&NodeObj, &Transform) |  |  |  |  |
+| `BG` | const | BG: Color |  |  |  |  |
+
+| `BG2` | const | BG2: Color |  |  |  |  |
+
+| `CRATE_AMBER` | const | CRATE_AMBER: Color |  |  |  |  |
+
+| `CY` | const | CY: Color |  |  |  |  |
+
+| `EDGE` | const | EDGE: Color |  |  |  |  |
+
+| `EDGE2` | const | EDGE2: Color |  |  |  |  |
+
+| `FAINT` | const | FAINT: Color |  |  |  |  |
+
+| `GREY_NODE` | const | GREY_NODE: Color |  |  |  |  |
+
+| `INK` | const | INK: Color |  |  |  |  |
+
+| `MUT` | const | MUT: Color |  |  |  |  |
+
+| `NODE_PURPLE` | const | NODE_PURPLE: Color |  |  |  |  |
+
+| `PANEL` | const | PANEL: Color |  |  |  |  |
+
+| `PANEL2` | const | PANEL2: Color |  |  |  |  |
+
+| `PANEL_BLUR` | const | PANEL_BLUR: Color |  |  |  |  |
+
+| `RIG_GREEN` | const | RIG_GREEN: Color |  |  |  |  |
+
+| `ZONE` | const | ZONE: Color |  |  |  |  |
+
+| `MOBILE_SIZE` | const | MOBILE_SIZE: f32 |  |  |  |  |
+
+| `NODE_SIZE` | const | NODE_SIZE: f32 |  |  |  |  |
+
+| `camera_nav` | function | camera_nav( mouse: Res<ButtonInput<MouseButton>>, editor: Res<crate::blocks::Editor>, mut motion: MessageReader<bevy::input::mouse::MouseMotion>, mut wheel: MessageReader<MouseWheel>, mut cam: Query<(&mut Transform, &mut Projection), With<MainCamera>>, ) |  |  |  |  |
+
+| `draw_edges` | function | draw_edges( mut gizmos: Gizmos, scene: Res<Scene>, plan: Res<crate::anim::Plan>, nodes: Query<(&NodeObj, &Transform)>, ) |  |  |  |  |
 
 | `handle_drops` | function | handle_drops(mut drops: MessageReader<FileDragAndDrop>, mut scene: ResMut<Scene>) |  |  |  |  |
 
 | `load_src` | function | load_src(&mut self, src: &str) |  |  |  |  |
 
-| `respawn_graph` | function | respawn_graph(
-    mut commands: Commands,
-    mut scene: ResMut<Scene>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    existing: Query<Entity, With<GraphItem>>,
-) |  |  |  |  |
+| `respawn_graph` | function | respawn_graph( mut commands: Commands, mut scene: ResMut<Scene>, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<ColorMaterial>>, existing: Query<Entity, With<GraphItem>>, ) |  |  |  |  |
 
 | `setup` | function | setup(mut commands: Commands) |  |  |  |  |
 
-| `FanOffset` | struct |  |  |  |  |  |
+| `FanOffset` | struct | FanOffset { pub Vec2 } |  |  |  |  |
 
 | `GraphItem` | struct |  |  |  |  |  |
 
 | `MainCamera` | struct |  |  |  |  |  |
 
-| `MobileObj` | struct |  |  |  |  |  |
+| `MobileObj` | struct | MobileObj { pub String } |  |  |  |  |
 
-| `NodeObj` | struct |  |  |  |  |  |
+| `NodeObj` | struct | NodeObj { pub String } |  |  |  |  |
 
-| `Scene` | struct |  |  |  |  |  |
+| `Scene` | struct | Scene { pub domain: Option<Domain>, pub problem: Option<Problem>, pub domain_src: String, pub problem_src: String, pub graph: VizGraph, pub dirty: bool, pub status: String } |  |  |  |  |
 
-| `rebuild_notches` | function | rebuild_notches(
-    mut commands: Commands,
-    plan: Res<Plan>,
-    mut state: ResMut<Transport>,
-    track: Query<Entity, With<ScrubTrack>>,
-    notches: Query<Entity, With<StepNotch>>,
-) |  |  |  |  |
+| `rebuild_notches` | function | rebuild_notches( mut commands: Commands, plan: Res<Plan>, mut state: ResMut<Transport>, track: Query<Entity, With<ScrubTrack>>, notches: Query<Entity, With<StepNotch>>, ) |  |  |  |  |
 
 | `setup_transport` | function | setup_transport(mut commands: Commands) |  |  |  |  |
 
-| `transport_input` | function | transport_input(
-    mouse: Res<ButtonInput<MouseButton>>,
-    mut transport: ResMut<Transport>,
-    mut plan: ResMut<Plan>,
-    play_btn: Query<&Interaction, (With<PlayButton>, Changed<Interaction>) |  |  |  |  |
+| `transport_input` | function | transport_input( mouse: Res<ButtonInput<MouseButton>>, mut transport: ResMut<Transport>, mut plan: ResMut<Plan>, play_btn: Query<&Interaction, (With<PlayButton>, Changed<Interaction>)>, track: Query<(&Interaction, &RelativeCursorPosition), With<ScrubTrack>>, ) |  |  |  |  |
 
-| `transport_sync` | function | transport_sync(
-    plan: Res<Plan>,
-    mut fill: Query<&mut Node, (With<ScrubFill>, Without<Playhead>) |  |  |  |  |
+| `transport_sync` | function | transport_sync( plan: Res<Plan>, mut fill: Query<&mut Node, (With<ScrubFill>, Without<Playhead>)>, mut head: Query<&mut Node, (With<Playhead>, Without<ScrubFill>)>, mut icon: Query<&mut Text, (With<PlayIcon>, Without<TransportLabel>)>, mut label: Query<&mut Text, (With<TransportLabel>, Without<PlayIcon>)>, ) |  |  |  |  |
 
 | `transport_visibility` | function | transport_visibility(plan: Res<Plan>, mut bar: Query<&mut Visibility, With<TransportBar>>) |  |  |  |  |
 
@@ -5218,7 +2971,7 @@
 
 | `StepNotch` | struct |  |  |  |  |  |
 
-| `Transport` | struct |  |  |  |  |  |
+| `Transport` | struct | Transport { pub hovering: bool, built_for: usize } |  |  |  |  |
 
 | `TransportBar` | struct |  |  |  |  |  |
 
@@ -5226,605 +2979,607 @@
 
 | `setup_ui` | function | setup_ui(mut commands: Commands) |  |  |  |  |
 
-| `update_info` | function | update_info(
-    scene: Res<Scene>,
-    selected: Res<Selected>,
-    plan: Res<Plan>,
-    mut q: Query<&mut Text, With<InfoText>>,
-) |  |  |  |  |
+| `update_info` | function | update_info( scene: Res<Scene>, selected: Res<Selected>, plan: Res<Plan>, mut q: Query<&mut Text, With<InfoText>>, ) |  |  |  |  |
 
 | `InfoText` | struct |  |  |  |  |  |
 
-| `ModeArg` | enum |  |  |  |  |  |
+| `FF_THREADS` | const | FF_THREADS: usize |  |  |  |  |
 
-| `ObjectiveArg` | enum |  |  |  |  |  |
+| `FF_WEIGHT_G` | const | FF_WEIGHT_G: f64 |  |  |  |  |
 
-| `SearchArg` | enum |  |  |  |  |  |
+| `FF_WEIGHT_H` | const | FF_WEIGHT_H: f64 |  |  |  |  |
 
-| `compile_pack` | function | compile_pack(pack: &ObservationPack, output_dir: &Path) |  |  |  |  |
+| `PPDDL_DISCOUNT` | const | PPDDL_DISCOUNT: f64 |  |  |  |  |
 
-| `replay_pack` | function | replay_pack(
-    pack: &ObservationPack,
-    expected: &HarvestReceipt,
-    output_dir: &Path,
-) |  |  |  |  |
+| `PPDDL_EPISODES` | const | PPDDL_EPISODES: usize |  |  |  |  |
 
-| `extract_operators` | function | extract_operators(report: &AdmissionReport) |  |  |  |  |
+| `PPDDL_EPSILON` | const | PPDDL_EPSILON: f64 |  |  |  |  |
 
-| `collect_with_gh` | function | collect_with_gh(
-    repositories: &[String],
-    window: ObservationWindow,
-    max_pages: usize,
-) |  |  |  |  |
+| `PPDDL_HORIZON` | const | PPDDL_HORIZON: usize |  |  |  |  |
 
-| `admit` | function | admit(pack: &ObservationPack) |  |  |  |  |
+| `PPDDL_MAX_INITIAL_OUTCOMES` | const | PPDDL_MAX_INITIAL_OUTCOMES: usize |  |  |  |  |
 
-| `digest_bytes` | function | digest_bytes(bytes: &[u8]) |  |  |  |  |
+| `PPDDL_MAX_ITERATIONS` | const | PPDDL_MAX_ITERATIONS: usize |  |  |  |  |
 
-| `load_observation_pack` | function | load_observation_pack(path: &Path) |  |  |  |  |
+| `PPDDL_MAX_OUTCOMES_PER_ACTION` | const | PPDDL_MAX_OUTCOMES_PER_ACTION: usize |  |  |  |  |
 
-| `load_receipt` | function | load_receipt(path: &Path) |  |  |  |  |
+| `PPDDL_MAX_POLICY_ENTRIES` | const | PPDDL_MAX_POLICY_ENTRIES: usize |  |  |  |  |
 
-| `receipt_exit_code` | function | receipt_exit_code(receipt: &HarvestReceipt) |  |  |  |  |
+| `PPDDL_MAX_STATES` | const | PPDDL_MAX_STATES: usize |  |  |  |  |
 
-| `save_observation_pack` | function | save_observation_pack(path: &Path, pack: &ObservationPack) |  |  |  |  |
+| `PPDDL_MAX_TRANSITIONS` | const | PPDDL_MAX_TRANSITIONS: usize |  |  |  |  |
 
-| `validate_pack` | function | validate_pack(pack: &ObservationPack) |  |  |  |  |
+| `PPDDL_MAX_VALUE_CELLS` | const | PPDDL_MAX_VALUE_CELLS: usize |  |  |  |  |
 
-| `validate_window` | function | validate_window(window: &ObservationWindow) |  |  |  |  |
+| `PPDDL_SEED` | const | PPDDL_SEED: u64 |  |  |  |  |
 
-| `ActuationClass` | enum |  |  |  |  |  |
+| `PPDDL_SIMULATION_MAX_STEPS` | const | PPDDL_SIMULATION_MAX_STEPS: usize |  |  |  |  |
 
-| `AdmissionLevel` | enum |  |  |  |  |  |
+| `PPDDL_THREADS` | const | PPDDL_THREADS: usize |  |  |  |  |
 
-| `ExecutionResult` | enum |  |  |  |  |  |
+| `ModeArg` | enum | ModeArg { Auto, Ff, Partition, Pddl3, Temporal, Portfolio, Optimal, Sat } |  |  |  |  |
 
-| `FinalState` | enum |  |  |  |  |  |
+| `ObjectiveArg` | enum | ObjectiveArg { Auto, MaximizeGoalProbability, MinimizeGoalProbability, MaximizeExpectedReward, MinimizeExpectedReward, MaximizeExpectedMetric, MinimizeExpectedMetric } |  |  |  |  |
 
-| `GallCheckpoint` | enum |  |  |  |  |  |
+| `SearchArg` | enum | SearchArg { Auto, Ehc, BestFirst, EhcThenBestFirst } |  |  |  |  |
 
-| `RefusalCode` | enum |  |  |  |  |  |
+| `compile_pack` | function | compile_pack(pack: &ObservationPack, output_dir: &Path) -> Result<HarvestReceipt> |  |  |  |  |
 
-| `ReplayState` | enum |  |  |  |  |  |
+| `replay_pack` | function | replay_pack( pack: &ObservationPack, expected: &HarvestReceipt, output_dir: &Path, ) -> Result<HarvestReceipt> |  |  |  |  |
 
-| `AdmissionReport` | struct |  |  |  |  |  |
+| `extract_operators` | function | extract_operators(report: &AdmissionReport) -> Vec<PlanningOperator> |  |  |  |  |
 
-| `AdmittedWork` | struct |  |  |  |  |  |
+| `collect_with_gh` | function | collect_with_gh( repositories: &[String], window: ObservationWindow, max_pages: usize, ) -> Result<ObservationPack> |  |  |  |  |
 
-| `ArtifactEvidence` | struct |  |  |  |  |  |
+| `admit` | function | admit(pack: &ObservationPack) -> AdmissionReport |  |  |  |  |
 
-| `EvidenceRef` | struct |  |  |  |  |  |
+| `digest_bytes` | function | digest_bytes(bytes: &[u8]) -> String |  |  |  |  |
 
-| `ExcludedWork` | struct |  |  |  |  |  |
+| `load_observation_pack` | function | load_observation_pack(path: &Path) -> Result<ObservationPack> |  |  |  |  |
 
-| `ExecutionEvidence` | struct |  |  |  |  |  |
+| `load_receipt` | function | load_receipt(path: &Path) -> Result<HarvestReceipt> |  |  |  |  |
 
-| `HarvestReceipt` | struct |  |  |  |  |  |
+| `receipt_exit_code` | function | receipt_exit_code(receipt: &HarvestReceipt) -> i32 |  |  |  |  |
 
-| `MethodCatalog` | struct |  |  |  |  |  |
+| `save_observation_pack` | function | save_observation_pack(path: &Path, pack: &ObservationPack) -> Result<()> |  |  |  |  |
 
-| `ObservationPack` | struct |  |  |  |  |  |
+| `validate_pack` | function | validate_pack(pack: &ObservationPack) -> Result<()> |  |  |  |  |
 
-| `ObservationWindow` | struct |  |  |  |  |  |
+| `validate_window` | function | validate_window(window: &ObservationWindow) -> Result<()> |  |  |  |  |
 
-| `ObservedOutcome` | struct |  |  |  |  |  |
+| `compile::{compile_pack, replay_pack}` | use | compile::{compile_pack, replay_pack} |  |  |  |  |
 
-| `ObservedWorkItem` | struct |  |  |  |  |  |
+| `extract::extract_operators` | use | extract::extract_operators |  |  |  |  |
 
-| `OperatorOutcome` | struct |  |  |  |  |  |
+| `gh::collect_with_gh` | use | gh::collect_with_gh |  |  |  |  |
 
-| `OutputArtifact` | struct |  |  |  |  |  |
+| `model::*` | use | model::* |  |  |  |  |
 
-| `PlanningOperator` | struct |  |  |  |  |  |
+| `ADMISSION_SCHEMA` | const | ADMISSION_SCHEMA: &str |  |  |  |  |
 
-| `SourceRevision` | struct |  |  |  |  |  |
+| `CATALOG_SCHEMA` | const | CATALOG_SCHEMA: &str |  |  |  |  |
 
-| `TransportFailure` | struct |  |  |  |  |  |
+| `OBSERVATION_SCHEMA` | const | OBSERVATION_SCHEMA: &str |  |  |  |  |
 
-| `ValidationRecord` | struct |  |  |  |  |  |
+| `RECEIPT_SCHEMA` | const | RECEIPT_SCHEMA: &str |  |  |  |  |
 
-| `ValidationSummary` | struct |  |  |  |  |  |
+| `ActuationClass` | enum | ActuationClass { Select, Construct, Do, HookIntent } |  |  |  |  |
 
-| `validate_pair` | function | validate_pair(domain_src: &str, problem_src: &str) |  |  |  |  |
+| `AdmissionLevel` | enum | AdmissionLevel { Observed, IdentityResolved, ExecutionObserved, ResultCorroborated, ReceiptVerified, ReplayVerified } |  |  |  |  |
 
-| `validate_paths` | function | validate_paths(domain_path: &str, problem_path: &str) |  |  |  |  |
+| `ExecutionResult` | enum | ExecutionResult { Pass, Fail, Cancelled, Pending, Unknown } |  |  |  |  |
 
-| `Summary` | struct |  |  |  |  |  |
+| `FinalState` | enum | FinalState { PartialAlive, Alive, Blocked, BuildBroken, Unknown, Unsupported } |  |  |  |  |
 
-| `Effect` | enum |  |  |  |  |  |
+| `GallCheckpoint` | enum | GallCheckpoint { G0Orient, G1Fence, G2Observe, G3Admit, G4Plan, G5Manufacture, G6Verify, G7Replay, G8ReleaseAdmission, G9SunsetAdmission } |  |  |  |  |
 
-| `GoalDesc` | enum |  |  |  |  |  |
+| `RefusalCode` | enum | RefusalCode { MissingExactSourceIdentity, OutsideObservationWindow, MissingChangedPaths, ExecutionNotObserved, WorkflowRunNotBoundToHead, ProbabilityEvidenceMissing, InvalidProbability, ProbabilityMassExceeded, OperatorBoundExceeded } |  |  |  |  |
 
-| `Literal` | enum |  |  |  |  |  |
+| `ReplayState` | enum | ReplayState { NotExecuted, ReplayMatch, ReplayMismatch } |  |  |  |  |
 
-| `NumericValue` | enum |  |  |  |  |  |
+| `AdmissionReport` | struct | AdmissionReport { pub schema: String, pub admitted: Vec<AdmittedWork>, pub excluded: Vec<ExcludedWork>, pub unresolved_transport_failures: Vec<TransportFailure> } |  |  |  |  |
 
-| `Term` | enum |  |  |  |  |  |
+| `AdmittedWork` | struct | AdmittedWork { pub identity: String, pub level: AdmissionLevel, pub work: ObservedWorkItem, pub evidence: Vec<EvidenceRef> } |  |  |  |  |
 
-| `ActionDef` | struct |  |  |  |  |  |
+| `ArtifactEvidence` | struct | ArtifactEvidence { pub name: String, pub source_sha: String, pub evidence_url: String, pub digest: Option<String>, pub size_bytes: Option<u64> } |  |  |  |  |
 
-| `AtomicFormula` | struct |  |  |  |  |  |
+| `EvidenceRef` | struct | EvidenceRef { pub kind: String, pub identity: String, pub location: String } |  |  |  |  |
 
-| `ConstraintDef` | struct |  |  |  |  |  |
+| `ExcludedWork` | struct | ExcludedWork { pub identity: String, pub code: RefusalCode, pub detail: String } |  |  |  |  |
 
-| `Domain` | struct |  |  |  |  |  |
+| `ExecutionEvidence` | struct | ExecutionEvidence { pub surface: String, pub command: String, pub source_sha: String, pub result: ExecutionResult, pub exit_code: Option<i32>, pub observed_at_utc: String, pub evidence_url: String } |  |  |  |  |
 
-| `MethodDef` | struct |  |  |  |  |  |
+| `HarvestReceipt` | struct | HarvestReceipt { pub schema: String, pub run_id: String, pub receipt_digest: String, pub source_pack_digest: String, pub catalog_digest: String, pub source_revisions: Vec<SourceRevision>, pub source_work: Vec<String>, pub admitted_work: Vec<String>, pub excluded_work: Vec<ExcludedWork>, pub operators_added: Vec<String>, pub operators_deduplicated: usize, pub probabilistic_operators: usize, pub outputs: Vec<OutputArtifact>, pub validation: ValidationSummary, pub replay: ReplayState, pub generated_outputs_hand_edited: bool, pub transport_failures: Vec<TransportFailure>, pub failures: Vec<String>, pub exclusions: Vec<String>, pub final_state: FinalState } |  |  |  |  |
 
-| `NumericFluentDecl` | struct |  |  |  |  |  |
+| `MethodCatalog` | struct | MethodCatalog { pub schema: String, pub run_id: String, pub source_pack_digest: String, pub raw_operator_count: usize, pub operator_count: usize, pub operators: Vec<PlanningOperator> } |  |  |  |  |
 
-| `OrderEdge` | struct |  |  |  |  |  |
+| `ObservationPack` | struct | ObservationPack { pub schema: String, pub run_id: String, pub window: ObservationWindow, pub repositories: Vec<String>, pub work_items: Vec<ObservedWorkItem>, pub transport_failures: Vec<TransportFailure> } |  |  |  |  |
 
-| `PredicateDef` | struct |  |  |  |  |  |
+| `ObservationWindow` | struct | ObservationWindow { pub start_utc: String, pub end_exclusive_utc: String, pub timezone: String } |  |  |  |  |
 
-| `Problem` | struct |  |  |  |  |  |
+| `ObservedOutcome` | struct | ObservedOutcome { pub label: String, pub probability: f64, pub success: bool, pub evidence: Vec<EvidenceRef> } |  |  |  |  |
 
-| `Subtask` | struct |  |  |  |  |  |
+| `ObservedWorkItem` | struct | ObservedWorkItem { pub repository: String, pub sha: String, pub parent_sha: Option<String>, pub message: String, pub committed_at_utc: String, pub source_url: String, pub changed_paths: Vec<String>, pub executions: Vec<ExecutionEvidence>, pub artifacts: Vec<ArtifactEvidence>, pub probabilistic_outcomes: Vec<ObservedOutcome> } |  |  |  |  |
 
-| `TaskCall` | struct |  |  |  |  |  |
+| `OperatorOutcome` | struct | OperatorOutcome { pub label: String, pub probability: f64, pub success: bool, pub evidence: Vec<EvidenceRef> } |  |  |  |  |
 
-| `TaskDef` | struct |  |  |  |  |  |
+| `OutputArtifact` | struct | OutputArtifact { pub path: String, pub bytes: usize, pub blake3: String } |  |  |  |  |
 
-| `TaskNetwork` | struct |  |  |  |  |  |
+| `PlanningOperator` | struct | PlanningOperator { pub id: String, pub name: String, pub signature: String, pub checkpoint: GallCheckpoint, pub actuation_class: ActuationClass, pub preconditions: Vec<String>, pub effects: Vec<String>, pub invariants: Vec<String>, pub failures: Vec<String>, pub refusals: Vec<String>, pub receipt_hook: bool, pub replay_hook: bool, pub probabilistic_outcomes: Vec<OperatorOutcome>, pub evidence: Vec<EvidenceRef>, pub source_work: Vec<String> } |  |  |  |  |
 
-| `TypeDef` | struct |  |  |  |  |  |
+| `SourceRevision` | struct | SourceRevision { pub repository: String, pub base_sha: Option<String>, pub head_sha: String } |  |  |  |  |
 
-| `TypedObject` | struct |  |  |  |  |  |
+| `TransportFailure` | struct | TransportFailure { pub repository: String, pub operation: String, pub state: String, pub detail: String } |  |  |  |  |
 
-| `TypedParam` | struct |  |  |  |  |  |
+| `ValidationRecord` | struct | ValidationRecord { pub command: String, pub result: String, pub detail: Option<String> } |  |  |  |  |
 
-| `GroundError` | enum |  |  |  |  |  |
+| `ValidationSummary` | struct | ValidationSummary { pub parse_ok: bool, pub parse_error: Option<String>, pub solve_attempted: bool, pub solved: Option<bool>, pub initial_value: Option<f64>, pub policy_valid: Option<bool>, pub policy_errors: Vec<String>, pub records: Vec<ValidationRecord> } |  |  |  |  |
 
-| `GroundGoal` | enum |  |  |  |  |  |
+| `validate_pair` | function | validate_pair(domain_src: &str, problem_src: &str) -> Result<Summary, String> |  |  |  |  |
 
-| `action_applicable` | function | action_applicable(
-    action: &GroundAction,
-    facts: &BTreeSet<String>,
-) |  |  |  |  |
+| `validate_paths` | function | validate_paths(domain_path: &str, problem_path: &str) -> Result<Summary, String> |  |  |  |  |
 
-| `build_type_closure` | function | build_type_closure(
-    domain: &Domain,
-) |  |  |  |  |
+| `Summary` | struct | Summary { pub domain: String, pub problem: String, pub actions: usize, pub tasks: usize, pub methods: usize, pub ground_methods: usize } |  |  |  |  |
 
-| `compute_reachability` | function | compute_reachability(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    initial_facts: &BTreeSet<String>,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `Effect` | enum | Effect { Empty, Literal(Literal), And(Vec<Effect>), When(GoalDesc, Box<Effect>), Oneof(Vec<Effect>), Increase(AtomicFormula, NumericValue), Decrease(AtomicFormula, NumericValue) } |  |  |  |  |
 
-| `compute_task_relevance` | function | compute_task_relevance(
-    domain: &Domain,
-    problem: &Problem,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `GoalDesc` | enum | GoalDesc { Empty, Atom(AtomicFormula), Not(Box<GoalDesc>), And(Vec<GoalDesc>), Or(Vec<GoalDesc>), Imply(Box<GoalDesc>, Box<GoalDesc>), Forall(Vec<TypedParam>, Box<GoalDesc>), Exists(Vec<TypedParam>, Box<GoalDesc>) } |  |  |  |  |
 
-| `evaluate_ground_goal` | function | evaluate_ground_goal(
-    goal: &GroundGoal,
-    facts: &BTreeSet<String>,
-) |  |  |  |  |
+| `Literal` | enum | Literal { Pos(AtomicFormula), Neg(AtomicFormula) } |  |  |  |  |
 
-| `evaluate_ground_goal_with_budget` | function | evaluate_ground_goal_with_budget(
-    goal: &GroundGoal,
-    facts: &BTreeSet<String>,
-    budget: usize,
-) |  |  |  |  |
+| `NumericValue` | enum | NumericValue { Number(String), Fluent(AtomicFormula) } |  |  |  |  |
 
-| `ground` | function | ground(
-    domain: &Domain,
-    problem: &Problem,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `Term` | enum | Term { Var(VarName), Const(Name) } |  |  |  |  |
 
-| `ground_actions` | function | ground_actions(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `ActionDef` | struct | ActionDef { pub name: Name, pub params: Vec<TypedParam>, pub precondition: GoalDesc, pub effect: Effect, pub probability_weights: Option<Vec<String>> } |  |  |  |  |
 
-| `ground_actions_reachable` | function | ground_actions_reachable(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-    reachability: &ReachabilityInfo,
-) |  |  |  |  |
+| `AtomicFormula` | struct | AtomicFormula { pub predicate: Name, pub args: Vec<Term> } |  |  |  |  |
 
-| `ground_actions_relevant` | function | ground_actions_relevant(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-    relevance: &TaskRelevanceInfo,
-    reachability: Option<&ReachabilityInfo>,
-) |  |  |  |  |
+| `ConstraintDef` | struct | ConstraintDef { pub kind: Name, pub raw: String } |  |  |  |  |
 
-| `ground_initial_facts` | function | ground_initial_facts(problem: &Problem) |  |  |  |  |
+| `Domain` | struct | Domain { pub name: Name, pub types: TypeDef, pub constants: Vec<TypedObject>, pub predicates: Vec<PredicateDef>, pub numeric_fluents: Vec<NumericFluentDecl>, pub tasks: Vec<TaskDef>, pub actions: Vec<ActionDef>, pub methods: Vec<MethodDef>, pub constraints: Vec<ConstraintDef> } |  |  |  |  |
 
-| `ground_methods` | function | ground_methods(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-) |  |  |  |  |
+| `MethodDef` | struct | MethodDef { pub name: Name, pub params: Vec<TypedParam>, pub task: TaskCall, pub precondition: GoalDesc, pub effect: Effect, pub network: TaskNetwork } |  |  |  |  |
 
-| `ground_methods_reachable` | function | ground_methods_reachable(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-    reachability: &ReachabilityInfo,
-) |  |  |  |  |
+| `NumericFluentDecl` | struct | NumericFluentDecl { pub name: Name, pub params: Vec<TypedParam>, pub value: NumericValue } |  |  |  |  |
 
-| `ground_methods_relevant` | function | ground_methods_relevant(
-    domain: &Domain,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-    limits: &GroundingLimits,
-    relevance: &TaskRelevanceInfo,
-    reachability: Option<&ReachabilityInfo>,
-) |  |  |  |  |
+| `OrderEdge` | struct | OrderEdge { pub before: Name, pub after: Name } |  |  |  |  |
 
-| `ground_root_network` | function | ground_root_network(
-    problem: &Problem,
-    objects_by_type: &BTreeMap<String, Vec<String>>,
-) |  |  |  |  |
+| `PredicateDef` | struct | PredicateDef { pub name: Name, pub params: Vec<TypedParam> } |  |  |  |  |
 
-| `index_objects_by_type` | function | index_objects_by_type(
-    domain: &Domain,
-    problem: &Problem,
-    closure: &BTreeMap<String, BTreeSet<String>>,
-) |  |  |  |  |
+| `Problem` | struct | Problem { pub name: Name, pub domain_name: Name, pub objects: Vec<TypedObject>, pub init: Vec<AtomicFormula>, pub goal: GoalDesc, pub htn: TaskNetwork, pub constraints: Vec<ConstraintDef> } |  |  |  |  |
 
-| `GroundAction` | struct |  |  |  |  |  |
+| `Subtask` | struct | Subtask { pub id: Name, pub task: TaskCall } |  |  |  |  |
 
-| `GroundConditional` | struct |  |  |  |  |  |
+| `TaskCall` | struct | TaskCall { pub name: Name, pub args: Vec<Term> } |  |  |  |  |
 
-| `GroundEffectBranch` | struct |  |  |  |  |  |
+| `TaskDef` | struct | TaskDef { pub name: Name, pub params: Vec<TypedParam> } |  |  |  |  |
 
-| `GroundMethod` | struct |  |  |  |  |  |
+| `TaskNetwork` | struct | TaskNetwork { pub params: Vec<TypedParam>, pub subtasks: Vec<Subtask>, pub order: Vec<OrderEdge> } |  |  |  |  |
 
-| `GroundRootNetwork` | struct |  |  |  |  |  |
+| `TypeDef` | struct | TypeDef { pub parents: BTreeMap<Name, BTreeSet<Name>>, pub declared: Vec<Name> } |  |  |  |  |
 
-| `GroundSubtask` | struct |  |  |  |  |  |
+| `TypedObject` | struct | TypedObject { pub name: Name, pub type_name: Name } |  |  |  |  |
 
-| `GroundedIR` | struct |  |  |  |  |  |
+| `TypedParam` | struct | TypedParam { pub var: VarName, pub type_name: Name } |  |  |  |  |
 
-| `GroundingLimits` | struct |  |  |  |  |  |
+| `DEFAULT_MAX_GOAL_DEPTH` | const | DEFAULT_MAX_GOAL_DEPTH: usize |  |  |  |  |
 
-| `ReachabilityInfo` | struct |  |  |  |  |  |
+| `GroundError` | enum | GroundError { Validation(validate::ValidationError), TypeCycle(String), UnboundVariable(String), UnsupportedPrecondition(String), LimitExceeded(String), UnsupportedNumericFluent(String), UnsupportedConstraint(String), GoalTooDeep { depth: usize, budget: usize }, Timeout { elapsed_ms: u128, limit_ms: u128 } } |  |  |  |  |
 
-| `TaskRelevanceInfo` | struct |  |  |  |  |  |
+| `GroundGoal` | enum | GroundGoal { Empty, Atom(String), Eq(String, String), Not(Box<GroundGoal>), And(Vec<GroundGoal>), Or(Vec<GroundGoal>) } |  |  |  |  |
 
-| `ParseError` | enum |  |  |  |  |  |
+| `action_applicable` | function | action_applicable( action: &GroundAction, facts: &BTreeSet<String>, ) -> Result<bool, GroundError> |  |  |  |  |
 
-| `parse_domain` | function | parse_domain(src: &str) |  |  |  |  |
+| `build_type_closure` | function | build_type_closure( domain: &Domain, ) -> Result<BTreeMap<String, BTreeSet<String>>, GroundError> |  |  |  |  |
 
-| `parse_domain_with_budget` | function | parse_domain_with_budget(src: &str, max_depth: usize) |  |  |  |  |
+| `compute_reachability` | function | compute_reachability( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, initial_facts: &BTreeSet<String>, limits: &GroundingLimits, ) -> Result<ReachabilityInfo, GroundError> |  |  |  |  |
 
-| `parse_problem` | function | parse_problem(src: &str) |  |  |  |  |
+| `compute_task_relevance` | function | compute_task_relevance( domain: &Domain, problem: &Problem, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, ) -> Result<TaskRelevanceInfo, GroundError> |  |  |  |  |
 
-| `parse_problem_with_budget` | function | parse_problem_with_budget(src: &str, max_depth: usize) |  |  |  |  |
+| `evaluate_ground_goal` | function | evaluate_ground_goal( goal: &GroundGoal, facts: &BTreeSet<String>, ) -> Result<bool, GroundError> |  |  |  |  |
 
-| `has_probabilistic` | function | has_probabilistic(src: &str) |  |  |  |  |
+| `evaluate_ground_goal_with_budget` | function | evaluate_ground_goal_with_budget( goal: &GroundGoal, facts: &BTreeSet<String>, budget: usize, ) -> Result<bool, GroundError> |  |  |  |  |
 
-| `preprocess` | function | preprocess(src: &str) |  |  |  |  |
+| `ground` | function | ground( domain: &Domain, problem: &Problem, limits: &GroundingLimits, ) -> Result<GroundedIR, GroundError> |  |  |  |  |
 
-| `TranslateError` | enum |  |  |  |  |  |
+| `ground_actions` | function | ground_actions( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, ) -> Result<Vec<GroundAction>, GroundError> |  |  |  |  |
 
-| `translate` | function | translate(
-    ir: &GroundedIR,
-    limits: &TranslateLimits,
-) |  |  |  |  |
+| `ground_actions_reachable` | function | ground_actions_reachable( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, reachability: &ReachabilityInfo, ) -> Result<Vec<GroundAction>, GroundError> |  |  |  |  |
 
-| `Goal` | struct |  |  |  |  |  |
+| `ground_actions_relevant` | function | ground_actions_relevant( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, relevance: &TaskRelevanceInfo, reachability: Option<&ReachabilityInfo>, ) -> Result<Vec<GroundAction>, GroundError> |  |  |  |  |
 
-| `Method` | struct |  |  |  |  |  |
+| `ground_initial_facts` | function | ground_initial_facts(problem: &Problem) -> Result<BTreeSet<String>, GroundError> |  |  |  |  |
 
-| `PlanningProblem` | struct |  |  |  |  |  |
+| `ground_methods` | function | ground_methods( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, ) -> Result<Vec<GroundMethod>, GroundError> |  |  |  |  |
 
-| `State` | struct |  |  |  |  |  |
+| `ground_methods_reachable` | function | ground_methods_reachable( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, reachability: &ReachabilityInfo, ) -> Result<Vec<GroundMethod>, GroundError> |  |  |  |  |
 
-| `Task` | struct |  |  |  |  |  |
+| `ground_methods_relevant` | function | ground_methods_relevant( domain: &Domain, objects_by_type: &BTreeMap<String, Vec<String>>, limits: &GroundingLimits, relevance: &TaskRelevanceInfo, reachability: Option<&ReachabilityInfo>, ) -> Result<Vec<GroundMethod>, GroundError> |  |  |  |  |
 
-| `Transition` | struct |  |  |  |  |  |
+| `ground_root_network` | function | ground_root_network( problem: &Problem, objects_by_type: &BTreeMap<String, Vec<String>>, ) -> Result<Vec<GroundRootNetwork>, GroundError> |  |  |  |  |
 
-| `TranslateLimits` | struct |  |  |  |  |  |
+| `index_objects_by_type` | function | index_objects_by_type( domain: &Domain, problem: &Problem, closure: &BTreeMap<String, BTreeSet<String>>, ) -> BTreeMap<String, Vec<String>> |  |  |  |  |
 
-| `DuplicateKind` | enum |  |  |  |  |  |
+| `GroundAction` | struct | GroundAction { pub name: String, pub precondition: GroundGoal, pub outcomes: Vec<GroundEffectBranch> } |  |  |  |  |
 
-| `ValidationError` | enum |  |  |  |  |  |
+| `GroundConditional` | struct | GroundConditional { pub pos_cond: BTreeSet<String>, pub neg_cond: BTreeSet<String>, pub add: BTreeSet<String>, pub del: BTreeSet<String> } |  |  |  |  |
 
-| `ValidationWarning` | enum |  |  |  |  |  |
+| `GroundEffectBranch` | struct | GroundEffectBranch { pub add: BTreeSet<String>, pub del: BTreeSet<String>, pub conditional: Vec<GroundConditional>, pub probability_weight: Option<String> } |  |  |  |  |
 
-| `validate_domain` | function | validate_domain(domain: &Domain) |  |  |  |  |
+| `GroundMethod` | struct | GroundMethod { pub name: String, pub task_name: String, pub precondition: GroundGoal, pub effect: GroundEffectBranch, pub subtasks: Vec<GroundSubtask>, pub order: Vec<(String, String)> } |  |  |  |  |
 
-| `validate_domain_with_warnings` | function | validate_domain_with_warnings(
-    domain: &Domain,
-) |  |  |  |  |
+| `GroundRootNetwork` | struct | GroundRootNetwork { pub subtasks: Vec<GroundSubtask>, pub order: Vec<(String, String)> } |  |  |  |  |
 
-| `validate_problem` | function | validate_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `GroundSubtask` | struct | GroundSubtask { pub id: String, pub task_name: String } |  |  |  |  |
 
-| `validate_problem_with_warnings` | function | validate_problem_with_warnings(
-    domain: &Domain,
-    problem: &Problem,
-) |  |  |  |  |
+| `GroundedIR` | struct | GroundedIR { pub actions: Vec<GroundAction>, pub methods: Vec<GroundMethod>, pub root_networks: Vec<GroundRootNetwork>, pub initial_facts: BTreeSet<String>, pub goal: GoalDesc } |  |  |  |  |
 
-| `call` | function | call(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `GroundingLimits` | struct | GroundingLimits { pub max_ground_actions: usize, pub max_ground_methods: usize, pub prune_unreachable: bool, pub prune_irrelevant: bool, pub max_wall: Option<Duration> } |  |  |  |  |
 
-| `call_json` | function | call_json(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `ReachabilityInfo` | struct | ReachabilityInfo { pub facts: BTreeSet<String>, pub reachable_actions: BTreeSet<String> } |  |  |  |  |
 
-| `call_text` | function | call_text(&mut self, tool: &str, args: Value) |  |  |  |  |
+| `TaskRelevanceInfo` | struct | TaskRelevanceInfo { pub relevant_tasks: BTreeSet<String> } |  |  |  |  |
+
+| `DEFAULT_MAX_PARSE_DEPTH` | const | DEFAULT_MAX_PARSE_DEPTH: usize |  |  |  |  |
+
+| `ParseError` | enum | ParseError { Syntax(String), UnsupportedConstruct(String), MalformedOneof(String), NestedProbabilisticBlock(String), NestingTooDeep { line: usize, column: usize, budget: usize, } } |  |  |  |  |
+
+| `parse_domain` | function | parse_domain(src: &str) -> Result<Domain, ParseError> |  |  |  |  |
+
+| `parse_domain_with_budget` | function | parse_domain_with_budget(src: &str, max_depth: usize) -> Result<Domain, ParseError> |  |  |  |  |
+
+| `parse_problem` | function | parse_problem(src: &str) -> Result<Problem, ParseError> |  |  |  |  |
+
+| `parse_problem_with_budget` | function | parse_problem_with_budget(src: &str, max_depth: usize) -> Result<Problem, ParseError> |  |  |  |  |
+
+| `has_probabilistic` | function | has_probabilistic(src: &str) -> bool |  |  |  |  |
+
+| `preprocess` | function | preprocess(src: &str) -> Result<(String, BTreeMap<String, Vec<String>>), ParseError> |  |  |  |  |
+
+| `TranslateError` | enum | TranslateError { UnsupportedNegativeGoal, UnsupportedGoalConnective(String), MalformedTermEquality { found: usize, }, UnboundVariable(String), TaskNetworkDepthExceeded { addr: String, limit: usize, }, Timeout { elapsed_ms: u128, limit_ms: u128, }, MemoryLimitExceeded { states: usize, limit: usize, }, Ground(GroundError) } |  |  |  |  |
+
+| `translate` | function | translate( ir: &GroundedIR, limits: &TranslateLimits, ) -> Result<PlanningProblem, TranslateError> |  |  |  |  |
+
+| `Goal` | struct | Goal { pub facts: BTreeSet<String> } |  |  |  |  |
+
+| `Method` | struct | Method { pub id: String, pub task: String, pub subtasks: Vec<String> } |  |  |  |  |
+
+| `PlanningProblem` | struct | PlanningProblem { pub states: Vec<State>, pub initial_states: Vec<String>, pub goal: Goal, pub transitions: Vec<Transition>, pub tasks: Vec<Task>, pub root_tasks: Vec<String>, pub methods: Vec<Method> } |  |  |  |  |
+
+| `State` | struct | State { pub id: String, pub facts: BTreeSet<String> } |  |  |  |  |
+
+| `Task` | struct | Task { pub id: String, pub primitive_action: Option<String> } |  |  |  |  |
+
+| `Transition` | struct | Transition { pub action: String, pub from: String, pub to: String, pub probability_ppm: u32 } |  |  |  |  |
+
+| `TranslateLimits` | struct | TranslateLimits { pub max_task_network_depth: usize, pub max_wall: Option<std::time::Duration>, pub max_states: Option<usize> } |  |  |  |  |
+
+| `DuplicateKind` | enum | DuplicateKind { Task, Predicate, Action, Method, Object } |  |  |  |  |
+
+| `ValidationError` | enum | ValidationError { UnknownTaskOrAction(String), ArityMismatch { task: String, expected: usize, found: usize, }, UndefinedPredicate(String), UndefinedType(String), DuplicateDefinition { kind: DuplicateKind, name: String }, CyclicTypeHierarchy { type_name: String, }, PredicateArityMismatch { predicate: String, expected: usize, found: usize, }, MethodHeadNotCompoundTask { method: String, name: String, }, UnknownMethodVariable { method: String, var: String, }, UndefinedOrderRef { in_method: Option<String>, id: String, }, CyclicOrdering { in_method: Option<String>, cycle: Vec<String>, }, MissingTaskNetwork, UnknownConstant { name: String, }, ArgumentTypeMismatch { callee: String, position: usize, expected: String, found: String, }, NonGroundInitAtom { predicate: String, }, NonGroundRootSubtaskArg { id: String, } } |  |  |  |  |
+
+| `ValidationWarning` | enum | ValidationWarning { UnrefinableCompoundTask { task: String, }, DuplicateTypeDeclaration { name: String, } } |  |  |  |  |
+
+| `validate_domain` | function | validate_domain(domain: &Domain) -> Result<(), ValidationError> |  |  |  |  |
+
+| `validate_domain_with_warnings` | function | validate_domain_with_warnings( domain: &Domain, ) -> Result<Vec<ValidationWarning>, ValidationError> |  |  |  |  |
+
+| `validate_problem` | function | validate_problem(domain: &Domain, problem: &Problem) -> Result<(), ValidationError> |  |  |  |  |
+
+| `validate_problem_with_warnings` | function | validate_problem_with_warnings( domain: &Domain, problem: &Problem, ) -> Result<Vec<ValidationWarning>, ValidationError> |  |  |  |  |
+
+| `DOM` | const | DOM: &str |  |  |  |  |
+
+| `PROB` | const | PROB: &str |  |  |  |  |
+
+| `call` | function | call(&mut self, tool: &str, args: Value) -> Value |  |  |  |  |
+
+| `call_json` | function | call_json(&mut self, tool: &str, args: Value) -> Value |  |  |  |  |
+
+| `call_text` | function | call_text(&mut self, tool: &str, args: Value) -> (String, bool) |  |  |  |  |
 
 | `finish` | function | finish(mut self) |  |  |  |  |
 
 | `notify` | function | notify(&mut self, method: &str) |  |  |  |  |
 
-| `request` | function | request(&mut self, method: &str, params: Value) |  |  |  |  |
+| `request` | function | request(&mut self, method: &str, params: Value) -> Value |  |  |  |  |
 
-| `start` | function | start() |  |  |  |  |
+| `start` | function | start() -> Client |  |  |  |  |
 
-| `Client` | struct |  |  |  |  |  |
+| `Client` | struct | Client { child: Child, stdin: Option<ChildStdin>, stdout: BufReader<ChildStdout>, next_id: i64 } |  |  |  |  |
 
-| `Authority` | enum |  |  |  |  |  |
+| `Authority` | enum | Authority { Observe, Select, Construct, Do } |  |  |  |  |
 
-| `permits` | function | permits(g: Authority, n: Authority) |  |  |  |  |
+| `permits` | function | permits(g: Authority, n: Authority) -> bool |  |  |  |  |
 
-| `exponential` | function | exponential(base: u64, attempt: u32, cap: u64) |  |  |  |  |
+| `exponential` | function | exponential(base: u64, attempt: u32, cap: u64) -> u64 |  |  |  |  |
 
-| `new` | function | new(n: u32) |  |  |  |  |
+| `new` | function | new(n: u32) -> Self |  |  |  |  |
 
-| `remaining` | function | remaining(&self) |  |  |  |  |
+| `remaining` | function | remaining(&self) -> u32 |  |  |  |  |
 
-| `take` | function | take(&mut self) |  |  |  |  |
+| `take` | function | take(&mut self) -> bool |  |  |  |  |
 
-| `Budget` | struct |  |  |  |  |  |
+| `Budget` | struct | Budget { remaining: u32 } |  |  |  |  |
 
-| `compatible` | function | compatible(available: &[Capability], required: &str) |  |  |  |  |
+| `compatible` | function | compatible(available: &[Capability], required: &str) -> bool |  |  |  |  |
 
-| `Capability` | struct |  |  |  |  |  |
+| `Capability` | struct | Capability { pub &'static str } |  |  |  |  |
 
-| `open` | function | open(&self) |  |  |  |  |
+| `open` | function | open(&self) -> bool |  |  |  |  |
 
 | `record_failure` | function | record_failure(&mut self) |  |  |  |  |
 
-| `Circuit` | struct |  |  |  |  |  |
+| `Circuit` | struct | Circuit { pub failures: u32, pub threshold: u32 } |  |  |  |  |
+
+| `bounded` | function | bounded(x: &[T], n: usize) -> Vec<T> |  |  |  |  |
 
 | `fail` | function | fail(&mut self, id: &str) |  |  |  |  |
 
-| `Coordinator` | struct |  |  |  |  |  |
+| `Coordinator` | struct | Coordinator { pub graph: Graph, pub excluded: Vec<String> } |  |  |  |  |
 
-| `after` | function | after(d: Duration) |  |  |  |  |
+| `after` | function | after(d: Duration) -> Self |  |  |  |  |
 
-| `expired` | function | expired(&self) |  |  |  |  |
+| `expired` | function | expired(&self) -> bool |  |  |  |  |
 
-| `Deadline` | struct |  |  |  |  |  |
+| `Deadline` | struct | Deadline { pub Instant } |  |  |  |  |
+
+| `dispatch` | function | dispatch(p: &P, s: &str) -> Outcome<Vec<String>> |  |  |  |  |
 
 | `exclude` | function | exclude(&mut self) |  |  |  |  |
 
-| `Edge` | struct |  |  |  |  |  |
+| `Edge` | struct | Edge { pub id: String, pub provider: String, pub enabled: bool } |  |  |  |  |
 
-| `next` | function | next(self) |  |  |  |  |
+| `next` | function | next(self) -> Self |  |  |  |  |
 
-| `Epoch` | struct |  |  |  |  |  |
+| `Epoch` | struct | Epoch { pub u64 } |  |  |  |  |
 
-| `admitted` | function | admitted(xs: &[Observation]) |  |  |  |  |
+| `admitted` | function | admitted(xs: &[Observation]) -> bool |  |  |  |  |
 
-| `admitted` | function | admitted(&self) |  |  |  |  |
+| `admitted` | function | admitted(&self) -> bool |  |  |  |  |
 
-| `ExactSubject` | struct |  |  |  |  |  |
+| `ExactSubject` | struct | ExactSubject { pub repo: String, pub sha: String } |  |  |  |  |
 
-| `FailureClass` | enum |  |  |  |  |  |
+| `FailureClass` | enum | FailureClass { Local, Edge, Authority, Unknown } |  |  |  |  |
+
+| `classify` | function | classify(o: &Outcome<T>) -> Option<FailureClass> |  |  |  |  |
+
+| `reselect` | function | reselect(g: &'a Graph, x: &[String]) -> Option<&'a str> |  |  |  |  |
 
 | `exclude` | function | exclude(&mut self, id: &str) |  |  |  |  |
 
-| `lawful` | function | lawful(&self) |  |  |  |  |
+| `lawful` | function | lawful(&self) -> impl Iterator<Item = &Edge> |  |  |  |  |
 
-| `Graph` | struct |  |  |  |  |  |
+| `Graph` | struct | Graph { pub edges: Vec<Edge> } |  |  |  |  |
 
-| `Task` | struct |  |  |  |  |  |
+| `leaves` | function | leaves(&'a self, out: &mut Vec<&'a str>) |  |  |  |  |
 
-| `Health` | enum |  |  |  |  |  |
+| `Task` | struct | Task { pub id: String, pub children: Vec<Task> } |  |  |  |  |
 
-| `eligible` | function | eligible(h: Health) |  |  |  |  |
+| `Health` | enum | Health { Healthy, Degraded, Open } |  |  |  |  |
 
-| `key` | function | key(subject: &str, epoch: u64, provider: &str) |  |  |  |  |
+| `eligible` | function | eligible(h: Health) -> bool |  |  |  |  |
 
-| `valid_for` | function | valid_for(&self, o: &str, e: u64) |  |  |  |  |
+| `key` | function | key(subject: &str, epoch: u64, provider: &str) -> u64 |  |  |  |  |
 
-| `Lease` | struct |  |  |  |  |  |
+| `valid_for` | function | valid_for(&self, o: &str, e: u64) -> bool |  |  |  |  |
 
-| `Observation` | struct |  |  |  |  |  |
+| `Lease` | struct | Lease { pub owner: String, pub epoch: u64 } |  |  |  |  |
 
-| `bound` | function | bound(&self) |  |  |  |  |
+| `Observation` | struct | Observation { pub key: String, pub value: String, pub source: String } |  |  |  |  |
 
-| `Event` | struct |  |  |  |  |  |
+| `bound` | function | bound(&self) -> bool |  |  |  |  |
 
-| `Outcome` | enum |  |  |  |  |  |
+| `Event` | struct | Event { pub id: String, pub activity: String, pub objects: Vec<String> } |  |  |  |  |
 
-| `is_success` | function | is_success(&self) |  |  |  |  |
+| `Outcome` | enum | Outcome { Success(T), Retryable(String), Permanent(String), Refused(String), Unknown(String) } |  |  |  |  |
 
-| `valid` | function | valid(&self) |  |  |  |  |
+| `is_success` | function | is_success(&self) -> bool |  |  |  |  |
 
-| `Plan` | struct |  |  |  |  |  |
+| `valid` | function | valid(&self) -> bool |  |  |  |  |
 
-| `exact` | function | exact(&self) |  |  |  |  |
+| `Plan` | struct | Plan { pub provider: String, pub steps: Vec<String>, pub cost: u64 } |  |  |  |  |
 
-| `EvidenceSet` | struct |  |  |  |  |  |
+| `select` | function | select(e: &'a [Edge], x: &[String]) -> Option<&'a Edge> |  |  |  |  |
 
-| `ranked` | function | ranked(mut ps: Vec<Plan>) |  |  |  |  |
+| `exact` | function | exact(&self) -> bool |  |  |  |  |
 
-| `acyclic` | function | acyclic(e: &[Order]) |  |  |  |  |
+| `EvidenceSet` | struct | EvidenceSet { pub subject: String, pub sources: Vec<String> } |  |  |  |  |
 
-| `Order` | struct |  |  |  |  |  |
+| `ranked` | function | ranked(mut ps: Vec<Plan>) -> Vec<Plan> |  |  |  |  |
+
+| `acyclic` | function | acyclic(e: &[Order]) -> bool |  |  |  |  |
+
+| `Order` | struct | Order { pub before: String, pub after: String } |  |  |  |  |
 
 | `Provider` | trait |  |  |  |  |  |
 
-| `changed` | function | changed(a: &EpochArtifact, b: &EpochArtifact) |  |  |  |  |
+| `changed` | function | changed(a: &EpochArtifact, b: &EpochArtifact) -> bool |  |  |  |  |
 
-| `EpochArtifact` | struct |  |  |  |  |  |
+| `EpochArtifact` | struct | EpochArtifact { pub epoch: Epoch, pub digest: u64 } |  |  |  |  |
 
-| `exact` | function | exact(&self) |  |  |  |  |
+| `exact` | function | exact(&self) -> bool |  |  |  |  |
 
-| `Receipt` | struct |  |  |  |  |  |
+| `Receipt` | struct | Receipt { pub subject_sha: String, pub epoch: u64, pub provider: String, pub edge: String, pub outcome: String } |  |  |  |  |
 
-| `reconcile` | function | reconcile(g: &mut Graph, s: &[(String, Health) |  |  |  |  |
+| `reconcile` | function | reconcile(g: &mut Graph, s: &[(String, Health)]) |  |  |  |  |
 
-| `exclude_failed` | function | exclude_failed(g: &mut Graph, edge: &str) |  |  |  |  |
+| `exclude_failed` | function | exclude_failed(g: &mut Graph, edge: &str) -> usize |  |  |  |  |
 
-| `contains` | function | contains(&self, id: &str) |  |  |  |  |
+| `contains` | function | contains(&self, id: &str) -> bool |  |  |  |  |
 
 | `register` | function | register(&mut self, id: impl Into<String>) |  |  |  |  |
 
-| `Registry` | struct |  |  |  |  |  |
+| `Registry` | struct | Registry { ids: BTreeSet<String> } |  |  |  |  |
 
-| `same_decision` | function | same_decision(a: &Receipt, b: &Receipt) |  |  |  |  |
+| `same_decision` | function | same_decision(a: &Receipt, b: &Receipt) -> bool |  |  |  |  |
 
-| `next_edge` | function | next_edge(&self) |  |  |  |  |
+| `next_edge` | function | next_edge(&self) -> Option<&str> |  |  |  |  |
 
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) -> bool |  |  |  |  |
 
-| `len` | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) -> usize |  |  |  |  |
 
-| `pop_next` | function | pop_next(&mut self) |  |  |  |  |
+| `pop_next` | function | pop_next(&mut self) -> Option<T> |  |  |  |  |
 
 | `push` | function | push(&mut self, x: T) |  |  |  |  |
 
-| `Scheduler` | struct |  |  |  |  |  |
+| `Scheduler` | struct | Scheduler { q: VecDeque<T> } |  |  |  |  |
 
-| `State` | enum |  |  |  |  |  |
+| `State` | enum | State { Bound, Planning, Executing, Recovering, Succeeded, Failed } |  |  |  |  |
 
-| `allowed` | function | allowed(a: State, b: State) |  |  |  |  |
+| `allowed` | function | allowed(a: State, b: State) -> bool |  |  |  |  |
 
-| `Restart` | enum |  |  |  |  |  |
+| `Restart` | enum | Restart { Permanent, Transient, Temporary } |  |  |  |  |
 
-| `should_restart` | function | should_restart(r: Restart, abnormal: bool) |  |  |  |  |
+| `should_restart` | function | should_restart(r: Restart, abnormal: bool) -> bool |  |  |  |  |
 
-| `success_rate` | function | success_rate(&self) |  |  |  |  |
+| `next` | function | next(ps: &'a [Plan], failed: &str) -> Option<&'a Plan> |  |  |  |  |
 
-| `Counters` | struct |  |  |  |  |  |
+| `success_rate` | function | success_rate(&self) -> f64 |  |  |  |  |
 
-| `actionable` | function | actionable(&self) |  |  |  |  |
+| `Counters` | struct | Counters { pub attempts: u64, pub recoveries: u64, pub successes: u64 } |  |  |  |  |
 
-| `Counterexample` | struct |  |  |  |  |  |
+| `actionable` | function | actionable(&self) -> bool |  |  |  |  |
 
-| `ModelRole` | struct |  |  |  |  |  |
+| `Counterexample` | struct | Counterexample { pub invariant: String, pub trace: Vec<String> } |  |  |  |  |
+
+| `ModelRole` | struct | ModelRole { pub context: bool, pub select: bool, pub construct: bool, pub do_act: bool } |  |  |  |  |
 
 | `add` | function | add(&mut self, level: usize) |  |  |  |  |
 
-| `analyze_conflict` | function | analyze_conflict(ctx: &mut Context, conflict: Conflict) |  |  |  |  |
+| `analyze_conflict` | function | analyze_conflict(ctx: &mut Context, conflict: Conflict) -> usize |  |  |  |  |
 
-| `clause` | function | clause(&self) |  |  |  |  |
+| `clause` | function | clause(&self) -> &[Lit] |  |  |  |  |
 
-| `involved` | function | involved(&self) |  |  |  |  |
+| `involved` | function | involved(&self) -> &[ClauseRef] |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `test` | function | test(&self, level: usize) |  |  |  |  |
+| `test` | function | test(&self, level: usize) -> bool |  |  |  |  |
 
-| `AnalyzeConflict` | struct |  |  |  |  |  |
+| `AnalyzeConflict` | struct | AnalyzeConflict { clause: Vec<Lit>, current_level_count: usize, var_flags: Vec<bool>, to_clean: Vec<Var>, involved: Vec<ClauseRef>, stack: Vec<Lit> } |  |  |  |  |
 
-| `EnqueueAssumption` | enum |  |  |  |  |  |
+| `EnqueueAssumption` | enum | EnqueueAssumption { Done, Enqueued, Conflict } |  |  |  |  |
 
-| `assumption_levels` | function | assumption_levels(&self) |  |  |  |  |
+| `assumption_levels` | function | assumption_levels(&self) -> usize |  |  |  |  |
 
-| `enqueue_assumption` | function | enqueue_assumption(ctx: &mut Context) |  |  |  |  |
+| `enqueue_assumption` | function | enqueue_assumption(ctx: &mut Context) -> EnqueueAssumption |  |  |  |  |
 
 | `full_restart` | function | full_restart(&mut self) |  |  |  |  |
 
 | `set_assumptions` | function | set_assumptions(ctx: &mut Context, user_assumptions: &[Lit]) |  |  |  |  |
 
-| `user_failed_core` | function | user_failed_core(&self) |  |  |  |  |
+| `user_failed_core` | function | user_failed_core(&self) -> &[Lit] |  |  |  |  |
 
-| `Assumptions` | struct |  |  |  |  |  |
+| `Assumptions` | struct | Assumptions { assumptions: Vec<Lit>, failed_core: Vec<Lit>, user_failed_core: Vec<Lit>, assumption_levels: usize } |  |  |  |  |
 
 | `add_binary_clause` | function | add_binary_clause(&mut self, lits: [Lit; 2]) |  |  |  |  |
 
-| `count` | function | count(&self) |  |  |  |  |
+| `count` | function | count(&self) -> usize |  |  |  |  |
 
-| `implied` | function | implied(&self, lit: Lit) |  |  |  |  |
+| `implied` | function | implied(&self, lit: Lit) -> &[Lit] |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
 | `simplify_binary` | function | simplify_binary(ctx: &mut Context) |  |  |  |  |
 
-| `BinaryClauses` | struct |  |  |  |  |  |
+| `BinaryClauses` | struct | BinaryClauses { by_lit: Vec<Vec<Lit>>, count: usize } |  |  |  |  |
 
 | `conflict_step` | function | conflict_step(ctx: &mut Context) |  |  |  |  |
 
-| `header` | function | header(&self) |  |  |  |  |
+| `header` | function | header(&self) -> &ClauseHeader |  |  |  |  |
 
-| `header_mut` | function | header_mut(&mut self) |  |  |  |  |
+| `header_mut` | function | header_mut(&mut self) -> &mut ClauseHeader |  |  |  |  |
 
-| `lits` | function | lits(&self) |  |  |  |  |
+| `lits` | function | lits(&self) -> &[Lit] |  |  |  |  |
 
-| `lits_mut` | function | lits_mut(&mut self) |  |  |  |  |
+| `lits_mut` | function | lits_mut(&mut self) -> &mut [Lit] |  |  |  |  |
 
-| `Clause` | struct |  |  |  |  |  |
+| `Clause` | struct | Clause { data: [LitIdx] } |  |  |  |  |
+
+| `activity::{decay_clause_activities, ClauseActivity}` | use | activity::{decay_clause_activities, ClauseActivity} |  |  |  |  |
+
+| `alloc::{ClauseAlloc, ClauseRef}` | use | alloc::{ClauseAlloc, ClauseRef} |  |  |  |  |
+
+| `db::{ClauseDb, Tier}` | use | db::{ClauseDb, Tier} |  |  |  |  |
+
+| `gc::collect_garbage` | use | gc::collect_garbage |  |  |  |  |
+
+| `header::ClauseHeader` | use | header::ClauseHeader |  |  |  |  |
 
 | `bump_clause_activity` | function | bump_clause_activity(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
 | `decay_clause_activities` | function | decay_clause_activities(ctx: &mut Context) |  |  |  |  |
 
-| `ClauseActivity` | struct |  |  |  |  |  |
+| `ClauseActivity` | struct | ClauseActivity { bump: f32, inv_decay: f32 } |  |  |  |  |
 
-| `add_clause` | function | add_clause(&mut self, mut header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
+| `add_clause` | function | add_clause(&mut self, mut header: ClauseHeader, lits: &[Lit]) -> ClauseRef |  |  |  |  |
 
-| `buffer_size` | function | buffer_size(&self) |  |  |  |  |
+| `buffer_size` | function | buffer_size(&self) -> usize |  |  |  |  |
 
 | `check_bounds` | function | check_bounds(&self, cref: ClauseRef, len: usize) |  |  |  |  |
 
-| `clause` | function | clause(&self, cref: ClauseRef) |  |  |  |  |
+| `clause` | function | clause(&self, cref: ClauseRef) -> &Clause |  |  |  |  |
 
-| `clause_mut` | function | clause_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `clause_mut` | function | clause_mut(&mut self, cref: ClauseRef) -> &mut Clause |  |  |  |  |
 
-| `header` | function | header(&self, cref: ClauseRef) |  |  |  |  |
+| `header` | function | header(&self, cref: ClauseRef) -> &ClauseHeader |  |  |  |  |
 
-| `header_mut` | function | header_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `header_mut` | function | header_mut(&mut self, cref: ClauseRef) -> &mut ClauseHeader |  |  |  |  |
 
-| `header_unchecked_mut` | function | header_unchecked_mut(&mut self, cref: ClauseRef) |  |  |  |  |
+| `header_unchecked_mut` | function | header_unchecked_mut(&mut self, cref: ClauseRef) -> &mut ClauseHeader |  |  |  |  |
 
-| `lits_ptr_mut_unchecked` | function | lits_ptr_mut_unchecked(&mut self, cref: ClauseRef) |  |  |  |  |
+| `lits_ptr_mut_unchecked` | function | lits_ptr_mut_unchecked(&mut self, cref: ClauseRef) -> *mut Lit |  |  |  |  |
 
-| `with_capacity` | function | with_capacity(capacity: usize) |  |  |  |  |
+| `with_capacity` | function | with_capacity(capacity: usize) -> ClauseAlloc |  |  |  |  |
 
-| `ClauseAlloc` | struct |  |  |  |  |  |
+| `ClauseAlloc` | struct | ClauseAlloc { buffer: Vec<LitIdx> } |  |  |  |  |
 
-| `ClauseRef` | struct |  |  |  |  |  |
+| `ClauseRef` | struct | ClauseRef { offset: ClauseOffset } |  |  |  |  |
 
-| `assess_learned_clause` | function | assess_learned_clause(ctx: &mut Context, lits: &[Lit]) |  |  |  |  |
+| `assess_learned_clause` | function | assess_learned_clause(ctx: &mut Context, lits: &[Lit]) -> ClauseHeader |  |  |  |  |
 
 | `bump_clause` | function | bump_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| `Tier` | enum |  |  |  |  |  |
+| `Tier` | enum | Tier { Irred = 0, Core = 1, Mid = 2, Local = 3 } |  |  |  |  |
 
-| `add_clause` | function | add_clause(ctx: &mut Context, header: ClauseHeader, lits: &[Lit]) |  |  |  |  |
+| `add_clause` | function | add_clause(ctx: &mut Context, header: ClauseHeader, lits: &[Lit]) -> ClauseRef |  |  |  |  |
 
-| `count` | function | count() |  |  |  |  |
+| `clauses_iter` | function | clauses_iter( db: &'a ClauseDb, alloc: &'a ClauseAlloc, ) -> impl Iterator<Item = ClauseRef> + 'a |  |  |  |  |
 
-| `count_by_tier` | function | count_by_tier(&self, tier: Tier) |  |  |  |  |
+| `count` | function | count() -> usize |  |  |  |  |
+
+| `count_by_tier` | function | count_by_tier(&self, tier: Tier) -> usize |  |  |  |  |
 
 | `delete_clause` | function | delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
 
-| `from_index` | function | from_index(index: usize) |  |  |  |  |
+| `filter_clauses` | function | filter_clauses( alloc: &mut ClauseAlloc, db: &mut ClauseDb, watchlists: &mut crate::prop::Watchlists, mut filter: F, ) |  |  |  |  |
+
+| `from_index` | function | from_index(index: usize) -> Tier |  |  |  |  |
 
 | `set_clause_tier` | function | set_clause_tier(ctx: &mut Context, cref: ClauseRef, tier: Tier) |  |  |  |  |
 
-| `try_delete_clause` | function | try_delete_clause(ctx: &mut Context, cref: ClauseRef) |  |  |  |  |
+| `try_delete_clause` | function | try_delete_clause(ctx: &mut Context, cref: ClauseRef) -> bool |  |  |  |  |
 
-| `ClauseDb` | struct |  |  |  |  |  |
+| `ClauseDb` | struct | ClauseDb { pub(crate) clauses: Vec<ClauseRef>, pub(super) by_tier: [Vec<ClauseRef>; Tier::count()], pub(super) count_by_tier: [usize; Tier::count()], pub(super) garbage_size: usize } |  |  |  |  |
 
 | `collect_garbage` | function | collect_garbage(ctx: &mut Context) |  |  |  |  |
 
-| `active` | function | active(&self) |  |  |  |  |
+| `active` | function | active(&self) -> bool |  |  |  |  |
 
-| `activity` | function | activity(&self) |  |  |  |  |
+| `activity` | function | activity(&self) -> f32 |  |  |  |  |
 
-| `deleted` | function | deleted(&self) |  |  |  |  |
+| `deleted` | function | deleted(&self) -> bool |  |  |  |  |
 
-| `glue` | function | glue(&self) |  |  |  |  |
+| `glue` | function | glue(&self) -> usize |  |  |  |  |
 
-| `len` | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) -> usize |  |  |  |  |
 
-| `mark` | function | mark(&self) |  |  |  |  |
+| `mark` | function | mark(&self) -> bool |  |  |  |  |
 
-| `new` | function | new() |  |  |  |  |
+| `new` | function | new() -> ClauseHeader |  |  |  |  |
 
 | `set_active` | function | set_active(&mut self, active: bool) |  |  |  |  |
 
@@ -5840,9 +3595,9 @@
 
 | `set_tier` | function | set_tier(&mut self, tier: Tier) |  |  |  |  |
 
-| `tier` | function | tier(&self) |  |  |  |  |
+| `tier` | function | tier(&self) -> Tier |  |  |  |  |
 
-| `ClauseHeader` | struct |  |  |  |  |  |
+| `ClauseHeader` | struct | ClauseHeader { pub(super) data: [LitIdx; HEADER_LEN] } |  |  |  |  |
 
 | `dedup_and_mark_by_tier` | function | dedup_and_mark_by_tier(ctx: &mut Context, tier: Tier) |  |  |  |  |
 
@@ -5850,29 +3605,29 @@
 
 | `reduce_mids` | function | reduce_mids(ctx: &mut Context) |  |  |  |  |
 
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) -> bool |  |  |  |  |
 
-| `iter` | function | iter(&self) |  |  |  |  |
+| `iter` | function | iter(&self) -> impl Iterator<Item = &[Lit]> |  |  |  |  |
 
-| `len` | function | len(&self) |  |  |  |  |
+| `len` | function | len(&self) -> usize |  |  |  |  |
 
-| `new` | function | new() |  |  |  |  |
+| `new` | function | new() -> CnfFormula |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `var_count` | function | var_count(&self) |  |  |  |  |
+| `var_count` | function | var_count(&self) -> usize |  |  |  |  |
 
-| `CnfFormula` | struct |  |  |  |  |  |
+| `CnfFormula` | struct | CnfFormula { var_count: usize, literals: Vec<Lit>, clause_ranges: Vec<Range<usize>> } |  |  |  |  |
 
 | `ExtendFormula` | trait |  |  |  |  |  |
 
-| `SolverConfig` | struct |  |  |  |  |  |
+| `SolverConfig` | struct | SolverConfig { pub vsids_decay: f32, pub clause_activity_decay: f32, pub reduce_locals_interval: u64, pub reduce_mids_interval: u64, pub luby_restart_interval_scale: u64 } |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(ctx: &mut Context, count: usize) |  |  |  |  |
 
-| `Context` | struct |  |  |  |  |  |
+| `Context` | struct | Context { pub analyze_conflict: AnalyzeConflict, pub assignment: Assignment, pub assumptions: Assumptions, pub binary_clauses: BinaryClauses, pub clause_activity: ClauseActivity, pub clause_alloc: ClauseAlloc, pub clause_db: ClauseDb, pub impl_graph: ImplGraph, pub model: Model, pub schedule: Schedule, pub solver_config: SolverConfig, pub solver_state: SolverState, pub tmp_data: TmpData, pub tmp_flags: TmpFlags, pub trail: Trail, pub variables: Variables, pub vsids: Vsids, pub watchlists: Watchlists } |  |  |  |  |
 
-| `make_decision` | function | make_decision(ctx: &mut Context) |  |  |  |  |
+| `make_decision` | function | make_decision(ctx: &mut Context) -> bool |  |  |  |  |
 
 | `bump` | function | bump(&mut self, var: Var) |  |  |  |  |
 
@@ -5890,103 +3645,109 @@
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `var_count` | function | var_count(&self) |  |  |  |  |
+| `var_count` | function | var_count(&self) -> usize |  |  |  |  |
 
-| `Vsids` | struct |  |  |  |  |  |
+| `Vsids` | struct | Vsids { activity: Vec<f32>, heap: Vec<Var>, position: Vec<Option<usize>>, bump: f32, inv_decay: f32 } |  |  |  |  |
 
-| `DimacsError` | enum |  |  |  |  |  |
+| `DimacsError` | enum | DimacsError { Io(io::Error), Parse { line: usize, msg: String } } |  |  |  |  |
 
-| `parse_dimacs` | function | parse_dimacs(input: impl io::BufRead) |  |  |  |  |
+| `parse_dimacs` | function | parse_dimacs(input: impl io::BufRead) -> Result<CnfFormula, DimacsError> |  |  |  |  |
 
-| `parse_dimacs_str` | function | parse_dimacs_str(input: &str) |  |  |  |  |
+| `parse_dimacs_str` | function | parse_dimacs_str(input: &str) -> Result<CnfFormula, DimacsError> |  |  |  |  |
 
-| `write_dimacs` | function | write_dimacs(target: &mut impl io::Write, formula: &CnfFormula) |  |  |  |  |
+| `write_dimacs` | function | write_dimacs(target: &mut impl io::Write, formula: &CnfFormula) -> io::Result<()> |  |  |  |  |
 
-| `compute_glue` | function | compute_glue(tmp_flags: &mut TmpFlags, impl_graph: &ImplGraph, lits: &[Lit]) |  |  |  |  |
+| `compute_glue` | function | compute_glue(tmp_flags: &mut TmpFlags, impl_graph: &ImplGraph, lits: &[Lit]) -> usize |  |  |  |  |
 
-| `code` | function | code(self) |  |  |  |  |
+| `cnf::{CnfFormula, ExtendFormula}` | use | cnf::{CnfFormula, ExtendFormula} |  |  |  |  |
 
-| `from_code` | function | from_code(code: usize) |  |  |  |  |
+| `lit::{Lit, Var}` | use | lit::{Lit, Var} |  |  |  |  |
 
-| `from_dimacs` | function | from_dimacs(number: isize) |  |  |  |  |
+| `solver::{Solver, SolverError}` | use | solver::{Solver, SolverError} |  |  |  |  |
 
-| `from_index` | function | from_index(index: usize) |  |  |  |  |
+| `code` | function | code(self) -> usize |  |  |  |  |
 
-| `from_var` | function | from_var(var: Var, polarity: bool) |  |  |  |  |
+| `from_code` | function | from_code(code: usize) -> Lit |  |  |  |  |
 
-| `index` | function | index(self) |  |  |  |  |
+| `from_dimacs` | function | from_dimacs(number: isize) -> Var |  |  |  |  |
 
-| `is_negative` | function | is_negative(self) |  |  |  |  |
+| `from_index` | function | from_index(index: usize) -> Var |  |  |  |  |
 
-| `is_positive` | function | is_positive(self) |  |  |  |  |
+| `from_var` | function | from_var(var: Var, polarity: bool) -> Lit |  |  |  |  |
 
-| `lit` | function | lit(self, polarity: bool) |  |  |  |  |
+| `index` | function | index(self) -> usize |  |  |  |  |
 
-| `map_var` | function | map_var(self, f: impl FnOnce(Var) |  |  |  |  |
+| `is_negative` | function | is_negative(self) -> bool |  |  |  |  |
 
-| `max_count` | function | max_count() |  |  |  |  |
+| `is_positive` | function | is_positive(self) -> bool |  |  |  |  |
 
-| `max_var` | function | max_var() |  |  |  |  |
+| `lit` | function | lit(self, polarity: bool) -> Lit |  |  |  |  |
 
-| `negative` | function | negative(self) |  |  |  |  |
+| `map_var` | function | map_var(self, f: impl FnOnce(Var) -> Var) -> Lit |  |  |  |  |
 
-| `positive` | function | positive(self) |  |  |  |  |
+| `max_count` | function | max_count() -> usize |  |  |  |  |
 
-| `to_dimacs` | function | to_dimacs(self) |  |  |  |  |
+| `max_var` | function | max_var() -> Var |  |  |  |  |
 
-| `var` | function | var(self) |  |  |  |  |
+| `negative` | function | negative(self) -> Lit |  |  |  |  |
 
-| `Lit` | struct |  |  |  |  |  |
+| `positive` | function | positive(self) -> Lit |  |  |  |  |
 
-| `Var` | struct |  |  |  |  |  |
+| `to_dimacs` | function | to_dimacs(self) -> isize |  |  |  |  |
+
+| `var` | function | var(self) -> Var |  |  |  |  |
+
+| `Lit` | struct | Lit { code: LitIdx } |  |  |  |  |
+
+| `Var` | struct | Var { index: LitIdx } |  |  |  |  |
 
 | `load_clause` | function | load_clause(ctx: &mut Context, user_lits: &[Lit]) |  |  |  |  |
 
-| `assignment` | function | assignment(&self) |  |  |  |  |
+| `assignment` | function | assignment(&self) -> &[Option<bool>] |  |  |  |  |
 
 | `reconstruct_global_model` | function | reconstruct_global_model(ctx: &mut Context) |  |  |  |  |
 
-| `Model` | struct |  |  |  |  |  |
+| `Model` | struct | Model { assignment: Vec<Option<bool>> } |  |  |  |  |
 
-| `propagate` | function | propagate(ctx: &mut Context) |  |  |  |  |
+| `propagate` | function | propagate(ctx: &mut Context) -> Result<(), Conflict> |  |  |  |  |
+
+| `assignment::{backtrack, enqueue_assignment, full_restart, restart, Assignment, Trail}` | use | assignment::{backtrack, enqueue_assignment, full_restart, restart, Assignment, Trail} |  |  |  |  |
+
+| `graph::{Conflict, ImplGraph, Reason}` | use | graph::{Conflict, ImplGraph, Reason} |  |  |  |  |
+
+| `watch::{enable_watchlists, Watch, Watchlists}` | use | watch::{enable_watchlists, Watch, Watchlists} |  |  |  |  |
 
 | `assign_lit` | function | assign_lit(&mut self, lit: Lit) |  |  |  |  |
 
-| `assignment` | function | assignment(&self) |  |  |  |  |
+| `assignment` | function | assignment(&self) -> &[Option<bool>] |  |  |  |  |
 
 | `backtrack` | function | backtrack(ctx: &mut Context, level: usize) |  |  |  |  |
 
 | `clear` | function | clear(&mut self) |  |  |  |  |
 
-| `current_level` | function | current_level(&self) |  |  |  |  |
+| `current_level` | function | current_level(&self) -> usize |  |  |  |  |
 
-| `enqueue_assignment` | function | enqueue_assignment(
-    assignment: &mut Assignment,
-    impl_graph: &mut ImplGraph,
-    trail: &mut Trail,
-    lit: Lit,
-    reason: Reason,
-) |  |  |  |  |
+| `enqueue_assignment` | function | enqueue_assignment( assignment: &mut Assignment, impl_graph: &mut ImplGraph, trail: &mut Trail, lit: Lit, reason: Reason, ) |  |  |  |  |
 
-| `fast_option_eq` | function | fast_option_eq(a: Option<bool>, b: Option<bool>) |  |  |  |  |
+| `fast_option_eq` | function | fast_option_eq(a: Option<bool>, b: Option<bool>) -> bool |  |  |  |  |
 
 | `full_restart` | function | full_restart(ctx: &mut Context) |  |  |  |  |
 
-| `last_var_value` | function | last_var_value(&self, var: Var) |  |  |  |  |
+| `last_var_value` | function | last_var_value(&self, var: Var) -> bool |  |  |  |  |
 
-| `lit_is_false` | function | lit_is_false(&self, lit: Lit) |  |  |  |  |
+| `lit_is_false` | function | lit_is_false(&self, lit: Lit) -> bool |  |  |  |  |
 
-| `lit_is_true` | function | lit_is_true(&self, lit: Lit) |  |  |  |  |
+| `lit_is_true` | function | lit_is_true(&self, lit: Lit) -> bool |  |  |  |  |
 
-| `lit_is_unk` | function | lit_is_unk(&self, lit: Lit) |  |  |  |  |
+| `lit_is_unk` | function | lit_is_unk(&self, lit: Lit) -> bool |  |  |  |  |
 
-| `lit_value` | function | lit_value(&self, lit: Lit) |  |  |  |  |
+| `lit_value` | function | lit_value(&self, lit: Lit) -> Option<bool> |  |  |  |  |
 
 | `new_decision_level` | function | new_decision_level(&mut self) |  |  |  |  |
 
-| `pop_queue` | function | pop_queue(&mut self) |  |  |  |  |
+| `pop_queue` | function | pop_queue(&mut self) -> Option<Lit> |  |  |  |  |
 
-| `queue_head` | function | queue_head(&self) |  |  |  |  |
+| `queue_head` | function | queue_head(&self) -> Option<Lit> |  |  |  |  |
 
 | `restart` | function | restart(ctx: &mut Context) |  |  |  |  |
 
@@ -5994,29 +3755,31 @@
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `trail` | function | trail(&self) |  |  |  |  |
+| `trail` | function | trail(&self) -> &[Lit] |  |  |  |  |
 
 | `unassign_var` | function | unassign_var(&mut self, var: Var) |  |  |  |  |
 
-| `var_value` | function | var_value(&self, var: Var) |  |  |  |  |
+| `var_value` | function | var_value(&self, var: Var) -> Option<bool> |  |  |  |  |
 
-| `Assignment` | struct |  |  |  |  |  |
+| `Assignment` | struct | Assignment { assignment: Vec<Option<bool>>, last_value: Vec<bool> } |  |  |  |  |
 
-| `Trail` | struct |  |  |  |  |  |
+| `Trail` | struct | Trail { trail: Vec<Lit>, queue_head_pos: usize, decisions: Vec<LitIdx>, units_removed: usize } |  |  |  |  |
 
-| `propagate_binary` | function | propagate_binary(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `propagate_binary` | function | propagate_binary(ctx: &mut Context, lit: Lit) -> Result<(), Conflict> |  |  |  |  |
 
-| `Conflict` | enum |  |  |  |  |  |
+| `Conflict` | enum | Conflict { Binary([Lit; 2]), Long(ClauseRef) } |  |  |  |  |
 
-| `Reason` | enum |  |  |  |  |  |
+| `Reason` | enum | Reason { Unit, Binary([Lit; 1]), Long(ClauseRef) } |  |  |  |  |
 
-| `is_removed_unit` | function | is_removed_unit(&self, var: Var) |  |  |  |  |
+| `is_removed_unit` | function | is_removed_unit(&self, var: Var) -> bool |  |  |  |  |
 
-| `is_unit` | function | is_unit(&self) |  |  |  |  |
+| `is_unit` | function | is_unit(&self) -> bool |  |  |  |  |
 
-| `level` | function | level(&self, var: Var) |  |  |  |  |
+| `level` | function | level(&self, var: Var) -> usize |  |  |  |  |
 
-| `reason` | function | reason(&self, var: Var) |  |  |  |  |
+| `lits` | function | lits(&'a self, alloc: &'a ClauseAlloc) -> &'a [Lit] |  |  |  |  |
+
+| `reason` | function | reason(&self, var: Var) -> &Reason |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
@@ -6024,11 +3787,11 @@
 
 | `update_removed_unit` | function | update_removed_unit(&mut self, var: Var) |  |  |  |  |
 
-| `ImplGraph` | struct |  |  |  |  |  |
+| `ImplGraph` | struct | ImplGraph { pub nodes: Vec<ImplNode> } |  |  |  |  |
 
-| `ImplNode` | struct |  |  |  |  |  |
+| `ImplNode` | struct | ImplNode { pub reason: Reason, pub level: LitIdx, pub depth: LitIdx } |  |  |  |  |
 
-| `propagate_long` | function | propagate_long(ctx: &mut Context, lit: Lit) |  |  |  |  |
+| `propagate_long` | function | propagate_long(ctx: &mut Context, lit: Lit) -> Result<(), Conflict> |  |  |  |  |
 
 | `add_watch` | function | add_watch(&mut self, lit: Lit, watch: Watch) |  |  |  |  |
 
@@ -6040,439 +3803,393 @@
 
 | `watch_clause` | function | watch_clause(&mut self, cref: ClauseRef, lits: [Lit; 2]) |  |  |  |  |
 
-| `watched_by_mut` | function | watched_by_mut(&mut self, lit: Lit) |  |  |  |  |
+| `watched_by_mut` | function | watched_by_mut(&mut self, lit: Lit) -> &mut Vec<Watch> |  |  |  |  |
 
-| `Watch` | struct |  |  |  |  |  |
+| `Watch` | struct | Watch { pub cref: ClauseRef, pub blocking: Lit } |  |  |  |  |
 
-| `Watchlists` | struct |  |  |  |  |  |
+| `Watchlists` | struct | Watchlists { watches: Vec<Vec<Watch>>, enabled: bool } |  |  |  |  |
 
-| `schedule_step` | function | schedule_step(ctx: &mut Context) |  |  |  |  |
+| `schedule_step` | function | schedule_step(ctx: &mut Context) -> bool |  |  |  |  |
 
-| `Schedule` | struct |  |  |  |  |  |
+| `Schedule` | struct | Schedule { conflicts: u64, next_restart: u64, restarts: u64, luby: LubySequence, pub conflict_limit: Option<u64>, pub conflicts_this_solve: u64 } |  |  |  |  |
 
-| `advance` | function | advance(&mut self) |  |  |  |  |
+| `advance` | function | advance(&mut self) -> u64 |  |  |  |  |
 
-| `LubySequence` | struct |  |  |  |  |  |
+| `LubySequence` | struct | LubySequence { u: u64, v: u64 } |  |  |  |  |
 
-| `SolverError` | enum |  |  |  |  |  |
+| `SolverError` | enum | SolverError { Interrupted } |  |  |  |  |
 
 | `add_formula` | function | add_formula(&mut self, formula: &CnfFormula) |  |  |  |  |
 
 | `assume` | function | assume(&mut self, assumptions: &[Lit]) |  |  |  |  |
 
-| `failed_core` | function | failed_core(&self) |  |  |  |  |
+| `failed_core` | function | failed_core(&self) -> Option<&[Lit]> |  |  |  |  |
 
-| `is_recoverable` | function | is_recoverable(&self) |  |  |  |  |
+| `is_recoverable` | function | is_recoverable(&self) -> bool |  |  |  |  |
 
-| `model` | function | model(&self) |  |  |  |  |
+| `model` | function | model(&self) -> Option<Vec<Lit>> |  |  |  |  |
 
-| `new` | function | new() |  |  |  |  |
+| `new` | function | new() -> Solver |  |  |  |  |
 
-| `seed_activity` | function | seed_activity(&mut self, seeds: &[(usize, f32) |  |  |  |  |
+| `seed_activity` | function | seed_activity(&mut self, seeds: &[(usize, f32)]) |  |  |  |  |
 
 | `set_conflict_limit` | function | set_conflict_limit(&mut self, limit: Option<u64>) |  |  |  |  |
 
-| `solve` | function | solve(&mut self) |  |  |  |  |
+| `solve` | function | solve(&mut self) -> Result<bool, SolverError> |  |  |  |  |
 
-| `Solver` | struct |  |  |  |  |  |
+| `Solver` | struct | Solver { ctx: Box<Context> } |  |  |  |  |
 
-| `SatState` | enum |  |  |  |  |  |
+| `SatState` | enum | SatState { Unknown, Sat, Unsat, UnsatUnderAssumptions } |  |  |  |  |
 
-| `SolverState` | struct |  |  |  |  |  |
+| `SolverState` | struct | SolverState { pub sat_state: SatState } |  |  |  |  |
 
 | `set_var_count` | function | set_var_count(&mut self, count: usize) |  |  |  |  |
 
-| `TmpData` | struct |  |  |  |  |  |
+| `TmpData` | struct | TmpData { pub lits: Vec<Lit>, pub lits_2: Vec<Lit> } |  |  |  |  |
 
-| `TmpFlags` | struct |  |  |  |  |  |
+| `TmpFlags` | struct | TmpFlags { pub flags: Vec<bool> } |  |  |  |  |
 
-| `prove_units` | function | prove_units(ctx: &mut Context) |  |  |  |  |
+| `prove_units` | function | prove_units(ctx: &mut Context) -> bool |  |  |  |  |
 
 | `resurrect_unit` | function | resurrect_unit(ctx: &mut Context, lit: Lit) |  |  |  |  |
 
 | `unit_simplify` | function | unit_simplify(ctx: &mut Context) |  |  |  |  |
 
-| `existing_user_from_solver` | function | existing_user_from_solver(&self, solver: Var) |  |  |  |  |
+| `existing_user_from_solver` | function | existing_user_from_solver(&self, solver: Var) -> Var |  |  |  |  |
 
-| `global_from_solver` | function | global_from_solver(&self) |  |  |  |  |
+| `global_from_solver` | function | global_from_solver(&self) -> &VarMap |  |  |  |  |
 
-| `global_from_solver_mut` | function | global_from_solver_mut(&mut self) |  |  |  |  |
+| `global_from_solver_mut` | function | global_from_solver_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `global_from_user` | function | global_from_user(&self) |  |  |  |  |
+| `global_from_user` | function | global_from_user(&self) -> &VarMap |  |  |  |  |
 
-| `global_from_user_mut` | function | global_from_user_mut(&mut self) |  |  |  |  |
+| `global_from_user_mut` | function | global_from_user_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `global_var_iter` | function | global_var_iter(&self) |  |  |  |  |
+| `global_var_iter` | function | global_var_iter(&self) -> impl Iterator<Item = Var> + '_ |  |  |  |  |
 
-| `global_watermark` | function | global_watermark(&self) |  |  |  |  |
+| `global_watermark` | function | global_watermark(&self) -> usize |  |  |  |  |
 
 | `initialize_solver_var` | function | initialize_solver_var(ctx: &mut Context, solver: Var, global: Var) |  |  |  |  |
 
-| `new_user_var` | function | new_user_var(ctx: &mut Context) |  |  |  |  |
+| `new_user_var` | function | new_user_var(ctx: &mut Context) -> Var |  |  |  |  |
 
-| `next_unmapped_solver` | function | next_unmapped_solver(&self) |  |  |  |  |
+| `next_unmapped_solver` | function | next_unmapped_solver(&self) -> Var |  |  |  |  |
 
-| `next_unmapped_user` | function | next_unmapped_user(&self) |  |  |  |  |
+| `next_unmapped_user` | function | next_unmapped_user(&self) -> Var |  |  |  |  |
 
 | `remove_solver_var` | function | remove_solver_var(ctx: &mut Context, solver: Var) |  |  |  |  |
 
-| `solver_from_global` | function | solver_from_global(&self) |  |  |  |  |
+| `solver_from_global` | function | solver_from_global(&self) -> &VarMap |  |  |  |  |
 
-| `solver_from_global_mut` | function | solver_from_global_mut(&mut self) |  |  |  |  |
+| `solver_from_global_mut` | function | solver_from_global_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `solver_from_user` | function | solver_from_user(ctx: &mut Context, user: Var) |  |  |  |  |
+| `solver_from_user` | function | solver_from_user(ctx: &mut Context, user: Var) -> Var |  |  |  |  |
 
 | `solver_from_user_lits` | function | solver_from_user_lits(ctx: &mut Context, solver_lits: &mut Vec<Lit>, user_lits: &[Lit]) |  |  |  |  |
 
-| `solver_var_present` | function | solver_var_present(&self, solver: Var) |  |  |  |  |
+| `solver_var_present` | function | solver_var_present(&self, solver: Var) -> bool |  |  |  |  |
 
-| `solver_watermark` | function | solver_watermark(&self) |  |  |  |  |
+| `solver_watermark` | function | solver_watermark(&self) -> usize |  |  |  |  |
 
-| `user_from_global` | function | user_from_global(&self) |  |  |  |  |
+| `user_from_global` | function | user_from_global(&self) -> &VarMap |  |  |  |  |
 
-| `user_var_iter` | function | user_var_iter(&self) |  |  |  |  |
+| `user_var_iter` | function | user_var_iter(&self) -> impl Iterator<Item = Var> + '_ |  |  |  |  |
 
-| `user_watermark` | function | user_watermark(&self) |  |  |  |  |
+| `user_watermark` | function | user_watermark(&self) -> usize |  |  |  |  |
 
-| `var_data_global` | function | var_data_global(&self, global: Var) |  |  |  |  |
+| `var_data_global` | function | var_data_global(&self, global: Var) -> &VarData |  |  |  |  |
 
-| `var_data_global_mut` | function | var_data_global_mut(&mut self, global: Var) |  |  |  |  |
+| `var_data_global_mut` | function | var_data_global_mut(&mut self, global: Var) -> &mut VarData |  |  |  |  |
 
-| `var_data_solver_mut` | function | var_data_solver_mut(&mut self, solver: Var) |  |  |  |  |
+| `var_data_solver_mut` | function | var_data_solver_mut(&mut self, solver: Var) -> &mut VarData |  |  |  |  |
 
-| `Variables` | struct |  |  |  |  |  |
+| `Variables` | struct | Variables { global_from_user: VarBiMap, solver_from_global: VarBiMap, solver_freelist: HashSet<Var>, var_data: Vec<VarData> } |  |  |  |  |
 
-| `user_default` | function | user_default() |  |  |  |  |
+| `user_default` | function | user_default() -> VarData |  |  |  |  |
 
-| `VarData` | struct |  |  |  |  |  |
+| `VarData` | struct | VarData { pub unit: Option<bool>, pub isolated: bool, pub assumed: bool, pub deleted: bool } |  |  |  |  |
 
-| `bwd` | function | bwd(&self) |  |  |  |  |
+| `bwd` | function | bwd(&self) -> &VarMap |  |  |  |  |
 
-| `bwd_mut` | function | bwd_mut(&mut self) |  |  |  |  |
+| `bwd_mut` | function | bwd_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `fwd` | function | fwd(&self) |  |  |  |  |
+| `fwd` | function | fwd(&self) -> &VarMap |  |  |  |  |
 
-| `fwd_mut` | function | fwd_mut(&mut self) |  |  |  |  |
+| `fwd_mut` | function | fwd_mut(&mut self) -> VarBiMapMut<'_> |  |  |  |  |
 
-| `get` | function | get(&self, from: Var) |  |  |  |  |
+| `get` | function | get(&self, from: Var) -> Option<Var> |  |  |  |  |
 
 | `insert` | function | insert(&mut self, into: Var, from: Var) |  |  |  |  |
 
 | `remove` | function | remove(&mut self, from: Var) |  |  |  |  |
 
-| `watermark` | function | watermark(&self) |  |  |  |  |
+| `watermark` | function | watermark(&self) -> usize |  |  |  |  |
 
-| `VarBiMap` | struct |  |  |  |  |  |
+| `VarBiMap` | struct | VarBiMap { fwd: VarMap, bwd: VarMap } |  |  |  |  |
 
-| `VarBiMapMut` | struct |  |  |  |  |  |
+| `VarBiMapMut` | struct | VarBiMapMut { fwd: &'a mut VarMap, bwd: &'a mut VarMap } |  |  |  |  |
 
-| `VarMap` | struct |  |  |  |  |  |
+| `VarMap` | struct | VarMap { mapping: Vec<LitIdx> } |  |  |  |  |
 
-| `admit_candidates` | function | admit_candidates(
-    candidates: &[ProbeCandidate],
-    goal_limit: usize,
-    surface: &str,
-) |  |  |  |  |
+| `CORRIDOR_DOMAIN` | const | CORRIDOR_DOMAIN: &str |  |  |  |  |
 
-| `corridor_problem` | function | corridor_problem(n: usize) |  |  |  |  |
+| `MAX_PROBE_CANDIDATES` | const | MAX_PROBE_CANDIDATES: usize |  |  |  |  |
 
-| `probe_all` | function | probe_all(
-    parent: &Session,
-    candidates: &[ProbeCandidate],
-    evals: usize,
-    mem_mb: usize,
-) |  |  |  |  |
+| `MAX_PROBE_FACT_BYTES` | const | MAX_PROBE_FACT_BYTES: usize |  |  |  |  |
 
-| `probe_candidate` | function | probe_candidate(
-    parent: &Session,
-    candidate: &ProbeCandidate,
-    evals: usize,
-    mem_mb: usize,
-) |  |  |  |  |
+| `MAX_PROBE_OBSERVATIONS` | const | MAX_PROBE_OBSERVATIONS: usize |  |  |  |  |
 
-| `repair` | function | repair(
-    inner: &Session,
-    plan: &mut Option<Plan>,
-    cursor: &mut usize,
-    evals: usize,
-    mem_mb: usize,
-) |  |  |  |  |
+| `admit_candidates` | function | admit_candidates( candidates: &[ProbeCandidate], goal_limit: usize, surface: &str, ) -> Result<(), Refusal> |  |  |  |  |
 
-| `ProbeCandidate` | struct |  |  |  |  |  |
+| `corridor_problem` | function | corridor_problem(n: usize) -> String |  |  |  |  |
+
+| `probe_all` | function | probe_all( parent: &Session, candidates: &[ProbeCandidate], evals: usize, mem_mb: usize, ) -> Vec<Value> |  |  |  |  |
+
+| `probe_candidate` | function | probe_candidate( parent: &Session, candidate: &ProbeCandidate, evals: usize, mem_mb: usize, ) -> Value |  |  |  |  |
+
+| `repair` | function | repair( inner: &Session, plan: &mut Option<Plan>, cursor: &mut usize, evals: usize, mem_mb: usize, ) -> Value |  |  |  |  |
+
+| `ProbeCandidate` | struct | ProbeCandidate { pub id: String, pub goal: Option<String>, pub sight: Vec<(String, bool)>, pub restrict_contains: Option<String> } |  |  |  |  |
 
 | `advance` | function | advance(&mut self) |  |  |  |  |
 
-| `apply_start` | function | apply_start(&mut self, name: &str) |  |  |  |  |
+| `apply_start` | function | apply_start(&mut self, name: &str) -> Result<(), JsValue> |  |  |  |  |
 
 | `drop_plan` | function | drop_plan(&mut self) |  |  |  |  |
 
-| `elapse` | function | elapse(&mut self, dt: f64) |  |  |  |  |
+| `elapse` | function | elapse(&mut self, dt: f64) -> Result<String, JsValue> |  |  |  |  |
 
-| `explain` | function | explain(domain: &str, problem: &str, plan_json: &str) |  |  |  |  |
+| `explain` | function | explain(domain: &str, problem: &str, plan_json: &str) -> String |  |  |  |  |
 
-| `fact` | function | fact(&self, name: &str) |  |  |  |  |
+| `fact` | function | fact(&self, name: &str) -> JsValue |  |  |  |  |
 
-| `fluent` | function | fluent(&self, name: &str) |  |  |  |  |
+| `fluent` | function | fluent(&self, name: &str) -> JsValue |  |  |  |  |
 
-| `fond_validate` | function | fond_validate(problem_json: &str, plan_json: &str) |  |  |  |  |
+| `fond_validate` | function | fond_validate(problem_json: &str, plan_json: &str) -> String |  |  |  |  |
 
-| `fork` | function | fork(&self) |  |  |  |  |
+| `fork` | function | fork(&self) -> WasmSession |  |  |  |  |
 
-| `goal_met` | function | goal_met(&self) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) -> bool |  |  |  |  |
 
-| `has_plan` | function | has_plan(&self) |  |  |  |  |
+| `has_plan` | function | has_plan(&self) -> bool |  |  |  |  |
 
-| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) -> usize |  |  |  |  |
 
-| `new` | function | new(domain: &str, problem: &str) |  |  |  |  |
+| `new` | function | new(domain: &str, problem: &str) -> Result<WasmSession, JsValue> |  |  |  |  |
 
-| `observe` | function | observe(&mut self, sight_json: &str) |  |  |  |  |
+| `observe` | function | observe(&mut self, sight_json: &str) -> Result<String, JsValue> |  |  |  |  |
 
-| `plan` | function | plan(
-        domain: &str,
-        problem: &str,
-        mode: Option<String>,
-        flags: Option<String>,
-        search: Option<String>,
-    ) |  |  |  |  |
+| `plan` | function | plan( domain: &str, problem: &str, mode: Option<String>, flags: Option<String>, search: Option<String>, ) -> String |  |  |  |  |
 
-| `plan_production` | function | plan_production(
-        domain: &str,
-        problem: &str,
-        mode: Option<String>,
-        search: Option<String>,
-        max_evaluated: Option<usize>,
-        max_plan_steps: Option<usize>,
-        max_output_bytes: Option<usize>,
-        request_id: Option<String>,
-    ) |  |  |  |  |
+| `plan_production` | function | plan_production( domain: &str, problem: &str, mode: Option<String>, search: Option<String>, max_evaluated: Option<usize>, max_plan_steps: Option<usize>, max_output_bytes: Option<usize>, request_id: Option<String>, ) -> String |  |  |  |  |
 
-| `plan_valid_json` | function | plan_valid_json(&self, plan_json: &str, from: usize) |  |  |  |  |
+| `plan_valid_json` | function | plan_valid_json(&self, plan_json: &str, from: usize) -> bool |  |  |  |  |
 
-| `probe_json` | function | probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) |  |  |  |  |
+| `probe_json` | function | probe_json(&self, candidates_json: &str, evals: usize, mem_mb: usize) -> String |  |  |  |  |
 
-| `readiness` | function | readiness() |  |  |  |  |
+| `readiness` | function | readiness() -> String |  |  |  |  |
 
-| `repair` | function | repair(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `repair` | function | repair(&mut self, evals: usize, mem_mb: usize) -> String |  |  |  |  |
 
-| `replan_following` | function | replan_following(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `replan_following` | function | replan_following(&mut self, evals: usize, mem_mb: usize) -> String |  |  |  |  |
 
 | `restrict_contains` | function | restrict_contains(&mut self, filter: String) |  |  |  |  |
 
 | `restrict_prefix_claims` | function | restrict_prefix_claims(&mut self, prefix: String, claimed: String) |  |  |  |  |
 
-| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
+| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) -> Result<(), JsValue> |  |  |  |  |
 
-| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
+| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) -> Result<(), JsValue> |  |  |  |  |
 
-| `set_goal` | function | set_goal(&mut self, goal: &str) |  |  |  |  |
+| `set_goal` | function | set_goal(&mut self, goal: &str) -> Result<(), JsValue> |  |  |  |  |
 
-| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
+| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) -> Result<(), JsValue> |  |  |  |  |
 
-| `step_json` | function | step_json(&self) |  |  |  |  |
+| `step_json` | function | step_json(&self) -> String |  |  |  |  |
 
-| `suffix_json` | function | suffix_json(&self) |  |  |  |  |
+| `suffix_json` | function | suffix_json(&self) -> String |  |  |  |  |
 
-| `think` | function | think(&mut self, evals: usize, mem_mb: usize) |  |  |  |  |
+| `think` | function | think(&mut self, evals: usize, mem_mb: usize) -> String |  |  |  |  |
 
-| `valid` | function | valid(&self) |  |  |  |  |
+| `valid` | function | valid(&self) -> bool |  |  |  |  |
 
-| `version` | function | version() |  |  |  |  |
+| `version` | function | version() -> String |  |  |  |  |
 
-| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
-| `WasmSession` | struct |  |  |  |  |  |
+| `WasmSession` | struct | WasmSession { inner: ferroplan::Session, plan: Option<ferroplan::api::Plan>, cursor: usize } |  |  |  |  |
 
-| `contradictory_fact` | function | contradictory_fact(sight: &[(String, bool) |  |  |  |  |
+| `browser_impl::{ explain, fond_validate, plan, plan_production, readiness, version, WasmSession, }` | use | browser_impl::{ explain, fond_validate, plan, plan_production, readiness, version, WasmSession, } |  |  |  |  |
 
-| `fact_key` | function | fact_key(fact: &str) |  |  |  |  |
+| `MAX_PROBE_ID_BYTES` | const | MAX_PROBE_ID_BYTES: usize |  |  |  |  |
 
-| `Mode` | enum |  |  |  |  |  |
+| `contradictory_fact` | function | contradictory_fact(sight: &[(String, bool)]) -> Option<&str> |  |  |  |  |
 
-| `Search` | enum |  |  |  |  |  |
+| `duplicate_id` | function | duplicate_id(ids: impl IntoIterator<Item = &'a str>) -> Option<&'a str> |  |  |  |  |
 
-| `SolveError` | enum |  |  |  |  |  |
+| `fact_key` | function | fact_key(fact: &str) -> String |  |  |  |  |
 
-| `decompose` | function | decompose(
-    domain_src: &str,
-    problem_src: &str,
-    opts: &Options,
-) |  |  |  |  |
+| `malformed_id` | function | malformed_id(ids: impl IntoIterator<Item = &'a str>) -> Option<&'a str> |  |  |  |  |
 
-| `parse` | function | parse(src: &str) |  |  |  |  |
+| `fp_alloc` | function | fp_alloc(len: usize) -> *mut u8 |  |  |  |  |
 
-| `solve` | function | solve(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
+| `fp_call` | function | fp_call(ptr: *mut u8, len: usize) -> u64 |  |  |  |  |
 
-| `Contract` | struct |  |  |  |  |  |
+| `fp_dealloc` | function | fp_dealloc(ptr: *mut u8, len: usize) |  |  |  |  |
 
-| `Decomposition` | struct |  |  |  |  |  |
+| `Mode` | enum | Mode { Auto, Ff, Partition, Pddl3, Temporal, Portfolio, Optimal, Sat } |  |  |  |  |
 
-| `DomainSummary` | struct |  |  |  |  |  |
+| `Search` | enum | Search { Auto, Ehc, BestFirst, EhcThenBestFirst } |  |  |  |  |
 
-| `Options` | struct |  |  |  |  |  |
+| `SolveError` | enum | SolveError { DomainParse(crate::types::ParseError), ProblemParse(crate::types::ParseError), EmptyType { kind: String, pred: String, ty: String, }, Derived(String), Unsupported(String) } |  |  |  |  |
 
-| `ParseReport` | struct |  |  |  |  |  |
+| `decompose` | function | decompose( domain_src: &str, problem_src: &str, opts: &Options, ) -> Result<Decomposition, SolveError> |  |  |  |  |
 
-| `Plan` | struct |  |  |  |  |  |
+| `parse` | function | parse(src: &str) -> ParseReport |  |  |  |  |
 
-| `ProblemSummary` | struct |  |  |  |  |  |
+| `solve` | function | solve(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Solution, SolveError> |  |  |  |  |
 
-| `Solution` | struct |  |  |  |  |  |
+| `Contract` | struct | Contract { pub index: usize, pub goal: String, pub steps: Vec<Step>, pub makespan: f64, pub offset: f64 } |  |  |  |  |
 
-| `Statistics` | struct |  |  |  |  |  |
+| `Decomposition` | struct | Decomposition { pub solved: bool, pub contracts: Vec<Contract>, pub plan: Option<Plan>, pub monolithic: bool, pub notes: Vec<String> } |  |  |  |  |
 
-| `Step` | struct |  |  |  |  |  |
+| `DomainSummary` | struct | DomainSummary { pub types: Vec<String>, pub predicates: Vec<String>, pub functions: Vec<String>, pub actions: Vec<String>, pub durative_actions: Vec<String>, pub derived: usize } |  |  |  |  |
+
+| `Options` | struct | Options { pub mode: Mode, pub search: Search, pub helpful_actions: bool, pub weight_g: f64, pub weight_h: f64, pub threads: usize, pub max_evaluated: Option<usize>, pub optimize: bool, pub wall_ms: Option<u64>, pub should_continue: Option<std::sync::Arc<std::sync::atomic::AtomicBool>> } |  |  |  |  |
+
+| `ParseReport` | struct | ParseReport { pub ok: bool, pub kind: Option<String>, pub name: Option<String>, pub requirements: Vec<String>, pub error: Option<String>, pub domain: Option<DomainSummary>, pub problem: Option<ProblemSummary> } |  |  |  |  |
+
+| `Plan` | struct | Plan { pub steps: Vec<Step>, pub length: usize, pub metric: Option<f64>, pub makespan: Option<f64> } |  |  |  |  |
+
+| `ProblemSummary` | struct | ProblemSummary { pub domain: String, pub objects: usize, pub init_facts: usize, pub init_fluents: usize, pub timed_initial_literals: usize, pub has_goal: bool, pub has_metric: bool } |  |  |  |  |
+
+| `Solution` | struct | Solution { pub solved: bool, pub mode: Mode, pub plan: Option<Plan>, pub statistics: Statistics, pub notes: Vec<String> } |  |  |  |  |
+
+| `Statistics` | struct | Statistics { pub grounded_facts: usize, pub grounded_actions: usize, pub evaluated_states: usize, pub threads: usize } |  |  |  |  |
+
+| `Step` | struct | Step { pub index: usize, pub action: String, pub args: Vec<String>, pub time: Option<f64>, pub duration: Option<f64> } |  |  |  |  |
 
 | `clear` | function | clear(w: &mut [u64], i: usize) |  |  |  |  |
 
-| `count` | function | count(w: &[u64]) |  |  |  |  |
+| `count` | function | count(w: &[u64]) -> usize |  |  |  |  |
 
 | `set` | function | set(w: &mut [u64], i: usize) |  |  |  |  |
 
-| `test` | function | test(w: &[u64], i: usize) |  |  |  |  |
+| `test` | function | test(w: &[u64], i: usize) -> bool |  |  |  |  |
 
-| `words_for` | function | words_for(n_bits: usize) |  |  |  |  |
+| `words_for` | function | words_for(n_bits: usize) -> usize |  |  |  |  |
 
-| `elapsed_ms` | function | elapsed_ms(&self) |  |  |  |  |
+| `elapsed_ms` | function | elapsed_ms(&self) -> u128 |  |  |  |  |
 
-| `elapsed_secs` | function | elapsed_secs(&self) |  |  |  |  |
+| `elapsed_secs` | function | elapsed_secs(&self) -> f64 |  |  |  |  |
 
-| `elapsed_us` | function | elapsed_us(&self) |  |  |  |  |
+| `elapsed_us` | function | elapsed_us(&self) -> u128 |  |  |  |  |
 
-| `now` | function | now() |  |  |  |  |
+| `now` | function | now() -> Self |  |  |  |  |
 
-| `Clock` | struct |  |  |  |  |  |
+| `Clock` | struct | Clock { t0: std::time::Instant } |  |  |  |  |
 
-| `Traj` | enum |  |  |  |  |  |
+| `END_ACTION` | const | END_ACTION: &str |  |  |  |  |
 
-| `accepted` | function | accepted(&self) |  |  |  |  |
+| `Traj` | enum | Traj { Always(Formula), Sometime(Formula), AtMostOnce(Formula), SometimeAfter(Formula, Formula), SometimeBefore(Formula, Formula), AtEnd(Formula), Within(f64, Formula), AlwaysWithin(f64, Formula, Formula) } |  |  |  |  |
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `accepted` | function | accepted(&self) -> bool |  |  |  |  |
 
-| `expand` | function | expand(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> |  |  |  |  |
 
-| `gate` | function | gate(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `expand` | function | expand(domain: &Domain, problem: &Problem) -> Result<Expanded, String> |  |  |  |  |
 
-| `hard_only_gated` | function | hard_only_gated(
-    domain: &Domain,
-    problem: &Problem,
-) |  |  |  |  |
+| `gate` | function | gate(domain: &Domain, problem: &Problem) -> Result<Option<(Domain, Problem)>, String> |  |  |  |  |
 
-| `new` | function | new(traj: &'a Traj) |  |  |  |  |
+| `hard_only_gated` | function | hard_only_gated( domain: &Domain, problem: &Problem, ) -> Result<Option<(Domain, Problem)>, String> |  |  |  |  |
 
-| `op_name` | function | op_name(&self) |  |  |  |  |
+| `new` | function | new(traj: &'a Traj) -> Self |  |  |  |  |
 
-| `step` | function | step(&mut self, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
+| `op_name` | function | op_name(&self) -> &'static str |  |  |  |  |
 
-| `step_at` | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) |  |  |  |  |
+| `step` | function | step(&mut self, holds: &mut dyn FnMut(&Formula) -> bool) |  |  |  |  |
 
-| `Expanded` | struct |  |  |  |  |  |
+| `step_at` | function | step_at(&mut self, time: f64, holds: &mut dyn FnMut(&Formula) -> bool) |  |  |  |  |
 
-| `Fold` | struct |  |  |  |  |  |
+| `Expanded` | struct | Expanded { pub hard: Vec<Traj>, pub soft: Vec<(String, Vec<Traj>)> } |  |  |  |  |
 
-| `improve` | function | improve(
-    task: &PackedTask,
-    cf: usize,
-    ops: Vec<usize>,
-    first_cost: f64,
-    threads: usize,
-    base: SearchCfg,
-    spent: usize,
-    
-    
-    
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `Fold` | struct | Fold { traj: &'a Traj, ok: bool, seen: bool, holding: bool, pending: bool, safe: bool, last: bool, due: f64 } |  |  |  |  |
 
-| `improve_length` | function | improve_length(
-    task: &PackedTask,
-    ops: Vec<usize>,
-    threads: usize,
-    base: SearchCfg,
-    spent: usize,
-) |  |  |  |  |
+| `improve` | function | improve( task: &PackedTask, cf: usize, ops: Vec<usize>, first_cost: f64, threads: usize, base: SearchCfg, spent: usize, orbit: Option<&crate::orbits::OrbitMap>, ) -> CostOutcome |  |  |  |  |
 
-| `metric_fluent` | function | metric_fluent(problem: &Problem) |  |  |  |  |
+| `improve_length` | function | improve_length( task: &PackedTask, ops: Vec<usize>, threads: usize, base: SearchCfg, spent: usize, ) -> (Vec<usize>, usize, bool) |  |  |  |  |
 
-| `optimize_text` | function | optimize_text(
-    problem: &Problem,
-    task: &PackedTask,
-    optimize: bool,
-    threads: usize,
-    cfg: SearchCfg,
-    ops: &mut Vec<usize>,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `metric_fluent` | function | metric_fluent(problem: &Problem) -> Option<String> |  |  |  |  |
 
-| `plan_cost` | function | plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) |  |  |  |  |
+| `optimize_text` | function | optimize_text( problem: &Problem, task: &PackedTask, optimize: bool, threads: usize, cfg: SearchCfg, ops: &mut Vec<usize>, orbit: Option<&crate::orbits::OrbitMap>, ) -> Option<(f64, &'static str)> |  |  |  |  |
 
-| `CostOutcome` | struct |  |  |  |  |  |
+| `plan_cost` | function | plan_cost(task: &PackedTask, cf: usize, ops: &[usize]) -> Option<f64> |  |  |  |  |
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `CostOutcome` | struct | CostOutcome { pub ops: Vec<usize>, pub cost: f64, pub improved: bool, pub proven: bool, pub evaluated: usize } |  |  |  |  |
 
-| `espc_optimize` | function | espc_optimize(
-    task: &PackedTask,
-    cost_fluent: usize,
-    sat: &mut SatGuidance,
-    seed: Option<(Vec<usize>, f64) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> Result<(Domain, Problem), String> |  |  |  |  |
 
-| `EspcPartition` | struct |  |  |  |  |  |
+| `espc_optimize` | function | espc_optimize( task: &PackedTask, cost_fluent: usize, sat: &mut SatGuidance, seed: Option<(Vec<usize>, f64)>, part: Option<EspcPartition>, threads: usize, cfg: SearchCfg, ) -> Option<EspcResult> |  |  |  |  |
 
-| `EspcResult` | struct |  |  |  |  |  |
+| `EspcPartition` | struct | EspcPartition { pub comps: Vec<Subgoal>, pub tail: PhaseTail, pub assoc: FxHashMap<u32, Vec<u32>> } |  |  |  |  |
 
-| `EveError` | enum |  |  |  |  |  |
+| `EspcResult` | struct | EspcResult { pub ops: Vec<usize>, pub cost: f64, pub iterations: usize } |  |  |  |  |
 
-| `EveStage` | enum |  |  |  |  |  |
+| `MAX_PRIMARY_ACTIVATORS` | const | MAX_PRIMARY_ACTIVATORS: usize |  |  |  |  |
 
-| `PlanningRegime` | enum |  |  |  |  |  |
+| `EveError` | enum | EveError { Missing { field: String }, SplitRequired { directive: SplitDirective } } |  |  |  |  |
 
-| `enter` | function | enter(request: EveRequest) |  |  |  |  |
+| `EveStage` | enum | EveStage { GroundHumanPurpose, ProjectGenesis, DecomposeHddl, GovernUncertaintyPpddl, ManufactureGgen, ExposeMcpPlus, ActuateBrce, ObserveOcel2, ConformTruexKernel, AdmitReceipt, ReplayTruex } |  |  |  |  |
 
-| `Activator` | struct |  |  |  |  |  |
+| `PlanningRegime` | enum | PlanningRegime { Deterministic, Probabilistic } |  |  |  |  |
 
-| `CapabilityTarget` | struct |  |  |  |  |  |
+| `enter` | function | enter(request: EveRequest) -> Result<EveHandoff, EveError> |  |  |  |  |
+
+| `Activator` | struct | Activator { pub name: String, pub value: String } |  |  |  |  |
+
+| `CapabilityTarget` | struct | CapabilityTarget { pub capability: String, pub route: String, pub authority_scopes: Vec<String> } |  |  |  |  |
 
 | `Eve` | struct |  |  |  |  |  |
 
-| `EveHandoff` | struct |  |  |  |  |  |
+| `EveHandoff` | struct | EveHandoff { pub protocol: String, pub closure_id: String, pub planning_regime: PlanningRegime, pub stages: Vec<EveStage>, pub goal: GroundedGoal, pub genesis: GenesisProjection, pub hddl: HddlDecompositionRequest, pub ppddl: Option<PpddlPolicyRequest>, pub ggen: GgenManufacturingRequest, pub mcp_plus: McpPlusHandoff, pub truex: TruexContinuation } |  |  |  |  |
 
-| `EveRequest` | struct |  |  |  |  |  |
+| `EveRequest` | struct | EveRequest { pub purpose: HumanPurpose, pub genesis: GenesisWorld, pub manufacture: ManufactureTarget, pub capability: CapabilityTarget } |  |  |  |  |
 
-| `GenesisProjection` | struct |  |  |  |  |  |
+| `GenesisProjection` | struct | GenesisProjection { pub ontology_rdf: String, pub construct_query: String } |  |  |  |  |
 
-| `GenesisWorld` | struct |  |  |  |  |  |
+| `GenesisWorld` | struct | GenesisWorld { pub ontology_rdf: String, pub construct_query: String, pub hddl: HddlSurface, pub ppddl: Option<PpddlSurface> } |  |  |  |  |
 
-| `GgenManufacturingRequest` | struct |  |  |  |  |  |
+| `GgenManufacturingRequest` | struct | GgenManufacturingRequest { pub target: ManufactureTarget, pub closure_id: String, pub candidate_only: bool } |  |  |  |  |
 
-| `GroundedGoal` | struct |  |  |  |  |  |
+| `GroundedGoal` | struct | GroundedGoal { pub statement: String, pub desired_consequence: String, pub actor: Option<String>, pub root_task: String, pub activators: Vec<Activator> } |  |  |  |  |
 
-| `HddlDecompositionRequest` | struct |  |  |  |  |  |
+| `HddlDecompositionRequest` | struct | HddlDecompositionRequest { pub domain: String, pub problem: String, pub root_task: String } |  |  |  |  |
 
-| `HddlSurface` | struct |  |  |  |  |  |
+| `HddlSurface` | struct | HddlSurface { pub domain: String, pub problem: String, pub root_task: String } |  |  |  |  |
 
-| `HumanPurpose` | struct |  |  |  |  |  |
+| `HumanPurpose` | struct | HumanPurpose { pub statement: String, pub desired_consequence: String, pub actor: Option<String>, pub activators: Vec<Activator> } |  |  |  |  |
 
-| `ManufactureTarget` | struct |  |  |  |  |  |
+| `ManufactureTarget` | struct | ManufactureTarget { pub name: String, pub template: String, pub artifact_kind: String, pub output: String } |  |  |  |  |
 
-| `McpPlusHandoff` | struct |  |  |  |  |  |
+| `McpPlusHandoff` | struct | McpPlusHandoff { pub target: CapabilityTarget, pub closure_id: String, pub ambient_authority: bool, pub brce_required: bool, pub receipt_obligations: Vec<String> } |  |  |  |  |
 
-| `PpddlPolicyRequest` | struct |  |  |  |  |  |
+| `PpddlPolicyRequest` | struct | PpddlPolicyRequest { pub domain: String, pub problem: String } |  |  |  |  |
 
-| `PpddlSurface` | struct |  |  |  |  |  |
+| `PpddlSurface` | struct | PpddlSurface { pub domain: String, pub problem: String } |  |  |  |  |
 
-| `SplitDirective` | struct |  |  |  |  |  |
+| `SplitDirective` | struct | SplitDirective { pub provided: usize, pub maximum: usize, pub groups: Vec<Vec<Activator>> } |  |  |  |  |
 
-| `TruexContinuation` | struct |  |  |  |  |  |
+| `TruexContinuation` | struct | TruexContinuation { pub expected_process_geometry: String, pub observed_path_format: String, pub conformance_engine: String, pub terminal_authority: String, pub replay_required: bool } |  |  |  |  |
 
-| `DemandMode` | enum |  |  |  |  |  |
+| `DemandMode` | enum | DemandMode { Off, Numeric, Full } |  |  |  |  |
 
 | `clear_overrides` | function | clear_overrides() |  |  |  |  |
 
-| `demand_mode` | function | demand_mode() |  |  |  |  |
+| `demand_mode` | function | demand_mode() -> DemandMode |  |  |  |  |
 
-| `escalate` | function | escalate() |  |  |  |  |
+| `escalate` | function | escalate() -> bool |  |  |  |  |
 
-| `espc` | function | espc() |  |  |  |  |
+| `espc` | function | espc() -> bool |  |  |  |  |
 
 | `set_escalate_override` | function | set_escalate_override(on: bool) |  |  |  |  |
 
@@ -6480,2828 +4197,875 @@
 
 | `set_overrides` | function | set_overrides(tdemand: bool, tdecomp: bool, tconc: bool) |  |  |  |  |
 
-| `tconc` | function | tconc() |  |  |  |  |
+| `tconc` | function | tconc() -> bool |  |  |  |  |
 
-| `tdecomp` | function | tdecomp() |  |  |  |  |
+| `tdecomp` | function | tdecomp() -> bool |  |  |  |  |
 
-| `tdemand` | function | tdemand() |  |  |  |  |
+| `tdemand` | function | tdemand() -> bool |  |  |  |  |
 
-| `Outcome` | enum |  |  |  |  |  |
+| `Outcome` | enum | Outcome { Task(PackedTask), GoalTrue, GoalFalse(String), GoalUndefinedFluent(String), EmptyType { kind: &'static str, pred: String, ty: String, }, WallExhausted(String) } |  |  |  |  |
 
-| `ground` | function | ground(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground` | function | ground(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
-| `ground_fixpoint` | function | ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_fixpoint` | function | ground_fixpoint(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
-| `ground_stratified` | function | ground_stratified(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_stratified` | function | ground_stratified(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
-| `ground_stratified_walled` | function | ground_stratified_walled(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_stratified_walled` | function | ground_stratified_walled(domain: &Domain, problem: &Problem, threads: usize) -> Outcome |  |  |  |  |
 
-| `ground_task` | function | ground_task(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `ground_task` | function | ground_task(domain: &Domain, problem: &Problem, threads: usize) -> Option<PackedTask> |  |  |  |  |
 
-| `initial_state` | function | initial_state(t: &PackedTask) |  |  |  |  |
+| `initial_state` | function | initial_state(t: &PackedTask) -> State |  |  |  |  |
 
-| `objects_by_type` | function | objects_by_type(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `objects_by_type` | function | objects_by_type(domain: &Domain, problem: &Problem) -> HashMap<Sym, Vec<Sym>> |  |  |  |  |
 
-| `FxHasher` | struct |  |  |  |  |  |
+| `crate::packed::PackedTask as Task` | use | crate::packed::PackedTask as Task |  |  |  |  |
 
-| `HddlError` | enum |  |  |  |  |  |
+| `FxHasher` | struct | FxHasher { hash: u64 } |  |  |  |  |
 
-| `adapt_problem` | function | adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) |  |  |  |  |
+| `HddlError` | enum | HddlError { Parse(String), Ground(String), Translate(String), Planner(PlannerError), RootTaskMismatch { root_task: String, problem_root_network: Vec<String>, }, Timeout { elapsed_ms: u128, limit_ms: u128, }, WorkerPanicked(String) } |  |  |  |  |
 
-| `solve_hddl` | function | solve_hddl(
-    domain_src: &str,
-    problem_src: &str,
-    limits: &PlannerLimits,
-) |  |  |  |  |
+| `adapt_problem` | function | adapt_problem(p: ferroplan_hddl::translate::PlanningProblem) -> PlanningProblem |  |  |  |  |
 
-| `solve_hddl_from_eve` | function | solve_hddl_from_eve(
-    handoff: &EveHandoff,
-    limits: &PlannerLimits,
-) |  |  |  |  |
+| `solve_hddl` | function | solve_hddl( domain_src: &str, problem_src: &str, limits: &PlannerLimits, ) -> Result<UniversalPlan, HddlError> |  |  |  |  |
 
-| `extraction_need_facts` | function | extraction_need_facts(sc: &Scratch) |  |  |  |  |
+| `solve_hddl_from_eve` | function | solve_hddl_from_eve( handoff: &EveHandoff, limits: &PlannerLimits, ) -> Result<UniversalPlan, HddlError> |  |  |  |  |
 
-| `helpful_needed_adders` | function | helpful_needed_adders(
-    task: &PackedTask,
-    sc: &Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-) |  |  |  |  |
+| `T_BUILD` | const | T_BUILD: std::sync::atomic::AtomicU64 |  |  |  |  |
 
-| `new` | function | new(task: &PackedTask) |  |  |  |  |
+| `T_EXTRACT` | const | T_EXTRACT: std::sync::atomic::AtomicU64 |  |  |  |  |
 
-| `reachability_layers` | function | reachability_layers(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-) |  |  |  |  |
+| `T_RESET` | const | T_RESET: std::sync::atomic::AtomicU64 |  |  |  |  |
 
-| `relaxed` | function | relaxed(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-) |  |  |  |  |
+| `extraction_need_facts` | function | extraction_need_facts(sc: &Scratch) -> Vec<(u32, u32)> |  |  |  |  |
 
-| `relaxed_costed` | function | relaxed_costed(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-) |  |  |  |  |
+| `helpful_needed_adders` | function | helpful_needed_adders( task: &PackedTask, sc: &Scratch, bits: &[u64], fv: &[f64], def: &[bool], ) -> Vec<u32> |  |  |  |  |
 
-| `relaxed_helpful` | function | relaxed_helpful(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-) |  |  |  |  |
+| `new` | function | new(task: &PackedTask) -> Self |  |  |  |  |
 
-| `relaxed_plan_cost` | function | relaxed_plan_cost(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-) |  |  |  |  |
+| `reachability_layers` | function | reachability_layers( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], ) -> (Vec<u32>, Vec<u32>) |  |  |  |  |
 
-| `relaxed_to` | function | relaxed_to(
-    task: &PackedTask,
-    sc: &mut Scratch,
-    bits: &[u64],
-    fv: &[f64],
-    def: &[bool],
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-) |  |  |  |  |
+| `relaxed` | function | relaxed( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], ) -> Option<i32> |  |  |  |  |
 
-| `Scratch` | struct |  |  |  |  |  |
+| `relaxed_costed` | function | relaxed_costed( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: usize, ) -> Option<i32> |  |  |  |  |
 
-| `TrpgInfo` | struct |  |  |  |  |  |
+| `relaxed_helpful` | function | relaxed_helpful( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], ) -> Option<(i32, Vec<u32>)> |  |  |  |  |
 
-| `TrpgWindow` | struct |  |  |  |  |  |
+| `relaxed_plan_cost` | function | relaxed_plan_cost( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: usize, ) -> Option<f64> |  |  |  |  |
 
-| `explain` | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) |  |  |  |  |
+| `relaxed_to` | function | relaxed_to( task: &PackedTask, sc: &mut Scratch, bits: &[u64], fv: &[f64], def: &[bool], goal_pos: &[u32], goal_num: &[NumPre], ) -> Option<i32> |  |  |  |  |
 
-| `CausalLink` | struct |  |  |  |  |  |
+| `Scratch` | struct | Scratch { reached: Vec<bool>, fact_layer: Vec<u32>, op_layer: Vec<u32>, gen: u32, op_stamp: Vec<u32>, applicable: Vec<u32>, lb: Vec<f64>, ub: Vec<f64>, selected: Vec<u32>, need_fact: Vec<u32>, queue: Vec<u32>, num_applied: Vec<u32>, cond_ops: Vec<u32>, helpful: Vec<u32>, fact_time: Vec<f64>, op_time: Vec<f64> } |  |  |  |  |
 
-| `Explanation` | struct |  |  |  |  |  |
+| `TrpgInfo` | struct | TrpgInfo { pub start_of: Vec<u32>, pub lag: Vec<f64>, pub floor: Vec<f64>, pub windows: Vec<Vec<TrpgWindow>> } |  |  |  |  |
 
-| `InvariantSpan` | struct |  |  |  |  |  |
+| `TrpgWindow` | struct | TrpgWindow { pub fact: u32, pub providers: Vec<(u32, f64)>, pub close: f64 } |  |  |  |  |
 
-| `PrefReport` | struct |  |  |  |  |  |
+| `explain` | function | explain(domain_src: &str, problem_src: &str, plan: &Plan) -> Result<Explanation, String> |  |  |  |  |
 
-| `synthesize` | function | synthesize(domain: &Domain, task: &PackedTask) |  |  |  |  |
+| `CausalLink` | struct | CausalLink { pub provider: Option<usize>, pub consumer: usize, pub fact: String } |  |  |  |  |
 
-| `search` | function | search(
-    task: &PackedTask,
-    threads: usize,
-    max_eval: usize,
-    forbidden: &[bool],
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `Explanation` | struct | Explanation { pub kind: String, pub causal_links: Vec<CausalLink>, pub invariant_spans: Vec<InvariantSpan>, pub preferences: Vec<PrefReport> } |  |  |  |  |
 
-| `search_subgoal` | function | search_subgoal(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[crate::types::NumPre],
-    threads: usize,
-    max_eval: usize,
-    forbidden: &[bool],
-    len_anytime: bool,
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `InvariantSpan` | struct | InvariantSpan { pub step: usize, pub action: String, pub start: f64, pub end: f64, pub conditions: Vec<String> } |  |  |  |  |
 
-| `goal_landmarks` | function | goal_landmarks(task: &PackedTask) |  |  |  |  |
+| `PrefReport` | struct | PrefReport { pub name: String, pub satisfied: bool, pub weight: f64 } |  |  |  |  |
 
-| `landmarks_for` | function | landmarks_for(
-    task: &PackedTask,
-    start: &crate::packed::State,
-    goal_pos: &[u32],
-) |  |  |  |  |
+| `synthesize` | function | synthesize(domain: &Domain, task: &PackedTask) -> Vec<Vec<u32>> |  |  |  |  |
 
-| `Tok` | enum |  |  |  |  |  |
+| `search` | function | search( task: &PackedTask, threads: usize, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `lex` | function | lex(input: &str) |  |  |  |  |
+| `search_subgoal` | function | search_subgoal( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[crate::types::NumPre], threads: usize, max_eval: usize, forbidden: &[bool], len_anytime: bool, slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `arm` | function | arm() |  |  |  |  |
+| `goal_landmarks` | function | goal_landmarks(task: &PackedTask) -> Vec<u32> |  |  |  |  |
 
-| `armed` | function | armed(&self) |  |  |  |  |
+| `landmarks_for` | function | landmarks_for( task: &PackedTask, start: &crate::packed::State, goal_pos: &[u32], ) -> Vec<u32> |  |  |  |  |
 
-| `declared_budget_bytes` | function | declared_budget_bytes() |  |  |  |  |
+| `Tok` | enum | Tok { LParen, RParen, Dash, Var(String), Name(String), Num(f64), Op(String) } |  |  |  |  |
 
-| `hit` | function | hit(&self) |  |  |  |  |
+| `lex` | function | lex(input: &str) -> Result<(Vec<Tok>, Vec<u32>), crate::types::ParseError> |  |  |  |  |
+
+| `api::{ decompose, parse, solve, Contract, Decomposition, DomainSummary, Metric, Mode, Options, ParseReport, Plan, ProblemSummary, Search, Solution, SolveError, Statistics, Step, }` | use | api::{ decompose, parse, solve, Contract, Decomposition, DomainSummary, Metric, Mode, Options, ParseReport, Plan, ProblemSummary, Search, Solution, SolveError, Statistics, Step, } |  |  |  |  |
+
+| `eve::{ Activator, CapabilityTarget, Eve, EveError, EveHandoff, EveRequest, EveStage, GenesisProjection, GenesisWorld, GgenManufacturingRequest, GroundedGoal, HddlDecompositionRequest, HddlSurface, HumanPurpose, ManufactureTarget, McpPlusHandoff, PlanningRegime, PpddlPolicyRequest, PpddlSurface, SplitDirective, TruexContinuation, MAX_PRIMARY_ACTIVATORS, }` | use | eve::{ Activator, CapabilityTarget, Eve, EveError, EveHandoff, EveRequest, EveStage, GenesisProjection, GenesisWorld, GgenManufacturingRequest, GroundedGoal, HddlDecompositionRequest, HddlSurface, HumanPurpose, ManufactureTarget, McpPlusHandoff, PlanningRegime, PpddlPolicyRequest, PpddlSurface, SplitDirective, TruexContinuation, MAX_PRIMARY_ACTIVATORS, } |  |  |  |  |
+
+| `hddl::{solve_hddl, HddlError}` | use | hddl::{solve_hddl, HddlError} |  |  |  |  |
+
+| `operator_compiler::{ compile_operator, CompiledOperator, OperatorCompileError, OperatorEffects, OperatorSpec, }` | use | operator_compiler::{ compile_operator, CompiledOperator, OperatorCompileError, OperatorEffects, OperatorSpec, } |  |  |  |  |
+
+| `planner::{run_ff, run_planner}` | use | planner::{run_ff, run_planner} |  |  |  |  |
+
+| `planning_runtime::{ solve_planning_type, Agent, Goal as UniversalGoal, Method as PlanningMethod, PlanStep, PlannerError, PlannerLimits, PlanningProblem, PolicyEntry as UniversalPolicyEntry, PolicyOutcome as UniversalPolicyOutcome, QueueState, RdfTriple, State as UniversalState, Task as PlanningTask, Tool, Transition as UniversalTransition, UniversalPlan, UniversalPlanningRequest, WorkflowEdge, }` | use | planning_runtime::{ solve_planning_type, Agent, Goal as UniversalGoal, Method as PlanningMethod, PlanStep, PlannerError, PlannerLimits, PlanningProblem, PolicyEntry as UniversalPolicyEntry, PolicyOutcome as UniversalPolicyOutcome, QueueState, RdfTriple, State as UniversalState, Task as PlanningTask, Tool, Transition as UniversalTransition, UniversalPlan, UniversalPlanningRequest, WorkflowEdge, } |  |  |  |  |
+
+| `planning_types::{ route_planning_request, PlanningCapability, PlanningRail, PlanningRequest, PlanningRoute, PlanningRouteError, PlanningType, }` | use | planning_types::{ route_planning_request, PlanningCapability, PlanningRail, PlanningRequest, PlanningRoute, PlanningRouteError, PlanningType, } |  |  |  |  |
+
+| `policy_validation::{ validate_fond_policy, PolicyGuarantee, PolicyIssue, PolicyValidationReport, }` | use | policy_validation::{ validate_fond_policy, PolicyGuarantee, PolicyIssue, PolicyValidationReport, } |  |  |  |  |
+
+| `ppddl::{ parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability, PolicyDecision, PolicyOutcome, PolicyValidation, PpddlError, PpddlParseReport, ProbabilisticObjective, ProbabilisticOptions, ProbabilisticSolution, ProbabilisticState, ProbabilisticStatistics, SimulationReport, }` | use | ppddl::{ parse_ppddl, simulate_ppddl, solve_ppddl, validate_ppddl_policy, InitialStateProbability, PolicyDecision, PolicyOutcome, PolicyValidation, PpddlError, PpddlParseReport, ProbabilisticObjective, ProbabilisticOptions, ProbabilisticSolution, ProbabilisticState, ProbabilisticStatistics, SimulationReport, } |  |  |  |  |
+
+| `production::{ parse_production, solve_ppddl_production, trace_production, validate_plan_production, PlanValidationEvidence, ProductionSession, }` | use | production::{ parse_production, solve_ppddl_production, trace_production, validate_plan_production, PlanValidationEvidence, ProductionSession, } |  |  |  |  |
+
+| `production_explain::{decompose_production, explain_production}` | use | production_explain::{decompose_production, explain_production} |  |  |  |  |
+
+| `readiness::{ capability_manifest, evaluate_readiness, production_input_fingerprint, solve_production, AuthorityClass, BuildIdentity, CapabilityContract, CapabilityEvaluation, CapabilityManifest, CompatibilityClass, DeterminismClass, InterfaceKind, ManifestError, OperationEnvelope, OutcomeClass, ProductionLimits, PublicError, ReadinessReport, ReadinessState, ReplayClass, SecurityClass, ValidationStatus, CANDIDATE_AUTHORITY, CAPABILITY_MANIFEST_SCHEMA, OPERATION_ENVELOPE_SCHEMA, }` | use | readiness::{ capability_manifest, evaluate_readiness, production_input_fingerprint, solve_production, AuthorityClass, BuildIdentity, CapabilityContract, CapabilityEvaluation, CapabilityManifest, CompatibilityClass, DeterminismClass, InterfaceKind, ManifestError, OperationEnvelope, OutcomeClass, ProductionLimits, PublicError, ReadinessReport, ReadinessState, ReplayClass, SecurityClass, ValidationStatus, CANDIDATE_AUTHORITY, CAPABILITY_MANIFEST_SCHEMA, OPERATION_ENVELOPE_SCHEMA, } |  |  |  |  |
+
+| `session::{Session, Think, ThinkBudget, ThinkVerdict}` | use | session::{Session, Think, ThinkBudget, ThinkVerdict} |  |  |  |  |
+
+| `trace::{trace, StateSnapshot}` | use | trace::{trace, StateSnapshot} |  |  |  |  |
+
+| `types::ParseError` | use | types::ParseError |  |  |  |  |
+
+| `arm` | function | arm() -> Self |  |  |  |  |
+
+| `armed` | function | armed(&self) -> bool |  |  |  |  |
+
+| `declared_budget_bytes` | function | declared_budget_bytes() -> Option<u64> |  |  |  |  |
+
+| `hit` | function | hit(&self) -> bool |  |  |  |  |
 
 | `latch` | function | latch() |  |  |  |  |
 
-| `latched` | function | latched() |  |  |  |  |
+| `latched` | function | latched() -> bool |  |  |  |  |
 
-| `peak_resident_bytes` | function | peak_resident_bytes() |  |  |  |  |
+| `peak_resident_bytes` | function | peak_resident_bytes() -> Option<u64> |  |  |  |  |
 
-| `resident_bytes` | function | resident_bytes() |  |  |  |  |
+| `resident_bytes` | function | resident_bytes() -> Option<u64> |  |  |  |  |
 
-| `unarmed` | function | unarmed() |  |  |  |  |
+| `unarmed` | function | unarmed() -> Self |  |  |  |  |
 
-| `MemWall` | struct |  |  |  |  |  |
+| `MemWall` | struct | MemWall { trip_at: Option<u64> } |  |  |  |  |
 
-| `from_env` | function | from_env() |  |  |  |  |
+| `from_env` | function | from_env() -> Self |  |  |  |  |
 
-| `r_partition_facts` | function | r_partition_facts(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[crate::types::NumPre],
-    r_cap: usize,
-) |  |  |  |  |
+| `r_partition_facts` | function | r_partition_facts( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[crate::types::NumPre], r_cap: usize, ) -> Vec<u32> |  |  |  |  |
 
-| `search` | function | search(
-    task: &PackedTask,
-    threads: usize,
-    max_eval: usize,
-    forbidden: &[bool],
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `search` | function | search( task: &PackedTask, threads: usize, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `search_driver` | function | search_driver(
-    task: &PackedTask,
-    max_eval: usize,
-    forbidden: &[bool],
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `search_driver` | function | search_driver( task: &PackedTask, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, cfg: &DriverCfg, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `search_light` | function | search_light(
-    task: &PackedTask,
-    max_eval: usize,
-    forbidden: &[bool],
-) |  |  |  |  |
+| `search_light` | function | search_light( task: &PackedTask, max_eval: usize, forbidden: &[bool], ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `search_subgoal` | function | search_subgoal(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[crate::types::NumPre],
-    threads: usize,
-    max_eval: usize,
-    forbidden: &[bool],
-    slice: Option<(crate::clock::Clock, f64) |  |  |  |  |
+| `search_subgoal` | function | search_subgoal( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[crate::types::NumPre], threads: usize, max_eval: usize, forbidden: &[bool], slice: Option<(crate::clock::Clock, f64)>, ) -> Option<(Vec<usize>, usize)> |  |  |  |  |
 
-| `DriverCfg` | struct |  |  |  |  |  |
+| `DriverCfg` | struct | DriverCfg { pub partition: bool, pub width2: bool, pub r_cap: usize } |  |  |  |  |
 
-| `OperatorCompileError` | enum |  |  |  |  |  |
+| `OperatorCompileError` | enum | OperatorCompileError { EmptyName, ConflictingEffect(String), NoApplicableState, MissingTargetState { from: String, facts: BTreeSet<String>, }, AmbiguousTargetState { from: String, candidates: Vec<String>, } } |  |  |  |  |
 
-| `compile_operator` | function | compile_operator(
-    spec: &OperatorSpec,
-    states: &[State],
-) |  |  |  |  |
+| `compile_operator` | function | compile_operator( spec: &OperatorSpec, states: &[State], ) -> Result<CompiledOperator, OperatorCompileError> |  |  |  |  |
 
-| `CompiledOperator` | struct |  |  |  |  |  |
+| `CompiledOperator` | struct | CompiledOperator { pub task: Task, pub transitions: Vec<Transition> } |  |  |  |  |
 
-| `OperatorEffects` | struct |  |  |  |  |  |
+| `OperatorEffects` | struct | OperatorEffects { pub add: BTreeSet<String>, pub delete: BTreeSet<String> } |  |  |  |  |
 
-| `OperatorSpec` | struct |  |  |  |  |  |
+| `OperatorSpec` | struct | OperatorSpec { pub name: String, pub preconditions: BTreeSet<String>, pub effects: OperatorEffects, pub cost: u64 } |  |  |  |  |
 
-| `solve` | function | solve(
-    task: &PackedTask,
-    cf: Option<usize>,
-    max_nodes: usize,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `solve` | function | solve( task: &PackedTask, cf: Option<usize>, max_nodes: usize, orbit: Option<&crate::orbits::OrbitMap>, ) -> OptOutcome |  |  |  |  |
 
-| `OptOutcome` | struct |  |  |  |  |  |
+| `OptOutcome` | struct | OptOutcome { pub ops: Option<Vec<usize>>, pub cost: f64, pub expanded: usize, pub evaluated: usize, pub proven: bool, pub reject: Option<String>, pub heuristic: &'static str, pub clock_tripped: bool } |  |  |  |  |
 
-| `canonical_key` | function | canonical_key(
-        &self,
-        task: &PackedTask,
-        state: &State,
-        agenda: &[(i64, usize) |  |  |  |  |
+| `canonical_key` | function | canonical_key( &self, task: &PackedTask, state: &State, agenda: &[(i64, usize)], ) -> (crate::packed::StateKey, Vec<(i64, usize)>) |  |  |  |  |
 
-| `canonical_skey` | function | canonical_skey(
-        &self,
-        task: &PackedTask,
-        state: &State,
-        cost_fluent: Option<usize>,
-    ) |  |  |  |  |
+| `canonical_skey` | function | canonical_skey( &self, task: &PackedTask, state: &State, cost_fluent: Option<usize>, ) -> crate::packed::StateKey |  |  |  |  |
 
-| `canonical_skey_hash` | function | canonical_skey_hash(
-        &self,
-        task: &PackedTask,
-        state: &State,
-        cost_fluent: Option<usize>,
-    ) |  |  |  |  |
+| `canonical_skey_hash` | function | canonical_skey_hash( &self, task: &PackedTask, state: &State, cost_fluent: Option<usize>, ) -> u64 |  |  |  |  |
 
-| `detect` | function | detect(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect` | function | detect(domain: &Domain, problem: &Problem, task: &PackedTask) -> Option<OrbitMap> |  |  |  |  |
 
-| `detect_classical` | function | detect_classical(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect_classical` | function | detect_classical(domain: &Domain, problem: &Problem, task: &PackedTask) -> Option<OrbitMap> |  |  |  |  |
 
-| `detect_classical_iso` | function | detect_classical_iso(
-    domain: &Domain,
-    problem: &Problem,
-    task: &PackedTask,
-) |  |  |  |  |
+| `detect_classical_iso` | function | detect_classical_iso( domain: &Domain, problem: &Problem, task: &PackedTask, ) -> Option<OrbitMap> |  |  |  |  |
 
-| `detect_iso` | function | detect_iso(domain: &Domain, problem: &Problem, task: &PackedTask) |  |  |  |  |
+| `detect_iso` | function | detect_iso(domain: &Domain, problem: &Problem, task: &PackedTask) -> Option<OrbitMap> |  |  |  |  |
 
-| `gen_key` | function | gen_key(&self, op: usize, classes: &[Vec<u16>]) |  |  |  |  |
+| `gen_key` | function | gen_key(&self, op: usize, classes: &[Vec<u16>]) -> Option<(u32, Vec<u16>)> |  |  |  |  |
 
-| `goal_free_view` | function | goal_free_view(&self) |  |  |  |  |
+| `goal_free_view` | function | goal_free_view(&self) -> Option<OrbitMap> |  |  |  |  |
 
-| `iso_active` | function | iso_active(&self) |  |  |  |  |
+| `iso_active` | function | iso_active(&self) -> bool |  |  |  |  |
 
-| `iso_goal_witness` | function | iso_goal_witness(
-        &self,
-        task: &PackedTask,
-        state: &State,
-        goal_pos: &[u32],
-        goal_num: &[NumPre],
-    ) |  |  |  |  |
+| `iso_goal_witness` | function | iso_goal_witness( &self, task: &PackedTask, state: &State, goal_pos: &[u32], goal_num: &[NumPre], ) -> Option<Vec<Vec<u16>>> |  |  |  |  |
 
-| `iso_remap_op` | function | iso_remap_op(&self, sigma: &[Vec<u16>], op: usize) |  |  |  |  |
+| `iso_remap_op` | function | iso_remap_op(&self, sigma: &[Vec<u16>], op: usize) -> usize |  |  |  |  |
 
-| `iso_untouched_goal` | function | iso_untouched_goal(&self) |  |  |  |  |
+| `iso_untouched_goal` | function | iso_untouched_goal(&self) -> Option<&[u32]> |  |  |  |  |
 
-| `stabilizer_classes` | function | stabilizer_classes(&self, state: &State, agenda: &[(f64, usize) |  |  |  |  |
+| `stabilizer_classes` | function | stabilizer_classes(&self, state: &State, agenda: &[(f64, usize)]) -> Vec<Vec<u16>> |  |  |  |  |
 
-| `IsoGoal` | struct |  |  |  |  |  |
+| `IsoGoal` | struct | IsoGoal { desig: Vec<(u32, Vec<u16>)>, untouched: Vec<u32>, goal: Vec<u32> } |  |  |  |  |
 
-| `Orbit` | struct |  |  |  |  |  |
+| `Orbit` | struct | Orbit { pub facts: Vec<Vec<u32>>, pub fluent_slots: Vec<Vec<usize>>, pub ops: Vec<Vec<usize>> } |  |  |  |  |
 
-| `OrbitMap` | struct |  |  |  |  |  |
+| `OrbitMap` | struct | OrbitMap { pub orbits: Vec<Orbit>, pub iso: Option<IsoGoal>, pub op_owner: FxHashMap<usize, (usize, usize, usize)>, pub goal_bound: Vec<bool>, frozen: Vec<bool>, fact_fams: Vec<Family>, fact_touch: Vec<(u32, u32, Vec<u16>)>, op_fams: Vec<Family>, op_touch: FxHashMap<usize, (u32, Vec<u16>)>, flu_fams: Vec<Family>, flu_touch: Vec<(u32, u32, Vec<u16>)> } |  |  |  |  |
 
-| `preamble` | function | preamble(threads: usize) |  |  |  |  |
+| `preamble` | function | preamble(threads: usize) -> String |  |  |  |  |
 
-| `render` | function | render(task: &PackedTask, result: &PlanResult, threads: usize) |  |  |  |  |
+| `render` | function | render(task: &PackedTask, result: &PlanResult, threads: usize) -> (String, i32) |  |  |  |  |
 
 | `applicable_ops` | function | applicable_ops(&self, s: &State, out: &mut Vec<u32>) |  |  |  |  |
 
-| `apply` | function | apply(&self, oi: usize, s: &State) |  |  |  |  |
+| `apply` | function | apply(&self, oi: usize, s: &State) -> State |  |  |  |  |
 
-| `build_succ` | function | build_succ(pre_pos: &Csr<u32>, n_facts: usize, n_ops: usize) |  |  |  |  |
+| `build_succ` | function | build_succ(pre_pos: &Csr<u32>, n_facts: usize, n_ops: usize) -> (Csr<u32>, Vec<u32>) |  |  |  |  |
 
-| `cond_effs` | function | cond_effs(&self, oi: usize) |  |  |  |  |
+| `cond_effs` | function | cond_effs(&self, oi: usize) -> impl Iterator<Item = &CondEff> + Clone |  |  |  |  |
 
-| `fact_id` | function | fact_id(&self, disp: &str) |  |  |  |  |
+| `fact_id` | function | fact_id(&self, disp: &str) -> Option<usize> |  |  |  |  |
 
-| `finish` | function | finish(self) |  |  |  |  |
+| `finish` | function | finish(self) -> Csr<T> |  |  |  |  |
 
-| `fluent_id` | function | fluent_id(&self, disp: &str) |  |  |  |  |
+| `fluent_id` | function | fluent_id(&self, disp: &str) -> Option<usize> |  |  |  |  |
 
-| `goal_met` | function | goal_met(&self, s: &State) |  |  |  |  |
+| `goal_met` | function | goal_met(&self, s: &State) -> bool |  |  |  |  |
 
-| `goal_met_with` | function | goal_met_with(&self, s: &State, goal_pos: &[u32], goal_num: &[NumPre]) |  |  |  |  |
+| `goal_met_with` | function | goal_met_with(&self, s: &State, goal_pos: &[u32], goal_num: &[NumPre]) -> bool |  |  |  |  |
 
-| `initial` | function | initial(&self) |  |  |  |  |
+| `initial` | function | initial(&self) -> State |  |  |  |  |
 
-| `n_cond_effs` | function | n_cond_effs(&self, oi: usize) |  |  |  |  |
+| `n_cond_effs` | function | n_cond_effs(&self, oi: usize) -> usize |  |  |  |  |
 
-| `new` | function | new() |  |  |  |  |
+| `new` | function | new() -> Self |  |  |  |  |
 
-| `op_applicable` | function | op_applicable(&self, oi: usize, s: &State) |  |  |  |  |
+| `op_applicable` | function | op_applicable(&self, oi: usize, s: &State) -> bool |  |  |  |  |
 
 | `push_row` | function | push_row(&mut self, items: impl IntoIterator<Item = T>) |  |  |  |  |
 
-| `slice` | function | slice(&self, i: usize) |  |  |  |  |
+| `slice` | function | slice(&self, i: usize) -> &[T] |  |  |  |  |
 
-| `state_key` | function | state_key(&self, s: &State) |  |  |  |  |
+| `state_key` | function | state_key(&self, s: &State) -> StateKey |  |  |  |  |
 
-| `state_key_eq` | function | state_key_eq(&self, a: &State, b: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_eq` | function | state_key_eq(&self, a: &State, b: &State, cost_fluent: Option<usize>) -> bool |  |  |  |  |
 
-| `state_key_hash` | function | state_key_hash(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_hash` | function | state_key_hash(&self, s: &State, cost_fluent: Option<usize>) -> u64 |  |  |  |  |
 
-| `state_key_with_cost` | function | state_key_with_cost(&self, s: &State, cost_fluent: Option<usize>) |  |  |  |  |
+| `state_key_with_cost` | function | state_key_with_cost(&self, s: &State, cost_fluent: Option<usize>) -> StateKey |  |  |  |  |
 
-| `static_fluent` | function | static_fluent(&self, disp: &str) |  |  |  |  |
+| `static_fluent` | function | static_fluent(&self, disp: &str) -> Option<f64> |  |  |  |  |
 
-| `CondEff` | struct |  |  |  |  |  |
+| `CondEff` | struct | CondEff { pub cond_pos: Vec<u32>, pub cond_neg: Vec<u32>, pub cond_num: Vec<NumPre>, pub add: Vec<u32>, pub del: Vec<u32>, pub num: Vec<NumEff> } |  |  |  |  |
 
-| `Csr` | struct |  |  |  |  |  |
+| `Csr` | struct | Csr { pub flat: Arc<[T]>, pub off: Arc<[u32]> } |  |  |  |  |
 
-| `CsrBuilder` | struct |  |  |  |  |  |
+| `CsrBuilder` | struct | CsrBuilder { pub flat: Vec<T>, pub off: Vec<u32> } |  |  |  |  |
 
-| `PackedTask` | struct |  |  |  |  |  |
+| `PackedTask` | struct | PackedTask { pub n_facts: usize, pub words: usize, pub n_ops: usize, pub op_display: Arc<[String]>, pub pre_pos: Csr<u32>, pub succ_by_fact: Csr<u32>, pub succ_always: Arc<[u32]>, pub add: Csr<u32>, pub del: Csr<u32>, pub pre_num: Csr<NumPre>, pub num_eff: Csr<NumEff>, pub cond: Csr<CondEff>, pub shared_cond: Arc<[CondEff]>, pub monitored: Arc<[bool]>, pub add_by_fact: Csr<u32>, pub neff_by_fluent: Csr<u32>, pub relevant_fluent: Vec<bool>, pub rel_fluents: Vec<u32>, pub init_bits: Vec<u64>, pub fv0: Vec<f64>, pub fdef0: Vec<bool>, pub goal_pos: Vec<u32>, pub goal_num: Vec<NumPre>, pub charge_pre_num: bool, pub pair_end: Option<Vec<u32>>, pub trpg: Option<Arc<crate::heuristic::TrpgInfo>>, pub fact_names: Arc<[String]>, pub fluent_names: Arc<[String]>, pub static_fluents: Arc<[(String, f64)]>, pub n_easy: usize, pub n_hard: usize, pub n_reach_facts: usize, pub n_reach_actions: usize, pub n_relevant_fluents: usize } |  |  |  |  |
 
-| `State` | struct |  |  |  |  |  |
+| `State` | struct | State { pub bits: Vec<u64>, pub fv: Vec<f64>, pub fdef: Vec<bool> } |  |  |  |  |
 
-| `StateKey` | struct |  |  |  |  |  |
+| `StateKey` | struct | StateKey { pub bits: Vec<u64>, pub vals: Vec<i64> } |  |  |  |  |
 
-| `num_threads` | function | num_threads() |  |  |  |  |
+| `MIN_PAR` | const | MIN_PAR: usize |  |  |  |  |
 
-| `parse_domain` | function | parse_domain(src: &str) |  |  |  |  |
+| `num_threads` | function | num_threads() -> usize |  |  |  |  |
 
-| `parse_problem` | function | parse_problem(src: &str) |  |  |  |  |
+| `par_map` | function | par_map(items: &[T], threads: usize, f: F) -> Vec<R> |  |  |  |  |
 
-| `interaction_partition` | function | interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) |  |  |  |  |
+| `par_map_with` | function | par_map_with(items: &[T], threads: usize, init: I, f: F) -> Vec<R> |  |  |  |  |
 
-| `interaction_partition_of` | function | interaction_partition_of(
-    task: &PackedTask,
-    groups: &[Vec<u32>],
-    goals: &[u32],
-    excluded_vars: &FxHashSet<usize>,
-) |  |  |  |  |
+| `parse_domain` | function | parse_domain(src: &str) -> Result<Domain, ParseError> |  |  |  |  |
 
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
+| `parse_problem` | function | parse_problem(src: &str) -> Result<Problem, ParseError> |  |  |  |  |
 
-| `merge_at` | function | merge_at(groups: &mut Vec<Subgoal>, i: usize, j: usize) |  |  |  |  |
+| `interaction_partition` | function | interaction_partition(task: &PackedTask, groups: &[Vec<u32>]) -> Vec<Subgoal> |  |  |  |  |
 
-| `merge_with_neighbor` | function | merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) |  |  |  |  |
+| `interaction_partition_of` | function | interaction_partition_of( task: &PackedTask, groups: &[Vec<u32>], goals: &[u32], excluded_vars: &FxHashSet<usize>, ) -> Vec<Subgoal> |  |  |  |  |
 
-| `partition` | function | partition(task: &PackedTask) |  |  |  |  |
+| `is_empty` | function | is_empty(&self) -> bool |  |  |  |  |
 
-| `Subgoal` | struct |  |  |  |  |  |
+| `merge_at` | function | merge_at(groups: &mut Vec<Subgoal>, i: usize, j: usize) -> usize |  |  |  |  |
 
-| `close_seed` | function | close_seed(
-    task: &PackedTask,
-    cost_fluent: usize,
-    forgos: &[(usize, f64) |  |  |  |  |
+| `merge_with_neighbor` | function | merge_with_neighbor(groups: &mut Vec<Subgoal>, i: usize) -> usize |  |  |  |  |
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `partition` | function | partition(task: &PackedTask) -> Vec<Subgoal> |  |  |  |  |
 
-| `display_metric` | function | display_metric(&self, optimized: f64) |  |  |  |  |
+| `Subgoal` | struct | Subgoal { pub pos: Vec<u32>, pub num: Vec<NumPre> } |  |  |  |  |
 
-| `hard_goal_plan` | function | hard_goal_plan(
-    domain: &Domain,
-    problem: &Problem,
-    threads: usize,
-    cfg: SearchCfg,
-) |  |  |  |  |
+| `COST` | const | COST: &str |  |  |  |  |
 
-| `hard_goal_seed` | function | hard_goal_seed(
-    domain: &Domain,
-    problem: &Problem,
-    compiled: &PackedTask,
-    threads: usize,
-    cfg: SearchCfg,
-) |  |  |  |  |
+| `COST_DISP` | const | COST_DISP: &str |  |  |  |  |
 
-| `has_preferences` | function | has_preferences(problem: &Problem) |  |  |  |  |
+| `close_seed` | function | close_seed( task: &PackedTask, cost_fluent: usize, forgos: &[(usize, f64)], prefix: &[usize], ) -> Option<(Vec<usize>, f64)> |  |  |  |  |
 
-| `is_pddl3` | function | is_pddl3(problem: &Problem) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> Compiled |  |  |  |  |
 
-| `lift_seed` | function | lift_seed(compiled: &PackedTask, names: &[String]) |  |  |  |  |
+| `display_metric` | function | display_metric(&self, optimized: f64) -> f64 |  |  |  |  |
 
-| `metric_optimize` | function | metric_optimize(
-    task: &PackedTask,
-    cost_fluent: usize,
-    forgos: &[(usize, f64) |  |  |  |  |
+| `hard_goal_plan` | function | hard_goal_plan( domain: &Domain, problem: &Problem, threads: usize, cfg: SearchCfg, ) -> Option<Vec<String>> |  |  |  |  |
 
-| `metric_optimize_seeded` | function | metric_optimize_seeded(
-    task: &PackedTask,
-    cost_fluent: usize,
-    forgos: &[(usize, f64) |  |  |  |  |
+| `hard_goal_seed` | function | hard_goal_seed( domain: &Domain, problem: &Problem, compiled: &PackedTask, threads: usize, cfg: SearchCfg, ) -> Option<Vec<usize>> |  |  |  |  |
 
-| `pref_weights` | function | pref_weights(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `has_preferences` | function | has_preferences(problem: &Problem) -> bool |  |  |  |  |
 
-| `preferences` | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) |  |  |  |  |
+| `is_pddl3` | function | is_pddl3(problem: &Problem) -> bool |  |  |  |  |
 
-| `Compiled` | struct |  |  |  |  |  |
+| `lift_seed` | function | lift_seed(compiled: &PackedTask, names: &[String]) -> Option<Vec<usize>> |  |  |  |  |
 
-| `MetricResult` | struct |  |  |  |  |  |
+| `metric_optimize` | function | metric_optimize( task: &PackedTask, cost_fluent: usize, forgos: &[(usize, f64)], groups: &[Vec<u32>], folded_metric: bool, threads: usize, ) -> Option<MetricResult> |  |  |  |  |
 
-| `PhaseTail` | struct |  |  |  |  |  |
+| `metric_optimize_seeded` | function | metric_optimize_seeded( task: &PackedTask, cost_fluent: usize, forgos: &[(usize, f64)], groups: &[Vec<u32>], folded_metric: bool, threads: usize, seed: Option<&[usize]>, ) -> Option<SeededResult> |  |  |  |  |
 
-| `SeededResult` | struct |  |  |  |  |  |
+| `pref_weights` | function | pref_weights(domain: &Domain, problem: &Problem) -> HashMap<String, f64> |  |  |  |  |
 
-| `Validity` | enum |  |  |  |  |  |
+| `preferences` | function | preferences(goal: &Formula, objs: &HashMap<Sym, Vec<Sym>>) -> Vec<(String, Formula)> |  |  |  |  |
 
-| `parse_classical` | function | parse_classical(src: &str) |  |  |  |  |
+| `Compiled` | struct | Compiled { pub domain: Domain, pub problem: Problem, pub minimize: bool, pub maximized: bool, pub metric_konst: f64, pub n_prefs: usize, pub warn_other: bool, pub unsupported: Option<String>, pub synthetic: HashSet<String>, pub forgos: Vec<(String, f64)>, pub folded_metric: bool } |  |  |  |  |
 
-| `parse_timed` | function | parse_timed(src: &str) |  |  |  |  |
+| `MetricResult` | struct | MetricResult { pub ops: Vec<usize>, pub cost: f64, pub iterations: usize, pub proven: bool } |  |  |  |  |
 
-| `validate_plan` | function | validate_plan(
-    domain_src: &str,
-    problem_src: &str,
-    plan_src: &str,
-) |  |  |  |  |
+| `PhaseTail` | struct | PhaseTail { pub end_op: usize, pub prefs: Vec<(Vec<usize>, usize)> } |  |  |  |  |
 
-| `run_ff` | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) |  |  |  |  |
+| `SeededResult` | struct | SeededResult { pub result: MetricResult, pub from_seed: bool } |  |  |  |  |
 
-| `run_planner` | function | run_planner(
-    domain_src: &str,
-    problem_src: &str,
-    opts: &crate::Options,
-    ipc: bool,
-) |  |  |  |  |
+| `Validity` | enum | Validity { Valid, Invalid(String) } |  |  |  |  |
 
-| `PlannerError` | enum |  |  |  |  |  |
+| `parse_classical` | function | parse_classical(src: &str) -> Vec<(String, Vec<String>)> |  |  |  |  |
 
-| `solve_planning_type` | function | solve_planning_type(
-    request: &UniversalPlanningRequest,
-) |  |  |  |  |
+| `parse_timed` | function | parse_timed(src: &str) -> Result<TimedPlan, String> |  |  |  |  |
 
-| `Agent` | struct |  |  |  |  |  |
+| `validate_plan` | function | validate_plan( domain_src: &str, problem_src: &str, plan_src: &str, ) -> Result<Validity, String> |  |  |  |  |
 
-| `Goal` | struct |  |  |  |  |  |
+| `run_ff` | function | run_ff(domain_src: &str, problem_src: &str, opts: &crate::Options) -> (String, i32) |  |  |  |  |
 
-| `Method` | struct |  |  |  |  |  |
+| `run_planner` | function | run_planner( domain_src: &str, problem_src: &str, opts: &crate::Options, ipc: bool, ) -> (String, i32) |  |  |  |  |
 
-| `PlanStep` | struct |  |  |  |  |  |
+| `PlannerError` | enum | PlannerError { EmptyInitialState, UnknownState { state: String, }, InvalidProbabilityMass { state: String, action: String, mass: u64, }, ResourceBound { resource: String, limit: usize, }, NoPlan, HierarchyCycle { task: String, }, UnknownTask { task: String, }, NoMethod { task: String, }, WorkflowCycle, WipBoundExceeded { queue: String, current: u64, max: u64, }, CapabilityUncovered { item: String, missing: BTreeSet<String>, }, AuthorityUnbound { tool: String, }, VerifierUnbound { tool: String, }, ReceiptUnbound { tool: String, }, InvalidRdfProjection { reason: String, }, Timeout { elapsed_ms: u128, limit_ms: u128, } } |  |  |  |  |
 
-| `PlannerLimits` | struct |  |  |  |  |  |
+| `solve_planning_type` | function | solve_planning_type( request: &UniversalPlanningRequest, ) -> Result<UniversalPlan, PlannerError> |  |  |  |  |
 
-| `PlanningProblem` | struct |  |  |  |  |  |
+| `Agent` | struct | Agent { pub id: String, pub capabilities: BTreeSet<String>, pub capacity: u64, pub current_wip: u64 } |  |  |  |  |
 
-| `PolicyEntry` | struct |  |  |  |  |  |
+| `Goal` | struct | Goal { pub facts: BTreeSet<String>, pub numeric_min: BTreeMap<String, i64>, pub numeric_max: BTreeMap<String, i64> } |  |  |  |  |
 
-| `PolicyOutcome` | struct |  |  |  |  |  |
+| `Method` | struct | Method { pub id: String, pub task: String, pub subtasks: Vec<String> } |  |  |  |  |
 
-| `QueueState` | struct |  |  |  |  |  |
+| `PlanStep` | struct | PlanStep { pub action: String, pub from: Option<String>, pub to: Option<String>, pub start: u64, pub duration: u64, pub agent: Option<String>, pub tool: Option<String> } |  |  |  |  |
 
-| `RdfTriple` | struct |  |  |  |  |  |
+| `PlannerLimits` | struct | PlannerLimits { pub max_depth: usize, pub max_states: usize, pub max_iterations: usize, pub max_wall_ms: u64 } |  |  |  |  |
 
-| `State` | struct |  |  |  |  |  |
+| `PlanningProblem` | struct | PlanningProblem { pub states: Vec<State>, pub initial_states: Vec<String>, pub goal: Goal, pub unsafe_states: BTreeSet<String>, pub soft_goal_facts: BTreeMap<String, u64>, pub transitions: Vec<Transition>, pub tasks: Vec<Task>, pub root_tasks: Vec<String>, pub methods: Vec<Method>, pub workflow_edges: Vec<WorkflowEdge>, pub queues: Vec<QueueState>, pub agents: Vec<Agent>, pub tools: Vec<Tool>, pub rdf: Vec<RdfTriple> } |  |  |  |  |
 
-| `Task` | struct |  |  |  |  |  |
+| `PolicyEntry` | struct | PolicyEntry { pub state: String, pub action: String, pub outcomes: Vec<PolicyOutcome> } |  |  |  |  |
 
-| `Tool` | struct |  |  |  |  |  |
+| `PolicyOutcome` | struct | PolicyOutcome { pub state: String, pub probability_ppm: u32, pub observation: Option<String> } |  |  |  |  |
 
-| `Transition` | struct |  |  |  |  |  |
+| `QueueState` | struct | QueueState { pub id: String, pub current_wip: u64, pub max_wip: u64 } |  |  |  |  |
 
-| `UniversalPlan` | struct |  |  |  |  |  |
+| `RdfTriple` | struct | RdfTriple { pub subject: String, pub predicate: String, pub object: String } |  |  |  |  |
 
-| `UniversalPlanningRequest` | struct |  |  |  |  |  |
+| `State` | struct | State { pub id: String, pub facts: BTreeSet<String>, pub fluents: BTreeMap<String, i64> } |  |  |  |  |
 
-| `WorkflowEdge` | struct |  |  |  |  |  |
+| `Task` | struct | Task { pub id: String, pub primitive_action: Option<String>, pub requires: BTreeSet<String> } |  |  |  |  |
 
-| `PlanningCapability` | enum |  |  |  |  |  |
+| `Tool` | struct | Tool { pub id: String, pub capabilities: BTreeSet<String>, pub authority_bound: bool, pub verifier_bound: bool, pub receipt_bound: bool } |  |  |  |  |
 
-| `PlanningRail` | enum |  |  |  |  |  |
+| `Transition` | struct | Transition { pub action: String, pub from: String, pub to: String, pub cost: u64, pub duration: u64, pub reward: i64, pub probability_ppm: u32, pub observation: Option<String>, pub requires: BTreeSet<String> } |  |  |  |  |
 
-| `PlanningRouteError` | enum |  |  |  |  |  |
+| `UniversalPlan` | struct | UniversalPlan { pub planning_type: Option<PlanningType>, pub solved: bool, pub steps: Vec<PlanStep>, pub policy: Vec<PolicyEntry>, pub decomposition: Vec<String>, pub notes: Vec<String> } |  |  |  |  |
 
-| `PlanningType` | enum |  |  |  |  |  |
+| `UniversalPlanningRequest` | struct | UniversalPlanningRequest { pub planning_type: PlanningType, pub problem: PlanningProblem, pub limits: PlannerLimits } |  |  |  |  |
 
-| `rail` | function | rail(self) |  |  |  |  |
+| `WorkflowEdge` | struct | WorkflowEdge { pub before: String, pub after: String } |  |  |  |  |
 
-| `required_capabilities` | function | required_capabilities(self) |  |  |  |  |
+| `ALL` | const | ALL: [Self; 18] |  |  |  |  |
 
-| `route_planning_request` | function | route_planning_request(
-    request: &PlanningRequest,
-) |  |  |  |  |
+| `PlanningCapability` | enum | PlanningCapability { DeterministicState, SequentialPlan, ActionCosts, OptimalityProof, NumericFluents, DurativeActions, TemporalValidation, SoftGoals, StochasticTransitions, NondeterministicTransitions, Policy, PolicyValidation, StrongCyclicValidation, BeliefState, OpenLoopPlan, ObservationBranching, CompoundTasks, Methods, PartialOrder, ReceiptJoin, QueueState, WipBounds, ResolutionObligations, AgentCapabilities, CoordinationPolicy, AdmittedGraph, DeterministicProjection, DelegationEnvelope, ToolCapabilities, AuthorityBinding, PrimitiveClosure } |  |  |  |  |
 
-| `token` | function | token(self) |  |  |  |  |
+| `PlanningRail` | enum | PlanningRail { NativeDeterministic, NativeProbabilistic, NativeNondeterministic, NativeBeliefState, NativeHierarchical, NativeWorkflow, NativeFlowConstrained, NativeMultiAgent, GraphProjection, Delegation, CapabilityBinding } |  |  |  |  |
 
-| `PlanningRequest` | struct |  |  |  |  |  |
+| `PlanningRouteError` | enum | PlanningRouteError { EmptySubject, MissingCapabilities { missing: BTreeSet<PlanningCapability>, }, AuthorityUnbound, VerifierUnbound, ReceiptUnbound } |  |  |  |  |
 
-| `PlanningRoute` | struct |  |  |  |  |  |
+| `PlanningType` | enum | PlanningType { Classical, CostOptimal, Numeric, Temporal, Preferences, Probabilistic, Fond, Conformant, Contingent, Hierarchical, PartialOrder, Workflow, FlowConstrained, ResolutionAdaptive, MultiAgent, RdfDerived, A2aDelegated, McpBound } |  |  |  |  |
 
-| `PolicyGuarantee` | enum |  |  |  |  |  |
+| `rail` | function | rail(self) -> PlanningRail |  |  |  |  |
 
-| `PolicyIssue` | enum |  |  |  |  |  |
+| `required_capabilities` | function | required_capabilities(self) -> BTreeSet<PlanningCapability> |  |  |  |  |
 
-| `validate_fond_policy` | function | validate_fond_policy(
-    problem: &PlanningProblem,
-    plan: &UniversalPlan,
-) |  |  |  |  |
+| `route_planning_request` | function | route_planning_request( request: &PlanningRequest, ) -> Result<PlanningRoute, PlanningRouteError> |  |  |  |  |
 
-| `PolicyValidationReport` | struct |  |  |  |  |  |
+| `token` | function | token(self) -> &'static str |  |  |  |  |
 
-| `solve` | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
+| `PlanningRequest` | struct | PlanningRequest { pub subject: String, pub planning_type: PlanningType, pub available_capabilities: BTreeSet<PlanningCapability>, pub authority_bound: bool, pub verifier_bound: bool, pub receipt_bound: bool } |  |  |  |  |
 
-| `Outcome` | struct |  |  |  |  |  |
+| `PlanningRoute` | struct | PlanningRoute { pub subject: String, pub planning_type: PlanningType, pub rail: PlanningRail, pub required_capabilities: BTreeSet<PlanningCapability> } |  |  |  |  |
 
-| `PpddlError` | enum |  |  |  |  |  |
+| `PolicyGuarantee` | enum | PolicyGuarantee { Strong, StrongCyclic, Invalid } |  |  |  |  |
 
-| `ProbabilisticObjective` | enum |  |  |  |  |  |
+| `PolicyIssue` | enum | PolicyIssue { UnknownInitialState { state: String, }, DuplicatePolicyState { state: String, }, UnknownPolicyState { state: String, }, PolicyOnGoalState { state: String, }, MissingPolicyEntry { state: String, }, UnknownAction { state: String, action: String, }, UnknownTransitionTarget { state: String, action: String, target: String, }, InvalidProbabilityMass { state: String, action: String, mass: u64, }, OutcomeMismatch { state: String, action: String, }, UnsafeReachableState { state: String, }, NoGoalProgress { state: String, } } |  |  |  |  |
 
-| `InitialStateProbability` | struct |  |  |  |  |  |
+| `validate_fond_policy` | function | validate_fond_policy( problem: &PlanningProblem, plan: &UniversalPlan, ) -> PolicyValidationReport |  |  |  |  |
 
-| `PolicyDecision` | struct |  |  |  |  |  |
+| `PolicyValidationReport` | struct | PolicyValidationReport { pub valid: bool, pub guarantee: PolicyGuarantee, pub reachable_states: Vec<String>, pub reachable_goals: Vec<String>, pub issues: Vec<PolicyIssue> } |  |  |  |  |
 
-| `PolicyOutcome` | struct |  |  |  |  |  |
+| `solve` | function | solve(task: &PackedTask, threads: usize, cfg: SearchCfg) -> Outcome |  |  |  |  |
 
-| `PolicyValidation` | struct |  |  |  |  |  |
+| `Outcome` | struct | Outcome { pub ops: Option<Vec<usize>>, pub evaluated: usize, pub winner: Option<&'static str> } |  |  |  |  |
 
-| `PpddlParseReport` | struct |  |  |  |  |  |
+| `PpddlError` | enum | PpddlError { Syntax(String), DomainParse(ParseError), ProblemParse(ParseError), Derived(String), Unsupported(String), InvalidProbability(String), InvalidOptions(String), OutcomeLimit { action: String, limit: usize }, StateLimit { limit: usize }, TransitionLimit { limit: usize }, GroundingFailed, GroundingDivergence { action: String, expected: usize, observed: usize, }, InitialOutcomeLimit { limit: usize }, RewardViolation(String), PolicyLimit { limit: usize }, ValueTableLimit { limit: usize } } |  |  |  |  |
 
-| `ProbabilisticOptions` | struct |  |  |  |  |  |
+| `ProbabilisticObjective` | enum | ProbabilisticObjective { Auto, MaximizeGoalProbability, MinimizeGoalProbability, MaximizeExpectedReward, MinimizeExpectedReward, MaximizeExpectedMetric, MinimizeExpectedMetric } |  |  |  |  |
 
-| `ProbabilisticSolution` | struct |  |  |  |  |  |
+| `InitialStateProbability` | struct | InitialStateProbability { pub state: usize, pub probability: f64, pub goal: bool } |  |  |  |  |
 
-| `ProbabilisticState` | struct |  |  |  |  |  |
+| `PolicyDecision` | struct | PolicyDecision { pub state: usize, pub remaining: Option<usize>, pub action: String, pub args: Vec<String>, pub value: f64, pub outcomes: Vec<PolicyOutcome> } |  |  |  |  |
 
-| `ProbabilisticStatistics` | struct |  |  |  |  |  |
+| `PolicyOutcome` | struct | PolicyOutcome { pub probability: f64, pub next_state: usize, pub reward: f64, pub goal: bool } |  |  |  |  |
 
-| `SimulationReport` | struct |  |  |  |  |  |
+| `PolicyValidation` | struct | PolicyValidation { pub valid: bool, pub checked_decisions: usize, pub max_probability_error: f64, pub errors: Vec<String> } |  |  |  |  |
 
-| `parse_ppddl` | function | parse_ppddl(domain_src: &str, problem_src: &str) |  |  |  |  |
+| `PpddlParseReport` | struct | PpddlParseReport { pub ok: bool, pub domain: Option<String>, pub problem: Option<String>, pub probabilistic_actions: usize, pub normalized_outcomes: usize, pub initial_outcomes: usize, pub uses_rewards: bool, pub goal_reward: Option<String>, pub error: Option<String> } |  |  |  |  |
 
-| `solve_ppddl` | function | solve_ppddl(
-    domain_src: &str,
-    problem_src: &str,
-    options: &ProbabilisticOptions,
-) |  |  |  |  |
+| `ProbabilisticOptions` | struct | ProbabilisticOptions { pub objective: ProbabilisticObjective, pub horizon: Option<usize>, pub discount: f64, pub epsilon: f64, pub max_iterations: usize, pub max_states: usize, pub max_transitions: usize, pub max_outcomes_per_action: usize, pub max_policy_entries: usize, pub max_value_cells: usize, pub max_initial_outcomes: usize, pub simulation_max_steps: usize, pub threads: usize } |  |  |  |  |
 
-| `validate_ppddl_policy` | function | validate_ppddl_policy(
-    domain_src: &str,
-    problem_src: &str,
-    options: &ProbabilisticOptions,
-    solution: &ProbabilisticSolution,
-) |  |  |  |  |
+| `ProbabilisticSolution` | struct | ProbabilisticSolution { pub solved: bool, pub objective: ProbabilisticObjective, pub initial_value: f64, pub initial_distribution: Vec<InitialStateProbability>, pub states: Vec<ProbabilisticState>, pub initial_action: Option<String>, pub horizon: Option<usize>, pub discount: f64, pub declared_metric: Option<String>, pub policy: Vec<PolicyDecision>, pub statistics: ProbabilisticStatistics, pub notes: Vec<String> } |  |  |  |  |
 
-| `simulate_ppddl` | function | simulate_ppddl(
-    domain_src: &str,
-    problem_src: &str,
-    options: &ProbabilisticOptions,
-    episodes: usize,
-    seed: u64,
-) |  |  |  |  |
+| `ProbabilisticState` | struct | ProbabilisticState { pub id: usize, pub facts: Vec<String>, pub fluents: BTreeMap<String, f64>, pub goal: bool, pub initial_probability: f64 } |  |  |  |  |
 
-| `decompose_production` | function | decompose_production(
-    domain: &str,
-    problem: &str,
-    options: &Options,
-    limits: &ProductionLimits,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `ProbabilisticStatistics` | struct | ProbabilisticStatistics { pub grounded_facts: usize, pub grounded_outcome_operators: usize, pub grounded_actions: usize, pub initial_states: usize, pub reachable_states: usize, pub transitions: usize, pub iterations: usize, pub converged: bool, pub threads: usize } |  |  |  |  |
 
-| `goal_met` | function | goal_met(&self) |  |  |  |  |
+| `SimulationReport` | struct | SimulationReport { pub episodes: usize, pub reached_goal: usize, pub goal_rate: f64, pub average_reward: f64, pub average_discounted_reward: f64, pub average_steps: f64, pub seed: u64 } |  |  |  |  |
 
-| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
+| `parse_ppddl` | function | parse_ppddl(domain_src: &str, problem_src: &str) -> PpddlParseReport |  |  |  |  |
 
-| `new` | function | new(
-        domain: &str,
-        problem: &str,
-        options: &Options,
-        limits: ProductionLimits,
-    ) |  |  |  |  |
+| `solve_ppddl` | function | solve_ppddl( domain_src: &str, problem_src: &str, options: &ProbabilisticOptions, ) -> Result<ProbabilisticSolution, PpddlError> |  |  |  |  |
 
-| `parse_production` | function | parse_production(
-    source: &str,
-    max_input_bytes: usize,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `validate_ppddl_policy` | function | validate_ppddl_policy( domain_src: &str, problem_src: &str, options: &ProbabilisticOptions, solution: &ProbabilisticSolution, ) -> Result<PolicyValidation, PpddlError> |  |  |  |  |
 
-| `replan` | function | replan(
-        &self,
-        max_evaluated: usize,
-        memory_mb: Option<usize>,
-        request_id: Option<&str>,
-    ) |  |  |  |  |
+| `simulate_ppddl` | function | simulate_ppddl( domain_src: &str, problem_src: &str, options: &ProbabilisticOptions, episodes: usize, seed: u64, ) -> Result<SimulationReport, PpddlError> |  |  |  |  |
 
-| `solve_ppddl_production` | function | solve_ppddl_production(
-    domain: &str,
-    problem: &str,
-    options: &ProbabilisticOptions,
-    max_input_bytes: usize,
-    max_output_bytes: usize,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `decompose_production` | function | decompose_production( domain: &str, problem: &str, options: &Options, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Decomposition> |  |  |  |  |
 
-| `trace_production` | function | trace_production(
-    domain: &str,
-    problem: &str,
-    plan: &[(String, Vec<String>) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) -> bool |  |  |  |  |
 
-| `validate_plan_production` | function | validate_plan_production(
-    domain: &str,
-    problem: &str,
-    plan: &str,
-    max_input_bytes: usize,
-    max_plan_bytes: usize,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) -> usize |  |  |  |  |
 
-| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
+| `new` | function | new( domain: &str, problem: &str, options: &Options, limits: ProductionLimits, ) -> Result<Self, PublicError> |  |  |  |  |
 
-| `PlanValidationEvidence` | struct |  |  |  |  |  |
+| `parse_production` | function | parse_production( source: &str, max_input_bytes: usize, request_id: Option<&str>, ) -> OperationEnvelope<ParseReport> |  |  |  |  |
 
-| `ProductionSession` | struct |  |  |  |  |  |
+| `replan` | function | replan( &self, max_evaluated: usize, memory_mb: Option<usize>, request_id: Option<&str>, ) -> OperationEnvelope<Solution> |  |  |  |  |
 
-| `decompose_production` | function | decompose_production(
-    domain: &str,
-    problem: &str,
-    options: &Options,
-    limits: &ProductionLimits,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `solve_ppddl_production` | function | solve_ppddl_production( domain: &str, problem: &str, options: &ProbabilisticOptions, max_input_bytes: usize, max_output_bytes: usize, request_id: Option<&str>, ) -> OperationEnvelope<ProbabilisticSolution> |  |  |  |  |
 
-| `explain_production` | function | explain_production(
-    domain: &str,
-    problem: &str,
-    plan: &Plan,
-    limits: &ProductionLimits,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `trace_production` | function | trace_production( domain: &str, problem: &str, plan: &[(String, Vec<String>)], limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Vec<StateSnapshot>> |  |  |  |  |
 
-| `depth_reached` | function | depth_reached(&self) |  |  |  |  |
+| `validate_plan_production` | function | validate_plan_production( domain: &str, problem: &str, plan: &str, max_input_bytes: usize, max_plan_bytes: usize, request_id: Option<&str>, ) -> OperationEnvelope<PlanValidationEvidence> |  |  |  |  |
 
-| `from_predecessors` | function | from_predecessors(
-        predecessors: &[Vec<u32>],
-        prohibited: &[u32],
-        max_depth: u32,
-    ) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
-| `from_successors` | function | from_successors(
-        successors: &[Vec<u32>],
-        prohibited: &[u32],
-        max_depth: u32,
-    ) |  |  |  |  |
+| `PlanValidationEvidence` | struct | PlanValidationEvidence { pub valid: bool, pub reason: Option<String> } |  |  |  |  |
 
-| `is_safe` | function | is_safe(&self, state: u32) |  |  |  |  |
+| `ProductionSession` | struct | ProductionSession { inner: Session, domain: String, problem: String, limits: ProductionLimits, input_fingerprint: String } |  |  |  |  |
 
-| `saturated` | function | saturated(&self) |  |  |  |  |
+| `decompose_production` | function | decompose_production( domain: &str, problem: &str, options: &Options, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Decomposition> |  |  |  |  |
 
-| `unsafe_count` | function | unsafe_count(&self) |  |  |  |  |
+| `explain_production` | function | explain_production( domain: &str, problem: &str, plan: &Plan, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Explanation> |  |  |  |  |
 
-| `BackwardSafeSet` | struct |  |  |  |  |  |
+| `depth_reached` | function | depth_reached(&self) -> u32 |  |  |  |  |
 
-| `AuthorityClass` | enum |  |  |  |  |  |
+| `from_predecessors` | function | from_predecessors( predecessors: &[Vec<u32>], prohibited: &[u32], max_depth: u32, ) -> Self |  |  |  |  |
 
-| `CompatibilityClass` | enum |  |  |  |  |  |
+| `from_successors` | function | from_successors( successors: &[Vec<u32>], prohibited: &[u32], max_depth: u32, ) -> Self |  |  |  |  |
 
-| `DeterminismClass` | enum |  |  |  |  |  |
+| `is_safe` | function | is_safe(&self, state: u32) -> bool |  |  |  |  |
 
-| `InterfaceKind` | enum |  |  |  |  |  |
+| `saturated` | function | saturated(&self) -> bool |  |  |  |  |
 
-| `ManifestError` | enum |  |  |  |  |  |
+| `unsafe_count` | function | unsafe_count(&self) -> usize |  |  |  |  |
 
-| `OutcomeClass` | enum |  |  |  |  |  |
+| `BackwardSafeSet` | struct | BackwardSafeSet { n_states: usize, unsafe_words: Vec<u64>, depth_reached: u32, saturated: bool } |  |  |  |  |
 
-| `ReadinessState` | enum |  |  |  |  |  |
+| `CANDIDATE_AUTHORITY` | const | CANDIDATE_AUTHORITY: &str |  |  |  |  |
 
-| `ReplayClass` | enum |  |  |  |  |  |
+| `CAPABILITY_MANIFEST_SCHEMA` | const | CAPABILITY_MANIFEST_SCHEMA: &str |  |  |  |  |
 
-| `SecurityClass` | enum |  |  |  |  |  |
+| `OPERATION_ENVELOPE_SCHEMA` | const | OPERATION_ENVELOPE_SCHEMA: &str |  |  |  |  |
 
-| `ValidationStatus` | enum |  |  |  |  |  |
+| `AuthorityClass` | enum | AuthorityClass { CandidateOnly, EvidenceOnly, PresentationOnly } |  |  |  |  |
 
-| `capability_manifest` | function | capability_manifest() |  |  |  |  |
+| `CompatibilityClass` | enum | CompatibilityClass { Semver, VersionedSchema } |  |  |  |  |
 
-| `fingerprint` | function | fingerprint(&self) |  |  |  |  |
+| `DeterminismClass` | enum | DeterminismClass { Exact, OutcomeEquivalent, NotApplicable } |  |  |  |  |
 
-| `new` | function | new(code: impl Into<String>, message: impl Into<String>, retryable: bool) |  |  |  |  |
+| `InterfaceKind` | enum | InterfaceKind { RustLibrary, NativeCli, PythonAbi3, BrowserWasm, BevyGui, McpPlus, Plugin, Documentation, ReleasePipeline } |  |  |  |  |
 
-| `production_input_fingerprint` | function | production_input_fingerprint(domain: &str, problem: &str, options: &Options) |  |  |  |  |
+| `ManifestError` | enum | ManifestError { Schema(String), NonCanonicalOrder, DuplicateId(String), MissingField { id: String, field: String }, MissingEvidence(String), NonCanonicalEvidence(String), MissingSourceIdentity, Serialization } |  |  |  |  |
 
-| `solve_production` | function | solve_production(
-    domain: &str,
-    problem: &str,
-    options: &Options,
-    limits: &ProductionLimits,
-    request_id: Option<&str>,
-) |  |  |  |  |
+| `OutcomeClass` | enum | OutcomeClass { Solved, NoPlan, LimitExceeded, Refused, Failed } |  |  |  |  |
 
-| `validate` | function | validate(&self) |  |  |  |  |
+| `ReadinessState` | enum | ReadinessState { Unknown, Declared, Partial, Admitted, Blocked, Unsupported, Refused } |  |  |  |  |
 
-| `BuildIdentity` | struct |  |  |  |  |  |
+| `ReplayClass` | enum | ReplayClass { Exact, Outcome, BuildReproducible, NotApplicable } |  |  |  |  |
 
-| `CapabilityContract` | struct |  |  |  |  |  |
+| `SecurityClass` | enum | SecurityClass { UntrustedInput, LocalPresentation, BuildControl } |  |  |  |  |
 
-| `CapabilityEvaluation` | struct |  |  |  |  |  |
+| `ValidationStatus` | enum | ValidationStatus { Valid, NotApplicable, Failed } |  |  |  |  |
 
-| `CapabilityManifest` | struct |  |  |  |  |  |
+| `capability_manifest` | function | capability_manifest() -> CapabilityManifest |  |  |  |  |
 
-| `OperationEnvelope` | struct |  |  |  |  |  |
+| `evaluate_readiness` | function | evaluate_readiness( source_identity: impl Into<String>, evidence: I, ) -> Result<ReadinessReport, ManifestError> |  |  |  |  |
 
-| `ProductionLimits` | struct |  |  |  |  |  |
+| `fingerprint` | function | fingerprint(&self) -> Result<String, ManifestError> |  |  |  |  |
 
-| `PublicError` | struct |  |  |  |  |  |
+| `new` | function | new(code: impl Into<String>, message: impl Into<String>, retryable: bool) -> Self |  |  |  |  |
 
-| `ReadinessReport` | struct |  |  |  |  |  |
+| `production_input_fingerprint` | function | production_input_fingerprint(domain: &str, problem: &str, options: &Options) -> String |  |  |  |  |
 
-| `ff_plan` | function | ff_plan(task: &PackedTask, ops: &[usize]) |  |  |  |  |
+| `solve_production` | function | solve_production( domain: &str, problem: &str, options: &Options, limits: &ProductionLimits, request_id: Option<&str>, ) -> OperationEnvelope<Solution> |  |  |  |  |
 
-| `ipc_plan` | function | ipc_plan(task: &PackedTask, ops: &[usize], metric: Option<f64>) |  |  |  |  |
+| `validate` | function | validate(&self) -> Result<(), ManifestError> |  |  |  |  |
 
-| `metric_footer` | function | metric_footer(
-    cost: f64,
-    iterations: usize,
-    n_prefs: usize,
-    threads: usize,
-    warn_other: bool,
-) |  |  |  |  |
+| `BuildIdentity` | struct | BuildIdentity { pub product_version: String, pub source_revision: Option<String>, pub manifest_fingerprint: Option<String> } |  |  |  |  |
 
-| `preamble` | function | preamble(threads: usize) |  |  |  |  |
+| `CapabilityContract` | struct | CapabilityContract { pub id: String, pub version: String, pub owner: String, pub component: String, pub interface: InterfaceKind, pub authority: AuthorityClass, pub determinism: DeterminismClass, pub replay: ReplayClass, pub input_schema: String, pub output_schema: String, pub resource_profile: String, pub failure_contract: String, pub telemetry_contract: String, pub compatibility: CompatibilityClass, pub security: SecurityClass, pub shipped: bool, pub required_evidence: Vec<String> } |  |  |  |  |
 
-| `timing` | function | timing(stats: &Stats, threads: usize) |  |  |  |  |
+| `CapabilityEvaluation` | struct | CapabilityEvaluation { pub capability_id: String, pub state: ReadinessState, pub satisfied_evidence: Vec<String>, pub missing_evidence: Vec<String> } |  |  |  |  |
 
-| `Solved` | enum |  |  |  |  |  |
+| `CapabilityManifest` | struct | CapabilityManifest { pub schema_version: String, pub product_version: String, pub authority_notice: String, pub capabilities: Vec<CapabilityContract> } |  |  |  |  |
 
-| `solve` | function | solve(
-    task: &PackedTask,
-    threads: usize,
-    cfg: crate::search::SearchCfg,
-    mutex_groups: &[Vec<u32>],
-    
-    
-    
-    
-    
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
+| `OperationEnvelope` | struct | OperationEnvelope { pub schema_version: String, pub request_id: String, pub capability_id: String, pub capability_version: String, pub build_identity: BuildIdentity, pub input_fingerprint: String, pub authority: String, pub outcome: OutcomeClass, pub validation: ValidationStatus, pub elapsed_micros: u64, pub counters: BTreeMap<String, u64>, pub warnings: Vec<String>, pub payload: Option<T>, pub error: Option<PublicError> } |  |  |  |  |
 
-| `Stats` | struct |  |  |  |  |  |
+| `ProductionLimits` | struct | ProductionLimits { pub max_domain_bytes: usize, pub max_problem_bytes: usize, pub max_evaluated: usize, pub max_plan_steps: usize, pub max_output_bytes: usize, pub max_workers: usize } |  |  |  |  |
 
-| `detect_resources` | function | detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
+| `PublicError` | struct | PublicError { pub code: String, pub message: String, pub retryable: bool } |  |  |  |  |
 
-| `occupancy` | function | occupancy(&self, bits: &[u64]) |  |  |  |  |
+| `ReadinessReport` | struct | ReadinessReport { pub schema_version: String, pub product_version: String, pub source_identity: String, pub manifest_fingerprint: String, pub evaluator_version: String, pub overall_state: ReadinessState, pub capabilities: Vec<CapabilityEvaluation> } |  |  |  |  |
 
-| `trip_bound` | function | trip_bound(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) |  |  |  |  |
+| `ff_plan` | function | ff_plan(task: &PackedTask, ops: &[usize]) -> String |  |  |  |  |
 
-| `trips` | function | trips(&self, bits: &[u64]) |  |  |  |  |
+| `ipc_plan` | function | ipc_plan(task: &PackedTask, ops: &[usize], metric: Option<f64>) -> String |  |  |  |  |
 
-| `ResourceVar` | struct |  |  |  |  |  |
+| `metric_footer` | function | metric_footer( cost: f64, iterations: usize, n_prefs: usize, threads: usize, warn_other: bool, ) -> String |  |  |  |  |
 
-| `TripBound` | struct |  |  |  |  |  |
+| `preamble` | function | preamble(threads: usize) -> String |  |  |  |  |
 
-| `from_env` | function | from_env() |  |  |  |  |
+| `timing` | function | timing(stats: &Stats, threads: usize) -> String |  |  |  |  |
 
-| `requires_concurrency` | function | requires_concurrency(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `Solved` | enum | Solved { Plan(Vec<usize>, Stats), Unsolvable { capped: bool, } } |  |  |  |  |
 
-| `solve_classical` | function | solve_classical(
-    task: &PackedTask,
-    groups: &[Vec<u32>],
-    cfg: &SatCfg,
-) |  |  |  |  |
+| `solve` | function | solve( task: &PackedTask, threads: usize, cfg: crate::search::SearchCfg, mutex_groups: &[Vec<u32>], orbit: Option<&crate::orbits::OrbitMap>, ) -> Solved |  |  |  |  |
 
-| `solve_temporal` | function | solve_temporal(
-    domain: &Domain,
-    problem: &Problem,
-    threads: usize,
-    cfg: &SatCfg,
-) |  |  |  |  |
+| `Stats` | struct | Stats { pub init_groups: usize, pub final_groups: usize, pub merges: usize, pub fallback: bool } |  |  |  |  |
 
-| `solve_temporal_within` | function | solve_temporal_within(
-    domain: &Domain,
-    problem: &Problem,
-    threads: usize,
-    cfg: &SatCfg,
-    budget_secs: Option<f64>,
-) |  |  |  |  |
+| `detect_resources` | function | detect_resources(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) -> Vec<ResourceVar> |  |  |  |  |
 
-| `SatCfg` | struct |  |  |  |  |  |
+| `occupancy` | function | occupancy(&self, bits: &[u64]) -> u32 |  |  |  |  |
 
-| `SatOutcome` | struct |  |  |  |  |  |
+| `trip_bound` | function | trip_bound(task: &PackedTask, groups: &[Vec<u32>], init: &[u64]) -> Option<TripBound> |  |  |  |  |
 
-| `PlanResult` | enum |  |  |  |  |  |
+| `trips` | function | trips(&self, bits: &[u64]) -> i64 |  |  |  |  |
+
+| `ResourceVar` | struct | ResourceVar { pub members: Vec<(u32, u32)> } |  |  |  |  |
+
+| `TripBound` | struct | TripBound { pub goals: Vec<u32>, pub pool: i64 } |  |  |  |  |
+
+| `from_env` | function | from_env() -> Self |  |  |  |  |
+
+| `requires_concurrency` | function | requires_concurrency(domain: &Domain, problem: &Problem) -> bool |  |  |  |  |
+
+| `solve_classical` | function | solve_classical( task: &PackedTask, groups: &[Vec<u32>], cfg: &SatCfg, ) -> SatOutcome<Vec<usize>> |  |  |  |  |
+
+| `solve_temporal` | function | solve_temporal( domain: &Domain, problem: &Problem, threads: usize, cfg: &SatCfg, ) -> SatOutcome<TimedPlan> |  |  |  |  |
+
+| `solve_temporal_within` | function | solve_temporal_within( domain: &Domain, problem: &Problem, threads: usize, cfg: &SatCfg, budget_secs: Option<f64>, ) -> SatOutcome<TimedPlan> |  |  |  |  |
+
+| `SatCfg` | struct | SatCfg { pub max_horizon: usize, pub conflicts_per_horizon: u64, pub cap_lits: u64 } |  |  |  |  |
+
+| `SatOutcome` | struct | SatOutcome { pub plan: Option<P>, pub notes: Vec<String>, pub proven_at_every_horizon: bool, pub grounded_facts: usize, pub grounded_actions: usize } |  |  |  |  |
+
+| `DEFAULT_MAX_EVAL` | const | DEFAULT_MAX_EVAL: usize |  |  |  |  |
+
+| `PlanResult` | enum | PlanResult { Plan { ops: Vec<usize>, advance: Vec<i32>, evaluated: usize, max_g: usize, }, Unsolvable { evaluated: usize, capped: bool, } } |  |  |  |  |
 
 | `arm_wall_limit` | function | arm_wall_limit() |  |  |  |  |
 
-| `cancelled` | function | cancelled(&self) |  |  |  |  |
-
-| `cost` | function | cost(&self, s: &State) |  |  |  |  |
-
-| `from_weights` | function | from_weights(weight_g: f64, weight_h: f64, max_eval: Option<usize>) |  |  |  |  |
-
-| `holds` | function | holds(&self, s: &State) |  |  |  |  |
-
-| `plan` | function | plan(
-    task: &PackedTask,
-    threads: usize,
-    cfg: SearchCfg,
-    ehc_first: bool,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
-
-| `plan_avoiding` | function | plan_avoiding(
-    task: &PackedTask,
-    threads: usize,
-    cfg: SearchCfg,
-    ehc_first: bool,
-    forbidden: &[bool],
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
-
-| `search` | function | search(task: &PackedTask, threads: usize, cfg: SearchCfg) |  |  |  |  |
-
-| `search_from` | function | search_from(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: Option<usize>,
-    cost_bound: f64,
-    threads: usize,
-    cfg: SearchCfg,
-    forbidden: &[bool],
-    sat: Option<&SatGuidance>,
-    closure: Option<&ClosureCost>,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
-
-| `solve_closure_bounded` | function | solve_closure_bounded(
-    task: &PackedTask,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-    bound: f64,
-    closure: &ClosureCost,
-    forbidden: &[bool],
-    threads: usize,
-    cfg: SearchCfg,
-    sat: Option<&SatGuidance>,
-) |  |  |  |  |
-
-| `solve_subgoal` | function | solve_subgoal(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    threads: usize,
-    cfg: SearchCfg,
-    orbit: Option<&crate::orbits::OrbitMap>,
-) |  |  |  |  |
-
-| `solve_subgoal_avoiding` | function | solve_subgoal_avoiding(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    forbidden: &[bool],
-    threads: usize,
-    cfg: SearchCfg,
-) |  |  |  |  |
+| `cancelled` | function | cancelled(&self) -> bool |  |  |  |  |
 
-| `solve_subgoal_bounded` | function | solve_subgoal_bounded(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    cost_fluent: usize,
-    bound: f64,
-    threads: usize,
-    cfg: SearchCfg,
-    sat: Option<&SatGuidance>,
-) |  |  |  |  |
+| `cost` | function | cost(&self, s: &State) -> f64 |  |  |  |  |
 
-| `solve_subgoal_guided` | function | solve_subgoal_guided(
-    task: &PackedTask,
-    start: &State,
-    goal_pos: &[u32],
-    goal_num: &[NumPre],
-    forbidden: &[bool],
-    threads: usize,
-    cfg: SearchCfg,
-    sat: Option<&SatGuidance>,
-) |  |  |  |  |
+| `from_weights` | function | from_weights(weight_g: f64, weight_h: f64, max_eval: Option<usize>) -> Self |  |  |  |  |
 
-| `with_cost_h` | function | with_cost_h(mut self, cost_fluent: usize) |  |  |  |  |
+| `holds` | function | holds(&self, s: &State) -> bool |  |  |  |  |
 
-| `with_cost_weight` | function | with_cost_weight(mut self, w_c: f64) |  |  |  |  |
+| `plan` | function | plan( task: &PackedTask, threads: usize, cfg: SearchCfg, ehc_first: bool, orbit: Option<&crate::orbits::OrbitMap>, ) -> PlanOutcome |  |  |  |  |
 
-| `ClosureCost` | struct |  |  |  |  |  |
+| `plan_avoiding` | function | plan_avoiding( task: &PackedTask, threads: usize, cfg: SearchCfg, ehc_first: bool, forbidden: &[bool], orbit: Option<&crate::orbits::OrbitMap>, ) -> PlanOutcome |  |  |  |  |
 
-| `PlanOutcome` | struct |  |  |  |  |  |
+| `search` | function | search(task: &PackedTask, threads: usize, cfg: SearchCfg) -> PlanResult |  |  |  |  |
 
-| `PrefPhi` | struct |  |  |  |  |  |
+| `search_from` | function | search_from( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: Option<usize>, cost_bound: f64, threads: usize, cfg: SearchCfg, forbidden: &[bool], sat: Option<&SatGuidance>, closure: Option<&ClosureCost>, orbit: Option<&crate::orbits::OrbitMap>, ) -> PlanResult |  |  |  |  |
 
-| `SatGuidance` | struct |  |  |  |  |  |
+| `solve_closure_bounded` | function | solve_closure_bounded( task: &PackedTask, goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: usize, bound: f64, closure: &ClosureCost, forbidden: &[bool], threads: usize, cfg: SearchCfg, sat: Option<&SatGuidance>, ) -> (Option<Vec<usize>>, usize, bool) |  |  |  |  |
 
-| `SearchCfg` | struct |  |  |  |  |  |
+| `solve_subgoal` | function | solve_subgoal( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], threads: usize, cfg: SearchCfg, orbit: Option<&crate::orbits::OrbitMap>, ) -> Option<Vec<usize>> |  |  |  |  |
 
-| `select` | function | select(
-    task: &PackedTask,
-    groups: &[Vec<u32>],
-    weights: &[f64],
-    dnf: &FxHashMap<usize, Vec<Vec<u32>>>,
-    banned: &crate::hash::FxHashSet<u32>,
-) |  |  |  |  |
+| `solve_subgoal_avoiding` | function | solve_subgoal_avoiding( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], forbidden: &[bool], threads: usize, cfg: SearchCfg, ) -> Option<Vec<usize>> |  |  |  |  |
 
-| `Selection` | struct |  |  |  |  |  |
+| `solve_subgoal_bounded` | function | solve_subgoal_bounded( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], cost_fluent: usize, bound: f64, threads: usize, cfg: SearchCfg, sat: Option<&SatGuidance>, ) -> (Option<Vec<usize>>, usize, bool) |  |  |  |  |
 
-| `ThinkVerdict` | enum |  |  |  |  |  |
+| `solve_subgoal_guided` | function | solve_subgoal_guided( task: &PackedTask, start: &State, goal_pos: &[u32], goal_num: &[NumPre], forbidden: &[bool], threads: usize, cfg: SearchCfg, sat: Option<&SatGuidance>, ) -> (Option<Vec<usize>>, usize) |  |  |  |  |
 
-| `apply_start` | function | apply_start(&mut self, name: &str) |  |  |  |  |
+| `with_cost_h` | function | with_cost_h(mut self, cost_fluent: usize) -> Self |  |  |  |  |
 
-| `elapse` | function | elapse(&mut self, dt: f64) |  |  |  |  |
+| `with_cost_weight` | function | with_cost_weight(mut self, w_c: f64) -> Self |  |  |  |  |
 
-| `fact` | function | fact(&self, name: &str) |  |  |  |  |
+| `ClosureCost` | struct | ClosureCost { pub prefs: Vec<(f64, PrefPhi)> } |  |  |  |  |
 
-| `fluent` | function | fluent(&self, name: &str) |  |  |  |  |
+| `PlanOutcome` | struct | PlanOutcome { pub ops: Option<Vec<usize>>, pub evaluated: usize, pub ehc_fell_back: bool, pub capped: bool } |  |  |  |  |
 
-| `fork` | function | fork(&self) |  |  |  |  |
+| `PrefPhi` | struct | PrefPhi { pub disjuncts: Vec<(Vec<u32>, Vec<NumPre>)> } |  |  |  |  |
 
-| `goal_met` | function | goal_met(&self) |  |  |  |  |
+| `SatGuidance` | struct | SatGuidance { pub prefs: Vec<(PrefPhi, i64)>, pub res: Vec<crate::resource::ResourceVar>, pub res_weight: i64, pub res_thresh: i64, pub deadline: Vec<(u32, u32, i64)>, pub deadline_weight: i64 } |  |  |  |  |
 
-| `mind_bytes` | function | mind_bytes(&self) |  |  |  |  |
+| `SearchCfg` | struct | SearchCfg { pub w_g: i64, pub w_h: i64, pub max_eval: usize, pub w_c: f64, pub h_cost: Option<usize>, pub anytime: bool, pub g_bound: usize, pub len_anytime: bool, pub w_lm: i64, pub w_res: i64, pub pref_ops: bool, pub node_bytes_target: Option<usize>, pub deadline: Option<(crate::clock::Clock, f64)>, pub ehc_wall_frac: Option<f64> } |  |  |  |  |
 
-| `new` | function | new(domain_src: &str, problem_src: &str, opts: &Options) |  |  |  |  |
+| `select` | function | select( task: &PackedTask, groups: &[Vec<u32>], weights: &[f64], dnf: &FxHashMap<usize, Vec<Vec<u32>>>, banned: &crate::hash::FxHashSet<u32>, ) -> Option<Selection> |  |  |  |  |
 
-| `observe` | function | observe(&mut self, sight: &[(&str, bool) |  |  |  |  |
+| `Selection` | struct | Selection { pub chosen: Vec<(usize, Vec<u32>)>, pub bound: f64, pub capped: bool } |  |  |  |  |
 
-| `plan_still_valid` | function | plan_still_valid(&self, plan: &Plan, from_step: usize) |  |  |  |  |
+| `ThinkVerdict` | enum | ThinkVerdict { Solved, Capped, Exhausted } |  |  |  |  |
 
-| `replan` | function | replan(&self) |  |  |  |  |
+| `apply_start` | function | apply_start(&mut self, name: &str) -> Result<(), String> |  |  |  |  |
 
-| `replan_budgeted` | function | replan_budgeted(&self, max_evaluated: usize, memory_mb: Option<usize>) |  |  |  |  |
+| `elapse` | function | elapse(&mut self, dt: f64) -> Result<Vec<String>, String> |  |  |  |  |
 
-| `replan_following` | function | replan_following(
-        &self,
-        prior: &Plan,
-        from_step: usize,
-        max_evaluated: usize,
-        memory_mb: Option<usize>,
-    ) |  |  |  |  |
+| `fact` | function | fact(&self, name: &str) -> Option<bool> |  |  |  |  |
 
-| `restrict_ops` | function | restrict_ops(&mut self, mut keep: impl FnMut(&str) |  |  |  |  |
+| `fluent` | function | fluent(&self, name: &str) -> Option<f64> |  |  |  |  |
 
-| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) |  |  |  |  |
+| `fork` | function | fork(&self) -> Session |  |  |  |  |
 
-| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) |  |  |  |  |
+| `goal_met` | function | goal_met(&self) -> bool |  |  |  |  |
 
-| `set_goal` | function | set_goal(&mut self, goal: &str) |  |  |  |  |
+| `mind_bytes` | function | mind_bytes(&self) -> usize |  |  |  |  |
 
-| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) |  |  |  |  |
+| `new` | function | new(domain_src: &str, problem_src: &str, opts: &Options) -> Result<Session, String> |  |  |  |  |
 
-| `state_fingerprint` | function | state_fingerprint(&self) |  |  |  |  |
+| `observe` | function | observe(&mut self, sight: &[(&str, bool)]) -> Result<Vec<String>, String> |  |  |  |  |
 
-| `think` | function | think(&self, budget: &ThinkBudget) |  |  |  |  |
+| `plan_still_valid` | function | plan_still_valid(&self, plan: &Plan, from_step: usize) -> bool |  |  |  |  |
 
-| `think_following` | function | think_following(&self, prior: &Plan, from_step: usize, budget: &ThinkBudget) |  |  |  |  |
+| `replan` | function | replan(&self) -> Solution |  |  |  |  |
 
-| `world_bytes` | function | world_bytes(&self) |  |  |  |  |
+| `replan_budgeted` | function | replan_budgeted(&self, max_evaluated: usize, memory_mb: Option<usize>) -> Solution |  |  |  |  |
 
-| `Session` | struct |  |  |  |  |  |
+| `replan_following` | function | replan_following( &self, prior: &Plan, from_step: usize, max_evaluated: usize, memory_mb: Option<usize>, ) -> Solution |  |  |  |  |
 
-| `Think` | struct |  |  |  |  |  |
+| `restrict_ops` | function | restrict_ops(&mut self, mut keep: impl FnMut(&str) -> bool) |  |  |  |  |
 
-| `ThinkBudget` | struct |  |  |  |  |  |
+| `set_fact` | function | set_fact(&mut self, name: &str, value: bool) -> Result<(), String> |  |  |  |  |
 
-| `Bet` | enum |  |  |  |  |  |
+| `set_fluent` | function | set_fluent(&mut self, name: &str, value: f64) -> Result<(), String> |  |  |  |  |
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `set_goal` | function | set_goal(&mut self, goal: &str) -> Result<(), String> |  |  |  |  |
 
-| `declines` | function | declines(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `set_timed_fact` | function | set_timed_fact(&mut self, dt: f64, name: &str, value: bool) -> Result<(), String> |  |  |  |  |
 
-| `lay_out` | function | lay_out(
-    domain: &Domain,
-    task: &PackedTask,
-    ops: &[usize],
-    shift: bool,
-) |  |  |  |  |
+| `state_fingerprint` | function | state_fingerprint(&self) -> String |  |  |  |  |
 
-| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize, bet: Bet) |  |  |  |  |
+| `think` | function | think(&self, budget: &ThinkBudget) -> Think |  |  |  |  |
 
-| `compile` | function | compile(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `think_following` | function | think_following(&self, prior: &Plan, from_step: usize, budget: &ThinkBudget) -> Think |  |  |  |  |
 
-| `is_temporal` | function | is_temporal(domain: &Domain) |  |  |  |  |
+| `world_bytes` | function | world_bytes(&self) -> usize |  |  |  |  |
 
-| `prepare` | function | prepare(domain: &'a Domain, problem: &'a Problem) |  |  |  |  |
+| `Session` | struct | Session { task: PackedTask, threads: usize, weight_g: f64, weight_h: f64, max_evaluated: Option<usize>, ehc_first: bool, fact_ids: Arc<FxHashMap<String, u32>>, dynamic: Arc<[bool]>, fluent_ids: Arc<FxHashMap<String, u32>>, temporal: Option<Arc<crate::temporal::TemporalCompiled>>, tier: crate::features::DemandMode, running_preds: Vec<String>, op_ids: Arc<FxHashMap<String, usize>>, mirror: Arc<FxHashMap<u32, u32>>, forbidden: Vec<bool>, timed: Vec<(f64, u32, bool)>, til_setters: Arc<FxHashMap<(u32, bool), usize>>, running: Vec<(f64, usize)>, lifted: Option<Arc<(crate::types::Domain, crate::types::Problem)>>, goal_formula: Formula } |  |  |  |  |
 
-| `score` | function | score(&self, plan: &TimedPlan) |  |  |  |  |
+| `Think` | struct | Think { pub solution: Solution, pub capped: bool, pub spent_ms: u64, pub spent_evals: usize, pub verdict: ThinkVerdict } |  |  |  |  |
 
-| `score_soft` | function | score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `ThinkBudget` | struct | ThinkBudget { pub max_evaluated: Option<usize>, pub wall_ms: Option<u64>, pub memory_mb: Option<usize> } |  |  |  |  |
 
-| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `UNWALLED_EVALS` | const | UNWALLED_EVALS: usize |  |  |  |  |
 
-| `solve_scored` | function | solve_scored(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `WALL_FRAC` | const | WALL_FRAC: f64 |  |  |  |  |
 
-| `to_ipc` | function | to_ipc(&self) |  |  |  |  |
+| `Bet` | enum | Bet { First, Rest } |  |  |  |  |
 
-| `validate` | function | validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> (Domain, Problem) |  |  |  |  |
 
-| `ScoredPlan` | struct |  |  |  |  |  |
+| `declines` | function | declines(domain: &Domain, problem: &Problem) -> Option<&'static str> |  |  |  |  |
 
-| `SnapInfo` | struct |  |  |  |  |  |
+| `lay_out` | function | lay_out( domain: &Domain, task: &PackedTask, ops: &[usize], shift: bool, ) -> Option<TimedPlan> |  |  |  |  |
 
-| `SoftScore` | struct |  |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize, bet: Bet) -> Option<TimedPlan> |  |  |  |  |
 
-| `SoftScorer` | struct |  |  |  |  |  |
+| `compile` | function | compile(domain: &Domain, problem: &Problem) -> TemporalCompiled |  |  |  |  |
 
-| `TemporalCompiled` | struct |  |  |  |  |  |
+| `is_temporal` | function | is_temporal(domain: &Domain) -> bool |  |  |  |  |
 
-| `TimedPlan` | struct |  |  |  |  |  |
+| `prepare` | function | prepare(domain: &'a Domain, problem: &'a Problem) -> Option<Self> |  |  |  |  |
 
-| `TimedStep` | struct |  |  |  |  |  |
+| `score` | function | score(&self, plan: &TimedPlan) -> Option<SoftScore> |  |  |  |  |
 
-| `trace` | function | trace(
-    domain_src: &str,
-    problem_src: &str,
-    plan: &[(String, Vec<String>) |  |  |  |  |
+| `score_soft` | function | score_soft(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Option<SoftScore> |  |  |  |  |
 
-| `StateSnapshot` | struct |  |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> |  |  |  |  |
 
-| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) |  |  |  |  |
+| `solve_scored` | function | solve_scored(domain: &Domain, problem: &Problem, threads: usize) -> Option<ScoredPlan> |  |  |  |  |
 
-| `n_actors` | function | n_actors(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `to_ipc` | function | to_ipc(&self) -> String |  |  |  |  |
 
-| `reschedule` | function | reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) |  |  |  |  |
+| `validate` | function | validate(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Result<(), String> |  |  |  |  |
 
-| `single_actor_problem` | function | single_actor_problem(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `ScoredPlan` | struct | ScoredPlan { pub plan: TimedPlan, pub score: Option<SoftScore>, pub unscored: bool } |  |  |  |  |
 
-| `AssignOp` | enum |  |  |  |  |  |
+| `SnapInfo` | struct | SnapInfo { pub start_action: Sym, pub end_action: Sym, pub running_pred: Sym, pub duration: Duration, pub invariant: Formula, pub params: Vec<(Sym, Sym)> } |  |  |  |  |
 
-| `CompOp` | enum |  |  |  |  |  |
+| `SoftScore` | struct | SoftScore { pub metric: Option<f64>, pub violated: Vec<String>, pub satisfied: usize } |  |  |  |  |
 
-| `Constraint` | enum |  |  |  |  |  |
+| `SoftScorer` | struct | SoftScorer { domain: &'a Domain, problem: &'a Problem, objs: HashMap<Sym, Vec<Sym>>, goal_prefs: Vec<(String, Formula)>, exp: crate::constraints::Expanded, c: TemporalCompiled, task: PackedTask } |  |  |  |  |
 
-| `Effect` | enum |  |  |  |  |  |
+| `TemporalCompiled` | struct | TemporalCompiled { pub domain: Domain, pub problem: Problem, pub snaps: Vec<SnapInfo>, pub til_ops: Vec<(f64, Sym)> } |  |  |  |  |
 
-| `Expr` | enum |  |  |  |  |  |
+| `TimedPlan` | struct | TimedPlan { pub steps: Vec<TimedStep>, pub makespan: f64 } |  |  |  |  |
 
-| `Formula` | enum |  |  |  |  |  |
+| `TimedStep` | struct | TimedStep { pub time: f64, pub action: String, pub duration: Option<f64> } |  |  |  |  |
 
-| `MetricDir` | enum |  |  |  |  |  |
+| `trace` | function | trace( domain_src: &str, problem_src: &str, plan: &[(String, Vec<String>)], ) -> Result<Vec<StateSnapshot>, String> |  |  |  |  |
 
-| `NExpr` | enum |  |  |  |  |  |
+| `StateSnapshot` | struct | StateSnapshot { pub facts: Vec<String>, pub fluents: Vec<(String, f64)> } |  |  |  |  |
 
-| `Term` | enum |  |  |  |  |  |
+| `solve` | function | solve(domain: &Domain, problem: &Problem, threads: usize) -> Option<TimedPlan> |  |  |  |  |
 
-| `TimeSpec` | enum |  |  |  |  |  |
+| `n_actors` | function | n_actors(domain: &Domain, problem: &Problem) -> usize |  |  |  |  |
 
-| `chosen` | function | chosen(&self) |  |  |  |  |
+| `reschedule` | function | reschedule(domain: &Domain, problem: &Problem, plan: &TimedPlan) -> Option<TimedPlan> |  |  |  |  |
+
+| `single_actor_problem` | function | single_actor_problem(domain: &Domain, problem: &Problem) -> Problem |  |  |  |  |
+
+| `DURATION_PSEUDO` | const | DURATION_PSEUDO: &str |  |  |  |  |
+
+| `AssignOp` | enum | AssignOp { Assign, Increase, Decrease, ScaleUp, ScaleDown } |  |  |  |  |
+
+| `CompOp` | enum | CompOp { Lt, Le, Eq, Ge, Gt } |  |  |  |  |
+
+| `Constraint` | enum | Constraint { And(Vec<Constraint>), Forall(Vec<(Sym, Sym)>, Box<Constraint>), Pref(Option<Sym>, Box<Constraint>), Always(Formula), Sometime(Formula), AtMostOnce(Formula), SometimeAfter(Formula, Formula), SometimeBefore(Formula, Formula), AtEnd(Formula), Within(f64, Formula), AlwaysWithin(f64, Formula, Formula), HoldDuring(f64, f64, Formula), HoldAfter(f64, Formula) } |  |  |  |  |
+
+| `Effect` | enum | Effect { Add(Sym, Vec<Term>), Del(Sym, Vec<Term>), Num(AssignOp, Sym, Vec<Term>, Expr), And(Vec<Effect>), When(Formula, Box<Effect>), Forall(Vec<(Sym, Sym)>, Box<Effect>) } |  |  |  |  |
+
+| `Expr` | enum | Expr { Num(f64), Fluent(Sym, Vec<Term>), Add(Box<Expr>, Box<Expr>), Sub(Box<Expr>, Box<Expr>), Mul(Box<Expr>, Box<Expr>), Div(Box<Expr>, Box<Expr>), Neg(Box<Expr>) } |  |  |  |  |
+
+| `Formula` | enum | Formula { And(Vec<Formula>), Or(Vec<Formula>), Not(Box<Formula>), Atom(Sym, Vec<Term>), Comp(CompOp, Expr, Expr), Forall(Vec<(Sym, Sym)>, Box<Formula>), Exists(Vec<(Sym, Sym)>, Box<Formula>), Eq(Term, Term), Pref(Option<Sym>, Box<Formula>), True, False } |  |  |  |  |
+
+| `MetricDir` | enum | MetricDir { Minimize, Maximize } |  |  |  |  |
+
+| `NExpr` | enum | NExpr { Num(f64), Fluent(u32), Add(Box<NExpr>, Box<NExpr>), Sub(Box<NExpr>, Box<NExpr>), Mul(Box<NExpr>, Box<NExpr>), Div(Box<NExpr>, Box<NExpr>), Neg(Box<NExpr>) } |  |  |  |  |
+
+| `Term` | enum | Term { Var(Sym), Const(Sym) } |  |  |  |  |
+
+| `TimeSpec` | enum | TimeSpec { Start, End, All } |  |  |  |  |
+
+| `chosen` | function | chosen(&self) -> Option<&Expr> |  |  |  |  |
 
 | `collect_fluents` | function | collect_fluents(&self, out: &mut Vec<u32>) |  |  |  |  |
 
-| `eval` | function | eval(&self, fv: &[f64], def: &[bool]) |  |  |  |  |
+| `eval` | function | eval(&self, fv: &[f64], def: &[bool]) -> Option<f64> |  |  |  |  |
 
-| `eval_numpre` | function | eval_numpre(np: &NumPre, fv: &[f64], def: &[bool]) |  |  |  |  |
+| `eval_numpre` | function | eval_numpre(np: &NumPre, fv: &[f64], def: &[bool]) -> Option<bool> |  |  |  |  |
 
-| `fixed` | function | fixed(e: Expr) |  |  |  |  |
+| `fixed` | function | fixed(e: Expr) -> Self |  |  |  |  |
 
-| `new` | function | new(line: u32, message: impl Into<String>) |  |  |  |  |
+| `new` | function | new(line: u32, message: impl Into<String>) -> Self |  |  |  |  |
 
-| `Action` | struct |  |  |  |  |  |
+| `Action` | struct | Action { pub name: Sym, pub params: Vec<(Sym, Sym)>, pub precond: Formula, pub effect: Effect, pub monitored: bool } |  |  |  |  |
 
-| `DerivedRule` | struct |  |  |  |  |  |
+| `DerivedRule` | struct | DerivedRule { pub head: Sym, pub params: Vec<(Sym, Sym)>, pub body: Formula } |  |  |  |  |
 
-| `Domain` | struct |  |  |  |  |  |
+| `Domain` | struct | Domain { pub name: Sym, pub requirements: Vec<Sym>, pub types: Vec<Sym>, pub type_parent: Vec<(Sym, Sym)>, pub constants: Vec<(Sym, Sym)>, pub predicates: Vec<(Sym, Vec<Sym>)>, pub functions: Vec<(Sym, Vec<Sym>)>, pub actions: Vec<Action>, pub durative_actions: Vec<DurativeAction>, pub constraints: Vec<Constraint>, pub derived: Vec<DerivedRule>, pub monitors: Vec<Effect> } |  |  |  |  |
 
-| `Duration` | struct |  |  |  |  |  |
+| `Duration` | struct | Duration { pub min: Option<Expr>, pub max: Option<Expr> } |  |  |  |  |
 
-| `DurativeAction` | struct |  |  |  |  |  |
+| `DurativeAction` | struct | DurativeAction { pub name: Sym, pub params: Vec<(Sym, Sym)>, pub duration: Duration, pub conditions: Vec<(TimeSpec, Formula)>, pub effects: Vec<(TimeSpec, Effect)> } |  |  |  |  |
 
-| `NumEff` | struct |  |  |  |  |  |
+| `NumEff` | struct | NumEff { pub op: AssignOp, pub target: u32, pub value: NExpr } |  |  |  |  |
 
-| `NumPre` | struct |  |  |  |  |  |
+| `NumPre` | struct | NumPre { pub op: CompOp, pub lhs: NExpr, pub rhs: NExpr } |  |  |  |  |
 
-| `ParseError` | struct |  |  |  |  |  |
+| `ParseError` | struct | ParseError { pub line: u32, pub message: String } |  |  |  |  |
 
-| `Problem` | struct |  |  |  |  |  |
+| `Problem` | struct | Problem { pub name: Sym, pub domain_name: Sym, pub objects: Vec<(Sym, Sym)>, pub init_atoms: Vec<(Sym, Vec<Sym>)>, pub init_fluents: Vec<((Sym, Vec<Sym>), f64)>, pub til: Vec<TimedLiteral>, pub goal: Formula, pub constraints: Vec<Constraint>, pub metric: Option<(MetricDir, Expr)> } |  |  |  |  |
 
-| `TimedLiteral` | struct |  |  |  |  |  |
+| `TimedLiteral` | struct | TimedLiteral { pub time: f64, pub add: bool, pub pred: Sym, pub args: Vec<Sym> } |  |  |  |  |
 
-| `verify` | function | verify(
-    domain_src: &str,
-    problem_src: &str,
-    plan: &[(String, Vec<String>) |  |  |  |  |
+| `verify` | function | verify( domain_src: &str, problem_src: &str, plan: &[(String, Vec<String>)], ) -> Result<Verified, String> |  |  |  |  |
 
-| `Verified` | struct |  |  |  |  |  |
+| `Verified` | struct | Verified { pub metric: f64, pub hard_goal_met: bool, pub satisfied: usize, pub violated: usize, pub constraints_met: bool, pub constraint_failures: Vec<String>, pub constraint_prefs: Vec<(String, bool)> } |  |  |  |  |
 
-| `PredKind` | enum |  |  |  |  |  |
+| `PredKind` | enum | PredKind { Edge, Position, Property } |  |  |  |  |
 
-| `build` | function | build(domain: &Domain, problem: &Problem) |  |  |  |  |
+| `build` | function | build(domain: &Domain, problem: &Problem) -> Self |  |  |  |  |
 
-| `domain_to_pddl` | function | domain_to_pddl(
-    name: &str,
-    requirements: &str,
-    types: &[(String, String) |  |  |  |  |
+| `domain_to_pddl` | function | domain_to_pddl( name: &str, requirements: &str, types: &[(String, String)], predicates: &[(String, Vec<String>)], actions_raw: &[String], ) -> String |  |  |  |  |
 
-| `dynamic_predicates` | function | dynamic_predicates(domain: &Domain) |  |  |  |  |
+| `dynamic_predicates` | function | dynamic_predicates(domain: &Domain) -> BTreeSet<String> |  |  |  |  |
 
-| `goal_facts` | function | goal_facts(problem: &Problem) |  |  |  |  |
+| `goal_facts` | function | goal_facts(problem: &Problem) -> Vec<(String, Vec<String>)> |  |  |  |  |
 
-| `positions_at` | function | positions_at(&self, facts: &[String]) |  |  |  |  |
+| `positions_at` | function | positions_at(&self, facts: &[String]) -> HashMap<String, Option<String>> |  |  |  |  |
 
-| `to_pddl` | function | to_pddl(
-    name: &str,
-    domain_name: &str,
-    objects: &[(String, String) |  |  |  |  |
+| `to_pddl` | function | to_pddl( name: &str, domain_name: &str, objects: &[(String, String)], init: &[(String, Vec<String>)], goal: &[(String, Vec<String>)], ) -> String |  |  |  |  |
 
-| `VizEdge` | struct |  |  |  |  |  |
+| `VizEdge` | struct | VizEdge { pub a: String, pub b: String, pub pred: String } |  |  |  |  |
 
-| `VizGraph` | struct |  |  |  |  |  |
+| `VizGraph` | struct | VizGraph { pub nodes: Vec<VizNode>, pub edges: Vec<VizEdge>, pub mobiles: Vec<VizMobile>, pub props_by_object: BTreeMap<String, Vec<String>>, pub goal_by_object: BTreeMap<String, Vec<String>>, pub pred_kind: BTreeMap<String, PredKind>, pub location_types: BTreeSet<String> } |  |  |  |  |
 
-| `VizMobile` | struct |  |  |  |  |  |
+| `VizMobile` | struct | VizMobile { pub object: String, pub ty: String, pub at: Option<String>, pub at_raw: Option<String> } |  |  |  |  |
 
-| `VizNode` | struct |  |  |  |  |  |
+| `VizNode` | struct | VizNode { pub object: String, pub ty: String } |  |  |  |  |
 
-| `corpus_dir` | function | corpus_dir() |  |  |  |  |
+| `corpus_dir` | function | corpus_dir() -> PathBuf |  |  |  |  |
 
-| `corpus_ipc_dir` | function | corpus_ipc_dir() |  |  |  |  |
+| `corpus_ipc_dir` | function | corpus_ipc_dir() -> PathBuf |  |  |  |  |
 
-| `differential_run_dir` | function | differential_run_dir() |  |  |  |  |
+| `differential_run_dir` | function | differential_run_dir() -> PathBuf |  |  |  |  |
 
-| `harness_present` | function | harness_present(what: &str, path: &Path) |  |  |  |  |
+| `harness_present` | function | harness_present(what: &str, path: &Path) -> bool |  |  |  |  |
 
-| `oracle_dir` | function | oracle_dir() |  |  |  |  |
+| `oracle_dir` | function | oracle_dir() -> PathBuf |  |  |  |  |
 
-| `oracle_runner` | function | oracle_runner() |  |  |  |  |
+| `oracle_runner` | function | oracle_runner() -> PathBuf |  |  |  |  |
 
-| `base_sizes` | function | base_sizes(rng: &mut Rng) |  |  |  |  |
+| `PROVENANCE_DIFF_T61` | const | PROVENANCE_DIFF_T61: &[&str] |  |  |  |  |
 
-| `below` | function | below(&mut self, n: u64) |  |  |  |  |
+| `PROVENANCE_FUZZ_T31` | const | PROVENANCE_FUZZ_T31: &[&str] |  |  |  |  |
 
-| `chance` | function | chance(&mut self, percent: u64) |  |  |  |  |
+| `base_sizes` | function | base_sizes(rng: &mut Rng) -> Sizes |  |  |  |  |
 
-| `draw_for` | function | draw_for(seed: u64, sizes: Sizes) |  |  |  |  |
+| `below` | function | below(&mut self, n: u64) -> u64 |  |  |  |  |
 
-| `draw_valid` | function | draw_valid(seed: u64, sizes: Sizes) |  |  |  |  |
+| `chance` | function | chance(&mut self, percent: u64) -> bool |  |  |  |  |
 
-| `generate` | function | generate(seed: u64, sizes: Sizes) |  |  |  |  |
+| `draw_for` | function | draw_for(seed: u64, sizes: Sizes) -> (String, String) |  |  |  |  |
 
-| `generate_valid` | function | generate_valid(seed: u64, sizes: Sizes) |  |  |  |  |
+| `draw_valid` | function | draw_valid(seed: u64, sizes: Sizes) -> (String, String) |  |  |  |  |
 
-| `halve_sizes` | function | halve_sizes(s: Sizes) |  |  |  |  |
+| `generate` | function | generate(seed: u64, sizes: Sizes) -> Model |  |  |  |  |
 
-| `mutation_of` | function | mutation_of(seed: u64) |  |  |  |  |
+| `generate_valid` | function | generate_valid(seed: u64, sizes: Sizes) -> Model |  |  |  |  |
 
-| `new` | function | new(seed: u64) |  |  |  |  |
+| `halve_sizes` | function | halve_sizes(s: Sizes) -> Sizes |  |  |  |  |
 
-| `next_u64` | function | next_u64(&mut self) |  |  |  |  |
+| `mutation_of` | function | mutation_of(seed: u64) -> bool |  |  |  |  |
 
-| `pick_idx` | function | pick_idx(&mut self, len: usize) |  |  |  |  |
+| `new` | function | new(seed: u64) -> Self |  |  |  |  |
 
-| `range` | function | range(&mut self, lo: u64, hi: u64) |  |  |  |  |
+| `next_u64` | function | next_u64(&mut self) -> u64 |  |  |  |  |
 
-| `range_usize` | function | range_usize(&mut self, lo: usize, hi: usize) |  |  |  |  |
+| `pick_idx` | function | pick_idx(&mut self, len: usize) -> usize |  |  |  |  |
 
-| `render` | function | render(model: &Model, problem_name: &str) |  |  |  |  |
+| `range` | function | range(&mut self, lo: u64, hi: u64) -> u64 |  |  |  |  |
 
-| `render_with_provenance` | function | render_with_provenance(
-    model: &Model,
-    problem_name: &str,
-    header: &[&str],
-) |  |  |  |  |
+| `range_usize` | function | range_usize(&mut self, lo: usize, hi: usize) -> usize |  |  |  |  |
 
-| `sizes_for` | function | sizes_for(seed: u64) |  |  |  |  |
+| `render` | function | render(model: &Model, problem_name: &str) -> (String, String) |  |  |  |  |
 
-| `Model` | struct |  |  |  |  |  |
+| `render_with_provenance` | function | render_with_provenance( model: &Model, problem_name: &str, header: &[&str], ) -> (String, String) |  |  |  |  |
 
-| `Rng` | struct |  |  |  |  |  |
+| `sizes_for` | function | sizes_for(seed: u64) -> Sizes |  |  |  |  |
 
-| `Sizes` | struct |  |  |  |  |  |
+| `Model` | struct | Model { types: Vec<String>, preds: Vec<(String, Vec<usize>)>, actions: Vec<ActionM>, tasks: Vec<(String, Vec<(String, usize)>)>, methods: Vec<MethodM>, objects: Vec<(String, usize)>, init: Vec<LitO>, goal: Vec<LitO>, root: Vec<(String, CallM)> } |  |  |  |  |
 
-| `from_rows` | function | from_rows(rows: &[RawRow]) |  |  |  |  |
+| `Rng` | struct | Rng { u64 } |  |  |  |  |
 
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `len` | function | len(&self) |  |  |  |  |
-
-| `render` | function | render(
-    header: &BoardHeader,
-    summary: &[VariantSummary],
-    score_against: Option<&str>,
-) |  |  |  |  |
-
-| `summarize_variants` | function | summarize_variants(rows: &[RawRow], reference: Option<&Reference>) |  |  |  |  |
-
-| `BoardHeader` | struct |  |  |  |  |  |
-
-| `Reference` | struct |  |  |  |  |  |
-
-| `VariantSummary` | struct |  |  |  |  |  |
-
-| `ConditionsError` | enum |  |  |  |  |  |
-
-| `Slot` | enum |  |  |  |  |  |
-
-| `as_option` | function | as_option(&self) |  |  |  |  |
-
-| `at` | function | at(&self) |  |  |  |  |
-
-| `competitors_total` | function | competitors_total(&self) |  |  |  |  |
-
-| `idle_pct` | function | idle_pct(&self) |  |  |  |  |
-
-| `is_present` | function | is_present(&self) |  |  |  |  |
-
-| `new` | function | new(
-        at: Option<Number>,
-        idle_pct: Option<Number>,
-        competitors_total: Option<Number>,
-    ) |  |  |  |  |
-
-| `observe` | function | observe(&mut self, r: &Reading<'_>) |  |  |  |  |
-
-| `of` | function | of(self_exclusion: Vec<String>) |  |  |  |  |
-
-| `parse` | function | parse(text: &str, path: &str) |  |  |  |  |
-
-| `percentile` | function | percentile(v: &[f64], p: f64) |  |  |  |  |
-
-| `rollup_from_timeline` | function | rollup_from_timeline(timeline: &[TimelineEntry]) |  |  |  |  |
-
-| `statistics_median` | function | statistics_median(v: &[f64]) |  |  |  |  |
-
-| `summarize` | function | summarize(r: &Rollup, ended: &str, provenance: Option<&Provenance>) |  |  |  |  |
-
-| `to_json` | function | to_json(&self) |  |  |  |  |
-
-| `Competitors` | struct |  |  |  |  |  |
-
-| `Conditions` | struct |  |  |  |  |  |
-
-| `CpuSpeedLimit` | struct |  |  |  |  |  |
-
-| `IdlePct` | struct |  |  |  |  |  |
-
-| `LoadAvg` | struct |  |  |  |  |  |
-
-| `Provenance` | struct |  |  |  |  |  |
-
-| `Reading` | struct |  |  |  |  |  |
-
-| `Rollup` | struct |  |  |  |  |  |
-
-| `SwapMb` | struct |  |  |  |  |  |
-
-| `TimelineEntry` | struct |  |  |  |  |  |
-
-| `TimelineRollup` | struct |  |  |  |  |  |
-
-| `instances` | function | instances(v: &Variant, max: usize, warnings: &mut Vec<String>) |  |  |  |  |
-
-| `variants` | function | variants(corpus: &Path, ipcs: &[String], selects: &dyn Fn(&str) |  |  |  |  |
-
-| `Instance` | struct |  |  |  |  |  |
-
-| `Variant` | struct |  |  |  |  |  |
-
-| `Walk` | struct |  |  |  |  |  |
-
-| `LockError` | enum |  |  |  |  |  |
-
-| `acquire` | function | acquire(dir: &Path) |  |  |  |  |
-
-| `path` | function | path(&self) |  |  |  |  |
-
-| `DirLock` | struct |  |  |  |  |  |
-
-| `DbError` | enum |  |  |  |  |  |
-
-| `open` | function | open(dir: &Path) |  |  |  |  |
-
-| `path` | function | path(&self) |  |  |  |  |
-
-| `reader` | function | reader(&self) |  |  |  |  |
-
-| `writer` | function | writer(&self) |  |  |  |  |
-
-| `Db` | struct |  |  |  |  |  |
-
-| `Cleanliness` | enum |  |  |  |  |  |
-
-| `PassVerdict` | enum |  |  |  |  |  |
-
-| `RunState` | enum |  |  |  |  |  |
-
-| `TimingQuality` | enum |  |  |  |  |  |
-
-| `ValReason` | enum |  |  |  |  |  |
-
-| `as_str` | function | as_str(self) |  |  |  |  |
-
-| `identity` | function | identity(&self) |  |  |  |  |
-
-| `of` | function | of(i: &Instance) |  |  |  |  |
-
-| `parse` | function | parse(s: &str) |  |  |  |  |
-
-| `sort_key` | function | sort_key(label: &str) |  |  |  |  |
-
-| `to_instance` | function | to_instance(&self) |  |  |  |  |
-
-| `AttemptRec` | struct |  |  |  |  |  |
-
-| `BoardFacts` | struct |  |  |  |  |  |
-
-| `BoardKey` | struct |  |  |  |  |  |
-
-| `BoardPassRec` | struct |  |  |  |  |  |
-
-| `EngineFacts` | struct |  |  |  |  |  |
-
-| `EngineKey` | struct |  |  |  |  |  |
-
-| `EventRec` | struct |  |  |  |  |  |
-
-| `InstanceKey` | struct |  |  |  |  |  |
-
-| `LiveChild` | struct |  |  |  |  |  |
-
-| `Measured` | struct |  |  |  |  |  |
-
-| `RunRecord` | struct |  |  |  |  |  |
-
-| `SamplePoint` | struct |  |  |  |  |  |
-
-| `SampleRec` | struct |  |  |  |  |  |
-
-| `ThrottleWindowRec` | struct |  |  |  |  |  |
-
-| `VariantKey` | struct |  |  |  |  |  |
-
-| `attempts_for` | function | attempts_for(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-        variant: &str,
-        label: &str,
-    ) |  |  |  |  |
-
-| `banked_instances` | function | banked_instances(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `boards_named` | function | boards_named(&self, name: &str) |  |  |  |  |
-
-| `canary_baseline` | function | canary_baseline(
-        &self,
-        label: &str,
-        window: usize,
-        pct: f64,
-    ) |  |  |  |  |
-
-| `canary_max_between` | function | canary_max_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
-
-| `clean_instances` | function | clean_instances(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `competitors_between` | function | competitors_between(
-        &self,
-        start_ts: f64,
-        end_ts: f64,
-    ) |  |  |  |  |
-
-| `conn` | function | conn(&self) |  |  |  |  |
-
-| `engine_by_hash` | function | engine_by_hash(&self, blake3: &str) |  |  |  |  |
-
-| `engines_for_board` | function | engines_for_board(&self, board_id: i64) |  |  |  |  |
-
-| `engines_matching` | function | engines_matching(&self, needle: &str) |  |  |  |  |
-
-| `export_rows` | function | export_rows(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `live_children` | function | live_children(&self) |  |  |  |  |
-
-| `next_attempt` | function | next_attempt(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-        ipc: Option<&str>,
-        variant: &str,
-        label: &str,
-    ) |  |  |  |  |
-
-| `open` | function | open(path: &Path) |  |  |  |  |
-
-| `pass_verdict` | function | pass_verdict(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `prior_peak_rss` | function | prior_peak_rss(&self, variant: &str, label: &str) |  |  |  |  |
-
-| `run_census` | function | run_census(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `runs_between` | function | runs_between(
-        &self,
-        engine_id: i64,
-        start_ts: f64,
-        end_ts: f64,
-    ) |  |  |  |  |
-
-| `sample_count` | function | sample_count(&self, pass: Option<i64>) |  |  |  |  |
-
-| `samples_between` | function | samples_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
-
-| `solo_attempts` | function | solo_attempts(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-        variant: &str,
-        label: &str,
-    ) |  |  |  |  |
-
-| `swap_growth_between` | function | swap_growth_between(&self, start_ts: f64, end_ts: f64) |  |  |  |  |
-
-| `throttle_windows_between` | function | throttle_windows_between(
-        &self,
-        start_ts: f64,
-        end_ts: f64,
-    ) |  |  |  |  |
-
-| `timing_census` | function | timing_census(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `val_ok` | function | val_ok(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `val_rejected` | function | val_rejected(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `val_unavailable` | function | val_unavailable(&self, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `verdicts_for` | function | verdicts_for(
-        &self,
-        board_id: i64,
-        engine_id: i64,
-    ) |  |  |  |  |
-
-| `window_gate` | function | window_gate(
-        &self,
-        start_ts: f64,
-        end_ts: f64,
-        interval: f64,
-        pass: Option<i64>,
-    ) |  |  |  |  |
-
-| `Reader` | struct |  |  |  |  |  |
-
-| `board_facts` | function | board_facts(spec: &BoardSpec, m: &Manifest, first: Option<&RawRow>) |  |  |  |  |
-
-| `board_key_from_manifest` | function | board_key_from_manifest(m: &Manifest, spec: &BoardSpec) |  |  |  |  |
-
-| `export` | function | export(reader: &Reader, board_id: i64, engine_id: i64) |  |  |  |  |
-
-| `export_to` | function | export_to(
-    reader: &Reader,
-    board_id: i64,
-    engine_id: i64,
-    path: &Path,
-) |  |  |  |  |
-
-| `rebuild_from_artifacts` | function | rebuild_from_artifacts(
-    writer: &WriterHandle,
-    manifest: &Manifest,
-    dir: &Path,
-    val_unavailable: Option<&ValUnavailable>,
-) |  |  |  |  |
-
-| `RebuiltBoard` | struct |  |  |  |  |  |
-
-| `MigrateError` | enum |  |  |  |  |  |
-
-| `migrate` | function | migrate(conn: &Connection) |  |  |  |  |
-
-| `board_pass` | function | board_pass(&self, p: BoardPassRec) |  |  |  |  |
-
-| `canary` | function | canary(&self, at: f64, label: String, secs: f64, solo: bool) |  |  |  |  |
-
-| `child_gone` | function | child_gone(&self, pid: i32) |  |  |  |  |
-
-| `child_spawned` | function | child_spawned(&self, c: LiveChild) |  |  |  |  |
-
-| `child_stopped` | function | child_stopped(&self, pid: i32, stopped: bool) |  |  |  |  |
-
-| `event` | function | event(&self, e: EventRec) |  |  |  |  |
-
-| `flush` | function | flush(&self) |  |  |  |  |
-
-| `handle` | function | handle(&self) |  |  |  |  |
-
-| `resolve` | function | resolve(
-        &self,
-        board: BoardKey,
-        board_facts: BoardFacts,
-        engine: EngineKey,
-        engine_facts: EngineFacts,
-    ) |  |  |  |  |
-
-| `run` | function | run(&self, rec: RunRecord) |  |  |  |  |
-
-| `sample` | function | sample(&self, s: SampleRec) |  |  |  |  |
-
-| `start` | function | start(conn: Connection) |  |  |  |  |
-
-| `take_error` | function | take_error(&self) |  |  |  |  |
-
-| `throttle_close` | function | throttle_close(&self, id: i64, ended_at: f64) |  |  |  |  |
-
-| `throttle_open` | function | throttle_open(&self, w: ThrottleWindowRec) |  |  |  |  |
-
-| `Writer` | struct |  |  |  |  |  |
-
-| `WriterHandle` | struct |  |  |  |  |  |
-
-| `build` | function | build(
-    timeout_secs: u64,
-    mem_gb: f64,
-    board_env: &BTreeMap<String, String>,
-) |  |  |  |  |
-
-| `validate` | function | validate(
-    timeout_secs: u64,
-    mem_gb: f64,
-    board_env: &BTreeMap<String, String>,
-) |  |  |  |  |
-
-| `Ctl` | enum |  |  |  |  |  |
-
-| `ExecError` | enum |  |  |  |  |  |
-
-| `Killed` | enum |  |  |  |  |  |
-
-| `install_interrupt_handler` | function | install_interrupt_handler() |  |  |  |  |
-
-| `interrupted` | function | interrupted() |  |  |  |  |
-
-| `set_interrupted` | function | set_interrupted(on: bool) |  |  |  |  |
-
-| `RunOutcome` | struct |  |  |  |  |  |
-
-| `RunRequest` | struct |  |  |  |  |  |
-
-| `Reaped` | enum |  |  |  |  |  |
-
-| `armed` | function | armed(&self) |  |  |  |  |
-
-| `disarm` | function | disarm(&mut self) |  |  |  |  |
-
-| `install_panic_reaper` | function | install_panic_reaper() |  |  |  |  |
-
-| `new` | function | new(pgid: Pid) |  |  |  |  |
-
-| `pgid` | function | pgid(&self) |  |  |  |  |
-
-| `pid` | function | pid(&self) |  |  |  |  |
-
-| `reap_registered` | function | reap_registered() |  |  |  |  |
-
-| `record` | function | record(pid: Pid, run_id: Option<i64>, id: &ProcIdentity, spawned_at: f64) |  |  |  |  |
-
-| `signalled` | function | signalled(&self) |  |  |  |  |
-
-| `GroupGuard` | struct |  |  |  |  |  |
-
-| `LiveChild` | struct |  |  |  |  |  |
-
-| `busiest` | function | busiest(&self, procs: &[Proc]) |  |  |  |  |
-
-| `game_pids` | function | game_pids(&self, procs: &[Proc]) |  |  |  |  |
-
-| `GameRules` | struct |  |  |  |  |  |
-
-| `Proc` | struct |  |  |  |  |  |
-
-| `attribute` | function | attribute(ps_output: &str, exclude: &dyn Fn(&str) |  |  |  |  |
-
-| `is_clean` | function | is_clean(&self) |  |  |  |  |
-
-| `Sample` | struct |  |  |  |  |  |
-
-| `Level` | enum |  |  |  |  |  |
-
-| `Reason` | enum |  |  |  |  |  |
-
-| `level` | function | level(&self) |  |  |  |  |
-
-| `new` | function | new(cfg: Config) |  |  |  |  |
-
-| `on_sample` | function | on_sample(&mut self, s: &Sample, g: &GameState, now: Instant) |  |  |  |  |
-
-| `set_manual_hold` | function | set_manual_hold(&mut self, on: bool) |  |  |  |  |
-
-| `Config` | struct |  |  |  |  |  |
-
-| `GameState` | struct |  |  |  |  |  |
-
-| `Throttle` | struct |  |  |  |  |  |
-
-| `Transition` | struct |  |  |  |  |  |
-
-| `Generic` | struct |  |  |  |  |  |
-
-| `mach_ticks_to_ns` | function | mach_ticks_to_ns(ticks: u64) |  |  |  |  |
-
-| `MacOs` | struct |  |  |  |  |  |
-
-| `MemCap` | enum |  |  |  |  |  |
-
-| `bytes` | function | bytes(self) |  |  |  |  |
-
-| `host` | function | host() |  |  |  |  |
-
-| `instrument` | function | instrument(self) |  |  |  |  |
-
-| `ProcIdentity` | struct |  |  |  |  |  |
-
-| `Topology` | struct |  |  |  |  |  |
-
-| `KeepAwake` | trait |  |  |  |  |  |
-
-| `Platform` | trait |  |  |  |  |  |
-
-| `Admission` | enum |  |  |  |  |  |
-
-| `Denial` | enum |  |  |  |  |  |
-
-| `admit` | function | admit(&self, level: Level, demand: Demand, declared: bool) |  |  |  |  |
-
-| `capacity` | function | capacity(&self, level: Level) |  |  |  |  |
-
-| `contains` | function | contains(&self, board_id: &str) |  |  |  |  |
-
-| `cores` | function | cores(self) |  |  |  |  |
-
-| `errors` | function | errors(lines: &[String]) |  |  |  |  |
-
-| `ids` | function | ids(&self) |  |  |  |  |
-
-| `is_admitted` | function | is_admitted(&self) |  |  |  |  |
-
-| `new` | function | new(jobs: u32, threads: u32) |  |  |  |  |
-
-| `none` | function | none() |  |  |  |  |
-
-| `of` | function | of(b: &BoardSpec, d: &Defaults) |  |  |  |  |
-
-| `validate` | function | validate(&self, m: &Manifest, declared: &Oversubscribed) |  |  |  |  |
-
-| `with_reserve` | function | with_reserve(topology: Topology, reserve_p_cores: u32) |  |  |  |  |
-
-| `Accountant` | struct |  |  |  |  |  |
-
-| `Demand` | struct |  |  |  |  |  |
-
-| `Oversubscribed` | struct |  |  |  |  |  |
-
-| `Event` | enum |  |  |  |  |  |
-
-| `Next` | enum |  |  |  |  |  |
-
-| `backoff` | function | backoff(&self, consecutive: u32) |  |  |  |  |
-
-| `order_boards` | function | order_boards(boards: &[BoardState], pass: u32) |  |  |  |  |
-
-| `run` | function | run(r: &mut dyn Runner, cfg: &LoopConfig) |  |  |  |  |
-
-| `Attempt` | struct |  |  |  |  |  |
-
-| `BoardState` | struct |  |  |  |  |  |
-
-| `LoopConfig` | struct |  |  |  |  |  |
-
-| `Outcome` | struct |  |  |  |  |  |
-
-| `Runner` | trait |  |  |  |  |  |
-
-| `Admission` | enum |  |  |  |  |  |
-
-| `Denied` | enum |  |  |  |  |  |
-
-| `Rule` | enum |  |  |  |  |  |
-
-| `config` | function | config(&self) |  |  |  |  |
-
-| `is_admitted` | function | is_admitted(&self) |  |  |  |  |
-
-| `new` | function | new(cfg: Config) |  |  |  |  |
-
-| `poll` | function | poll(&mut self, level: Level, sample: &Sample, now: Instant) |  |  |  |  |
-
-| `reset` | function | reset(&mut self) |  |  |  |  |
-
-| `Config` | struct |  |  |  |  |  |
-
-| `Gate` | struct |  |  |  |  |  |
-
-| `Bank` | enum |  |  |  |  |  |
-
-| `Owe` | enum |  |  |  |  |  |
-
-| `Verdict` | enum |  |  |  |  |  |
-
-| `as_str` | function | as_str(self) |  |  |  |  |
-
-| `banked` | function | banked(self) |  |  |  |  |
-
-| `box_fault` | function | box_fault(self) |  |  |  |  |
-
-| `judge` | function | judge(rule: &Rule, f: &Facts) |  |  |  |  |
-
-| `rho` | function | rho(&self) |  |  |  |  |
-
-| `rho_floor_ms` | function | rho_floor_ms(&self) |  |  |  |  |
-
-| `timing` | function | timing(f: &Facts) |  |  |  |  |
-
-| `Facts` | struct |  |  |  |  |  |
-
-| `Rule` | struct |  |  |  |  |  |
-
-| `Disabled` | enum |  |  |  |  |  |
-
-| `InstanceKey` | enum |  |  |  |  |  |
-
-| `Reject` | enum |  |  |  |  |  |
-
-| `disabled` | function | disabled(&self) |  |  |  |  |
-
-| `from_document` | function | from_document(doc: &crate::artifact::conditions::Conditions) |  |  |  |  |
-
-| `get` | function | get(&self, key: &RowKey) |  |  |  |  |
-
-| `has_timeline` | function | has_timeline(&self) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `judge` | function | judge(row: &RawRow, cond: &Conditions, want: &RunParams) |  |  |  |  |
-
-| `judge_lines` | function | judge_lines(text: &str, cond: &Conditions, want: &RunParams) |  |  |  |  |
-
-| `kind` | function | kind(&self) |  |  |  |  |
-
-| `len` | function | len(&self) |  |  |  |  |
-
-| `load` | function | load(path: &Path) |  |  |  |  |
-
-| `mode_str` | function | mode_str(&self) |  |  |  |  |
-
-| `none` | function | none() |  |  |  |  |
-
-| `of` | function | of(r: &RawRow) |  |  |  |  |
-
-| `parse` | function | parse(text: &str) |  |  |  |  |
-
-| `reject_counts` | function | reject_counts(&self) |  |  |  |  |
-
-| `rejected` | function | rejected(&self) |  |  |  |  |
-
-| `Conditions` | struct |  |  |  |  |  |
-
-| `Rejected` | struct |  |  |  |  |  |
-
-| `Resume` | struct |  |  |  |  |  |
-
-| `RowKey` | struct |  |  |  |  |  |
-
-| `RunParams` | struct |  |  |  |  |  |
-
-| `TimelineSample` | struct |  |  |  |  |  |
-
-| `Tier` | enum |  |  |  |  |  |
-
-| `census` | function | census(plan: &[Scheduled]) |  |  |  |  |
-
-| `classify` | function | classify(prior: Option<Prior>, t: &Thresholds) |  |  |  |  |
-
-| `eta` | function | eta(plan: &[Scheduled], jobs: u32) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `order` | function | order(
-    instances: &[RowKey],
-    h: &dyn History,
-    t: &Thresholds,
-    budget_secs: f64,
-) |  |  |  |  |
-
-| `NoHistory` | struct |  |  |  |  |  |
-
-| `Prior` | struct |  |  |  |  |  |
-
-| `Scheduled` | struct |  |  |  |  |  |
-
-| `Thresholds` | struct |  |  |  |  |  |
-
-| `History` | trait |  |  |  |  |  |
-
-| `argv` | function | argv(cfg: &BoardCfg, domain: &Path, problem: &Path) |  |  |  |  |
-
-| `BoardCfg` | struct |  |  |  |  |  |
-
-| `Engine` | struct |  |  |  |  |  |
-
-| `Measured` | struct |  |  |  |  |  |
-
-| `Unavailable` | enum |  |  |  |  |  |
-
-| `Verdict` | enum |  |  |  |  |  |
-
-| `as_json` | function | as_json(self) |  |  |  |  |
-
-| `find` | function | find(repo: &Path, configured: Option<&Path>) |  |  |  |  |
-
-| `judge` | function | judge(rc: Option<i32>, signal: Option<i32>, stdout: &str, stderr: &str) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `reason` | function | reason(self) |  |  |  |  |
-
-| `render_plan` | function | render_plan(steps: &[Step], temporal: bool) |  |  |  |  |
-
-| `validate` | function | validate(
-    val: Option<&Path>,
-    domain: &Path,
-    problem: &Path,
-    steps: &[Step],
-    temporal: bool,
-    plan_path: &Path,
-) |  |  |  |  |
-
-| `Step` | struct |  |  |  |  |  |
-
-| `ArchiveError` | enum |  |  |  |  |  |
-
-| `arch_key` | function | arch_key(variant: &str, instance: u64) |  |  |  |  |
-
-| `arch_track` | function | arch_track(variant: &str) |  |  |  |  |
-
-| `best_length` | function | best_length(&self, k: &ArchKey) |  |  |  |  |
-
-| `best_makespan` | function | best_makespan(&self, k: &ArchKey) |  |  |  |  |
-
-| `count_action_lines` | function | count_action_lines(body: &str) |  |  |  |  |
-
-| `has_lengths` | function | has_lengths(&self) |  |  |  |  |
-
-| `has_makespans` | function | has_makespans(&self) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `iter` | function | iter(&self) |  |  |  |  |
-
-| `lengths` | function | lengths(&self, k: &ArchKey) |  |  |  |  |
-
-| `lengths_map` | function | lengths_map(&self) |  |  |  |  |
-
-| `makespan_of` | function | makespan_of(body: &str) |  |  |  |  |
-
-| `makespans` | function | makespans(&self, k: &ArchKey) |  |  |  |  |
-
-| `makespans_map` | function | makespans_map(&self) |  |  |  |  |
-
-| `open` | function | open(path: &Path) |  |  |  |  |
-
-| `warnings` | function | warnings(&self) |  |  |  |  |
-
-| `ArchiveWarnings` | struct |  |  |  |  |  |
-
-| `Ipc5Archive` | struct |  |  |  |  |  |
-
-| `best` | function | best(&self, year_key: &str, domain: &str, instance: u64) |  |  |  |  |
-
-| `from_sources` | function | from_sources(bounds_2023: Option<&str>, cost_bounds_2018: Option<&str>) |  |  |  |  |
-
-| `get` | function | get(&self, k: &BoundKey) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `len` | function | len(&self) |  |  |  |  |
-
-| `load` | function | load(corpus_root: &Path) |  |  |  |  |
-
-| `problems` | function | problems(&self) |  |  |  |  |
-
-| `BestKnownBounds` | struct |  |  |  |  |  |
-
-| `Class` | enum |  |  |  |  |  |
-
-| `failure_classes` | function | failure_classes(&self) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `Coverage` | struct |  |  |  |  |  |
-
-| `Cleanliness` | enum |  |  |  |  |  |
-
-| `Clock` | enum |  |  |  |  |  |
-
-| `Cost` | enum |  |  |  |  |  |
-
-| `Mode` | enum |  |  |  |  |  |
-
-| `a` | function | a(&self) |  |  |  |  |
-
-| `a_solved` | function | a_solved(&self) |  |  |  |  |
-
-| `b` | function | b(&self) |  |  |  |  |
-
-| `b_solved` | function | b_solved(&self) |  |  |  |  |
-
-| `cheaper_a` | function | cheaper_a(&self) |  |  |  |  |
-
-| `cheaper_b` | function | cheaper_b(&self) |  |  |  |  |
-
-| `clean` | function | clean(&self) |  |  |  |  |
-
-| `cleanliness` | function | cleanliness(&self, r: &RawRow) |  |  |  |  |
-
-| `clock` | function | clock(&self) |  |  |  |  |
-
-| `common` | function | common(&self) |  |  |  |  |
-
-| `coverage` | function | coverage(&self) |  |  |  |  |
-
-| `delta` | function | delta(&self) |  |  |  |  |
-
-| `dirty` | function | dirty(&self) |  |  |  |  |
-
-| `equal` | function | equal(&self) |  |  |  |  |
-
-| `from_json` | function | from_json(src: &str) |  |  |  |  |
-
-| `from_jsonl` | function | from_jsonl(
-        name: impl Into<String>,
-        budget: f64,
-        src: &str,
-        path: &str,
-    ) |  |  |  |  |
-
-| `from_rows` | function | from_rows(name: impl Into<String>, budget: f64, rows: Vec<RawRow>) |  |  |  |  |
-
-| `gained` | function | gained(&self) |  |  |  |  |
-
-| `get` | function | get(&self, k: &InstanceKey) |  |  |  |  |
-
-| `has_timeline` | function | has_timeline(&self) |  |  |  |  |
-
-| `interval` | function | interval(&self) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `is_regression` | function | is_regression(&self) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `len` | function | len(&self) |  |  |  |  |
-
-| `load` | function | load(path: &Path) |  |  |  |  |
-
-| `lost` | function | lost(&self) |  |  |  |  |
-
-| `mean_a` | function | mean_a(&self) |  |  |  |  |
-
-| `mean_b` | function | mean_b(&self) |  |  |  |  |
-
-| `name` | function | name(self) |  |  |  |  |
-
-| `new` | function | new(referee: &'r Referee, a: &'r RunRef, b: &'r RunRef) |  |  |  |  |
-
-| `none` | function | none() |  |  |  |  |
-
-| `of` | function | of(r: &RawRow) |  |  |  |  |
-
-| `percentiles` | function | percentiles(&self) |  |  |  |  |
-
-| `qualified` | function | qualified(&self) |  |  |  |  |
-
-| `quality` | function | quality(&self) |  |  |  |  |
-
-| `referee` | function | referee(&self) |  |  |  |  |
-
-| `render` | function | render(&self, mode: Mode) |  |  |  |  |
-
-| `render_trend` | function | render_trend(t: &Trend) |  |  |  |  |
-
-| `scored` | function | scored(&self) |  |  |  |  |
-
-| `solved` | function | solved(&self, referee: &Referee) |  |  |  |  |
-
-| `table` | function | table(&self) |  |  |  |  |
-
-| `timing` | function | timing(&self, cond_a: &Conditions, cond_b: &Conditions) |  |  |  |  |
-
-| `to_json` | function | to_json(&self) |  |  |  |  |
-
-| `total_a` | function | total_a(&self) |  |  |  |  |
-
-| `total_b` | function | total_b(&self) |  |  |  |  |
-
-| `unstamped` | function | unstamped(&self) |  |  |  |  |
-
-| `value` | function | value(self) |  |  |  |  |
-
-| `variants` | function | variants(&self) |  |  |  |  |
-
-| `with_trend` | function | with_trend(mut self, t: Trend) |  |  |  |  |
-
-| `worse` | function | worse(self, other: Cleanliness) |  |  |  |  |
-
-| `Conditions` | struct |  |  |  |  |  |
-
-| `CoverageDiff` | struct |  |  |  |  |  |
-
-| `Diff` | struct |  |  |  |  |  |
-
-| `Gained` | struct |  |  |  |  |  |
-
-| `InstanceKey` | struct |  |  |  |  |  |
-
-| `Loaded` | struct |  |  |  |  |  |
-
-| `Lost` | struct |  |  |  |  |  |
-
-| `Percentiles` | struct |  |  |  |  |  |
-
-| `QualityDiff` | struct |  |  |  |  |  |
-
-| `RunRef` | struct |  |  |  |  |  |
-
-| `TimingDiff` | struct |  |  |  |  |  |
-
-| `VariantRow` | struct |  |  |  |  |  |
-
-| `cell` | function | cell(
-        &self,
-        label: &str,
-        rows: &[RawRow],
-        referee: &Referee,
-        solved: usize,
-        total: usize,
-    ) |  |  |  |  |
-
-| `cohort` | function | cohort(&self, label: &str) |  |  |  |  |
-
-| `load` | function | load(benchmarks_dir: &Path) |  |  |  |  |
-
-| `placement` | function | placement(&self, s: usize, n: usize) |  |  |  |  |
-
-| `unmatched_splits` | function | unmatched_splits(&self, label: &str, rows: &[RawRow]) |  |  |  |  |
-
-| `warnings` | function | warnings(&self) |  |  |  |  |
-
-| `Cohort` | struct |  |  |  |  |  |
-
-| `Entrant` | struct |  |  |  |  |  |
-
-| `FieldBook` | struct |  |  |  |  |  |
-
-| `bar` | function | bar(pct: f64, width: usize) |  |  |  |  |
-
-| `fmt_f` | function | fmt_f(x: f64, places: usize) |  |  |  |  |
-
-| `ordinal` | function | ordinal(n: usize) |  |  |  |  |
-
-| `ordinal_suffix` | function | ordinal_suffix(n: usize) |  |  |  |  |
-
-| `pct` | function | pct(solved: usize, total: usize) |  |  |  |  |
-
-| `py_round` | function | py_round(x: f64, ndigits: i32) |  |  |  |  |
-
-| `py_round_i` | function | py_round_i(x: f64) |  |  |  |  |
-
-| `thousands` | function | thousands(n: u64) |  |  |  |  |
-
-| `HistoryError` | enum |  |  |  |  |  |
-
-| `as_str` | function | as_str(&self) |  |  |  |  |
-
-| `comparable_predecessor` | function | comparable_predecessor(
-        &self,
-        box_: &BoxId,
-        cur: &VersionKey,
-    ) |  |  |  |  |
-
-| `current_version` | function | current_version(root: &Path) |  |  |  |  |
-
-| `delta` | function | delta(&self, label: &str, solved: usize, total: usize) |  |  |  |  |
-
-| `delta_cell` | function | delta_cell(
-    prev: Option<&ComparablePredecessor<'_>>,
-    label: &str,
-    solved: usize,
-    total: usize,
-) |  |  |  |  |
-
-| `from_json` | function | from_json(src: &str) |  |  |  |  |
-
-| `load` | function | load(path: &Path) |  |  |  |  |
-
-| `new` | function | new(s: impl Into<String>) |  |  |  |  |
-
-| `parse` | function | parse(s: &str) |  |  |  |  |
-
-| `parts` | function | parts(&self) |  |  |  |  |
-
-| `snapshots` | function | snapshots(&self) |  |  |  |  |
-
-| `to_json` | function | to_json(&self) |  |  |  |  |
-
-| `track` | function | track(&self, label: &str) |  |  |  |  |
-
-| `trend` | function | trend(&self, label: &str, box_: &BoxId) |  |  |  |  |
-
-| `try_load` | function | try_load(path: &Path) |  |  |  |  |
-
-| `upsert` | function | upsert(&mut self, s: Snapshot) |  |  |  |  |
-
-| `version` | function | version(&self) |  |  |  |  |
-
-| `version_key` | function | version_key(&self) |  |  |  |  |
-
-| `BoxId` | struct |  |  |  |  |  |
-
-| `ComparablePredecessor` | struct |  |  |  |  |  |
-
-| `History` | struct |  |  |  |  |  |
-
-| `MeasuredAt` | struct |  |  |  |  |  |
-
-| `Snapshot` | struct |  |  |  |  |  |
-
-| `Trend` | struct |  |  |  |  |  |
-
-| `VersionKey` | struct |  |  |  |  |  |
-
-| `parse_rows` | function | parse_rows(src: &str, path: &str) |  |  |  |  |
-
-| `ManifestError` | enum |  |  |  |  |  |
-
-| `PatternError` | enum |  |  |  |  |  |
-
-| `board` | function | board(&self, id: &str) |  |  |  |  |
-
-| `board_by_label` | function | board_by_label(&self, label: &str) |  |  |  |  |
-
-| `board_by_raw` | function | board_by_raw(&self, raw: &str) |  |  |  |  |
-
-| `errors` | function | errors(&self) |  |  |  |  |
-
-| `is_match` | function | is_match(&self, variant: &str) |  |  |  |  |
-
-| `is_proof_track` | function | is_proof_track(&self, label: &str) |  |  |  |  |
-
-| `load` | function | load(path: &Path) |  |  |  |  |
-
-| `parse` | function | parse(src: &str) |  |  |  |  |
-
-| `rebaselined_on` | function | rebaselined_on(&self, label: &str, box_: &str) |  |  |  |  |
-
-| `search` | function | search(&self, hay: &str) |  |  |  |  |
-
-| `selector` | function | selector(&self) |  |  |  |  |
-
-| `selects` | function | selects(&self, variant: &str) |  |  |  |  |
-
-| `set` | function | set(&self, name: &str) |  |  |  |  |
-
-| `track` | function | track(&self, name: &str) |  |  |  |  |
-
-| `validate` | function | validate(&self) |  |  |  |  |
-
-| `warnings` | function | warnings(&self) |  |  |  |  |
-
-| `BoardSpec` | struct |  |  |  |  |  |
-
-| `CorpusSpec` | struct |  |  |  |  |  |
-
-| `Defaults` | struct |  |  |  |  |  |
-
-| `Manifest` | struct |  |  |  |  |  |
-
-| `Pattern` | struct |  |  |  |  |  |
-
-| `Selector` | struct |  |  |  |  |  |
-
-| `SetSpec` | struct |  |  |  |  |  |
-
-| `TrackSpec` | struct |  |  |  |  |  |
-
-| `Gate` | enum |  |  |  |  |  |
-
-| `PromoteError` | enum |  |  |  |  |  |
-
-| `TierMovePolicy` | enum |  |  |  |  |  |
-
-| `accepts` | function | accepts(&self, board: &str) |  |  |  |  |
-
-| `against` | function | against(&self) |  |  |  |  |
-
-| `apply` | function | apply(&self) |  |  |  |  |
-
-| `board` | function | board(&self) |  |  |  |  |
-
-| `boards` | function | boards(&self) |  |  |  |  |
-
-| `bytes` | function | bytes(&self) |  |  |  |  |
-
-| `changes` | function | changes(&self) |  |  |  |  |
-
-| `compute` | function | compute(
-        box_: &str,
-        prev: Option<&ComparablePredecessor<'_>>,
-        live: &[LiveBoard],
-    ) |  |  |  |  |
-
-| `denominator_grew` | function | denominator_grew(&self) |  |  |  |  |
-
-| `dst` | function | dst(&self) |  |  |  |  |
-
-| `entries` | function | entries(&self) |  |  |  |  |
-
-| `failures` | function | failures(&self) |  |  |  |  |
-
-| `full_table` | function | full_table(&self) |  |  |  |  |
-
-| `like_for_like` | function | like_for_like(&self) |  |  |  |  |
-
-| `pct` | function | pct(&self) |  |  |  |  |
-
-| `pct_dropped_on_entry_day` | function | pct_dropped_on_entry_day(&self) |  |  |  |  |
-
-| `placements` | function | placements(&self) |  |  |  |  |
-
-| `plan` | function | plan(
-    root: &Path,
-    manifest: &Manifest,
-    sets: &[&str],
-    policy: &TierMovePolicy,
-) |  |  |  |  |
-
-| `promoted_lines` | function | promoted_lines(&self) |  |  |  |  |
-
-| `refusal` | function | refusal(&self) |  |  |  |  |
-
-| `sentence` | function | sentence(&self, box_: &str) |  |  |  |  |
-
-| `solved` | function | solved(&self) |  |  |  |  |
-
-| `src` | function | src(&self) |  |  |  |  |
-
-| `tier_moves` | function | tier_moves(&self) |  |  |  |  |
-
-| `total` | function | total(&self) |  |  |  |  |
-
-| `Change` | struct |  |  |  |  |  |
-
-| `GateReport` | struct |  |  |  |  |  |
-
-| `Headline` | struct |  |  |  |  |  |
-
-| `LiveBoard` | struct |  |  |  |  |  |
-
-| `Placement` | struct |  |  |  |  |  |
-
-| `Promotion` | struct |  |  |  |  |  |
-
-| `TierMove` | struct |  |  |  |  |  |
-
-| `TwoHeadlines` | struct |  |  |  |  |  |
-
-| `write_indent1` | function | write_indent1(v: &serde_json::Value, out: &mut String) |  |  |  |  |
-
-| `write_str` | function | write_str(s: &str, out: &mut String) |  |  |  |  |
-
-| `write_value` | function | write_value(v: &serde_json::Value, out: &mut String) |  |  |  |  |
-
-| `Currency` | enum |  |  |  |  |  |
-
-| `QualityNote` | enum |  |  |  |  |  |
-
-| `bounds_wtl` | function | bounds_wtl(
-    rows: &[RawRow],
-    referee: &Referee,
-    bounds: &BestKnownBounds,
-    year_key: &str,
-    variant_suffix: &str,
-) |  |  |  |  |
-
-| `currency` | function | currency(&self) |  |  |  |  |
-
-| `l` | function | l(&self) |  |  |  |  |
-
-| `length_wtl` | function | length_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
-
-| `makespan_wtl` | function | makespan_wtl(rows: &[RawRow], referee: &Referee, arch: &Ipc5Archive) |  |  |  |  |
-
-| `mean` | function | mean(&self) |  |  |  |  |
-
-| `n` | function | n(&self) |  |  |  |  |
-
-| `new` | function | new(scored: Option<Wtl>, fallback: impl Into<String>) |  |  |  |  |
-
-| `prefix` | function | prefix(self) |  |  |  |  |
-
-| `render` | function | render(&self) |  |  |  |  |
-
-| `t` | function | t(&self) |  |  |  |  |
-
-| `w` | function | w(&self) |  |  |  |  |
-
-| `Wtl` | struct |  |  |  |  |  |
-
-| `Instance` | enum |  |  |  |  |  |
-
-| `Notes` | enum |  |  |  |  |  |
-
-| `as_num` | function | as_num(&self) |  |  |  |  |
-
-| `current` | function | current(solved: bool) |  |  |  |  |
-
-| `domain_key` | function | domain_key(&self) |  |  |  |  |
-
-| `note_text` | function | note_text(&self) |  |  |  |  |
-
-| `of` | function | of(o: &serde_json::Map<String, serde_json::Value>) |  |  |  |  |
-
-| `text` | function | text(&self) |  |  |  |  |
-
-| `time_secs` | function | time_secs(&self) |  |  |  |  |
-
-| `write_row` | function | write_row(r: &RawRow, out: &mut String) |  |  |  |  |
-
-| `Present` | struct |  |  |  |  |  |
-
-| `RawRow` | struct |  |  |  |  |  |
-
-| `budget_for` | function | budget_for(&self, r: &RawRow, registry: f64) |  |  |  |  |
-
-| `classify` | function | classify(&self, r: &RawRow, registry_budget: f64) |  |  |  |  |
-
-| `contains` | function | contains(&self, r: &RawRow) |  |  |  |  |
-
-| `coverage` | function | coverage(&self, rows: &[RawRow], registry_budget: f64) |  |  |  |  |
-
-| `is_empty` | function | is_empty(&self) |  |  |  |  |
-
-| `is_solved` | function | is_solved(&self, r: &RawRow) |  |  |  |  |
-
-| `new` | function | new(val_unavailable: ValUnavailable) |  |  |  |  |
-
-| `Referee` | struct |  |  |  |  |  |
-
-| `ValUnavailable` | struct |  |  |  |  |  |
-
-| `render` | function | render(ctx: &RenderCtx) |  |  |  |  |
-
-| `CtxError` | enum |  |  |  |  |  |
-
-| `absent_cell` | function | absent_cell(&self, label: &str) |  |  |  |  |
-
-| `board` | function | board(&self, label: &str) |  |  |  |  |
-
-| `coverage_of` | function | coverage_of(&self, rows: &[RawRow], budget: f64) |  |  |  |  |
-
-| `data` | function | data(&self, label: &str) |  |  |  |  |
-
-| `load` | function | load(root: &Path, box_id: BoxId) |  |  |  |  |
-
-| `new` | function | new(
-        manifest: Manifest,
-        boards: Vec<BoardRows>,
-        referee: Referee,
-        archive: Ipc5Archive,
-        bounds: BestKnownBounds,
-        field: FieldBook,
-        history: History,
-        version: Option<String>,
-        box_id: BoxId,
-    ) |  |  |  |  |
-
-| `predecessor` | function | predecessor(&self) |  |  |  |  |
-
-| `proof_mark` | function | proof_mark(&self, label: &str) |  |  |  |  |
-
-| `split` | function | split(&self, label: &str, ipc: &str) |  |  |  |  |
-
-| `standings` | function | standings(&self) |  |  |  |  |
-
-| `BoardRows` | struct |  |  |  |  |  |
-
-| `LiveBoard` | struct |  |  |  |  |  |
-
-| `RenderCtx` | struct |  |  |  |  |  |
-
-| `Standings` | struct |  |  |  |  |  |
-
-| `block` | function | block(ctx: &RenderCtx) |  |  |  |  |
-
-| `patch` | function | patch(readme_text: &str, block: &str) |  |  |  |  |
-
-| `render` | function | render(ctx: &RenderCtx) |  |  |  |  |
-
-| `SnapshotError` | enum |  |  |  |  |  |
-
-| `Source` | enum |  |  |  |  |  |
-
-| `bank` | function | bank(
-    root: &Path,
-    manifest: &Manifest,
-    referee: &Referee,
-    args: &Args,
-) |  |  |  |  |
-
-| `parse_args` | function | parse_args(argv: &[String], env_box: Option<&str>) |  |  |  |  |
-
-| `tracks` | function | tracks(
-    root: &Path,
-    manifest: &Manifest,
-    referee: &Referee,
-    source: &Source,
-) |  |  |  |  |
-
-| `write` | function | write(&self) |  |  |  |  |
-
-| `Args` | struct |  |  |  |  |  |
-
-| `Banked` | struct |  |  |  |  |  |
-
-| `incident` | function | incident(name: &str) |  |  |  |  |
-
-| `real_val_map` | function | real_val_map() |  |  |  |  |
-
-| `run` | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
-
-| `stage_for` | function | stage_for(ver: &str) |  |  |  |  |
-
-| `Opts` | struct |  |  |  |  |  |
-
-| `in_quiet_hours` | function | in_quiet_hours(&self, minutes_past_midnight: u32) |  |  |  |  |
-
-| `load` | function | load(path: &std::path::Path) |  |  |  |  |
-
-| `path` | function | path() |  |  |  |  |
-
-| `Config` | struct |  |  |  |  |  |
-
-| `Contention` | struct |  |  |  |  |  |
-
-| `Db` | struct |  |  |  |  |  |
-
-| `QuietHours` | struct |  |  |  |  |  |
-
-| `Referee` | struct |  |  |  |  |  |
-
-| `Repo` | struct |  |  |  |  |  |
-
-| `Scheduler` | struct |  |  |  |  |  |
-
-| `Sweep` | struct |  |  |  |  |  |
-
-| `Ui` | struct |  |  |  |  |  |
-
-| `compare` | function | compare(
-    repo: &Path,
-    cfg: &crate::config::Config,
-    set_name: &str,
-    a: &str,
-    b: &str,
-    select: &crate::select::Select,
-    lost: Option<&Path>,
-) |  |  |  |  |
-
-| `frame` | function | frame(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
-
-| `run` | function | run(repo: &Path, cfg: &crate::config::Config, set_name: &str) |  |  |  |  |
-
-| `status` | function | status(
-    repo: &Path,
-    cfg: &crate::config::Config,
-    set_name: &str,
-    json: bool,
-) |  |  |  |  |
-
-| `flush_to_stdout` | function | flush_to_stdout() |  |  |  |  |
-
-| `is_quiet` | function | is_quiet() |  |  |  |  |
-
-| `quiet` | function | quiet(on: bool) |  |  |  |  |
-
-| `recent` | function | recent(n: usize) |  |  |  |  |
-
-| `say` | function | say(line: String) |  |  |  |  |
-
-| `tz_offset_secs` | function | tz_offset_secs() |  |  |  |  |
-
-| `RepoError` | enum |  |  |  |  |  |
-
-| `build_planner` | function | build_planner(dir: &Path) |  |  |  |  |
-
-| `candidate_path` | function | candidate_path(repo: &Path) |  |  |  |  |
-
-| `probe` | function | probe(path: &Path) |  |  |  |  |
-
-| `require_version` | function | require_version(&self, want: &str) |  |  |  |  |
-
-| `short_hash` | function | short_hash(&self) |  |  |  |  |
-
-| `supports_mode` | function | supports_mode(&self, mode: &str) |  |  |  |  |
-
-| `worktree_for` | function | worktree_for(worktree_dir: &Path, tag: &str) |  |  |  |  |
-
-| `Engine` | struct |  |  |  |  |  |
-
-| `run` | function | run(repo: &Path, cfg: &Config, o: Opts<'_>) |  |  |  |  |
-
-| `tags` | function | tags(repo: &Path) |  |  |  |  |
-
-| `Opts` | struct |  |  |  |  |  |
-
-| `Prior` | enum |  |  |  |  |  |
-
-| `admits` | function | admits(
-        &self,
-        variant: &str,
-        label: &str,
-        prior: &BTreeMap<String, (bool, Option<f64>) |  |  |  |  |
-
-| `describe` | function | describe(&self) |  |  |  |  |
-
-| `from_args` | function | from_args(a: &SelectArgs) |  |  |  |  |
-
-| `is_subset` | function | is_subset(&self) |  |  |  |  |
-
-| `needs_prior` | function | needs_prior(&self) |  |  |  |  |
-
-| `parse_rows` | function | parse_rows(src: &str) |  |  |  |  |
-
-| `stage` | function | stage(&self, repo: &Path, set: &str, engine_ver: &str, engine_hash: &str) |  |  |  |  |
-
-| `wants_board` | function | wants_board(&self, id: &str) |  |  |  |  |
-
-| `Select` | struct |  |  |  |  |  |
-
-| `SelectArgs` | struct |  |  |  |  |  |
-
-| `attach` | function | attach(&self, tx: mpsc::Sender<Ctl>) |  |  |  |  |
-
-| `attached` | function | attached(&self) |  |  |  |  |
-
-| `calibrate` | function | calibrate(
-        &mut self,
-        prior: Option<f64>,
-        record: &dyn Fn(f64) |  |  |  |  |
-
-| `canary` | function | canary(&self) |  |  |  |  |
-
-| `ctl_for` | function | ctl_for(from: Level, to: Level, demote_ok: bool) |  |  |  |  |
-
-| `demote_ok` | function | demote_ok(&self) |  |  |  |  |
-
-| `detach` | function | detach(&self, id: u64) |  |  |  |  |
-
-| `from_config` | function | from_config(c: &crate::config::Scheduler) |  |  |  |  |
-
-| `held` | function | held(&self) |  |  |  |  |
-
-| `hold` | function | hold(&self, on: bool) |  |  |  |  |
-
-| `label` | function | label(&self) |  |  |  |  |
-
-| `level` | function | level(&self) |  |  |  |  |
-
-| `new` | function | new(manifest: &'a Manifest, setup: Setup<'_>) |  |  |  |  |
-
-| `policy_mem_budget` | function | policy_mem_budget(mem_bytes: u64, at_the_box: bool, pack: &Pack) |  |  |  |  |
-
-| `policy_width` | function | policy_width(
-    level: Level,
-    quiet_hours: bool,
-    user_idle_secs: Option<f64>,
-    foreign_pcpu: f64,
-    pack: &Pack,
-) |  |  |  |  |
-
-| `read` | function | read(&mut self, on_spawn: Option<&dyn Fn(Pid, f64) |  |  |  |  |
-
-| `reason` | function | reason(&self) |  |  |  |  |
-
-| `resolve` | function | resolve(
-        repo: &Path,
-        engine: &Path,
-        engine_hash: &str,
-        r: &crate::config::Referee,
-    ) |  |  |  |  |
-
-| `run` | function | run(repo: &Path, cfg: &crate::config::Config, o: Opts<'_>) |  |  |  |  |
-
-| `run_engine` | function | run_engine(
-    repo: &Path,
-    cfg: &crate::config::Config,
-    o: Opts<'_>,
-    manifest: &Manifest,
-    engine: crate::repo::Engine,
-    stage: Option<PathBuf>,
-) |  |  |  |  |
-
-| `send` | function | send(&self, c: Ctl) |  |  |  |  |
-
-| `set_canary` | function | set_canary(&self, factor: f64) |  |  |  |  |
-
-| `set_demote_ok` | function | set_demote_ok(&self, on: bool) |  |  |  |  |
-
-| `set_level` | function | set_level(&self, level: Level, reason: Option<String>) |  |  |  |  |
-
-| `set_width` | function | set_width(&self, w: usize) |  |  |  |  |
-
-| `solo` | function | solo() |  |  |  |  |
-
-| `throttle_config` | function | throttle_config(c: &crate::config::Contention) |  |  |  |  |
-
-| `total_instances` | function | total_instances(&self) |  |  |  |  |
-
-| `width` | function | width(&self) |  |  |  |  |
-
-| `Canary` | struct |  |  |  |  |  |
-
-| `DbCtx` | struct |  |  |  |  |  |
-
-| `Opts` | struct |  |  |  |  |  |
-
-| `Pack` | struct |  |  |  |  |  |
-
-| `Progress` | struct |  |  |  |  |  |
-
-| `Running` | struct |  |  |  |  |  |
-
-| `Setup` | struct |  |  |  |  |  |
-
-| `Shared` | struct |  |  |  |  |  |
-
-| `SweepRunner` | struct |  |  |  |  |  |
-
-| `Cell` | enum |  |  |  |  |  |
-
-| `Level` | enum |  |  |  |  |  |
-
-| `LogKind` | enum |  |  |  |  |  |
-
-| `Sort` | enum |  |  |  |  |  |
-
-| `View` | enum |  |  |  |  |  |
-
-| `back` | function | back(&mut self) |  |  |  |  |
-
-| `banked` | function | banked(self) |  |  |  |  |
-
-| `board` | function | board(&self) |  |  |  |  |
-
-| `cycle_sort` | function | cycle_sort(&mut self) |  |  |  |  |
-
-| `delta_secs` | function | delta_secs(&self) |  |  |  |  |
-
-| `dismiss_toasts` | function | dismiss_toasts(&mut self) |  |  |  |  |
-
-| `done` | function | done(&self) |  |  |  |  |
-
-| `enter` | function | enter(&mut self) |  |  |  |  |
-
-| `expire_toasts` | function | expire_toasts(&mut self, dwell: Duration) |  |  |  |  |
-
-| `frac` | function | frac(&self) |  |  |  |  |
-
-| `gain` | function | gain(&self) |  |  |  |  |
-
-| `gains` | function | gains(&self) |  |  |  |  |
-
-| `jump` | function | jump(&mut self, to_end: bool) |  |  |  |  |
-
-| `label` | function | label(self) |  |  |  |  |
-
-| `move_selection` | function | move_selection(&mut self, delta: isize) |  |  |  |  |
-
-| `near_wall` | function | near_wall(&self) |  |  |  |  |
-
-| `next` | function | next(self) |  |  |  |  |
-
-| `owed` | function | owed(&self) |  |  |  |  |
-
-| `prev_solved` | function | prev_solved(&self) |  |  |  |  |
-
-| `rank` | function | rank(self) |  |  |  |  |
-
-| `regression` | function | regression(&self) |  |  |  |  |
-
-| `regressions` | function | regressions(&self) |  |  |  |  |
-
-| `rho` | function | rho(&self) |  |  |  |  |
-
-| `running` | function | running(&self) |  |  |  |  |
-
-| `selected_instance` | function | selected_instance(&self) |  |  |  |  |
-
-| `solve_secs` | function | solve_secs(&self) |  |  |  |  |
-
-| `solved` | function | solved(&self) |  |  |  |  |
-
-| `sorted_instances` | function | sorted_instances(&self) |  |  |  |  |
-
-| `strip` | function | strip(cells: &[InstanceCell], width: usize) |  |  |  |  |
-
-| `tally` | function | tally(&mut self) |  |  |  |  |
-
-| `toggle_timeline` | function | toggle_timeline(&mut self) |  |  |  |  |
-
-| `total` | function | total(&self) |  |  |  |  |
-
-| `AttemptRow` | struct |  |  |  |  |  |
-
-| `BoardRow` | struct |  |  |  |  |  |
-
-| `InstanceCell` | struct |  |  |  |  |  |
-
-| `InstanceDetail` | struct |  |  |  |  |  |
-
-| `LevelState` | struct |  |  |  |  |  |
-
-| `LogLine` | struct |  |  |  |  |  |
-
-| `Slot` | struct |  |  |  |  |  |
-
-| `SlotRun` | struct |  |  |  |  |  |
-
-| `Snapshot` | struct |  |  |  |  |  |
-
-| `StripCol` | struct |  |  |  |  |  |
-
-| `SweepProgress` | struct |  |  |  |  |  |
-
-| `Timeline` | struct |  |  |  |  |  |
-
-| `TimelinePoint` | struct |  |  |  |  |  |
-
-| `Toast` | struct |  |  |  |  |  |
-
-| `compact` | function | compact(text: &str) |  |  |  |  |
-
-| `render` | function | render(text: &str, max_width: usize) |  |  |  |  |
-
-| `detail` | function | detail() |  |  |  |  |
-
-| `snapshot` | function | snapshot(t: f64) |  |  |  |  |
-
-| `draw` | function | draw(f: &mut Frame, s: &Snapshot, th: &Theme, banner_text: &str) |  |  |  |  |
-
-| `new` | function | new(progress: Arc<Mutex<Progress>>, shared: Arc<Shared>) |  |  |  |  |
-
-| `next` | function | next(&mut self, prev: &Snapshot) |  |  |  |  |
-
-| `Feed` | struct |  |  |  |  |  |
-
-| `Action` | enum |  |  |  |  |  |
-
-| `action_for` | function | action_for(k: KeyEvent, s: &mut Snapshot) |  |  |  |  |
-
-| `enter` | function | enter() |  |  |  |  |
-
-| `TerminalGuard` | struct |  |  |  |  |  |
-
-| `Depth` | enum |  |  |  |  |  |
-
-| `bar_cells` | function | bar_cells(&self) |  |  |  |  |
-
-| `detect` | function | detect() |  |  |  |  |
-
-| `forge` | function | forge() |  |  |  |  |
-
-| `glyph` | function | glyph(&self, unicode: &'static str, ascii: &'static str) |  |  |  |  |
-
-| `spark_cells` | function | spark_cells(&self) |  |  |  |  |
-
-| `unicode_ok` | function | unicode_ok() |  |  |  |  |
-
-| `Theme` | struct |  |  |  |  |  |
-
-| `bar` | function | bar(theme: &Theme, frac: f64, width: usize) |  |  |  |  |
-
-| `duration` | function | duration(secs: u64) |  |  |  |  |
-
-| `ellipsize` | function | ellipsize(s: &str, width: usize) |  |  |  |  |
-
-| `spark` | function | spark(theme: &Theme, values: &[f64], width: usize) |  |  |  |  |
-
-| `until` | function | until(secs: u64) |  |  |  |  |
+| `Sizes` | struct | Sizes { pub types: usize, pub preds: usize, pub tasks: usize, pub actions: usize, pub objects: usize, pub subs: usize, pub root_subs: usize } |  |  |  |  |
 
 
 <!-- ============================================================= -->
