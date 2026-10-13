@@ -22,6 +22,20 @@ def scratch():
     return d
 
 
+def current_version():
+    """Read the CURRENT workspace version from the root Cargo.toml at test time."""
+    t = (REPO / "Cargo.toml").read_text(encoding="utf-8")
+    m = re.search(r'^version = "([^"]+)"', t, re.M)
+    assert m, "workspace version not found in root Cargo.toml"
+    return m.group(1)
+
+
+def prev_patch_version(v):
+    """CURRENT version with the patch component decremented by 1."""
+    a, b, c = v.split(".")
+    return f"{a}.{b}.{int(c) - 1}"
+
+
 def sub(path, old, new):
     t = path.read_text(encoding="utf-8")
     assert old in t, (path, old)
@@ -41,11 +55,13 @@ class Gates(unittest.TestCase):
             self.assertEqual(dg.GATES[g](REPO), [], g)
 
     def test_version_dep_mutation(self):
-        sub(self.d / "crates/ferroplan-cli/Cargo.toml", 'version = "0.29.0"', 'version = "0.28.0"')
+        cur, prev = current_version(), prev_patch_version(current_version())
+        sub(self.d / "crates/ferroplan-cli/Cargo.toml", f'version = "{cur}"', f'version = "{prev}"')
         self.assertIn("VERSION_PIN_DEP_MISMATCH", self.codes("version-pins"))
 
     def test_version_py_mutation(self):
-        sub(self.d / "crates/ferroplan-py/Cargo.toml", 'version = "0.29.0"', 'version = "0.28.9"')
+        cur, prev = current_version(), prev_patch_version(current_version())
+        sub(self.d / "crates/ferroplan-py/Cargo.toml", f'version = "{cur}"', f'version = "{prev}"')
         self.assertIn("VERSION_PIN_PY_MISMATCH", self.codes("version-pins"))
 
     def test_wasm_bindgen_mutation(self):
@@ -69,7 +85,7 @@ class Gates(unittest.TestCase):
         if 'version() == "0.21.0"' in p.read_text():
             self.assertIn("VALIDATE_ALL_STALE_VERSION", self.codes("validate-all-code"))
         t = p.read_text()
-        p.write_text(re.sub(r'ferroplan\.version\(\) == [^\n]+', 'ferroplan.version() == "0.29.0"', t))
+        p.write_text(re.sub(r'ferroplan\.version\(\) == [^\n]+', f'ferroplan.version() == "{current_version()}"', t))
         self.assertEqual(self.codes("validate-all-code"), [])
         p.write_text(re.sub(r'ferroplan\.version\(\) == [^\n]+', 'ferroplan.version() == "0.1.0"', t))
         self.assertIn("VALIDATE_ALL_STALE_VERSION", self.codes("validate-all-code"))

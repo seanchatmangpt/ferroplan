@@ -4,7 +4,7 @@ Per `ferroplan-roadmap.md`: filed at the close of every phase. Where this
 sheet and the code disagree, the code is the witness that's still alive —
 the file gets corrected to match it, not the other way around.
 
-Last update: **0.19 cycle** — since 0.10 the per-cycle records
+Last update: **0.29.0** (2026-10-13) — since 0.10 the per-cycle records
 in `docs/roadmap-0.N.md` carry the live status (measured wins, recorded
 negatives, scoreboards); this file remains the audited baseline of the
 IPC-roadmap era it covers (0.8–0.9). Highlights since: temporal
