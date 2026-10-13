@@ -27,13 +27,27 @@ bench N="5":
 # Launch the bounded overnight autonomics loop
 overnight max_cycles="40" max_hours="8":
     cd {{scripts}} && python3 overnight_autonomics.py \
-        --max-cycles {{max_cycles}} --max-hours {{max_hours}} --cycle-pause-seconds 300
+        --max-cycles {{ max_cycles }} --max-hours {{ max_hours }} --cycle-pause-seconds 300
 
 # Regenerate wja registry (root) and beam-host capsule (crates/ferroplan-wasm) via ggen
 wasm-gen:
     ggen sync run
     cp ontology/ferroplan-host-contract.ttl crates/ferroplan-wasm/ontology/contract.ttl
     cd crates/ferroplan-wasm && ggen sync run
+
+# Version court: `ggen --version` must equal the pinned constant in .ggen-version.
+# CI installs the pinned ggen and fails on mismatch (GEN_CHECK_VERSION_MISMATCH);
+# this recipe is the same gate for local runs.
+ggen-version-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    want=$(tr -d '[:space:]' < .ggen-version)
+    got=$(ggen --version | awk '{print $2}')
+    if [ "$got" != "$want" ]; then
+        echo "GEN_CHECK_VERSION_MISMATCH: ggen $got != pinned $want (.ggen-version)" >&2
+        exit 1
+    fi
+    echo "ggen version OK: $got"
 
 # Drift gate: regenerate, fail if registry/generated/contract copy changed vs the pre-regen bytes
 # (content hash, so it also holds while the paths are untracked) or differ from HEAD when tracked

@@ -46,7 +46,9 @@ for the generated-vs-handwritten ledger.
 - `ontology/ferroplan-wasm.ttl` — the module, one `wja:Op` per dispatched op,
   error codes and pin facts. `ontology/ferroplan-host-contract.ttl` — the host
   contract (exports, WASI imports, limits, recycle rules).
-- `ggen sync` (run from the repo root, ggen 26.9.28) regenerates the outputs:
+- `ggen sync` (run from the repo root; the ggen runtime version is pinned in the
+  repo-root `.ggen-version` file and enforced by `just ggen-version-check` and
+  CI — do not restate it in prose) regenerates the outputs:
   `registry/*` (capability registry, op examples, sha256 pin) and
   `generated/beam-host/*.ex` (the Elixir/wasmex host). Do not hand-edit them.
 - `cargo test -p ferroplan-wasm --test abi_ontology_drift` fails if the ops in
