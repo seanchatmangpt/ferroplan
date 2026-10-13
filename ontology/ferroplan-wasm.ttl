@@ -29,6 +29,14 @@ fpw:module a wja:WasmModule ;
     wja:bufferStyle "boxed-slice" ;
     wja:wasmSha256 "088d9c3b0306e36123ddc1ee780ad7e9d4bd2ebb54f9726c43f40a2f6d718233" ;
     wja:wasmBytes 3521589 ;
+    # Marketplace-pack content pin: ../ggen-marketplace/packs/rust-wasi-wasmex-pack
+    # as consumed by the root ggen.toml [[packs]] stanza (path =, no version pin).
+    # Hash = sha256 over the pack directory in sorted relative-path order, per file:
+    # rel-path bytes, 0x00, 8-byte little-endian length, file bytes. Enforced by
+    # crates/ferroplan-wasm/tests/pack_content_pin.rs (skips BLOCKED:marketplace-absent
+    # when the sibling checkout is missing).
+    wja:packDir "../ggen-marketplace/packs/rust-wasi-wasmex-pack" ;
+    wja:packContentSha256 "be3b68f261212f2bc786be79d0b564cd4028a465c7a11a3445b6b45ef56029ea" ;
     fpw:toolchain "stable" ;
     fpw:buildTarget "wasm32-wasip1" ;
     fpw:buildProfile "release" ;
