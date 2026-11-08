@@ -1,0 +1,136 @@
+(define (domain wo-dispatch-fond)
+  ;; FOND tier-cycle pilot over woAssignment's dispatcher region
+  ;; (src/machines/woAssignment.machine.ts, servengine-frontend). Event/state
+  ;; vocabulary is the machine's own; line cites are exit-0 evidence rows.
+  ;;
+  ;; Environment nondeterminism: TIER_OFFER_SENT (:190) resolves nondeterministically
+  ;;   PROVIDER_ACCEPTED (:200) | PROVIDER_REJECTED (:201 declined) | timeout (TIERS_EXHAUSTED
+  ;;   guard tier>=3, :103, tier starts 0 at :163). Compensations:
+  ;;   DECLINED -> tier increment + provider lockout (tier counter :163/:103, lockout facts)
+  ;;   ACCEPTED -> arrival tracking (en_route boundary, :233-235)
+  ;;   final-tier exhaustion -> reactive_hire_required fallback (:194, :212-218).
+  (:predicates
+    (created)                       ; :156 initial "created"
+    (auto-dispatch-in-progress)     ; :186 auto_dispatch_in_progress
+    (tier-0) (tier-1) (tier-2) (tier-3)          ; context.tier :163/:51
+    (locked-0) (locked-1) (locked-2) (locked-3)  ; provider lockout on decline
+    (tiers-exhausted)               ; :103 tierExhausted guard fired
+    (reactive-hire-required)        ; :214 reactive_hire_required (fallback lease)
+    (provider-accepted)             ; :200/:217 PROVIDER_ACCEPTED
+    (arrived))                      ; arrival tracking (EN_ROUTE boundary :233)
+
+  (:task dispatch :parameters ())
+  (:task cycle :parameters ())
+
+  (:action begin-auto-dispatch
+    :parameters ()
+    :precondition (created)
+    :effect (and (not (created)) (auto-dispatch-in-progress)))
+
+  ;; TIER_OFFER_SENT at tier k. oneof = the machine's environment nondeterminism.
+  ;; The DECLINED arm is the compensation arm: it is the ONLY arm that advances
+  ;; the tier counter and locks out the declined provider. TIMED_OUT retries the
+  ;; same tier (empty effect — a genuine no-change outcome).
+  (:action tier-offer-sent-0
+    :parameters ()
+    :precondition (and (auto-dispatch-in-progress) (tier-0))
+    :effect (oneof
+      (and (not (auto-dispatch-in-progress)) (provider-accepted) (arrived))
+      (and (not (tier-0)) (tier-1) (locked-0))
+      ()))
+
+  (:action tier-offer-sent-1
+    :parameters ()
+    :precondition (and (auto-dispatch-in-progress) (tier-1))
+    :effect (oneof
+      (and (not (auto-dispatch-in-progress)) (provider-accepted) (arrived)
+           (not (tier-1)))
+      (and (not (tier-1)) (tier-2) (locked-1))
+      ()))
+
+  (:action tier-offer-sent-2
+    :parameters ()
+    :precondition (and (auto-dispatch-in-progress) (tier-2))
+    :effect (oneof
+      (and (not (auto-dispatch-in-progress)) (provider-accepted) (arrived)
+           (not (tier-2)))
+      (and (not (tier-2)) (tier-3) (locked-2))
+      ()))
+
+  ;; Final tier: DECLINED exhausts the tiers (:103 guard -> reactive_hire_required).
+  (:action tier-offer-sent-3
+    :parameters ()
+    :precondition (and (auto-dispatch-in-progress) (tier-3))
+    :effect (oneof
+      (and (not (auto-dispatch-in-progress)) (provider-accepted) (arrived)
+           (not (tier-3)))
+      (and (not (auto-dispatch-in-progress)) (not (tier-3)) (tiers-exhausted))
+      ()))
+
+  ;; REQUEST_NEW_PROVIDER (:212) — exhaustion -> fallback lease.
+  (:action request-new-provider
+    :parameters ()
+    :precondition (tiers-exhausted)
+    :effect (and (not (tiers-exhausted)) (reactive-hire-required)))
+
+  ;; PROVIDER_ACCEPTED out of the fallback lease (:217).
+  (:action accept-reactive-hire
+    :parameters ()
+    :precondition (reactive-hire-required)
+    :effect (and (not (reactive-hire-required)) (provider-accepted) (arrived)))
+
+  ;; dispatch = begin the auto-dispatch cascade, then cycle to a fixpoint.
+  (:method m-dispatch
+    :parameters ()
+    :task (dispatch)
+    :ordered-subtasks (and
+      (s1 (begin-auto-dispatch))
+      (s2 (cycle))))
+
+  ;; cycle's methods are state-selected (translate.rs:1055 gates method
+  ;; preconditions against the current fact set — the OR branchpoint the
+  ;; FOND policy resolves per outcome).
+
+  ;; fallback lease first: exhaustion -> REQUEST_NEW_PROVIDER -> reactive hire.
+  (:method m-cycle-fallback
+    :parameters ()
+    :task (cycle)
+    :precondition (tiers-exhausted)
+    :ordered-subtasks (and
+      (s1 (request-new-provider))
+      (s2 (accept-reactive-hire))
+      (s3 (cycle))))
+
+  ;; accepted -> arrival tracked -> network complete (empty subtask list).
+  (:method m-cycle-done
+    :parameters ()
+    :task (cycle)
+    :precondition (provider-accepted)
+    :ordered-subtasks ())
+
+  ;; tier k -> TIER_OFFER_SENT at that tier -> cycle again (compensation
+  ;; recursion). Only the tier whose counter is current is applicable.
+  (:method m-tier-0
+    :parameters ()
+    :task (cycle)
+    :precondition (tier-0)
+    :ordered-subtasks (and (s1 (tier-offer-sent-0)) (s2 (cycle))))
+
+  (:method m-tier-1
+    :parameters ()
+    :task (cycle)
+    :precondition (tier-1)
+    :ordered-subtasks (and (s1 (tier-offer-sent-1)) (s2 (cycle))))
+
+  (:method m-tier-2
+    :parameters ()
+    :task (cycle)
+    :precondition (tier-2)
+    :ordered-subtasks (and (s1 (tier-offer-sent-2)) (s2 (cycle))))
+
+  (:method m-tier-3
+    :parameters ()
+    :task (cycle)
+    :precondition (tier-3)
+    :ordered-subtasks (and (s1 (tier-offer-sent-3)) (s2 (cycle))))
+)

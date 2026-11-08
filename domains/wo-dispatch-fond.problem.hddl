@@ -1,0 +1,8 @@
+(define (problem wo-dispatch-fond-p1)
+  (:domain wo-dispatch-fond)
+  (:htn
+    :parameters ()
+    :ordered-subtasks (and (root (dispatch))))
+  (:init (created) (tier-0))
+  (:goal (and (provider-accepted) (arrived)))
+)
