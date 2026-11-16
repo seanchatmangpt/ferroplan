@@ -142,10 +142,10 @@ jobs:
         run: |
           cargo test --workspace --exclude ferroplan-bevy
 
-      - name: Heavy IPC regression guards
+      - name: Heavy IPC regression guards (corpus census gated)
         shell: bash
         run: |
-          cargo test --release -p ferroplan -- --ignored
+          scripts/run_ignored_with_census.sh cargo test --release -p ferroplan -- --ignored
 
       - name: Documentation and benchmark compile
         shell: bash

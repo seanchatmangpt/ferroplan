@@ -215,8 +215,17 @@ fn classify(
 fn raised_caps_rerun_of_the_17_ground_cap_refused_domains() {
     let corpus = external::corpus_ipc_dir();
     if !external::harness_present("external IPC corpus (HDDL-Parser/tests/ipc)", &corpus) {
+        external::corpus_gate_skip(
+            "ground_caps_ipc_addendum::raised_caps_rerun_of_the_17_ground_cap_refused_domains",
+            "external IPC corpus (HDDL-Parser/tests/ipc)",
+            &corpus,
+        );
         return;
     }
+    external::corpus_gate_run(
+        "ground_caps_ipc_addendum::raised_caps_rerun_of_the_17_ground_cap_refused_domains",
+        CASES.len(),
+    );
     let mut rows = Vec::new();
     for (key, dir, problem) in CASES {
         let domain_path = format!("{}/{dir}/domain.hddl", corpus.display());

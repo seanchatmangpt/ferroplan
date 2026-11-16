@@ -83,3 +83,17 @@ wasm-build-pin:
         exit 1
     fi
     echo "pin OK"
+
+# Run the wasm-bindgen browser-surface tests (crates/ferroplan-wasm/tests/browser.rs)
+# in a real Node engine. NOTE: CI does NOT run this recipe yet (report-only;
+# no workflow invokes `just wasm-test`). Requires wasm-pack (cargo test cannot
+# execute wasm32-unknown-unknown tests without it).
+wasm-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v wasm-pack >/dev/null 2>&1; then
+        echo "wasm-pack not installed: cargo install wasm-pack" >&2
+        exit 69
+    fi
+    cd crates/ferroplan-wasm
+    exec wasm-pack test --node

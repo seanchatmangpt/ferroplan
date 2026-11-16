@@ -50,7 +50,7 @@ jobs:
           cargo test -p ferroplan --test robustness
           cargo test -p ferroplan --test mem_budget
           cargo test -p ferroplan --test node_cap
-          cargo test --release -p ferroplan -- --ignored
+          scripts/run_ignored_with_census.sh cargo test --release -p ferroplan -- --ignored
       - name: Documentation and benchmark compile gates
         env:
           RUSTDOCFLAGS: -D warnings

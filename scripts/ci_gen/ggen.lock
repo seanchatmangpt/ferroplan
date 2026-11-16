@@ -2,4 +2,4 @@
 
 [packs.github-actions-pack]
 source = "path:../../../ggen-marketplace/packs/github-actions-pack"
-content_hash = "blake3:e20e7b3b6f1114765dd7a85e36b5fa59ea76acbaf4dc6f32556beb0890532e0a"
+content_hash = "blake3:f7bc27eed7d0bac779165b8c44c2b7970e0c45788b83ec42fe9ac0b90cba9cfc"

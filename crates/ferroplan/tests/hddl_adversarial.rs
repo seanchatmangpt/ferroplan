@@ -24,6 +24,9 @@
 //! Every adversarial call below goes through [`no_panic`], so a panic is
 //! converted into a test failure naming the case — a panic can never pass.
 
+#[path = "common/external.rs"]
+mod external;
+
 use ferroplan::hddl::solve_hddl;
 use ferroplan::planning_runtime::PlannerLimits;
 use ferroplan_hddl::grounder::{ground, GroundingLimits};
@@ -805,9 +808,15 @@ const CORPUS_ACCEPTED_SCOPE_GAPS: &[(&str, &str)] = &[
 #[ignore = "external negative corpus at absolute path outside the repo (/tmp/fond-review/HDDL-Parser/tests/flawed_domains); run explicitly with --ignored"]
 fn external_corpus_flawed_domains_reject_with_diagnostics_never_panic() {
     let dir = "/tmp/fond-review/HDDL-Parser/tests/flawed_domains";
-    let entries = match std::fs::read_dir(dir) {
+    let dir_path = std::path::Path::new(dir);
+    let entries = match std::fs::read_dir(dir_path) {
         Ok(entries) => entries,
         Err(e) => {
+            external::corpus_gate_skip(
+                "hddl_adversarial::external_corpus_flawed_domains_reject_with_diagnostics_never_panic",
+                "external flawed-domains corpus",
+                dir_path,
+            );
             eprintln!("SKIP-WITH-NOTE: external corpus dir {dir} not readable: {e}");
             return;
         }
@@ -823,6 +832,10 @@ fn external_corpus_flawed_domains_reject_with_diagnostics_never_panic() {
     assert!(
         !files.is_empty(),
         "corpus dir {dir} exists but contains no .hddl files — investigate"
+    );
+    external::corpus_gate_run(
+        "hddl_adversarial::external_corpus_flawed_domains_reject_with_diagnostics_never_panic",
+        files.len(),
     );
 
     let mut rejected_parse = 0usize;

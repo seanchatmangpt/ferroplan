@@ -62,6 +62,20 @@ pub fn differential_run_dir() -> PathBuf {
     }
 }
 
+/// Corpus-gate census marker (SKIP side): a corpus-dependent `#[ignore]`d
+/// test that bails because its external corpus is absent MUST print this
+/// marker before returning, so `scripts/run_ignored_with_census.sh` can
+/// count silent skips and refuse a vacuous green ignored run.
+pub fn corpus_gate_skip(test_name: &str, what: &str, path: &Path) {
+    println!("CORPUS-CENSUS|SKIP|{test_name}|{what} absent at {}", path.display());
+}
+
+/// Corpus-gate census marker (RUN side): the same test, when it actually
+/// exercises its corpus, prints how many cases it ran.
+pub fn corpus_gate_run(test_name: &str, cases: usize) {
+    println!("CORPUS-CENSUS|RUN|{test_name}|{cases} cases");
+}
+
 /// Skip-by-name guard: loud note plus `false` when `path` is absent.
 pub fn harness_present(what: &str, path: &Path) -> bool {
     if path.exists() {
